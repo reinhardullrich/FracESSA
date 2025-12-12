@@ -114,7 +114,7 @@ jobs:
         retention-days: 30
 
   # ============================================================================
-  # Windows Build with vcpkg
+  # Windows Build with MSYS2/MinGW (GMP built from source)
   # ============================================================================
   build-windows:
     runs-on: windows-latest
@@ -122,45 +122,61 @@ jobs:
     steps:
     - uses: actions/checkout@v4
     
-    - name: Setup vcpkg
-      uses: lukka/run-vcpkg@v11
+    - name: Setup MSYS2
+      uses: msys2/setup-msys2@v2
       with:
-        vcpkgGitCommitId: 'a42af01b72c28a8e1d7b48107b33e4f286a55ef6'  # Latest stable (required by action)
+        update: true
+        install: >-
+          mingw-w64-x86_64-gcc
+          mingw-w64-x86_64-make
+          mingw-w64-x86_64-autotools
+          mingw-w64-x86_64-pkg-config
+          wget
+          tar
+          xz
     
-    - name: Set vcpkg triplet environment variable
+    - name: Download GMP source
+      shell: msys2 {0}
       run: |
-        echo "VCPKG_TARGET_TRIPLET=x64-windows-static" >> $env:GITHUB_ENV
-        echo "Set VCPKG_TARGET_TRIPLET=x64-windows-static"
+        cd /tmp
+        wget https://gmplib.org/download/gmp/gmp-6.3.0.tar.xz
+        tar -xf gmp-6.3.0.tar.xz
+        echo "GMP source downloaded and extracted"
     
-    - name: Install MPIR via vcpkg (Windows-compatible GMP alternative)
+    - name: Build GMP from source
+      shell: msys2 {0}
       run: |
-        # Install yasm first (needed for MPIR build)
-        vcpkg install yasm-tool:x86-windows
-        
-        # Install MPIR instead of GMP on Windows
-        # MPIR is a GMP-compatible library that builds successfully on Windows
-        # without requiring MSYS2 tools (which have 404 download issues)
-        # MPIR provides the same API as GMP, so no code changes are needed
-        vcpkg install mpir:x64-windows-static --triplet x64-windows-static
+        cd /tmp/gmp-6.3.0
+        ./configure --prefix=/c/gmp-install --enable-cxx --enable-static --disable-shared
+        make -j$(nproc)
+        make install
+        echo "GMP built and installed to /c/gmp-install"
     
-    - name: Verify MPIR installation
+    - name: Set GMP paths for CMake
       run: |
-        echo "VCPKG_ROOT: $env:VCPKG_ROOT"
-        echo "VCPKG_TARGET_TRIPLET: $env:VCPKG_TARGET_TRIPLET"
-        echo "Checking for MPIR headers (MPIR provides gmp.h and gmpxx.h)..."
-        if (Test-Path "$env:VCPKG_ROOT\installed\x64-windows-static\include\gmp.h") {
-          echo "Found: $env:VCPKG_ROOT\installed\x64-windows-static\include\gmp.h"
+        echo "GMP_ROOT=C:/gmp-install" >> $env:GITHUB_ENV
+        echo "GMP_INCLUDE_DIR=C:/gmp-install/include" >> $env:GITHUB_ENV
+        echo "GMP_LIBRARY_DIR=C:/gmp-install/lib" >> $env:GITHUB_ENV
+        echo "GMP installed at: C:/gmp-install"
+        echo "GMP include dir: C:/gmp-install/include"
+        echo "GMP library dir: C:/gmp-install/lib"
+    
+    - name: Verify GMP installation
+      run: |
+        if (Test-Path "C:\gmp-install\include\gmp.h") {
+          echo "Found: C:\gmp-install\include\gmp.h"
         } else {
-          echo "Warning: gmp.h not found in installed directory"
+          echo "Error: gmp.h not found!"
+          exit 1
         }
-        if (Test-Path "$env:VCPKG_ROOT\vcpkg_installed\x64-windows-static\include\gmp.h") {
-          echo "Found: $env:VCPKG_ROOT\vcpkg_installed\x64-windows-static\include\gmp.h"
+        if (Test-Path "C:\gmp-install\include\gmpxx.h") {
+          echo "Found: C:\gmp-install\include\gmpxx.h"
+        } else {
+          echo "Error: gmpxx.h not found!"
+          exit 1
         }
-        echo "Checking for MPIR libraries (mpir.lib, mpirxx.lib)..."
-        Get-ChildItem -Path "$env:VCPKG_ROOT\installed\x64-windows-static\lib" -Filter "*mpir*.lib" | Select-Object Name
-        if (Test-Path "$env:VCPKG_ROOT\vcpkg_installed\x64-windows-static\lib") {
-          Get-ChildItem -Path "$env:VCPKG_ROOT\vcpkg_installed\x64-windows-static\lib" -Filter "*mpir*.lib" | Select-Object Name
-        }
+        echo "Checking for GMP libraries..."
+        Get-ChildItem -Path "C:\gmp-install\lib" -Filter "*.a" | Select-Object Name
     
     - name: Configure CMake
       working-directory: cpp
@@ -168,24 +184,25 @@ jobs:
         cmake -B build `
           -DCMAKE_BUILD_TYPE=Release `
           -DENABLE_STATIC_LINKING=ON `
-          -DCMAKE_TOOLCHAIN_FILE="${env:VCPKG_ROOT}/scripts/buildsystems/vcpkg.cmake" `
-          -DVCPKG_TARGET_TRIPLET=x64-windows-static
+          -G "MinGW Makefiles" `
+          -DCMAKE_C_COMPILER="C:/msys64/mingw64/bin/gcc.exe" `
+          -DCMAKE_CXX_COMPILER="C:/msys64/mingw64/bin/g++.exe"
     
     - name: Build
       working-directory: cpp
-      run: cmake --build build --config Release --parallel
+      run: cmake --build build --parallel
     
     - name: Test
       working-directory: cpp
       run: |
-        cd build/Release
+        cd build
         ./fracessa.exe --help
     
     - name: Upload Windows Binary
       uses: actions/upload-artifact@v4
       with:
         name: fracessa-windows-x86_64
-        path: cpp/build/Release/fracessa.exe
+        path: cpp/build/fracessa.exe
         retention-days: 30
 
 

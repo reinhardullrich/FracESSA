@@ -97,61 +97,72 @@ if(WIN32 OR MSVC OR MINGW OR MSYS)
     # ===== WINDOWS =====
     message(STATUS "Detecting GMP on Windows...")
     
-    # Check vcpkg (most common on Windows)
+    # Check for manually built GMP first (from MSYS2/MinGW build)
+    # Environment variables set by workflow
+    if(DEFINED ENV{GMP_ROOT})
+        set(GMP_ROOT $ENV{GMP_ROOT})
+        list(APPEND GMP_SEARCH_PATHS "${GMP_ROOT}/include")
+        list(APPEND GMP_LIB_SEARCH_PATHS "${GMP_ROOT}/lib")
+        message(STATUS "Using GMP_ROOT from environment: ${GMP_ROOT}")
+    endif()
+    
+    if(DEFINED ENV{GMP_INCLUDE_DIR})
+        list(INSERT GMP_SEARCH_PATHS 0 "$ENV{GMP_INCLUDE_DIR}")
+        message(STATUS "Using GMP_INCLUDE_DIR from environment: $ENV{GMP_INCLUDE_DIR}")
+    endif()
+    
+    if(DEFINED ENV{GMP_LIBRARY_DIR})
+        list(INSERT GMP_LIB_SEARCH_PATHS 0 "$ENV{GMP_LIBRARY_DIR}")
+        message(STATUS "Using GMP_LIBRARY_DIR from environment: $ENV{GMP_LIBRARY_DIR}")
+    endif()
+    
+    # Add standard manually built GMP location
+    list(APPEND GMP_SEARCH_PATHS
+        "C:/gmp-install/include"
+        "C:/Program Files/gmp/include"
+        "C:/gmp/include"
+        "C:/msys64/mingw64/include"
+    )
+    list(APPEND GMP_LIB_SEARCH_PATHS
+        "C:/gmp-install/lib"
+        "C:/Program Files/gmp/lib"
+        "C:/gmp/lib"
+        "C:/msys64/mingw64/lib"
+    )
+    
+    # Check vcpkg as fallback (if available)
     if(DEFINED ENV{VCPKG_ROOT})
         set(VCPKG_ROOT $ENV{VCPKG_ROOT})
-        message(STATUS "VCPKG_ROOT: ${VCPKG_ROOT}")
+        message(STATUS "VCPKG_ROOT: ${VCPKG_ROOT} (checking as fallback)")
         
-        # Use VCPKG_TARGET_TRIPLET from environment if set (set by vcpkg action)
+        # Use VCPKG_TARGET_TRIPLET from environment if set
         if(DEFINED ENV{VCPKG_TARGET_TRIPLET})
             set(VCPKG_TRIPLET $ENV{VCPKG_TARGET_TRIPLET})
-            message(STATUS "Using VCPKG_TARGET_TRIPLET from environment: ${VCPKG_TRIPLET}")
         else()
-            # Auto-detect triplet as fallback
             if(CMAKE_SIZEOF_VOID_P EQUAL 8)
                 set(VCPKG_TRIPLET "x64-windows")
             else()
                 set(VCPKG_TRIPLET "x86-windows")
             endif()
-            
             if(ENABLE_STATIC_LINKING)
                 set(VCPKG_TRIPLET "${VCPKG_TRIPLET}-static")
             endif()
-            message(STATUS "Auto-detected vcpkg triplet: ${VCPKG_TRIPLET}")
         endif()
         
-        # Search in both installed and vcpkg_installed directories
-        # vcpkg_installed is used by newer vcpkg versions
-        set(GMP_SEARCH_PATHS
+        # Add vcpkg paths as fallback
+        list(APPEND GMP_SEARCH_PATHS
             "${VCPKG_ROOT}/installed/${VCPKG_TRIPLET}/include"
             "${VCPKG_ROOT}/vcpkg_installed/${VCPKG_TRIPLET}/include"
-            "${VCPKG_ROOT}/packages/gmp_${VCPKG_TRIPLET}/include"
         )
-        
-        set(GMP_LIB_SEARCH_PATHS
+        list(APPEND GMP_LIB_SEARCH_PATHS
             "${VCPKG_ROOT}/installed/${VCPKG_TRIPLET}/lib"
-            "${VCPKG_ROOT}/installed/${VCPKG_TRIPLET}/debug/lib"
             "${VCPKG_ROOT}/vcpkg_installed/${VCPKG_TRIPLET}/lib"
-            "${VCPKG_ROOT}/vcpkg_installed/${VCPKG_TRIPLET}/debug/lib"
-            "${VCPKG_ROOT}/packages/gmp_${VCPKG_TRIPLET}/lib"
-        )
-        
-        message(STATUS "Searching for GMP in:")
-        message(STATUS "  Include paths: ${GMP_SEARCH_PATHS}")
-        message(STATUS "  Library paths: ${GMP_LIB_SEARCH_PATHS}")
-    else()
-        # Fallback Windows paths
-        set(GMP_SEARCH_PATHS
-            "C:/Program Files/gmp/include"
-            "C:/gmp/include"
-            "C:/msys64/mingw64/include"
-        )
-        set(GMP_LIB_SEARCH_PATHS
-            "C:/Program Files/gmp/lib"
-            "C:/gmp/lib"
-            "C:/msys64/mingw64/lib"
         )
     endif()
+    
+    message(STATUS "Searching for GMP in:")
+    message(STATUS "  Include paths: ${GMP_SEARCH_PATHS}")
+    message(STATUS "  Library paths: ${GMP_LIB_SEARCH_PATHS}")
     
     # Search for headers (try both gmp.h and gmpxx.h)
     find_path(GMP_INCLUDE_DIR NAMES gmpxx.h gmp.h PATHS ${GMP_SEARCH_PATHS} NO_DEFAULT_PATH)
@@ -160,41 +171,34 @@ if(WIN32 OR MSVC OR MINGW OR MSYS)
     endif()
     
     # Search for libraries (Windows uses .lib files)
-    # On Windows, we use MPIR (MPIR is a GMP-compatible alternative that builds successfully)
-    # MPIR provides the same headers (gmp.h, gmpxx.h) but libraries are named mpir/mpirxx
-    # Try MPIR first (preferred on Windows), then fall back to GMP
+    # GMP is built from source using MSYS2/MinGW
     find_library(GMP_LIB 
-        NAMES mpir libmpir mpir.lib libmpir.lib gmp libgmp gmp.lib libgmp.lib
+        NAMES gmp libgmp gmp.lib libgmp.lib
         PATHS ${GMP_LIB_SEARCH_PATHS} 
         NO_DEFAULT_PATH
     )
     if(NOT GMP_LIB)
-        find_library(GMP_LIB NAMES mpir libmpir mpir.lib libmpir.lib gmp libgmp gmp.lib libgmp.lib)
+        find_library(GMP_LIB NAMES gmp libgmp gmp.lib libgmp.lib)
     endif()
     
     find_library(GMPXX_LIB 
-        NAMES mpirxx libmpirxx mpirxx.lib libmpirxx.lib gmpxx libgmpxx gmpxx.lib libgmpxx.lib
+        NAMES gmpxx libgmpxx gmpxx.lib libgmpxx.lib
         PATHS ${GMP_LIB_SEARCH_PATHS} 
         NO_DEFAULT_PATH
     )
     if(NOT GMPXX_LIB)
-        find_library(GMPXX_LIB NAMES mpirxx libmpirxx mpirxx.lib libmpirxx.lib gmpxx libgmpxx gmpxx.lib libgmpxx.lib)
+        find_library(GMPXX_LIB NAMES gmpxx libgmpxx gmpxx.lib libgmpxx.lib)
     endif()
     
     if(GMP_INCLUDE_DIR AND GMP_LIB AND GMPXX_LIB)
         set(GMP_FOUND TRUE)
         set(GMP_LIBRARIES ${GMP_LIB} ${GMPXX_LIB})
-        # Check if we're using MPIR or GMP
-        if(GMP_LIB MATCHES "mpir")
-            message(STATUS "Found MPIR on Windows (GMP-compatible):")
-        else()
-            message(STATUS "Found GMP on Windows:")
-        endif()
+        message(STATUS "Found GMP on Windows:")
         message(STATUS "  Include: ${GMP_INCLUDE_DIR}")
         message(STATUS "  Library: ${GMP_LIB}")
         message(STATUS "  C++ Library: ${GMPXX_LIB}")
     else()
-        message(STATUS "GMP/MPIR detection failed:")
+        message(STATUS "GMP detection failed:")
         message(STATUS "  Include dir: ${GMP_INCLUDE_DIR}")
         message(STATUS "  Library: ${GMP_LIB}")
         message(STATUS "  C++ Library: ${GMPXX_LIB}")
