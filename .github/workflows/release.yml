@@ -182,10 +182,10 @@ jobs:
     - name: Configure CMake
       working-directory: cpp
       run: |
-        # Set the root variables explicitly for safety
+        # Define the GMP root path as a PowerShell variable
         $GMP_ROOT="C:/msys64/mingw64"
         
-        echo "Running CMake with explicit GMP paths"
+        echo "Running CMake with explicit GMP paths."
         echo "GMP_ROOT: $GMP_ROOT"
         
         # Verify compilers are in PATH
@@ -207,23 +207,25 @@ jobs:
           Get-ChildItem -Path "$GMP_ROOT\lib" -Filter "*gmpxx*.a" | Select-Object Name
         }
         
+        # Run the CMake command, correctly substituting the variables and 
+        # using explicit arguments to bypass faulty FindGMP logic.
         cmake -B build `
           -DCMAKE_BUILD_TYPE=Release `
           -DENABLE_STATIC_LINKING=ON `
           -G "MinGW Makefiles" `
-          # --- CRUCIAL GMP FIXES ---
-          # 1. Set the root and include/lib dirs
-          -DGMP_ROOT=$GMP_ROOT `
-          -DGMP_INCLUDE_DIR="$GMP_ROOT/include" `
-          -DGMP_LIBRARY_DIR="$GMP_ROOT/lib" `
-          # 2. Force search for the *exact* library file names (MinGW uses 'lib' prefix and .a extension)
-          # Set both individual libraries (for CMakeLists.txt logic) and combined GMP_LIBRARIES
-          -DGMP_LIB="$GMP_ROOT/lib/libgmp.a" `
-          -DGMPXX_LIB="$GMP_ROOT/lib/libgmpxx.a" `
-          -DGMP_LIBRARIES="$GMP_ROOT/lib/libgmp.a;$GMP_ROOT/lib/libgmpxx.a" `
+          # Use PowerShell's expansion ${variable} inside the string
+          # We explicitly tell CMake where to look for the compilers
+          -DCMAKE_C_COMPILER="${GMP_ROOT}/bin/gcc.exe" `
+          -DCMAKE_CXX_COMPILER="${GMP_ROOT}/bin/g++.exe" `
+          # --- GMP FIXES ---
+          -DGMP_ROOT="${GMP_ROOT}" `
+          -DGMP_INCLUDE_DIR="${GMP_ROOT}/include" `
+          -DGMP_LIBRARY_DIR="${GMP_ROOT}/lib" `
+          # Force search for the *exact* library file names
+          -DGMP_LIB="${GMP_ROOT}/lib/libgmp.a" `
+          -DGMPXX_LIB="${GMP_ROOT}/lib/libgmpxx.a" `
+          -DGMP_LIBRARIES="${GMP_ROOT}/lib/libgmp.a;${GMP_ROOT}/lib/libgmpxx.a" `
           -DGMP_FOUND=TRUE
-        # Note: Do NOT explicitly set CMAKE_C_COMPILER or CMAKE_CXX_COMPILER
-        # Let CMake find them in the PATH
       shell: powershell
     
     - name: Build
