@@ -134,10 +134,11 @@ jobs:
           mingw-w64-x86_64-pkg-config
     
     - name: Install GMP from MSYS2 repository
-      shell: msys2 {0}
       run: |
-        pacman -S --noconfirm mingw-w64-x86_64-gmp
+        # Use pacman via bash to install GMP in MSYS2 environment
+        C:\msys64\usr\bin\bash.exe -lc "pacman -Syu --noconfirm mingw-w64-x86_64-gmp"
         echo "GMP installed from MSYS2 repository"
+      shell: cmd
     
     - name: Set GMP paths for CMake
       run: |
