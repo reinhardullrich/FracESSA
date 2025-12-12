@@ -133,74 +133,77 @@ jobs:
           mingw-w64-x86_64-libtool
           mingw-w64-x86_64-pkg-config
     
-    - name: Cache GMP Libraries
-      uses: actions/cache@v4
-      id: gmp-cache
-      with:
-        path: ${{ runner.temp }}/gmp-cache
-        key: gmp-windows-${{ runner.os }}-${{ hashFiles('cpp/CMakeLists.txt') }}
-        restore-keys: |
-          gmp-windows-${{ runner.os }}-
-    
-    - name: Install or Restore GMP Libraries
+    - name: Download and Extract GMP from MSYS2 mirror
       run: |
+        $GMP_PKG_URL="https://mirror.msys2.org/mingw/mingw64/mingw-w64-x86_64-gmp-6.3.0-2-any.pkg.tar.zst"
+        $TEMP_DIR="$env:RUNNER_TEMP/gmp-extract"
+        $ZST_FILE="$TEMP_DIR/gmp.pkg.tar.zst"
+        $TAR_FILE="$TEMP_DIR/gmp.pkg.tar"
+        $EXTRACT_DIR="$TEMP_DIR/extracted"
         $GMP_ROOT="C:/msys64/mingw64"
-        $CACHE_DIR="$env:RUNNER_TEMP/gmp-cache"
-        $CACHE_HIT=${{ steps.gmp-cache.outputs.cache-hit }}
         
-        if ($CACHE_HIT -eq "true") {
-          echo "GMP libraries found in cache, restoring..."
-          
-          # Ensure target directories exist
+        # Create temp directory
+        New-Item -ItemType Directory -Force -Path $TEMP_DIR | Out-Null
+        New-Item -ItemType Directory -Force -Path $EXTRACT_DIR | Out-Null
+        
+        # Download the .zst package
+        echo "Downloading GMP package from MSYS2 mirror..."
+        Invoke-WebRequest -Uri $GMP_PKG_URL -OutFile $ZST_FILE
+        
+        # Extract .zst to .tar using MSYS2 zstd
+        echo "Extracting .zst file..."
+        C:\msys64\usr\bin\bash.exe -lc "zstd -d '$ZST_FILE' -o '$TAR_FILE'"
+        
+        # Extract .tar archive using MSYS2 tar
+        echo "Extracting .tar archive..."
+        C:\msys64\usr\bin\bash.exe -lc "cd '$EXTRACT_DIR' && tar -xf '$TAR_FILE'"
+        
+        # Copy library files to MSYS2 lib directory
+        echo "Copying GMP libraries to $GMP_ROOT/lib..."
+        $LIB_SRC="$EXTRACT_DIR/mingw64/lib"
+        if (Test-Path $LIB_SRC) {
           New-Item -ItemType Directory -Force -Path "$GMP_ROOT/lib" | Out-Null
-          New-Item -ItemType Directory -Force -Path "$GMP_ROOT/include" | Out-Null
-          
-          # Copy libraries from cache
-          if (Test-Path "$CACHE_DIR/libgmp.a") {
-            Copy-Item "$CACHE_DIR/libgmp.a" "$GMP_ROOT/lib/" -Force
-            echo "Restored libgmp.a from cache"
-          }
-          if (Test-Path "$CACHE_DIR/libgmpxx.a") {
-            Copy-Item "$CACHE_DIR/libgmpxx.a" "$GMP_ROOT/lib/" -Force
-            echo "Restored libgmpxx.a from cache"
-          }
-          if (Test-Path "$CACHE_DIR/gmp.h") {
-            Copy-Item "$CACHE_DIR/gmp.h" "$GMP_ROOT/include/" -Force
-            echo "Restored gmp.h from cache"
-          }
-          if (Test-Path "$CACHE_DIR/gmpxx.h") {
-            Copy-Item "$CACHE_DIR/gmpxx.h" "$GMP_ROOT/include/" -Force
-            echo "Restored gmpxx.h from cache"
-          }
-          
-          echo "GMP libraries restored from cache successfully"
+          Copy-Item "$LIB_SRC/*gmp*.a" "$GMP_ROOT/lib/" -Force
+          echo "Libraries copied successfully"
         } else {
-          echo "Cache miss - installing GMP via pacman..."
-          # Use pacman via bash to install GMP in MSYS2 environment
-          C:\msys64\usr\bin\bash.exe -lc "pacman -Syu --noconfirm mingw-w64-x86_64-gmp"
-          echo "GMP installed from MSYS2 repository"
-          
-          # Verify installation
-          if (-not (Test-Path "$GMP_ROOT/lib/libgmp.a")) {
-            Write-Error "libgmp.a not found after installation"
-            exit 1
-          }
-          if (-not (Test-Path "$GMP_ROOT/lib/libgmpxx.a")) {
-            Write-Error "libgmpxx.a not found after installation"
-            exit 1
-          }
-          
-          # Cache the libraries for future runs
-          echo "Caching GMP libraries for future builds..."
-          New-Item -ItemType Directory -Force -Path $CACHE_DIR | Out-Null
-          
-          Copy-Item "$GMP_ROOT/lib/libgmp.a" "$CACHE_DIR/" -Force
-          Copy-Item "$GMP_ROOT/lib/libgmpxx.a" "$CACHE_DIR/" -Force
-          Copy-Item "$GMP_ROOT/include/gmp.h" "$CACHE_DIR/" -Force
-          Copy-Item "$GMP_ROOT/include/gmpxx.h" "$CACHE_DIR/" -Force
-          
-          echo "GMP libraries cached successfully"
+          echo "Warning: mingw64/lib directory not found in extracted package"
         }
+        
+        # Copy header files to MSYS2 include directory
+        echo "Copying GMP headers to $GMP_ROOT/include..."
+        $INCLUDE_SRC="$EXTRACT_DIR/mingw64/include"
+        if (Test-Path $INCLUDE_SRC) {
+          New-Item -ItemType Directory -Force -Path "$GMP_ROOT/include" | Out-Null
+          Copy-Item "$INCLUDE_SRC/gmp*.h" "$GMP_ROOT/include/" -Force
+          echo "Headers copied successfully"
+        } else {
+          echo "Warning: mingw64/include directory not found in extracted package"
+        }
+        
+        # Verify installation
+        echo "Verifying GMP installation..."
+        if (Test-Path "$GMP_ROOT/lib/libgmp.a") {
+          echo "✓ libgmp.a found"
+        } else {
+          echo "✗ libgmp.a NOT found"
+        }
+        if (Test-Path "$GMP_ROOT/lib/libgmpxx.a") {
+          echo "✓ libgmpxx.a found"
+        } else {
+          echo "✗ libgmpxx.a NOT found"
+        }
+        if (Test-Path "$GMP_ROOT/include/gmp.h") {
+          echo "✓ gmp.h found"
+        } else {
+          echo "✗ gmp.h NOT found"
+        }
+        if (Test-Path "$GMP_ROOT/include/gmpxx.h") {
+          echo "✓ gmpxx.h found"
+        } else {
+          echo "✗ gmpxx.h NOT found"
+        }
+        
+        echo "GMP installed from MSYS2 mirror package"
       shell: powershell
     
     - name: Add MinGW bin directory to PATH
