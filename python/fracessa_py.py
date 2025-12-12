@@ -158,8 +158,8 @@ class Fracessa:
             # Auto-detect executable path
             script_dir = Path(__file__).parent.parent
             possible_paths = [
-                script_dir / "fracessa" / "build" / "fracessa",
-                Path("./fracessa/build/fracessa"),
+                script_dir / "cpp" / "build" / "fracessa",
+                Path("./cpp/build/fracessa"),
             ]
 
             self.executable_path = None

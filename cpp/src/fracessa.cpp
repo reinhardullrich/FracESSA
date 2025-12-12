@@ -2,6 +2,7 @@
 #include <fracessa/bitset64.hpp>
 #include <rational_linalg/matrix.hpp>
 #include <exception>
+#include <numeric>
 
 fracessa::fracessa(const rational_linalg::Matrix<small_rational>& matrix, bool is_cs, bool with_candidates, bool exact, bool full_support, bool with_log, int matrix_id)
     : matrix_server_(matrix)
@@ -61,7 +62,7 @@ fracessa::fracessa(const rational_linalg::Matrix<small_rational>& matrix, bool i
             logger_->info("Searching support size {}:", i);
 
         // BATCH: supports_to_remove_.clear();
-        const bool is_cs_and_coprime = is_cs_ && (boost::integer::gcd(i, dimension_) == 1);
+        const bool is_cs_and_coprime = is_cs_ && (std::gcd(i, dimension_) == 1);
         for (const auto& support : supports_.get_supports(i)) {
             search_one_support(support, i, is_cs_and_coprime);
         }

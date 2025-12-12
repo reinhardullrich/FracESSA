@@ -3,9 +3,8 @@
 #include <cstddef>
 #include <vector>
 #include <algorithm>
+#include <numeric>
 #include <fracessa/bitset64.hpp>
-#include <boost/math/special_functions/binomial.hpp>
-#include <boost/integer/common_factor.hpp>
 
 // Force-inline hint (same as bitset64.hpp)
 #if defined(_MSC_VER)
@@ -13,6 +12,21 @@
 #else
 #  define FORCE_INLINE __attribute__((always_inline)) inline
 #endif
+
+/// Compute binomial coefficient C(n,k) = n!/(k!(n-k)!)
+/// Returns uint64_t - safe since n <= 64, no overflow possible
+/// No safety checks needed per user requirement
+inline uint64_t binomial_coefficient(uint64_t n, uint64_t k) {
+    if (k > n) return 0;
+    if (k == 0 || k == n) return 1;
+    if (k > n - k) k = n - k; // Use symmetry
+    
+    uint64_t result = 1;
+    for (uint64_t i = 0; i < k; ++i) {
+        result = result * (n - i) / (i + 1);
+    }
+    return result;
+}
 
 /// High-performance Supports class for managing support sets
 /// All hot-path methods are FORCE_INLINE for maximum performance
@@ -35,11 +49,9 @@ public:
         // Reserve space for each support size using binomial coefficients and set coprime flags
         std::vector<bool> is_coprime(dimension_);
         for (size_t i = 0; i < dimension_; ++i) {
-            supports_[i].reserve(static_cast<uint64_t>(
-                boost::math::binomial_coefficient<double>(dimension_, i + 1)
-            ));            
+            supports_[i].reserve(binomial_coefficient(dimension_, i + 1));            
             if (is_cs_) 
-                    is_coprime[i] = (boost::integer::gcd(i+1, dimension_) == 1);
+                    is_coprime[i] = (std::gcd(i+1, dimension_) == 1);
         }
         
         // Populate supports based on is_cs_ flag

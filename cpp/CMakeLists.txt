@@ -79,25 +79,8 @@ FetchContent_Declare(argparse
     GIT_TAG v2.9
 )
 
-# Boost
-set(BOOST_TAG boost-1.89.0)
-FetchContent_Declare(boost_core GIT_REPOSITORY https://github.com/boostorg/core.git GIT_TAG ${BOOST_TAG} GIT_SHALLOW TRUE)
-FetchContent_Declare(boost_config GIT_REPOSITORY https://github.com/boostorg/config.git GIT_TAG ${BOOST_TAG} GIT_SHALLOW TRUE)
-FetchContent_Declare(boost_predef GIT_REPOSITORY https://github.com/boostorg/predef.git GIT_TAG ${BOOST_TAG} GIT_SHALLOW TRUE)
-FetchContent_Declare(boost_assert GIT_REPOSITORY https://github.com/boostorg/assert.git GIT_TAG ${BOOST_TAG} GIT_SHALLOW TRUE)
-FetchContent_Declare(boost_static_assert GIT_REPOSITORY https://github.com/boostorg/static_assert.git GIT_TAG ${BOOST_TAG} GIT_SHALLOW TRUE)
-FetchContent_Declare(boost_throw_exception GIT_REPOSITORY https://github.com/boostorg/throw_exception.git GIT_TAG ${BOOST_TAG} GIT_SHALLOW TRUE)
-FetchContent_Declare(boost_type_traits GIT_REPOSITORY https://github.com/boostorg/type_traits.git GIT_TAG ${BOOST_TAG} GIT_SHALLOW TRUE)
-FetchContent_Declare(boost_multiprecision GIT_REPOSITORY https://github.com/boostorg/multiprecision.git GIT_TAG ${BOOST_TAG} GIT_SHALLOW TRUE)
-FetchContent_Declare(boost_math GIT_REPOSITORY https://github.com/boostorg/math.git GIT_TAG ${BOOST_TAG} GIT_SHALLOW TRUE)
-FetchContent_Declare(boost_integer GIT_REPOSITORY https://github.com/boostorg/integer.git GIT_TAG ${BOOST_TAG} GIT_SHALLOW TRUE)
-FetchContent_Declare(boost_algorithm GIT_REPOSITORY https://github.com/boostorg/algorithm.git GIT_TAG ${BOOST_TAG} GIT_SHALLOW TRUE)
-
 FetchContent_MakeAvailable(
     spdlog argparse
-    boost_config boost_predef boost_assert boost_static_assert
-    boost_throw_exception boost_type_traits boost_core
-    boost_multiprecision boost_math boost_integer boost_algorithm
 )
 
 # ============================================================================
@@ -204,44 +187,64 @@ else()
     # ===== LINUX =====
     message(STATUS "Detecting GMP on Linux...")
     
-    # Try pkg-config first
+    # Try pkg-config first for include directory
     find_package(PkgConfig QUIET)
     if(PkgConfig_FOUND)
         pkg_check_modules(GMP QUIET gmp)
         if(GMP_FOUND AND GMP_INCLUDE_DIRS)
             list(GET GMP_INCLUDE_DIRS 0 GMP_INCLUDE_DIR)
-            find_library(GMPXX_LIB NAMES gmpxx PATHS ${GMP_LIBRARY_DIRS})
-            if(GMPXX_LIB)
-                list(APPEND GMP_LIBRARIES ${GMPXX_LIB})
-            endif()
-            message(STATUS "Found GMP via pkg-config")
-        else()
-            set(GMP_FOUND FALSE)
         endif()
     endif()
     
-    # Manual search if pkg-config failed
-    if(NOT GMP_FOUND)
-        set(GMP_SEARCH_PATHS
-            /usr/include
-            /usr/local/include
-        )
-        set(GMP_LIB_SEARCH_PATHS
-            /usr/lib
-            /usr/lib/x86_64-linux-gnu
-            /usr/lib64
-            /usr/local/lib
-        )
-        
-        find_path(GMP_INCLUDE_DIR NAMES gmpxx.h PATHS ${GMP_SEARCH_PATHS} NO_DEFAULT_PATH)
-        find_library(GMP_LIB NAMES gmp PATHS ${GMP_LIB_SEARCH_PATHS} NO_DEFAULT_PATH)
-        find_library(GMPXX_LIB NAMES gmpxx PATHS ${GMP_LIB_SEARCH_PATHS} NO_DEFAULT_PATH)
-        
-        if(GMP_INCLUDE_DIR AND GMP_LIB AND GMPXX_LIB)
-            set(GMP_FOUND TRUE)
-            set(GMP_LIBRARIES ${GMP_LIB} ${GMPXX_LIB})
+    # Manual search for include directory if not found via pkg-config
+    if(NOT GMP_INCLUDE_DIR)
+        # Try common locations directly first
+        if(EXISTS "/usr/include/gmpxx.h")
+            set(GMP_INCLUDE_DIR "/usr/include")
+        elseif(EXISTS "/usr/include/x86_64-linux-gnu/gmpxx.h")
+            set(GMP_INCLUDE_DIR "/usr/include/x86_64-linux-gnu")
+        else()
+            set(GMP_SEARCH_PATHS
+                /usr/include
+                /usr/include/x86_64-linux-gnu
+                /usr/local/include
+            )
+            # Try to find gmpxx.h first, then fall back to gmp.h
+            find_path(GMP_INCLUDE_DIR NAMES gmpxx.h PATHS ${GMP_SEARCH_PATHS} NO_DEFAULT_PATH)
+            if(NOT GMP_INCLUDE_DIR)
+                find_path(GMP_INCLUDE_DIR NAMES gmpxx.h)
+            endif()
+        endif()
+    endif()
+    
+    # Always search for libraries manually
+    set(GMP_LIB_SEARCH_PATHS
+        /usr/lib
+        /usr/lib/x86_64-linux-gnu
+        /usr/lib64
+        /usr/local/lib
+    )
+    
+    find_library(GMP_LIB NAMES gmp PATHS ${GMP_LIB_SEARCH_PATHS} NO_DEFAULT_PATH)
+    if(NOT GMP_LIB)
+        find_library(GMP_LIB NAMES gmp)
+    endif()
+    find_library(GMPXX_LIB NAMES gmpxx PATHS ${GMP_LIB_SEARCH_PATHS} NO_DEFAULT_PATH)
+    if(NOT GMPXX_LIB)
+        find_library(GMPXX_LIB NAMES gmpxx)
+    endif()
+    
+    if(GMP_INCLUDE_DIR AND GMP_LIB AND GMPXX_LIB)
+        set(GMP_FOUND TRUE)
+        set(GMP_LIBRARIES ${GMP_LIB} ${GMPXX_LIB})
+        if(PkgConfig_FOUND)
+            message(STATUS "Found GMP via pkg-config and manual library search")
+        else()
             message(STATUS "Found GMP manually on Linux")
         endif()
+    else()
+        set(GMP_FOUND FALSE)
+        message(STATUS "GMP detection failed - missing components")
     endif()
 endif()
 
@@ -262,9 +265,9 @@ message(STATUS "GMP Configuration:")
 message(STATUS "  Include: ${GMP_INCLUDE_DIR}")
 message(STATUS "  Libraries: ${GMP_LIBRARIES}")
 
-# Verify header
-if(NOT EXISTS "${GMP_INCLUDE_DIR}/gmp.h")
-    message(FATAL_ERROR "GMP header not found: ${GMP_INCLUDE_DIR}/gmp.h")
+# Verify header (check for gmpxx.h which includes gmp.h)
+if(NOT EXISTS "${GMP_INCLUDE_DIR}/gmpxx.h" AND NOT EXISTS "${GMP_INCLUDE_DIR}/gmp.h")
+    message(FATAL_ERROR "GMP header not found in: ${GMP_INCLUDE_DIR}")
 endif()
 
 # Static linking
@@ -321,23 +324,6 @@ target_include_directories(fracessa_lib
         ${CMAKE_CURRENT_SOURCE_DIR}/src
 )
 
-target_include_directories(fracessa_lib SYSTEM PUBLIC
-    ${boost_config_SOURCE_DIR}/include
-    ${boost_predef_SOURCE_DIR}/include
-    ${boost_assert_SOURCE_DIR}/include
-    ${boost_static_assert_SOURCE_DIR}/include
-    ${boost_throw_exception_SOURCE_DIR}/include
-    ${boost_type_traits_SOURCE_DIR}/include
-    ${boost_core_SOURCE_DIR}/include
-    ${boost_multiprecision_SOURCE_DIR}/include
-    ${boost_math_SOURCE_DIR}/include
-    ${boost_integer_SOURCE_DIR}/include
-    ${boost_algorithm_SOURCE_DIR}/include
-)
-
-target_compile_definitions(fracessa_lib PRIVATE
-    BOOST_ALLOW_DEPRECATED_HEADERS
-)
 
 target_link_libraries(fracessa_lib PRIVATE
     ${GMP_LIBRARIES}
@@ -352,14 +338,6 @@ add_executable(fracessa src/main.cpp)
 target_include_directories(fracessa PRIVATE
     ${argparse_SOURCE_DIR}/include
     ${GMP_INCLUDE_DIR}
-)
-
-target_include_directories(fracessa SYSTEM PRIVATE
-    ${boost_math_SOURCE_DIR}/include
-)
-
-target_compile_definitions(fracessa PRIVATE
-    BOOST_ALLOW_DEPRECATED_HEADERS
 )
 
 target_link_libraries(fracessa PRIVATE

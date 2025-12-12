@@ -12,8 +12,6 @@
 #include <fracessa/bitset64.hpp>
 #include <fracessa/supports.hpp>
 #include <fracessa/matrix_server.hpp>
-#include <boost/math/special_functions/binomial.hpp>
-#include <boost/integer/common_factor.hpp>
 
 
 class fracessa

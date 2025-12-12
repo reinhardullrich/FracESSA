@@ -22,18 +22,18 @@ jobs:
         sudo apt-get install -y libgmp-dev libgmpxx4ldbl
     
     - name: Configure CMake
-      working-directory: fracessa
+      working-directory: cpp
       run: |
         cmake -B build \
           -DCMAKE_BUILD_TYPE=Release \
           -DENABLE_STATIC_LINKING=ON
     
     - name: Build
-      working-directory: fracessa
+      working-directory: cpp
       run: cmake --build build --parallel $(nproc)
     
     - name: Test
-      working-directory: fracessa
+      working-directory: cpp
       run: |
         cd build
         ./fracessa --help
@@ -42,7 +42,7 @@ jobs:
       uses: actions/upload-artifact@v4
       with:
         name: fracessa-linux-x86_64
-        path: fracessa/build/fracessa
+        path: cpp/build/fracessa
         retention-days: 30
 
   # ============================================================================
@@ -58,18 +58,18 @@ jobs:
       run: brew install gmp
     
     - name: Configure CMake
-      working-directory: fracessa
+      working-directory: cpp
       run: |
         cmake -B build \
           -DCMAKE_BUILD_TYPE=Release \
           -DENABLE_STATIC_LINKING=ON
     
     - name: Build
-      working-directory: fracessa
+      working-directory: cpp
       run: cmake --build build --parallel $(sysctl -n hw.ncpu)
     
     - name: Test
-      working-directory: fracessa
+      working-directory: cpp
       run: |
         cd build
         ./fracessa --help
@@ -78,7 +78,7 @@ jobs:
       uses: actions/upload-artifact@v4
       with:
         name: fracessa-macos-arm64
-        path: fracessa/build/fracessa
+        path: cpp/build/fracessa
         retention-days: 30
 
   # ============================================================================
@@ -100,7 +100,7 @@ jobs:
         vcpkg install gmp:x64-windows-static gmpxx:x64-windows-static
     
     - name: Configure CMake
-      working-directory: fracessa
+      working-directory: cpp
       run: |
         cmake -B build `
           -DCMAKE_BUILD_TYPE=Release `
@@ -109,11 +109,11 @@ jobs:
           -DVCPKG_TARGET_TRIPLET=x64-windows-static
     
     - name: Build
-      working-directory: fracessa
+      working-directory: cpp
       run: cmake --build build --config Release --parallel
     
     - name: Test
-      working-directory: fracessa
+      working-directory: cpp
       run: |
         cd build/Release
         ./fracessa.exe --help
@@ -122,7 +122,7 @@ jobs:
       uses: actions/upload-artifact@v4
       with:
         name: fracessa-windows-x86_64
-        path: fracessa/build/Release/fracessa.exe
+        path: cpp/build/Release/fracessa.exe
         retention-days: 30
 
   # ============================================================================

@@ -6,6 +6,7 @@
 #include <utility>
 #include <string>
 #include <algorithm>
+#include <cmath>
 
 class rational_overflow : public std::runtime_error {
 public:
@@ -223,38 +224,107 @@ public:
         return (n_ == r.n_) && (d_ == r.d_);
     }
 
+
+
+
     inline bool operator<(const rational64& r) const {
-        // compare a/b < c/d  =>  ad < cb
-        // Quick check: if signs differ, result is obvious
+        // Compare a/b < c/d where:
+        // a = n_ (this numerator), b = d_ (this denominator)
+        // c = r.n_ (other numerator), d = r.d_ (other denominator)
+        // Cross-multiplying: a/b < c/d is equivalent to a*d < c*b
+        
+        // Step 1: Fast sign check
         bool this_neg = (n_ < 0);
         bool r_neg = (r.n_ < 0);
         if (this_neg != r_neg) {
             return this_neg;  // Negative < positive
         }
         
-        // Same sign: compare ad < cb
-        // Try 64-bit first if safe (optimization)
-        if (!this_neg && n_ > 0 && r.n_ > 0) {
+        // Both have same sign. Use absolute values for comparison.
+        // Variables: a = n_, b = d_, c = r.n_, d = r.d_
+        const int64_t a = n_;
+        const int64_t b = d_;
+        const int64_t c = r.n_;
+        const int64_t d = r.d_;
+        
+        // Try safe 64-bit multiplication first (fast path)
+        if (a > 0 && c > 0) {
             // Both positive - check for overflow risk
-            if (n_ <= INT64_MAX / r.d_ && r.n_ <= INT64_MAX / d_) {
-                // Safe to use 64-bit
-                int64_t lhs = n_ * r.d_;
-                int64_t rhs = r.n_ * d_;
+            if (a <= INT64_MAX / d && c <= INT64_MAX / b) {
+                // Safe to use 64-bit: compare a*d < c*b
+                int64_t lhs = a * d;
+                int64_t rhs = c * b;
                 return lhs < rhs;
+            }
+        } else if (a < 0 && c < 0) {
+            // Both negative - check for overflow risk
+            // For negative, we compare |a|*d > |c|*b (reverse logic)
+            if (a != INT64_MIN && c != INT64_MIN) {
+                int64_t abs_a = -a;
+                int64_t abs_c = -c;
+                if (abs_a <= INT64_MAX / d && abs_c <= INT64_MAX / b) {
+                    // Safe to use 64-bit: compare |a|*d > |c|*b
+                    int64_t abs_lhs = abs_a * d;
+                    int64_t abs_rhs = abs_c * b;
+                    return abs_lhs > abs_rhs;  // Reverse for negative
+                }
             }
         }
         
-        // Need extended precision or fallback
-        #if defined(__SIZEOF_INT128__) && (defined(__GNUC__) || defined(__clang__))
-            // Use 128-bit arithmetic (GCC/Clang)
-        __int128 lhs = (__int128)n_ * r.d_;
-        __int128 rhs = (__int128)r.n_ * d_;
-        return lhs < rhs;
-        #else
-            // Fallback: use double (may lose precision for very large numbers)
-            // This is acceptable for comparison purposes
-            return to_double() < r.to_double();
-        #endif
+        // Step 2: Trick A - Range dominance test (no multiplication)
+        // Compare A/b < C/d where A = abs(a), C = abs(c)
+        // Equivalent to A*d < C*b
+        int64_t A, C;
+        if (a == INT64_MIN || c == INT64_MIN) {
+            // Skip Trick A if we can't compute absolute values safely
+            goto trick_b;
+        }
+        A = (a < 0) ? -a : a;
+        C = (c < 0) ? -c : c;
+        
+        // Case 1: If A < C && d <= b, then A*d < C*b always
+        if (A < C && d <= b) {
+            return (a >= 0);  // true if both positive, false if both negative
+        }
+        
+        // Case 2: If A > C && d >= b, then A*d > C*b always
+        if (A > C && d >= b) {
+            return (a < 0);  // false if both positive, true if both negative
+        }
+        
+        // Step 3: Trick B - Floating-point division comparison
+        trick_b:
+        double left = static_cast<double>(a) / static_cast<double>(b);
+        double right = static_cast<double>(c) / static_cast<double>(d);
+        
+        double diff = std::fabs(left - right);
+        double max_val = std::max(std::fabs(left), std::fabs(right));
+        
+        // Handle edge case where max_val is 0 (both values are 0)
+        if (max_val == 0.0) {
+            return false;  // Both are zero, so not less than
+        }
+        
+        // Use relative epsilon for large values, absolute epsilon for small values
+        // For very large values, use a fixed absolute epsilon threshold
+        double epsilon;
+        if (max_val > 1e10) {
+            // For very large values, use a fixed absolute epsilon
+            epsilon = 1e-6;  // Fixed threshold for large values
+        } else {
+            // For smaller values, use relative epsilon
+            epsilon = 1e-12 * max_val;
+        }
+        
+        // Check if values are sufficiently different
+        // Use both relative and absolute checks
+        if (diff > epsilon && diff > 1e-10) {
+            // Values are sufficiently different - safe to compare
+            return left < right;
+        }
+        
+        // Step 4: Values are too close - throw exception
+        throw rational_overflow("Values too close for accurate comparison without extended precision");
     }
 
     inline bool operator!=(const rational64& r) const noexcept { return !(*this == r); }
