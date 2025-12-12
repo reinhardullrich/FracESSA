@@ -346,6 +346,8 @@ jobs:
     needs: [build-linux, build-macos, build-windows]
     runs-on: ubuntu-latest
     if: github.event_name == 'release'
+    permissions:
+      contents: write  # Required to upload release assets
     
     steps:
     - name: Download Linux Binary
@@ -376,7 +378,7 @@ jobs:
         chmod +x ./release-assets/fracessa-macos-arm64
     
     - name: Upload Release Assets
-      uses: softprops/action-gh-release@v1
+      uses: softprops/action-gh-release@v2
       with:
         files: ./release-assets/*
         tag_name: ${{ github.event.release.tag_name }}
