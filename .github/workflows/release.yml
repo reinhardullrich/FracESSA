@@ -183,18 +183,34 @@ jobs:
     - name: Add MinGW bin directory to PATH
       run: |
         # Add MinGW bin directory to PATH so CMake can find gcc.exe and g++.exe
-        echo "C:\msys64\mingw64\bin" | Out-File -FilePath $env:GITHUB_PATH -Encoding utf8 -Append
-        echo "Added C:\msys64\mingw64\bin to PATH"
+        # Use the dynamically detected MSYS2 path
+        $MSYS2_PATH = $env:MSYS2_MINGW64_PATH
+        $BIN_PATH = "$MSYS2_PATH\bin"
+        echo $BIN_PATH | Out-File -FilePath $env:GITHUB_PATH -Encoding utf8 -Append
+        echo "Added $BIN_PATH to PATH"
       shell: powershell
+    
+    - name: Detect MSYS2 path and set GMP paths
+      shell: msys2 {0}
+      run: |
+        # Detect actual MSYS2 installation path dynamically
+        MSYS2_MINGW64_PATH=$(cygpath -w /mingw64 2>/dev/null || echo "C:/msys64/mingw64")
+        # Convert backslashes to forward slashes for consistency
+        MSYS2_MINGW64_PATH=$(echo "$MSYS2_MINGW64_PATH" | tr '\\' '/')
+        echo "MSYS2_MINGW64_PATH=$MSYS2_MINGW64_PATH" >> $GITHUB_ENV
+        echo "Detected MSYS2 path: $MSYS2_MINGW64_PATH"
     
     - name: Set GMP paths for CMake
       run: |
-        echo "GMP_ROOT=C:/msys64/mingw64" >> $env:GITHUB_ENV
-        echo "GMP_INCLUDE_DIR=C:/msys64/mingw64/include" >> $env:GITHUB_ENV
-        echo "GMP_LIBRARY_DIR=C:/msys64/mingw64/lib" >> $env:GITHUB_ENV
-        echo "GMP installed at: C:/msys64/mingw64"
-        echo "GMP include dir: C:/msys64/mingw64/include"
-        echo "GMP library dir: C:/msys64/mingw64/lib"
+        # Use the dynamically detected MSYS2 path
+        $MSYS2_PATH = $env:MSYS2_MINGW64_PATH
+        echo "GMP_ROOT=$MSYS2_PATH" >> $env:GITHUB_ENV
+        echo "GMP_INCLUDE_DIR=$MSYS2_PATH/include" >> $env:GITHUB_ENV
+        echo "GMP_LIBRARY_DIR=$MSYS2_PATH/lib" >> $env:GITHUB_ENV
+        echo "GMP installed at: $MSYS2_PATH"
+        echo "GMP include dir: $MSYS2_PATH/include"
+        echo "GMP library dir: $MSYS2_PATH/lib"
+      shell: powershell
     
     - name: Verify GMP installation
       shell: msys2 {0}
@@ -229,14 +245,20 @@ jobs:
         for lib in /mingw64/lib/*gmp*.a; do
           if [ -f "$lib" ] && [[ ! "$lib" =~ \.dll\.a$ ]]; then
             WIN_PATH=$(cygpath -w "$lib" 2>/dev/null || echo "C:/msys64$lib")
-            ls -lh "$lib" | awk -v path="$WIN_PATH" '{print path " (" $5 ")"}'
+            # Convert backslashes to forward slashes to avoid awk escape issues
+            WIN_PATH_FORWARD=$(echo "$WIN_PATH" | tr '\\' '/')
+            FILE_SIZE=$(ls -lh "$lib" | awk '{print $5}')
+            echo "$WIN_PATH_FORWARD ($FILE_SIZE)"
           fi
         done
         echo "Import libraries (.dll.a files):"
         for lib in /mingw64/lib/*gmp*.dll.a; do
           if [ -f "$lib" ]; then
             WIN_PATH=$(cygpath -w "$lib" 2>/dev/null || echo "C:/msys64$lib")
-            ls -lh "$lib" | awk -v path="$WIN_PATH" '{print path " (" $5 ")"}'
+            # Convert backslashes to forward slashes to avoid awk escape issues
+            WIN_PATH_FORWARD=$(echo "$WIN_PATH" | tr '\\' '/')
+            FILE_SIZE=$(ls -lh "$lib" | awk '{print $5}')
+            echo "$WIN_PATH_FORWARD ($FILE_SIZE)"
           fi
         done
         echo "GMP verification complete"
@@ -244,8 +266,12 @@ jobs:
     - name: Configure CMake
       working-directory: cpp
       run: |
-        # Define the GMP root path as a PowerShell variable
-        $GMP_ROOT="C:/msys64/mingw64"
+        # Use the dynamically detected MSYS2 path from environment variable
+        $GMP_ROOT = $env:MSYS2_MINGW64_PATH
+        if (-not $GMP_ROOT) {
+          # Fallback if not set
+          $GMP_ROOT = "C:/msys64/mingw64"
+        }
         
         echo "Running CMake with explicit GMP paths."
         echo "GMP_ROOT: $GMP_ROOT"
@@ -254,40 +280,37 @@ jobs:
         where.exe gcc.exe
         where.exe g++.exe
         
-        # Verify GMP libraries exist
-        if (Test-Path "$GMP_ROOT\lib\libgmp.a") {
-          echo "Found: $GMP_ROOT\lib\libgmp.a"
+        # Verify GMP libraries exist (check for .dll.a files for dynamic linking)
+        if (Test-Path "$GMP_ROOT\lib\libgmp.dll.a") {
+          echo "Found: $GMP_ROOT\lib\libgmp.dll.a"
         } else {
-          echo "Warning: libgmp.a not found, checking for alternatives..."
-          Get-ChildItem -Path "$GMP_ROOT\lib" -Filter "*gmp*.a" | Select-Object Name
+          echo "Warning: libgmp.dll.a not found, checking for alternatives..."
+          Get-ChildItem -Path "$GMP_ROOT\lib" -Filter "*gmp*.dll.a" | Select-Object Name
         }
         
-        if (Test-Path "$GMP_ROOT\lib\libgmpxx.a") {
-          echo "Found: $GMP_ROOT\lib\libgmpxx.a"
+        if (Test-Path "$GMP_ROOT\lib\libgmpxx.dll.a") {
+          echo "Found: $GMP_ROOT\lib\libgmpxx.dll.a"
         } else {
-          echo "Warning: libgmpxx.a not found, checking for alternatives..."
-          Get-ChildItem -Path "$GMP_ROOT\lib" -Filter "*gmpxx*.a" | Select-Object Name
+          echo "Warning: libgmpxx.dll.a not found, checking for alternatives..."
+          Get-ChildItem -Path "$GMP_ROOT\lib" -Filter "*gmpxx*.dll.a" | Select-Object Name
         }
         
         # Run the CMake command, correctly substituting the variables and 
         # using explicit arguments to bypass faulty FindGMP logic.
         # Windows uses dynamic linking (import libraries .dll.a files)
+        # Use $GMP_ROOT variable directly (PowerShell will expand it)
         cmake -B build `
           -DCMAKE_BUILD_TYPE=Release `
           -DENABLE_STATIC_LINKING=OFF `
           -G "MinGW Makefiles" `
-          # Use PowerShell's expansion ${variable} inside the string
-          # We explicitly tell CMake where to look for the compilers
-          -DCMAKE_C_COMPILER="${GMP_ROOT}/bin/gcc.exe" `
-          -DCMAKE_CXX_COMPILER="${GMP_ROOT}/bin/g++.exe" `
-          # --- GMP FIXES ---
-          -DGMP_ROOT="${GMP_ROOT}" `
-          -DGMP_INCLUDE_DIR="${GMP_ROOT}/include" `
-          -DGMP_LIBRARY_DIR="${GMP_ROOT}/lib" `
-          # Force search for the *exact* library file names (import libraries for dynamic linking)
-          -DGMP_LIB="${GMP_ROOT}/lib/libgmp.dll.a" `
-          -DGMPXX_LIB="${GMP_ROOT}/lib/libgmpxx.dll.a" `
-          -DGMP_LIBRARIES="${GMP_ROOT}/lib/libgmp.dll.a;${GMP_ROOT}/lib/libgmpxx.dll.a" `
+          -DCMAKE_C_COMPILER="$GMP_ROOT/bin/gcc.exe" `
+          -DCMAKE_CXX_COMPILER="$GMP_ROOT/bin/g++.exe" `
+          -DGMP_ROOT="$GMP_ROOT" `
+          -DGMP_INCLUDE_DIR="$GMP_ROOT/include" `
+          -DGMP_LIBRARY_DIR="$GMP_ROOT/lib" `
+          -DGMP_LIB="$GMP_ROOT/lib/libgmp.dll.a" `
+          -DGMPXX_LIB="$GMP_ROOT/lib/libgmpxx.dll.a" `
+          -DGMP_LIBRARIES="$GMP_ROOT/lib/libgmp.dll.a;$GMP_ROOT/lib/libgmpxx.dll.a" `
           -DGMP_FOUND=TRUE
       shell: powershell
     
