@@ -381,6 +381,7 @@ jobs:
       uses: softprops/action-gh-release@v2
       with:
         files: ./release-assets/*
-        tag_name: ${{ github.event.release.tag_name }}
+        draft: false
+        prerelease: false
       env:
         GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
