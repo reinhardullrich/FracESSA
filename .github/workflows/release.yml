@@ -131,17 +131,16 @@ jobs:
           mingw-w64-x86_64-make
           mingw-w64-x86_64-autotools
           mingw-w64-x86_64-pkg-config
-          wget
+          git
           tar
           xz
     
-    - name: Download GMP source
+    - name: Clone GMP source from GitHub mirror
       shell: msys2 {0}
       run: |
         cd /tmp
-        wget https://gmplib.org/download/gmp/gmp-6.3.0.tar.xz
-        tar -xf gmp-6.3.0.tar.xz
-        echo "GMP source downloaded and extracted"
+        git clone --depth 1 https://github.com/gmp-mirror/gmp-6.3.git gmp-6.3.0
+        echo "GMP source cloned from GitHub mirror"
     
     - name: Build GMP from source
       shell: msys2 {0}
