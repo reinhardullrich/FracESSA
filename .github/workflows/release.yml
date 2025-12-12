@@ -133,12 +133,75 @@ jobs:
           mingw-w64-x86_64-libtool
           mingw-w64-x86_64-pkg-config
     
-    - name: Install GMP from MSYS2 repository
+    - name: Cache GMP Libraries
+      uses: actions/cache@v4
+      id: gmp-cache
+      with:
+        path: ${{ runner.temp }}/gmp-cache
+        key: gmp-windows-${{ runner.os }}-${{ hashFiles('cpp/CMakeLists.txt') }}
+        restore-keys: |
+          gmp-windows-${{ runner.os }}-
+    
+    - name: Install or Restore GMP Libraries
       run: |
-        # Use pacman via bash to install GMP in MSYS2 environment
-        C:\msys64\usr\bin\bash.exe -lc "pacman -Syu --noconfirm mingw-w64-x86_64-gmp"
-        echo "GMP installed from MSYS2 repository"
-      shell: cmd
+        $GMP_ROOT="C:/msys64/mingw64"
+        $CACHE_DIR="$env:RUNNER_TEMP/gmp-cache"
+        $CACHE_HIT=${{ steps.gmp-cache.outputs.cache-hit }}
+        
+        if ($CACHE_HIT -eq "true") {
+          echo "GMP libraries found in cache, restoring..."
+          
+          # Ensure target directories exist
+          New-Item -ItemType Directory -Force -Path "$GMP_ROOT/lib" | Out-Null
+          New-Item -ItemType Directory -Force -Path "$GMP_ROOT/include" | Out-Null
+          
+          # Copy libraries from cache
+          if (Test-Path "$CACHE_DIR/libgmp.a") {
+            Copy-Item "$CACHE_DIR/libgmp.a" "$GMP_ROOT/lib/" -Force
+            echo "Restored libgmp.a from cache"
+          }
+          if (Test-Path "$CACHE_DIR/libgmpxx.a") {
+            Copy-Item "$CACHE_DIR/libgmpxx.a" "$GMP_ROOT/lib/" -Force
+            echo "Restored libgmpxx.a from cache"
+          }
+          if (Test-Path "$CACHE_DIR/gmp.h") {
+            Copy-Item "$CACHE_DIR/gmp.h" "$GMP_ROOT/include/" -Force
+            echo "Restored gmp.h from cache"
+          }
+          if (Test-Path "$CACHE_DIR/gmpxx.h") {
+            Copy-Item "$CACHE_DIR/gmpxx.h" "$GMP_ROOT/include/" -Force
+            echo "Restored gmpxx.h from cache"
+          }
+          
+          echo "GMP libraries restored from cache successfully"
+        } else {
+          echo "Cache miss - installing GMP via pacman..."
+          # Use pacman via bash to install GMP in MSYS2 environment
+          C:\msys64\usr\bin\bash.exe -lc "pacman -Syu --noconfirm mingw-w64-x86_64-gmp"
+          echo "GMP installed from MSYS2 repository"
+          
+          # Verify installation
+          if (-not (Test-Path "$GMP_ROOT/lib/libgmp.a")) {
+            Write-Error "libgmp.a not found after installation"
+            exit 1
+          }
+          if (-not (Test-Path "$GMP_ROOT/lib/libgmpxx.a")) {
+            Write-Error "libgmpxx.a not found after installation"
+            exit 1
+          }
+          
+          # Cache the libraries for future runs
+          echo "Caching GMP libraries for future builds..."
+          New-Item -ItemType Directory -Force -Path $CACHE_DIR | Out-Null
+          
+          Copy-Item "$GMP_ROOT/lib/libgmp.a" "$CACHE_DIR/" -Force
+          Copy-Item "$GMP_ROOT/lib/libgmpxx.a" "$CACHE_DIR/" -Force
+          Copy-Item "$GMP_ROOT/include/gmp.h" "$CACHE_DIR/" -Force
+          Copy-Item "$GMP_ROOT/include/gmpxx.h" "$CACHE_DIR/" -Force
+          
+          echo "GMP libraries cached successfully"
+        }
+      shell: powershell
     
     - name: Add MinGW bin directory to PATH
       run: |
