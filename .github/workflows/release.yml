@@ -132,108 +132,38 @@ jobs:
           mingw-w64-x86_64-autotools
           mingw-w64-x86_64-libtool
           mingw-w64-x86_64-pkg-config
-          git
-          tar
-          xz
     
-    - name: Clone GMP source from GitHub mirror
+    - name: Install GMP from MSYS2 repository
       shell: msys2 {0}
       run: |
-        cd /tmp
-        git clone --depth 1 https://github.com/gmp-mirror/gmp-6.3.git gmp-6.3.0
-        echo "GMP source cloned from GitHub mirror"
-    
-    - name: Build GMP from source
-      shell: msys2 {0}
-      run: |
-        # Set up MinGW64 environment
-        export PATH="/mingw64/bin:$PATH"
-        export CC="/mingw64/bin/gcc.exe"
-        export CXX="/mingw64/bin/g++.exe"
-        
-        # Verify compiler is available
-        echo "Checking compiler..."
-        which gcc || echo "gcc not in PATH"
-        gcc --version || echo "gcc not working"
-        /mingw64/bin/gcc.exe --version || echo "MinGW gcc not found"
-        
-        cd /tmp/gmp-6.3.0
-        # Check if configure script already exists
-        if [ -f "./configure" ]; then
-          echo "configure script already exists, skipping bootstrap"
-        else
-          # Bootstrap to generate configure script (needed when building from git source)
-          # GMP git repository uses .bootstrap file
-          echo "Checking for bootstrap files..."
-          ls -la | grep -E "(bootstrap|autogen|configure)" || echo "Listing all files:"; ls -la | head -20
-          
-          # Try bootstrap methods in order
-          if [ -f ".bootstrap" ]; then
-            echo "Running .bootstrap..."
-            sh .bootstrap
-          elif [ -f "./bootstrap" ]; then
-            echo "Running ./bootstrap..."
-            ./bootstrap
-          elif [ -f "./autogen.sh" ]; then
-            echo "Running ./autogen.sh..."
-            ./autogen.sh
-          else
-            echo "ERROR: No bootstrap script found and configure doesn't exist!"
-            echo "Available files:"
-            ls -la
-            exit 1
-          fi
-          
-          # Verify configure script was generated
-          if [ ! -f "./configure" ]; then
-            echo "ERROR: configure script was not generated!"
-            exit 1
-          fi
-        fi
-        
-        echo "Running configure with explicit compiler..."
-        CC=/mingw64/bin/gcc.exe CXX=/mingw64/bin/g++.exe ./configure --prefix=/c/gmp-install --enable-cxx --enable-static --disable-shared || {
-          echo "Configure failed, showing config.log:"
-          cat config.log | tail -100
-          exit 1
-        }
-        echo "Building GMP..."
-        make -j$(nproc) || {
-          echo "Build failed, showing error:"
-          exit 1
-        }
-        echo "Installing GMP..."
-        make install || {
-          echo "Install failed"
-          exit 1
-        }
-        echo "GMP built and installed to /c/gmp-install"
+        pacman -S --noconfirm mingw-w64-x86_64-gmp
+        echo "GMP installed from MSYS2 repository"
     
     - name: Set GMP paths for CMake
       run: |
-        echo "GMP_ROOT=C:/gmp-install" >> $env:GITHUB_ENV
-        echo "GMP_INCLUDE_DIR=C:/gmp-install/include" >> $env:GITHUB_ENV
-        echo "GMP_LIBRARY_DIR=C:/gmp-install/lib" >> $env:GITHUB_ENV
-        echo "GMP installed at: C:/gmp-install"
-        echo "GMP include dir: C:/gmp-install/include"
-        echo "GMP library dir: C:/gmp-install/lib"
+        echo "GMP_ROOT=C:/msys64/mingw64" >> $env:GITHUB_ENV
+        echo "GMP_INCLUDE_DIR=C:/msys64/mingw64/include" >> $env:GITHUB_ENV
+        echo "GMP_LIBRARY_DIR=C:/msys64/mingw64/lib" >> $env:GITHUB_ENV
+        echo "GMP installed at: C:/msys64/mingw64"
+        echo "GMP include dir: C:/msys64/mingw64/include"
+        echo "GMP library dir: C:/msys64/mingw64/lib"
     
     - name: Verify GMP installation
       run: |
-        if (Test-Path "C:\gmp-install\include\gmp.h") {
-          echo "Found: C:\gmp-install\include\gmp.h"
+        if (Test-Path "C:\msys64\mingw64\include\gmp.h") {
+          echo "Found: C:\msys64\mingw64\include\gmp.h"
         } else {
           echo "Error: gmp.h not found!"
           exit 1
         }
-        if (Test-Path "C:\gmp-install\include\gmpxx.h") {
-          echo "Found: C:\gmp-install\include\gmpxx.h"
+        if (Test-Path "C:\msys64\mingw64\include\gmpxx.h") {
+          echo "Found: C:\msys64\mingw64\include\gmpxx.h"
         } else {
           echo "Error: gmpxx.h not found!"
           exit 1
         }
         echo "Checking for GMP libraries..."
-        Get-ChildItem -Path "C:\gmp-install\lib" -Filter "*.a" | Select-Object Name
+        Get-ChildItem -Path "C:\msys64\mingw64\lib" -Filter "*gmp*.a" | Select-Object Name
     
     - name: Configure CMake
       working-directory: cpp

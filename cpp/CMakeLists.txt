@@ -116,18 +116,18 @@ if(WIN32 OR MSVC OR MINGW OR MSYS)
         message(STATUS "Using GMP_LIBRARY_DIR from environment: $ENV{GMP_LIBRARY_DIR}")
     endif()
     
-    # Add standard manually built GMP location
+    # Add standard GMP locations (MSYS2 package installs to /mingw64)
     list(APPEND GMP_SEARCH_PATHS
+        "C:/msys64/mingw64/include"
         "C:/gmp-install/include"
         "C:/Program Files/gmp/include"
         "C:/gmp/include"
-        "C:/msys64/mingw64/include"
     )
     list(APPEND GMP_LIB_SEARCH_PATHS
+        "C:/msys64/mingw64/lib"
         "C:/gmp-install/lib"
         "C:/Program Files/gmp/lib"
         "C:/gmp/lib"
-        "C:/msys64/mingw64/lib"
     )
     
     # Check vcpkg as fallback (if available)
