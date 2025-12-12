@@ -113,7 +113,8 @@ jobs:
     
     - name: Install GMP via vcpkg
       run: |
-        vcpkg install gmp:x64-windows-static gmpxx:x64-windows-static
+        vcpkg install yasm-tool:x86-windows
+        vcpkg install gmp:x64-windows-static --triplet x64-windows-static
     
     - name: Configure CMake
       working-directory: cpp
