@@ -102,28 +102,43 @@ if(WIN32 OR MSVC OR MINGW OR MSYS)
         set(VCPKG_ROOT $ENV{VCPKG_ROOT})
         message(STATUS "VCPKG_ROOT: ${VCPKG_ROOT}")
         
-        # Detect triplet
-        if(CMAKE_SIZEOF_VOID_P EQUAL 8)
-            set(VCPKG_TRIPLET "x64-windows")
+        # Use VCPKG_TARGET_TRIPLET from environment if set (set by vcpkg action)
+        if(DEFINED ENV{VCPKG_TARGET_TRIPLET})
+            set(VCPKG_TRIPLET $ENV{VCPKG_TARGET_TRIPLET})
+            message(STATUS "Using VCPKG_TARGET_TRIPLET from environment: ${VCPKG_TRIPLET}")
         else()
-            set(VCPKG_TRIPLET "x86-windows")
+            # Auto-detect triplet as fallback
+            if(CMAKE_SIZEOF_VOID_P EQUAL 8)
+                set(VCPKG_TRIPLET "x64-windows")
+            else()
+                set(VCPKG_TRIPLET "x86-windows")
+            endif()
+            
+            if(ENABLE_STATIC_LINKING)
+                set(VCPKG_TRIPLET "${VCPKG_TRIPLET}-static")
+            endif()
+            message(STATUS "Auto-detected vcpkg triplet: ${VCPKG_TRIPLET}")
         endif()
         
-        if(ENABLE_STATIC_LINKING)
-            set(VCPKG_TRIPLET "${VCPKG_TRIPLET}-static")
-        endif()
-        
-        message(STATUS "Using vcpkg triplet: ${VCPKG_TRIPLET}")
-        
+        # Search in both installed and vcpkg_installed directories
+        # vcpkg_installed is used by newer vcpkg versions
         set(GMP_SEARCH_PATHS
             "${VCPKG_ROOT}/installed/${VCPKG_TRIPLET}/include"
+            "${VCPKG_ROOT}/vcpkg_installed/${VCPKG_TRIPLET}/include"
             "${VCPKG_ROOT}/packages/gmp_${VCPKG_TRIPLET}/include"
         )
         
         set(GMP_LIB_SEARCH_PATHS
             "${VCPKG_ROOT}/installed/${VCPKG_TRIPLET}/lib"
+            "${VCPKG_ROOT}/installed/${VCPKG_TRIPLET}/debug/lib"
+            "${VCPKG_ROOT}/vcpkg_installed/${VCPKG_TRIPLET}/lib"
+            "${VCPKG_ROOT}/vcpkg_installed/${VCPKG_TRIPLET}/debug/lib"
             "${VCPKG_ROOT}/packages/gmp_${VCPKG_TRIPLET}/lib"
         )
+        
+        message(STATUS "Searching for GMP in:")
+        message(STATUS "  Include paths: ${GMP_SEARCH_PATHS}")
+        message(STATUS "  Library paths: ${GMP_LIB_SEARCH_PATHS}")
     else()
         # Fallback Windows paths
         set(GMP_SEARCH_PATHS
@@ -138,49 +153,122 @@ if(WIN32 OR MSVC OR MINGW OR MSYS)
         )
     endif()
     
-    find_path(GMP_INCLUDE_DIR NAMES gmp.h PATHS ${GMP_SEARCH_PATHS} NO_DEFAULT_PATH)
-    find_path(GMP_INCLUDE_DIR NAMES gmp.h) # Fallback
+    # Search for headers (try both gmp.h and gmpxx.h)
+    find_path(GMP_INCLUDE_DIR NAMES gmpxx.h gmp.h PATHS ${GMP_SEARCH_PATHS} NO_DEFAULT_PATH)
+    if(NOT GMP_INCLUDE_DIR)
+        find_path(GMP_INCLUDE_DIR NAMES gmpxx.h gmp.h) # Fallback
+    endif()
     
-    find_library(GMP_LIB NAMES gmp libgmp PATHS ${GMP_LIB_SEARCH_PATHS} NO_DEFAULT_PATH)
-    find_library(GMP_LIB NAMES gmp libgmp)
+    # Search for libraries (Windows uses .lib files)
+    find_library(GMP_LIB 
+        NAMES gmp libgmp gmp.lib libgmp.lib
+        PATHS ${GMP_LIB_SEARCH_PATHS} 
+        NO_DEFAULT_PATH
+    )
+    if(NOT GMP_LIB)
+        find_library(GMP_LIB NAMES gmp libgmp gmp.lib libgmp.lib)
+    endif()
     
-    find_library(GMPXX_LIB NAMES gmpxx libgmpxx PATHS ${GMP_LIB_SEARCH_PATHS} NO_DEFAULT_PATH)
-    find_library(GMPXX_LIB NAMES gmpxx libgmpxx)
+    find_library(GMPXX_LIB 
+        NAMES gmpxx libgmpxx gmpxx.lib libgmpxx.lib
+        PATHS ${GMP_LIB_SEARCH_PATHS} 
+        NO_DEFAULT_PATH
+    )
+    if(NOT GMPXX_LIB)
+        find_library(GMPXX_LIB NAMES gmpxx libgmpxx gmpxx.lib libgmpxx.lib)
+    endif()
     
     if(GMP_INCLUDE_DIR AND GMP_LIB AND GMPXX_LIB)
         set(GMP_FOUND TRUE)
         set(GMP_LIBRARIES ${GMP_LIB} ${GMPXX_LIB})
-        message(STATUS "Found GMP on Windows: ${GMP_INCLUDE_DIR}")
+        message(STATUS "Found GMP on Windows:")
+        message(STATUS "  Include: ${GMP_INCLUDE_DIR}")
+        message(STATUS "  GMP lib: ${GMP_LIB}")
+        message(STATUS "  GMPXX lib: ${GMPXX_LIB}")
+    else()
+        message(STATUS "GMP detection failed:")
+        message(STATUS "  Include dir: ${GMP_INCLUDE_DIR}")
+        message(STATUS "  GMP lib: ${GMP_LIB}")
+        message(STATUS "  GMPXX lib: ${GMPXX_LIB}")
     endif()
     
 elseif(APPLE)
     # ===== macOS =====
     message(STATUS "Detecting GMP on macOS...")
     
-    set(GMP_SEARCH_PATHS
+    # Try pkg-config first (Homebrew often provides .pc files)
+    find_package(PkgConfig QUIET)
+    if(PkgConfig_FOUND)
+        pkg_check_modules(GMP QUIET gmp)
+        if(GMP_FOUND AND GMP_INCLUDE_DIRS)
+            list(GET GMP_INCLUDE_DIRS 0 GMP_INCLUDE_DIR)
+            message(STATUS "Found GMP via pkg-config: ${GMP_INCLUDE_DIR}")
+        endif()
+    endif()
+    
+    # Build search paths (environment variables take precedence)
+    set(GMP_SEARCH_PATHS "")
+    set(GMP_LIB_SEARCH_PATHS "")
+    
+    # Check environment variables first (set by workflow)
+    if(DEFINED ENV{GMP_INCLUDE_DIR})
+        list(APPEND GMP_SEARCH_PATHS "$ENV{GMP_INCLUDE_DIR}")
+        message(STATUS "Using GMP_INCLUDE_DIR from environment: $ENV{GMP_INCLUDE_DIR}")
+    elseif(DEFINED ENV{GMP_ROOT})
+        list(APPEND GMP_SEARCH_PATHS "$ENV{GMP_ROOT}/include")
+        message(STATUS "Using GMP_ROOT from environment: $ENV{GMP_ROOT}")
+    endif()
+    
+    if(DEFINED ENV{GMP_LIBRARY_DIR})
+        list(APPEND GMP_LIB_SEARCH_PATHS "$ENV{GMP_LIBRARY_DIR}")
+        message(STATUS "Using GMP_LIBRARY_DIR from environment: $ENV{GMP_LIBRARY_DIR}")
+    elseif(DEFINED ENV{GMP_ROOT})
+        list(APPEND GMP_LIB_SEARCH_PATHS "$ENV{GMP_ROOT}/lib")
+    endif
+    
+    # Add standard Homebrew paths (check both Apple Silicon and Intel)
+    list(APPEND GMP_SEARCH_PATHS
         /opt/homebrew/include  # Apple Silicon
         /usr/local/include     # Intel
         /opt/local/include     # MacPorts
     )
-    set(GMP_LIB_SEARCH_PATHS
+    list(APPEND GMP_LIB_SEARCH_PATHS
         /opt/homebrew/lib
         /usr/local/lib
         /opt/local/lib
     )
     
-    if(DEFINED ENV{GMP_ROOT})
-        list(INSERT GMP_SEARCH_PATHS 0 "$ENV{GMP_ROOT}/include")
-        list(INSERT GMP_LIB_SEARCH_PATHS 0 "$ENV{GMP_ROOT}/lib")
+    # Only search if not found via pkg-config
+    if(NOT GMP_INCLUDE_DIR)
+        find_path(GMP_INCLUDE_DIR NAMES gmpxx.h gmp.h PATHS ${GMP_SEARCH_PATHS} NO_DEFAULT_PATH)
+        if(NOT GMP_INCLUDE_DIR)
+            find_path(GMP_INCLUDE_DIR NAMES gmpxx.h gmp.h)
+        endif()
     endif()
     
-    find_path(GMP_INCLUDE_DIR NAMES gmpxx.h PATHS ${GMP_SEARCH_PATHS} NO_DEFAULT_PATH)
+    # Always search for libraries manually (pkg-config may not provide full paths)
     find_library(GMP_LIB NAMES gmp PATHS ${GMP_LIB_SEARCH_PATHS} NO_DEFAULT_PATH)
+    if(NOT GMP_LIB)
+        find_library(GMP_LIB NAMES gmp)
+    endif()
+    
     find_library(GMPXX_LIB NAMES gmpxx PATHS ${GMP_LIB_SEARCH_PATHS} NO_DEFAULT_PATH)
+    if(NOT GMPXX_LIB)
+        find_library(GMPXX_LIB NAMES gmpxx)
+    endif()
     
     if(GMP_INCLUDE_DIR AND GMP_LIB AND GMPXX_LIB)
         set(GMP_FOUND TRUE)
         set(GMP_LIBRARIES ${GMP_LIB} ${GMPXX_LIB})
-        message(STATUS "Found GMP on macOS: ${GMP_INCLUDE_DIR}")
+        message(STATUS "Found GMP on macOS:")
+        message(STATUS "  Include: ${GMP_INCLUDE_DIR}")
+        message(STATUS "  GMP lib: ${GMP_LIB}")
+        message(STATUS "  GMPXX lib: ${GMPXX_LIB}")
+    else()
+        message(STATUS "GMP detection failed:")
+        message(STATUS "  Include dir: ${GMP_INCLUDE_DIR}")
+        message(STATUS "  GMP lib: ${GMP_LIB}")
+        message(STATUS "  GMPXX lib: ${GMPXX_LIB}")
     endif()
     
 else()
