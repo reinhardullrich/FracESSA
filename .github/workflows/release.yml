@@ -130,6 +130,9 @@ jobs:
           mingw-w64-x86_64-gcc
           mingw-w64-x86_64-make
           mingw-w64-x86_64-autotools
+          mingw-w64-x86_64-autoconf
+          mingw-w64-x86_64-automake
+          mingw-w64-x86_64-libtool
           mingw-w64-x86_64-pkg-config
           git
           tar
@@ -146,6 +149,18 @@ jobs:
       shell: msys2 {0}
       run: |
         cd /tmp/gmp-6.3.0
+        # Bootstrap to generate configure script (needed when building from git source)
+        # Check which bootstrap script exists
+        if [ -f "./autogen.sh" ]; then
+          ./autogen.sh
+        elif [ -f "./bootstrap" ]; then
+          ./bootstrap
+        elif [ -f ".bootstrap" ]; then
+          sh .bootstrap
+        else
+          echo "No bootstrap script found, trying autogen.sh anyway..."
+          ./autogen.sh || echo "Bootstrap failed, but continuing..."
+        fi
         ./configure --prefix=/c/gmp-install --enable-cxx --enable-static --disable-shared
         make -j$(nproc)
         make install
