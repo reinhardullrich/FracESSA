@@ -280,37 +280,37 @@ jobs:
         where.exe gcc.exe
         where.exe g++.exe
         
-        # Verify GMP libraries exist (check for .dll.a files for dynamic linking)
-        if (Test-Path "$GMP_ROOT\lib\libgmp.dll.a") {
-          echo "Found: $GMP_ROOT\lib\libgmp.dll.a"
+        # Verify GMP libraries exist (check for .a files for static linking)
+        if (Test-Path "$GMP_ROOT\lib\libgmp.a") {
+          echo "Found: $GMP_ROOT\lib\libgmp.a"
         } else {
-          echo "Warning: libgmp.dll.a not found, checking for alternatives..."
-          Get-ChildItem -Path "$GMP_ROOT\lib" -Filter "*gmp*.dll.a" | Select-Object Name
+          echo "Warning: libgmp.a not found, checking for alternatives..."
+          Get-ChildItem -Path "$GMP_ROOT\lib" -Filter "*gmp*.a" | Where-Object { $_.Name -notlike "*.dll.a" } | Select-Object Name
         }
         
-        if (Test-Path "$GMP_ROOT\lib\libgmpxx.dll.a") {
-          echo "Found: $GMP_ROOT\lib\libgmpxx.dll.a"
+        if (Test-Path "$GMP_ROOT\lib\libgmpxx.a") {
+          echo "Found: $GMP_ROOT\lib\libgmpxx.a"
         } else {
-          echo "Warning: libgmpxx.dll.a not found, checking for alternatives..."
-          Get-ChildItem -Path "$GMP_ROOT\lib" -Filter "*gmpxx*.dll.a" | Select-Object Name
+          echo "Warning: libgmpxx.a not found, checking for alternatives..."
+          Get-ChildItem -Path "$GMP_ROOT\lib" -Filter "*gmpxx*.a" | Where-Object { $_.Name -notlike "*.dll.a" } | Select-Object Name
         }
         
         # Run the CMake command, correctly substituting the variables and 
         # using explicit arguments to bypass faulty FindGMP logic.
-        # Windows uses dynamic linking (import libraries .dll.a files)
+        # Windows uses static linking (.a files)
         # Use $GMP_ROOT variable directly (PowerShell will expand it)
         cmake -B build `
           -DCMAKE_BUILD_TYPE=Release `
-          -DENABLE_STATIC_LINKING=OFF `
+          -DENABLE_STATIC_LINKING=ON `
           -G "MinGW Makefiles" `
           -DCMAKE_C_COMPILER="$GMP_ROOT/bin/gcc.exe" `
           -DCMAKE_CXX_COMPILER="$GMP_ROOT/bin/g++.exe" `
           -DGMP_ROOT="$GMP_ROOT" `
           -DGMP_INCLUDE_DIR="$GMP_ROOT/include" `
           -DGMP_LIBRARY_DIR="$GMP_ROOT/lib" `
-          -DGMP_LIB="$GMP_ROOT/lib/libgmp.dll.a" `
-          -DGMPXX_LIB="$GMP_ROOT/lib/libgmpxx.dll.a" `
-          -DGMP_LIBRARIES="$GMP_ROOT/lib/libgmp.dll.a;$GMP_ROOT/lib/libgmpxx.dll.a" `
+          -DGMP_LIB="$GMP_ROOT/lib/libgmp.a" `
+          -DGMPXX_LIB="$GMP_ROOT/lib/libgmpxx.a" `
+          -DGMP_LIBRARIES="$GMP_ROOT/lib/libgmp.a;$GMP_ROOT/lib/libgmpxx.a" `
           -DGMP_FOUND=TRUE
       shell: powershell
     
@@ -322,7 +322,14 @@ jobs:
       working-directory: cpp
       run: |
         cd build
-        ./fracessa.exe --help
+        if (Test-Path "fracessa.exe") {
+          .\fracessa.exe --help
+        } else {
+          echo "Error: fracessa.exe not found in build directory"
+          Get-ChildItem -Path . -Filter "*.exe" | Select-Object Name
+          exit 1
+        }
+      shell: powershell
     
     - name: Upload Windows Binary
       uses: actions/upload-artifact@v4
