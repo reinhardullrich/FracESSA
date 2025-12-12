@@ -44,74 +44,74 @@ jobs:
         retention-days: 30
 
   # ============================================================================
-  # macOS Build
+  # macOS Build (ARM64 only) - COMMENTED OUT: Using universal binary instead
   # ============================================================================
-  build-macos:
-    runs-on: macos-latest
-    
-    steps:
-    - uses: actions/checkout@v4
-    
-    - name: Install pkg-config and GMP
-      run: |
-        brew install pkg-config gmp
-    
-    - name: Set up GMP environment variables
-      run: |
-        # Locate the installation prefix for gmp
-        # The prefix is the root directory where the package was installed (e.g., /opt/homebrew)
-        GMP_PREFIX=$(brew --prefix gmp)
-        
-        # Export the necessary environment variables for CMake to find GMP
-        # These variables are standard hints for CMake's FindGMP module
-        echo "GMP_ROOT=$GMP_PREFIX" >> $GITHUB_ENV
-        echo "GMP_INCLUDE_DIR=$GMP_PREFIX/include" >> $GITHUB_ENV
-        echo "GMP_LIBRARY_DIR=$GMP_PREFIX/lib" >> $GITHUB_ENV
-        echo "GMP_PREFIX=$GMP_PREFIX" >> $GITHUB_ENV
-        
-        # Set PKG_CONFIG_PATH to help pkg-config find GMP's .pc files
-        PKG_CONFIG_PATH="$GMP_PREFIX/lib/pkgconfig"
-        if [ -d "$PKG_CONFIG_PATH" ]; then
-          echo "PKG_CONFIG_PATH=$PKG_CONFIG_PATH" >> $GITHUB_ENV
-          echo "Set PKG_CONFIG_PATH=$PKG_CONFIG_PATH"
-        fi
-        
-        # Verify GMP installation
-        echo "GMP installed at: $GMP_PREFIX"
-        echo "GMP include dir: $GMP_PREFIX/include"
-        echo "GMP library dir: $GMP_PREFIX/lib"
-        ls -la $GMP_PREFIX/include/gmp*.h || echo "Warning: GMP headers not found in expected location"
-        ls -la $GMP_PREFIX/lib/libgmp* || echo "Warning: GMP libraries not found in expected location"
-        
-        # Verify pkg-config can find GMP
-        if command -v pkg-config &> /dev/null; then
-          echo "Checking pkg-config for GMP:"
-          pkg-config --modversion gmp || echo "Warning: pkg-config cannot find GMP"
-        fi
-    
-    - name: Configure CMake
-      working-directory: cpp
-      run: |
-        cmake -B build \
-          -DCMAKE_BUILD_TYPE=Release \
-          -DENABLE_STATIC_LINKING=ON
-    
-    - name: Build
-      working-directory: cpp
-      run: cmake --build build --parallel $(sysctl -n hw.ncpu)
-    
-    - name: Test
-      working-directory: cpp
-      run: |
-        cd build
-        ./fracessa --help
-    
-    - name: Upload macOS Binary
-      uses: actions/upload-artifact@v4
-      with:
-        name: fracessa-macos-arm64
-        path: cpp/build/fracessa
-        retention-days: 30
+  # build-macos:
+  #   runs-on: macos-latest
+  #   
+  #   steps:
+  #   - uses: actions/checkout@v4
+  #   
+  #   - name: Install pkg-config and GMP
+  #     run: |
+  #       brew install pkg-config gmp
+  #   
+  #   - name: Set up GMP environment variables
+  #     run: |
+  #       # Locate the installation prefix for gmp
+  #       # The prefix is the root directory where the package was installed (e.g., /opt/homebrew)
+  #       GMP_PREFIX=$(brew --prefix gmp)
+  #       
+  #       # Export the necessary environment variables for CMake to find GMP
+  #       # These variables are standard hints for CMake's FindGMP module
+  #       echo "GMP_ROOT=$GMP_PREFIX" >> $GITHUB_ENV
+  #       echo "GMP_INCLUDE_DIR=$GMP_PREFIX/include" >> $GITHUB_ENV
+  #       echo "GMP_LIBRARY_DIR=$GMP_PREFIX/lib" >> $GITHUB_ENV
+  #       echo "GMP_PREFIX=$GMP_PREFIX" >> $GITHUB_ENV
+  #       
+  #       # Set PKG_CONFIG_PATH to help pkg-config find GMP's .pc files
+  #       PKG_CONFIG_PATH="$GMP_PREFIX/lib/pkgconfig"
+  #       if [ -d "$PKG_CONFIG_PATH" ]; then
+  #         echo "PKG_CONFIG_PATH=$PKG_CONFIG_PATH" >> $GITHUB_ENV
+  #         echo "Set PKG_CONFIG_PATH=$PKG_CONFIG_PATH"
+  #       fi
+  #       
+  #       # Verify GMP installation
+  #       echo "GMP installed at: $GMP_PREFIX"
+  #       echo "GMP include dir: $GMP_PREFIX/include"
+  #       echo "GMP library dir: $GMP_PREFIX/lib"
+  #       ls -la $GMP_PREFIX/include/gmp*.h || echo "Warning: GMP headers not found in expected location"
+  #       ls -la $GMP_PREFIX/lib/libgmp* || echo "Warning: GMP libraries not found in expected location"
+  #       
+  #       # Verify pkg-config can find GMP
+  #       if command -v pkg-config &> /dev/null; then
+  #         echo "Checking pkg-config for GMP:"
+  #         pkg-config --modversion gmp || echo "Warning: pkg-config cannot find GMP"
+  #       fi
+  #   
+  #   - name: Configure CMake
+  #     working-directory: cpp
+  #     run: |
+  #       cmake -B build \
+  #         -DCMAKE_BUILD_TYPE=Release \
+  #         -DENABLE_STATIC_LINKING=ON
+  #   
+  #   - name: Build
+  #     working-directory: cpp
+  #     run: cmake --build build --parallel $(sysctl -n hw.ncpu)
+  #   
+  #   - name: Test
+  #     working-directory: cpp
+  #     run: |
+  #       cd build
+  #       ./fracessa --help
+  #   
+  #   - name: Upload macOS Binary
+  #     uses: actions/upload-artifact@v4
+  #     with:
+  #       name: fracessa-macos-arm64
+  #       path: cpp/build/fracessa
+  #       retention-days: 30
 
   # ============================================================================
   # macOS Build (Universal Binary - ARM64 + x86_64)
@@ -411,7 +411,7 @@ jobs:
   # Upload Release Assets
   # ============================================================================
   upload-release-assets:
-    needs: [build-linux, build-macos, build-macos-universal, build-windows]
+    needs: [build-linux, build-macos-universal, build-windows]
     runs-on: ubuntu-latest
     if: github.event_name == 'release'
     permissions:
@@ -423,12 +423,6 @@ jobs:
       with:
         name: fracessa-linux-x86_64
         path: ./artifacts/linux
-    
-    - name: Download macOS ARM Binary
-      uses: actions/download-artifact@v4
-      with:
-        name: fracessa-macos-arm64
-        path: ./artifacts/macos
     
     - name: Download macOS Universal Binary
       uses: actions/download-artifact@v4
@@ -446,11 +440,9 @@ jobs:
       run: |
         mkdir -p ./release-assets
         cp ./artifacts/linux/fracessa ./release-assets/fracessa-linux-x86_64
-        cp ./artifacts/macos/fracessa ./release-assets/fracessa-macos-arm64
         cp ./artifacts/macos-universal/fracessa ./release-assets/fracessa-macos-universal
         cp ./artifacts/windows/fracessa.exe ./release-assets/fracessa-windows-x86_64.exe
         chmod +x ./release-assets/fracessa-linux-x86_64
-        chmod +x ./release-assets/fracessa-macos-arm64
         chmod +x ./release-assets/fracessa-macos-universal
     
     - name: Upload Release Assets
