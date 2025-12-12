@@ -117,14 +117,20 @@ if(WIN32 OR MSVC OR MINGW OR MSYS)
     endif()
     
     # Add standard GMP locations (MSYS2 package installs to /mingw64)
-    list(APPEND GMP_SEARCH_PATHS
+    # Prioritize MSYS2/MinGW paths where pacman installs GMP
+    list(INSERT GMP_SEARCH_PATHS 0
         "C:/msys64/mingw64/include"
+    )
+    list(INSERT GMP_LIB_SEARCH_PATHS 0
+        "C:/msys64/mingw64/lib"
+    )
+    # Add other fallback paths
+    list(APPEND GMP_SEARCH_PATHS
         "C:/gmp-install/include"
         "C:/Program Files/gmp/include"
         "C:/gmp/include"
     )
     list(APPEND GMP_LIB_SEARCH_PATHS
-        "C:/msys64/mingw64/lib"
         "C:/gmp-install/lib"
         "C:/Program Files/gmp/lib"
         "C:/gmp/lib"
