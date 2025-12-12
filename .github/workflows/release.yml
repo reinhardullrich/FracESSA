@@ -114,11 +114,12 @@ jobs:
         retention-days: 30
 
   # ============================================================================
-  # macOS Build (Intel/x86_64)
+  # macOS Build (Universal Binary - ARM64 + x86_64)
   # ============================================================================
-  build-macos-intel:
-    # Use macos-12 for an older runner that defaults to x86_64
-    runs-on: macos-12 
+  build-macos-universal:
+    # Build universal binary on macos-latest (Apple Silicon runner)
+    # Universal binary works on both Intel and Apple Silicon Macs
+    runs-on: macos-latest 
     
     steps:
     - uses: actions/checkout@v4
@@ -153,12 +154,12 @@ jobs:
     - name: Configure CMake
       working-directory: cpp
       run: |
-        # Explicitly set the target architecture to x86_64 for maximum compatibility 
-        # on the macos-12 runner.
+        # Build universal binary with both ARM64 and x86_64 architectures
+        # This creates a single binary that works on both Intel and Apple Silicon Macs
         cmake -B build \
           -DCMAKE_BUILD_TYPE=Release \
           -DENABLE_STATIC_LINKING=ON \
-          -DCMAKE_OSX_ARCHITECTURES="x86_64"  # Crucial for Intel target
+          -DCMAKE_OSX_ARCHITECTURES="arm64;x86_64"  # Universal binary
     
     - name: Build
       working-directory: cpp
@@ -168,14 +169,15 @@ jobs:
       working-directory: cpp
       run: |
         cd build
-        # Check architecture to confirm it's x86_64
+        # Check architecture to confirm it's a universal binary
         file fracessa
+        # Test on native architecture (ARM64 on Apple Silicon runner)
         ./fracessa --help
     
-    - name: Upload macOS Intel Binary
+    - name: Upload macOS Universal Binary
       uses: actions/upload-artifact@v4
       with:
-        name: fracessa-macos-x86_64
+        name: fracessa-macos-universal
         path: cpp/build/fracessa
         retention-days: 30
 
@@ -409,7 +411,7 @@ jobs:
   # Upload Release Assets
   # ============================================================================
   upload-release-assets:
-    needs: [build-linux, build-macos, build-macos-intel, build-windows]
+    needs: [build-linux, build-macos, build-macos-universal, build-windows]
     runs-on: ubuntu-latest
     if: github.event_name == 'release'
     permissions:
@@ -428,11 +430,11 @@ jobs:
         name: fracessa-macos-arm64
         path: ./artifacts/macos
     
-    - name: Download macOS Intel Binary
+    - name: Download macOS Universal Binary
       uses: actions/download-artifact@v4
       with:
-        name: fracessa-macos-x86_64
-        path: ./artifacts/macos-intel
+        name: fracessa-macos-universal
+        path: ./artifacts/macos-universal
     
     - name: Download Windows Binary
       uses: actions/download-artifact@v4
@@ -445,11 +447,11 @@ jobs:
         mkdir -p ./release-assets
         cp ./artifacts/linux/fracessa ./release-assets/fracessa-linux-x86_64
         cp ./artifacts/macos/fracessa ./release-assets/fracessa-macos-arm64
-        cp ./artifacts/macos-intel/fracessa ./release-assets/fracessa-macos-x86_64
+        cp ./artifacts/macos-universal/fracessa ./release-assets/fracessa-macos-universal
         cp ./artifacts/windows/fracessa.exe ./release-assets/fracessa-windows-x86_64.exe
         chmod +x ./release-assets/fracessa-linux-x86_64
         chmod +x ./release-assets/fracessa-macos-arm64
-        chmod +x ./release-assets/fracessa-macos-x86_64
+        chmod +x ./release-assets/fracessa-macos-universal
     
     - name: Upload Release Assets
       uses: softprops/action-gh-release@v2
