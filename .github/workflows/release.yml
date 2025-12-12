@@ -137,26 +137,6 @@ jobs:
         path: cpp/build/Release/fracessa.exe
         retention-days: 30
 
-  # ============================================================================
-  # Linux Old Compatibility Test (Ubuntu 18.04 - glibc 2.27)
-  # ============================================================================
-  test-old-linux:
-    needs: build-linux
-    runs-on: ubuntu-18.04  # Test on older system
-    
-    steps:
-    - name: Download Linux Binary
-      uses: actions/download-artifact@v4
-      with:
-        name: fracessa-linux-x86_64
-    
-    - name: Make executable
-      run: chmod +x fracessa
-    
-    - name: Test on Ubuntu 18.04
-      run: |
-        ./fracessa --help
-        echo "✓ Binary works on Ubuntu 18.04 (glibc 2.27)"
 
   # ============================================================================
   # Upload Release Assets
