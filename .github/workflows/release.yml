@@ -60,6 +60,15 @@ jobs:
     - name: Install GMP
       run: brew install gmp
     
+    - name: Set GMP path for CMake
+      run: |
+        brew update
+        GMP_ROOT=$(brew --prefix gmp)
+        echo "GMP_ROOT=${GMP_ROOT}" >> $GITHUB_ENV
+        echo "GMP_INCLUDE_DIR=${GMP_ROOT}/include" >> $GITHUB_ENV
+        echo "GMP_LIBRARY_DIR=${GMP_ROOT}/lib" >> $GITHUB_ENV
+      shell: bash
+    
     - name: Configure CMake
       working-directory: cpp
       run: |
