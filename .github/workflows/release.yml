@@ -200,23 +200,45 @@ jobs:
       shell: msys2 {0}
       run: |
         echo "Verifying GMP installation in MSYS2..."
-        if [ -f "/mingw64/include/gmp.h" ]; then
-          echo "Found: /mingw64/include/gmp.h"
+        # Convert MSYS2 paths to Windows paths for output
+        GMP_H_PATH="/mingw64/include/gmp.h"
+        GMPXX_H_PATH="/mingw64/include/gmpxx.h"
+        
+        if [ -f "$GMP_H_PATH" ]; then
+          # Get full Windows path using cygpath
+          WIN_PATH=$(cygpath -w "$GMP_H_PATH" 2>/dev/null || echo "C:/msys64$GMP_H_PATH")
+          echo "Found: $WIN_PATH"
         else
-          echo "Error: gmp.h not found at /mingw64/include/gmp.h"
+          WIN_PATH=$(cygpath -w "$GMP_H_PATH" 2>/dev/null || echo "C:/msys64$GMP_H_PATH")
+          echo "Error: gmp.h not found at $WIN_PATH"
           echo "Checking /mingw64/include directory:"
           ls -la /mingw64/include/ | head -20
           exit 1
         fi
-        if [ -f "/mingw64/include/gmpxx.h" ]; then
-          echo "Found: /mingw64/include/gmpxx.h"
+        if [ -f "$GMPXX_H_PATH" ]; then
+          # Get full Windows path using cygpath
+          WIN_PATH=$(cygpath -w "$GMPXX_H_PATH" 2>/dev/null || echo "C:/msys64$GMPXX_H_PATH")
+          echo "Found: $WIN_PATH"
         else
-          echo "Error: gmpxx.h not found at /mingw64/include/gmpxx.h"
+          WIN_PATH=$(cygpath -w "$GMPXX_H_PATH" 2>/dev/null || echo "C:/msys64$GMPXX_H_PATH")
+          echo "Error: gmpxx.h not found at $WIN_PATH"
           exit 1
         fi
         echo "Checking for GMP libraries..."
-        ls -la /mingw64/lib/*gmp*.a || echo "No static libraries found, checking for .dll.a:"
-        ls -la /mingw64/lib/*gmp*.dll.a || echo "No .dll.a files found"
+        echo "Static libraries (.a files):"
+        for lib in /mingw64/lib/*gmp*.a; do
+          if [ -f "$lib" ] && [[ ! "$lib" =~ \.dll\.a$ ]]; then
+            WIN_PATH=$(cygpath -w "$lib" 2>/dev/null || echo "C:/msys64$lib")
+            ls -lh "$lib" | awk -v path="$WIN_PATH" '{print path " (" $5 ")"}'
+          fi
+        done
+        echo "Import libraries (.dll.a files):"
+        for lib in /mingw64/lib/*gmp*.dll.a; do
+          if [ -f "$lib" ]; then
+            WIN_PATH=$(cygpath -w "$lib" 2>/dev/null || echo "C:/msys64$lib")
+            ls -lh "$lib" | awk -v path="$WIN_PATH" '{print path " (" $5 ")"}'
+          fi
+        done
         echo "GMP verification complete"
     
     - name: Configure CMake
