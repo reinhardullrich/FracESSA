@@ -133,65 +133,41 @@ jobs:
           mingw-w64-x86_64-libtool
           mingw-w64-x86_64-pkg-config
     
-    - name: Download and Extract GMP from MSYS2 mirror
+    - name: Install GMP from MSYS2 repository
       run: |
-        $GMP_PKG_URL="https://mirror.msys2.org/mingw/mingw64/mingw-w64-x86_64-gmp-6.3.0-2-any.pkg.tar.zst"
-        $TEMP_DIR="$env:RUNNER_TEMP/gmp-extract"
-        $ZST_FILE="$TEMP_DIR/gmp.pkg.tar.zst"
-        $TAR_FILE="$TEMP_DIR/gmp.pkg.tar"
-        $EXTRACT_DIR="$TEMP_DIR/extracted"
+        # Use pacman via bash to install GMP in MSYS2 environment
+        C:\msys64\usr\bin\bash.exe -lc "pacman -Syu --noconfirm mingw-w64-x86_64-gmp"
+        echo "GMP installed from MSYS2 repository"
+      shell: cmd
+    
+    - name: Verify GMP installation (dynamic libraries)
+      run: |
         $GMP_ROOT="C:/msys64/mingw64"
         
-        # Create temp directory
-        New-Item -ItemType Directory -Force -Path $TEMP_DIR | Out-Null
-        New-Item -ItemType Directory -Force -Path $EXTRACT_DIR | Out-Null
-        
-        # Download the .zst package
-        echo "Downloading GMP package from MSYS2 mirror..."
-        Invoke-WebRequest -Uri $GMP_PKG_URL -OutFile $ZST_FILE
-        
-        # Extract .zst to .tar using MSYS2 zstd
-        echo "Extracting .zst file..."
-        C:\msys64\usr\bin\bash.exe -lc "zstd -d '$ZST_FILE' -o '$TAR_FILE'"
-        
-        # Extract .tar archive using MSYS2 tar
-        echo "Extracting .tar archive..."
-        C:\msys64\usr\bin\bash.exe -lc "cd '$EXTRACT_DIR' && tar -xf '$TAR_FILE'"
-        
-        # Copy library files to MSYS2 lib directory
-        echo "Copying GMP libraries to $GMP_ROOT/lib..."
-        $LIB_SRC="$EXTRACT_DIR/mingw64/lib"
-        if (Test-Path $LIB_SRC) {
-          New-Item -ItemType Directory -Force -Path "$GMP_ROOT/lib" | Out-Null
-          Copy-Item "$LIB_SRC/*gmp*.a" "$GMP_ROOT/lib/" -Force
-          echo "Libraries copied successfully"
+        echo "Verifying GMP installation (dynamic linking)..."
+        # Check for import libraries (.dll.a files)
+        if (Test-Path "$GMP_ROOT/lib/libgmp.dll.a") {
+          echo "✓ libgmp.dll.a found (import library)"
         } else {
-          echo "Warning: mingw64/lib directory not found in extracted package"
+          echo "✗ libgmp.dll.a NOT found"
         }
-        
-        # Copy header files to MSYS2 include directory
-        echo "Copying GMP headers to $GMP_ROOT/include..."
-        $INCLUDE_SRC="$EXTRACT_DIR/mingw64/include"
-        if (Test-Path $INCLUDE_SRC) {
-          New-Item -ItemType Directory -Force -Path "$GMP_ROOT/include" | Out-Null
-          Copy-Item "$INCLUDE_SRC/gmp*.h" "$GMP_ROOT/include/" -Force
-          echo "Headers copied successfully"
+        if (Test-Path "$GMP_ROOT/lib/libgmpxx.dll.a") {
+          echo "✓ libgmpxx.dll.a found (import library)"
         } else {
-          echo "Warning: mingw64/include directory not found in extracted package"
+          echo "✗ libgmpxx.dll.a NOT found"
         }
-        
-        # Verify installation
-        echo "Verifying GMP installation..."
-        if (Test-Path "$GMP_ROOT/lib/libgmp.a") {
-          echo "✓ libgmp.a found"
+        # Check for DLL files
+        if (Test-Path "$GMP_ROOT/bin/libgmp-10.dll") {
+          echo "✓ libgmp-10.dll found"
         } else {
-          echo "✗ libgmp.a NOT found"
+          echo "✗ libgmp-10.dll NOT found"
         }
-        if (Test-Path "$GMP_ROOT/lib/libgmpxx.a") {
-          echo "✓ libgmpxx.a found"
+        if (Test-Path "$GMP_ROOT/bin/libgmpxx-4.dll") {
+          echo "✓ libgmpxx-4.dll found"
         } else {
-          echo "✗ libgmpxx.a NOT found"
+          echo "✗ libgmpxx-4.dll NOT found"
         }
+        # Check for headers
         if (Test-Path "$GMP_ROOT/include/gmp.h") {
           echo "✓ gmp.h found"
         } else {
@@ -202,8 +178,6 @@ jobs:
         } else {
           echo "✗ gmpxx.h NOT found"
         }
-        
-        echo "GMP installed from MSYS2 mirror package"
       shell: powershell
     
     - name: Add MinGW bin directory to PATH
@@ -275,9 +249,10 @@ jobs:
         
         # Run the CMake command, correctly substituting the variables and 
         # using explicit arguments to bypass faulty FindGMP logic.
+        # Windows uses dynamic linking (import libraries .dll.a files)
         cmake -B build `
           -DCMAKE_BUILD_TYPE=Release `
-          -DENABLE_STATIC_LINKING=ON `
+          -DENABLE_STATIC_LINKING=OFF `
           -G "MinGW Makefiles" `
           # Use PowerShell's expansion ${variable} inside the string
           # We explicitly tell CMake where to look for the compilers
@@ -287,10 +262,10 @@ jobs:
           -DGMP_ROOT="${GMP_ROOT}" `
           -DGMP_INCLUDE_DIR="${GMP_ROOT}/include" `
           -DGMP_LIBRARY_DIR="${GMP_ROOT}/lib" `
-          # Force search for the *exact* library file names
-          -DGMP_LIB="${GMP_ROOT}/lib/libgmp.a" `
-          -DGMPXX_LIB="${GMP_ROOT}/lib/libgmpxx.a" `
-          -DGMP_LIBRARIES="${GMP_ROOT}/lib/libgmp.a;${GMP_ROOT}/lib/libgmpxx.a" `
+          # Force search for the *exact* library file names (import libraries for dynamic linking)
+          -DGMP_LIB="${GMP_ROOT}/lib/libgmp.dll.a" `
+          -DGMPXX_LIB="${GMP_ROOT}/lib/libgmpxx.dll.a" `
+          -DGMP_LIBRARIES="${GMP_ROOT}/lib/libgmp.dll.a;${GMP_ROOT}/lib/libgmpxx.dll.a" `
           -DGMP_FOUND=TRUE
       shell: powershell
     

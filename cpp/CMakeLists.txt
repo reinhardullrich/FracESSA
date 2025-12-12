@@ -187,24 +187,24 @@ if(WIN32 OR MSVC OR MINGW OR MSYS)
             find_path(GMP_INCLUDE_DIR NAMES gmpxx.h gmp.h) # Fallback
         endif()
         
-        # Search for libraries (Windows/MinGW uses .a files for static libraries)
-        # Try both .a (static) and .lib (import library) extensions
+        # Search for libraries (Windows/MinGW uses .dll.a files for dynamic linking)
+        # Prioritize .dll.a (import libraries) for dynamic linking, fallback to .a (static)
         find_library(GMP_LIB 
-            NAMES gmp libgmp gmp.a libgmp.a gmp.lib libgmp.lib
+            NAMES libgmp.dll.a gmp.dll.a libgmp gmp libgmp.a gmp.a gmp.lib libgmp.lib
             PATHS ${GMP_LIB_SEARCH_PATHS} 
             NO_DEFAULT_PATH
         )
         if(NOT GMP_LIB)
-            find_library(GMP_LIB NAMES gmp libgmp gmp.a libgmp.a gmp.lib libgmp.lib)
+            find_library(GMP_LIB NAMES libgmp.dll.a gmp.dll.a libgmp gmp libgmp.a gmp.a gmp.lib libgmp.lib)
         endif()
         
         find_library(GMPXX_LIB 
-            NAMES gmpxx libgmpxx gmpxx.a libgmpxx.a gmpxx.lib libgmpxx.lib
+            NAMES libgmpxx.dll.a gmpxx.dll.a libgmpxx gmpxx libgmpxx.a gmpxx.a gmpxx.lib libgmpxx.lib
             PATHS ${GMP_LIB_SEARCH_PATHS} 
             NO_DEFAULT_PATH
         )
         if(NOT GMPXX_LIB)
-            find_library(GMPXX_LIB NAMES gmpxx libgmpxx gmpxx.a libgmpxx.a gmpxx.lib libgmpxx.lib)
+            find_library(GMPXX_LIB NAMES libgmpxx.dll.a gmpxx.dll.a libgmpxx gmpxx libgmpxx.a gmpxx.a gmpxx.lib libgmpxx.lib)
         endif()
         
         if(GMP_INCLUDE_DIR AND GMP_LIB AND GMPXX_LIB)
