@@ -146,6 +146,17 @@ jobs:
     - name: Build GMP from source
       shell: msys2 {0}
       run: |
+        # Set up MinGW64 environment
+        export PATH="/mingw64/bin:$PATH"
+        export CC="/mingw64/bin/gcc.exe"
+        export CXX="/mingw64/bin/g++.exe"
+        
+        # Verify compiler is available
+        echo "Checking compiler..."
+        which gcc || echo "gcc not in PATH"
+        gcc --version || echo "gcc not working"
+        /mingw64/bin/gcc.exe --version || echo "MinGW gcc not found"
+        
         cd /tmp/gmp-6.3.0
         # Check if configure script already exists
         if [ -f "./configure" ]; then
@@ -180,10 +191,10 @@ jobs:
           fi
         fi
         
-        echo "Running configure..."
-        ./configure --prefix=/c/gmp-install --enable-cxx --enable-static --disable-shared || {
+        echo "Running configure with explicit compiler..."
+        CC=/mingw64/bin/gcc.exe CXX=/mingw64/bin/g++.exe ./configure --prefix=/c/gmp-install --enable-cxx --enable-static --disable-shared || {
           echo "Configure failed, showing config.log:"
-          cat config.log | tail -50
+          cat config.log | tail -100
           exit 1
         }
         echo "Building GMP..."
