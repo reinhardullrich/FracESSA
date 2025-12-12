@@ -1,0 +1,147 @@
+name: Build
+
+on:
+  push:
+    branches: [ main, develop ]
+  pull_request:
+    branches: [ main ]
+
+jobs:
+  # ============================================================================
+  # Linux Build (Ubuntu 20.04 for glibc 2.31 compatibility)
+  # ============================================================================
+  build-linux:
+    runs-on: ubuntu-20.04  # glibc 2.31 - works on most systems from 2020+
+    
+    steps:
+    - uses: actions/checkout@v4
+    
+    - name: Install GMP
+      run: |
+        sudo apt-get update
+        sudo apt-get install -y libgmp-dev libgmpxx4ldbl
+    
+    - name: Configure CMake
+      working-directory: fracessa
+      run: |
+        cmake -B build \
+          -DCMAKE_BUILD_TYPE=Release \
+          -DENABLE_STATIC_LINKING=ON
+    
+    - name: Build
+      working-directory: fracessa
+      run: cmake --build build --parallel $(nproc)
+    
+    - name: Test
+      working-directory: fracessa
+      run: |
+        cd build
+        ./fracessa --help
+    
+    - name: Upload Linux Binary
+      uses: actions/upload-artifact@v4
+      with:
+        name: fracessa-linux-x86_64
+        path: fracessa/build/fracessa
+        retention-days: 30
+
+  # ============================================================================
+  # macOS Build
+  # ============================================================================
+  build-macos:
+    runs-on: macos-latest
+    
+    steps:
+    - uses: actions/checkout@v4
+    
+    - name: Install GMP
+      run: brew install gmp
+    
+    - name: Configure CMake
+      working-directory: fracessa
+      run: |
+        cmake -B build \
+          -DCMAKE_BUILD_TYPE=Release \
+          -DENABLE_STATIC_LINKING=ON
+    
+    - name: Build
+      working-directory: fracessa
+      run: cmake --build build --parallel $(sysctl -n hw.ncpu)
+    
+    - name: Test
+      working-directory: fracessa
+      run: |
+        cd build
+        ./fracessa --help
+    
+    - name: Upload macOS Binary
+      uses: actions/upload-artifact@v4
+      with:
+        name: fracessa-macos-arm64
+        path: fracessa/build/fracessa
+        retention-days: 30
+
+  # ============================================================================
+  # Windows Build with vcpkg
+  # ============================================================================
+  build-windows:
+    runs-on: windows-latest
+    
+    steps:
+    - uses: actions/checkout@v4
+    
+    - name: Setup vcpkg
+      uses: lukka/run-vcpkg@v11
+      with:
+        vcpkgGitCommitId: 'a42af01b72c28a8e1d7b48107b33e4f286a55ef6'  # Latest stable
+    
+    - name: Install GMP via vcpkg
+      run: |
+        vcpkg install gmp:x64-windows-static gmpxx:x64-windows-static
+    
+    - name: Configure CMake
+      working-directory: fracessa
+      run: |
+        cmake -B build `
+          -DCMAKE_BUILD_TYPE=Release `
+          -DENABLE_STATIC_LINKING=ON `
+          -DCMAKE_TOOLCHAIN_FILE="${env:VCPKG_ROOT}/scripts/buildsystems/vcpkg.cmake" `
+          -DVCPKG_TARGET_TRIPLET=x64-windows-static
+    
+    - name: Build
+      working-directory: fracessa
+      run: cmake --build build --config Release --parallel
+    
+    - name: Test
+      working-directory: fracessa
+      run: |
+        cd build/Release
+        ./fracessa.exe --help
+    
+    - name: Upload Windows Binary
+      uses: actions/upload-artifact@v4
+      with:
+        name: fracessa-windows-x86_64
+        path: fracessa/build/Release/fracessa.exe
+        retention-days: 30
+
+  # ============================================================================
+  # Linux Old Compatibility Test (Ubuntu 18.04 - glibc 2.27)
+  # ============================================================================
+  test-old-linux:
+    needs: build-linux
+    runs-on: ubuntu-18.04  # Test on older system
+    
+    steps:
+    - name: Download Linux Binary
+      uses: actions/download-artifact@v4
+      with:
+        name: fracessa-linux-x86_64
+    
+    - name: Make executable
+      run: chmod +x fracessa
+    
+    - name: Test on Ubuntu 18.04
+      run: |
+        ./fracessa --help
+        echo "✓ Binary works on Ubuntu 18.04 (glibc 2.27)"
