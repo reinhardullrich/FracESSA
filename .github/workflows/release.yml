@@ -58,16 +58,24 @@ jobs:
     - uses: actions/checkout@v4
     
     - name: Install GMP
-      run: brew install gmp
-    
-    - name: Set GMP path for CMake
       run: |
-        brew update
-        GMP_ROOT=$(brew --prefix gmp)
-        echo "GMP_ROOT=${GMP_ROOT}" >> $GITHUB_ENV
-        echo "GMP_INCLUDE_DIR=${GMP_ROOT}/include" >> $GITHUB_ENV
-        echo "GMP_LIBRARY_DIR=${GMP_ROOT}/lib" >> $GITHUB_ENV
-      shell: bash
+        brew install gmp
+        
+        # Locate the installation prefix for gmp
+        # The prefix is the root directory where the package was installed (e.g., /opt/homebrew)
+        GMP_PREFIX=$(brew --prefix gmp)
+        
+        # Export the necessary environment variables for CMake to find GMP
+        # These variables are standard hints for CMake's FindGMP module
+        echo "GMP_ROOT=$GMP_PREFIX" >> $GITHUB_ENV
+        echo "GMP_INCLUDE_DIR=$GMP_PREFIX/include" >> $GITHUB_ENV
+        echo "GMP_LIBRARY_DIR=$GMP_PREFIX/lib" >> $GITHUB_ENV
+        echo "GMP_PREFIX=$GMP_PREFIX" >> $GITHUB_ENV
+        
+        # Verify GMP installation
+        echo "GMP installed at: $GMP_PREFIX"
+        echo "GMP include dir: $GMP_PREFIX/include"
+        ls -la $GMP_PREFIX/include/gmp*.h || echo "Warning: GMP headers not found in expected location"
     
     - name: Configure CMake
       working-directory: cpp
