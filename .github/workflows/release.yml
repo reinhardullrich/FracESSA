@@ -140,6 +140,13 @@ jobs:
         echo "GMP installed from MSYS2 repository"
       shell: cmd
     
+    - name: Add MinGW bin directory to PATH
+      run: |
+        # Add MinGW bin directory to PATH so CMake can find gcc.exe and g++.exe
+        echo "C:\msys64\mingw64\bin" | Out-File -FilePath $env:GITHUB_PATH -Encoding utf8 -Append
+        echo "Added C:\msys64\mingw64\bin to PATH"
+      shell: powershell
+    
     - name: Set GMP paths for CMake
       run: |
         echo "GMP_ROOT=C:/msys64/mingw64" >> $env:GITHUB_ENV
@@ -175,12 +182,17 @@ jobs:
     - name: Configure CMake
       working-directory: cpp
       run: |
+        echo "Running CMake with MinGW compiler in PATH"
+        # Verify compilers are in PATH
+        where.exe gcc.exe
+        where.exe g++.exe
         cmake -B build `
           -DCMAKE_BUILD_TYPE=Release `
           -DENABLE_STATIC_LINKING=ON `
-          -G "MinGW Makefiles" `
-          -DCMAKE_C_COMPILER="C:/msys64/mingw64/bin/gcc.exe" `
-          -DCMAKE_CXX_COMPILER="C:/msys64/mingw64/bin/g++.exe"
+          -G "MinGW Makefiles"
+        # Note: Do NOT explicitly set CMAKE_C_COMPILER or CMAKE_CXX_COMPILER
+        # Let CMake find them in the PATH
+      shell: powershell
     
     - name: Build
       working-directory: cpp
