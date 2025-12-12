@@ -5,6 +5,8 @@ on:
     branches: [ main, develop ]
   pull_request:
     branches: [ main ]
+  release:
+    types: [ created ]
 
 jobs:
   # ============================================================================
@@ -145,3 +147,47 @@ jobs:
       run: |
         ./fracessa --help
         echo "✓ Binary works on Ubuntu 18.04 (glibc 2.27)"
+
+  # ============================================================================
+  # Upload Release Assets
+  # ============================================================================
+  upload-release-assets:
+    needs: [build-linux, build-macos, build-windows]
+    runs-on: ubuntu-latest
+    if: github.event_name == 'release'
+    
+    steps:
+    - name: Download Linux Binary
+      uses: actions/download-artifact@v4
+      with:
+        name: fracessa-linux-x86_64
+        path: ./artifacts/linux
+    
+    - name: Download macOS Binary
+      uses: actions/download-artifact@v4
+      with:
+        name: fracessa-macos-arm64
+        path: ./artifacts/macos
+    
+    - name: Download Windows Binary
+      uses: actions/download-artifact@v4
+      with:
+        name: fracessa-windows-x86_64
+        path: ./artifacts/windows
+    
+    - name: Prepare Release Assets
+      run: |
+        mkdir -p ./release-assets
+        cp ./artifacts/linux/fracessa ./release-assets/fracessa-linux-x86_64
+        cp ./artifacts/macos/fracessa ./release-assets/fracessa-macos-arm64
+        cp ./artifacts/windows/fracessa.exe ./release-assets/fracessa-windows-x86_64.exe
+        chmod +x ./release-assets/fracessa-linux-x86_64
+        chmod +x ./release-assets/fracessa-macos-arm64
+    
+    - name: Upload Release Assets
+      uses: softprops/action-gh-release@v1
+      with:
+        files: ./release-assets/*
+        tag_name: ${{ github.event.release.tag_name }}
+      env:
+        GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
