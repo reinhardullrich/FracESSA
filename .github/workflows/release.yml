@@ -44,7 +44,7 @@ jobs:
         retention-days: 30
 
   # ============================================================================
-  # macOS Build (ARM64 only) - COMMENTED OUT: Using universal binary instead
+  # macOS Build (ARM64 only - COMMENTED OUT, using universal binary instead)
   # ============================================================================
   # build-macos:
   #   runs-on: macos-latest
@@ -119,14 +119,16 @@ jobs:
   build-macos-universal:
     # Build universal binary on macos-latest (Apple Silicon runner)
     # Universal binary works on both Intel and Apple Silicon Macs
+    # Strategy: Build separately for each architecture, then combine with lipo
+    # This avoids GMP architecture mismatch issues
     runs-on: macos-latest 
     
     steps:
     - uses: actions/checkout@v4
     
-    - name: Install pkg-config and GMP
+    - name: Install pkg-config, GMP, and build tools
       run: |
-        brew install pkg-config gmp
+        brew install pkg-config gmp autoconf automake libtool
     
     - name: Set up GMP environment variables
       run: |
@@ -151,26 +153,111 @@ jobs:
         echo "GMP include dir: $GMP_PREFIX/include"
         echo "GMP library dir: $GMP_PREFIX/lib"
     
-    - name: Configure CMake
+    - name: Build ARM64 version
       working-directory: cpp
       run: |
-        # Build universal binary with both ARM64 and x86_64 architectures
-        # This creates a single binary that works on both Intel and Apple Silicon Macs
-        cmake -B build \
+        # Build for ARM64 (native architecture on Apple Silicon runner)
+        cmake -B build-arm64 \
           -DCMAKE_BUILD_TYPE=Release \
           -DENABLE_STATIC_LINKING=ON \
-          -DCMAKE_OSX_ARCHITECTURES="arm64;x86_64"  # Universal binary
+          -DCMAKE_OSX_ARCHITECTURES=arm64
+        cmake --build build-arm64 --parallel $(sysctl -n hw.ncpu)
     
-    - name: Build
+    - name: Build x86_64 GMP from source
+      run: |
+        # Build GMP from source for x86_64 architecture
+        # This is necessary because Homebrew's GMP is ARM64-only on Apple Silicon runners
+        GMP_VERSION="6.3.0"
+        GMP_INSTALL_PREFIX="$HOME/gmp-x86_64"
+        
+        echo "Building GMP $GMP_VERSION for x86_64..."
+        
+        # Download GMP source from GitHub mirror (more reliable than gmplib.org)
+        cd /tmp
+        if [ -d "gmp-6.3" ]; then
+          rm -rf gmp-6.3
+        fi
+        git clone --depth 1 --branch gmp-6.3.0 https://github.com/gmp-mirror/gmp-6.3.git gmp-6.3 || \
+        git clone --depth 1 https://github.com/gmp-mirror/gmp-6.3.git gmp-6.3 || \
+        { echo "Failed to clone GMP source from GitHub"; exit 1; }
+        cd gmp-6.3
+        
+        # Bootstrap if configure script doesn't exist
+        if [ ! -f "./configure" ]; then
+          echo "Running bootstrap to generate configure script..."
+          ./bootstrap || ./autogen.sh || sh .bootstrap || {
+            # If bootstrap scripts don't exist, try autotools
+            autoreconf -fiv || autoconf || {
+              echo "Failed to generate configure script"
+              exit 1
+            }
+          }
+        fi
+        
+        # Configure and build for x86_64
+        # Use arch -x86_64 to run under Rosetta 2
+        arch -x86_64 ./configure \
+          --prefix="$GMP_INSTALL_PREFIX" \
+          --enable-cxx \
+          --host=x86_64-apple-darwin \
+          CFLAGS="-arch x86_64" \
+          CXXFLAGS="-arch x86_64" \
+          LDFLAGS="-arch x86_64" || {
+          echo "Configure failed, trying without explicit host..."
+          arch -x86_64 ./configure \
+            --prefix="$GMP_INSTALL_PREFIX" \
+            --enable-cxx \
+            CFLAGS="-arch x86_64" \
+            CXXFLAGS="-arch x86_64" \
+            LDFLAGS="-arch x86_64"
+        }
+        
+        # Build and install
+        arch -x86_64 make -j$(sysctl -n hw.ncpu)
+        arch -x86_64 make install
+        
+        # Export path for x86_64 build
+        echo "GMP_X86_64_ROOT=$GMP_INSTALL_PREFIX" >> $GITHUB_ENV
+        echo "x86_64 GMP installed at: $GMP_INSTALL_PREFIX"
+    
+    - name: Build x86_64 version
       working-directory: cpp
-      run: cmake --build build --parallel $(sysctl -n hw.ncpu)
+      run: |
+        # Build for x86_64 (runs under Rosetta 2 on Apple Silicon runner)
+        # Use the x86_64 GMP we just built
+        X86_64_GMP_ROOT="$GMP_X86_64_ROOT"
+        if [ -z "$X86_64_GMP_ROOT" ]; then
+          X86_64_GMP_ROOT="$HOME/gmp-x86_64"
+        fi
+        
+        echo "Building x86_64 version with GMP from: $X86_64_GMP_ROOT"
+        
+        # Build for x86_64 architecture
+        cmake -B build-x86_64 \
+          -DCMAKE_BUILD_TYPE=Release \
+          -DENABLE_STATIC_LINKING=ON \
+          -DCMAKE_OSX_ARCHITECTURES=x86_64 \
+          -DGMP_ROOT="$X86_64_GMP_ROOT" \
+          -DGMP_INCLUDE_DIR="$X86_64_GMP_ROOT/include" \
+          -DGMP_LIBRARY_DIR="$X86_64_GMP_ROOT/lib"
+        cmake --build build-x86_64 --parallel $(sysctl -n hw.ncpu)
+    
+    - name: Create universal binary with lipo
+      working-directory: cpp
+      run: |
+        # Combine both architectures into a universal binary
+        mkdir -p build
+        lipo -create build-arm64/fracessa build-x86_64/fracessa -output build/fracessa
+        
+        # Verify the universal binary
+        echo "Universal binary info:"
+        lipo -info build/fracessa
+        file build/fracessa
     
     - name: Test
       working-directory: cpp
       run: |
         cd build
-        # Check architecture to confirm it's a universal binary
-        file fracessa
         # Test on native architecture (ARM64 on Apple Silicon runner)
         ./fracessa --help
     
