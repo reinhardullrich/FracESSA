@@ -160,36 +160,44 @@ if(WIN32 OR MSVC OR MINGW OR MSYS)
     endif()
     
     # Search for libraries (Windows uses .lib files)
+    # On Windows, we use MPIR (MPIR is a GMP-compatible alternative that builds successfully)
+    # MPIR provides the same headers (gmp.h, gmpxx.h) but libraries are named mpir/mpirxx
+    # Try MPIR first (preferred on Windows), then fall back to GMP
     find_library(GMP_LIB 
-        NAMES gmp libgmp gmp.lib libgmp.lib
+        NAMES mpir libmpir mpir.lib libmpir.lib gmp libgmp gmp.lib libgmp.lib
         PATHS ${GMP_LIB_SEARCH_PATHS} 
         NO_DEFAULT_PATH
     )
     if(NOT GMP_LIB)
-        find_library(GMP_LIB NAMES gmp libgmp gmp.lib libgmp.lib)
+        find_library(GMP_LIB NAMES mpir libmpir mpir.lib libmpir.lib gmp libgmp gmp.lib libgmp.lib)
     endif()
     
     find_library(GMPXX_LIB 
-        NAMES gmpxx libgmpxx gmpxx.lib libgmpxx.lib
+        NAMES mpirxx libmpirxx mpirxx.lib libmpirxx.lib gmpxx libgmpxx gmpxx.lib libgmpxx.lib
         PATHS ${GMP_LIB_SEARCH_PATHS} 
         NO_DEFAULT_PATH
     )
     if(NOT GMPXX_LIB)
-        find_library(GMPXX_LIB NAMES gmpxx libgmpxx gmpxx.lib libgmpxx.lib)
+        find_library(GMPXX_LIB NAMES mpirxx libmpirxx mpirxx.lib libmpirxx.lib gmpxx libgmpxx gmpxx.lib libgmpxx.lib)
     endif()
     
     if(GMP_INCLUDE_DIR AND GMP_LIB AND GMPXX_LIB)
         set(GMP_FOUND TRUE)
         set(GMP_LIBRARIES ${GMP_LIB} ${GMPXX_LIB})
-        message(STATUS "Found GMP on Windows:")
+        # Check if we're using MPIR or GMP
+        if(GMP_LIB MATCHES "mpir")
+            message(STATUS "Found MPIR on Windows (GMP-compatible):")
+        else()
+            message(STATUS "Found GMP on Windows:")
+        endif()
         message(STATUS "  Include: ${GMP_INCLUDE_DIR}")
-        message(STATUS "  GMP lib: ${GMP_LIB}")
-        message(STATUS "  GMPXX lib: ${GMPXX_LIB}")
+        message(STATUS "  Library: ${GMP_LIB}")
+        message(STATUS "  C++ Library: ${GMPXX_LIB}")
     else()
-        message(STATUS "GMP detection failed:")
+        message(STATUS "GMP/MPIR detection failed:")
         message(STATUS "  Include dir: ${GMP_INCLUDE_DIR}")
-        message(STATUS "  GMP lib: ${GMP_LIB}")
-        message(STATUS "  GMPXX lib: ${GMPXX_LIB}")
+        message(STATUS "  Library: ${GMP_LIB}")
+        message(STATUS "  C++ Library: ${GMPXX_LIB}")
     endif()
     
 elseif(APPLE)

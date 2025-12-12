@@ -132,22 +132,22 @@ jobs:
         echo "VCPKG_TARGET_TRIPLET=x64-windows-static" >> $env:GITHUB_ENV
         echo "Set VCPKG_TARGET_TRIPLET=x64-windows-static"
     
-    - name: Install GMP via vcpkg
+    - name: Install MPIR via vcpkg (Windows-compatible GMP alternative)
       run: |
-        # Install yasm first (needed for GMP build)
+        # Install yasm first (needed for MPIR build)
         vcpkg install yasm-tool:x86-windows
         
-        # Install GMP
-        # Note: This may require downloading MSYS2 tools. If this fails with 404 errors,
-        # it's a known issue with vcpkg's MSYS2 mirror URLs. The latest vcpkg should
-        # have better handling, but if it still fails, we may need to use an alternative.
-        vcpkg install gmp:x64-windows-static --triplet x64-windows-static
+        # Install MPIR instead of GMP on Windows
+        # MPIR is a GMP-compatible library that builds successfully on Windows
+        # without requiring MSYS2 tools (which have 404 download issues)
+        # MPIR provides the same API as GMP, so no code changes are needed
+        vcpkg install mpir:x64-windows-static --triplet x64-windows-static
     
-    - name: Verify GMP installation
+    - name: Verify MPIR installation
       run: |
         echo "VCPKG_ROOT: $env:VCPKG_ROOT"
         echo "VCPKG_TARGET_TRIPLET: $env:VCPKG_TARGET_TRIPLET"
-        echo "Checking for GMP headers..."
+        echo "Checking for MPIR headers (MPIR provides gmp.h and gmpxx.h)..."
         if (Test-Path "$env:VCPKG_ROOT\installed\x64-windows-static\include\gmp.h") {
           echo "Found: $env:VCPKG_ROOT\installed\x64-windows-static\include\gmp.h"
         } else {
@@ -156,10 +156,10 @@ jobs:
         if (Test-Path "$env:VCPKG_ROOT\vcpkg_installed\x64-windows-static\include\gmp.h") {
           echo "Found: $env:VCPKG_ROOT\vcpkg_installed\x64-windows-static\include\gmp.h"
         }
-        echo "Checking for GMP libraries..."
-        Get-ChildItem -Path "$env:VCPKG_ROOT\installed\x64-windows-static\lib" -Filter "*.lib" | Select-Object -First 5 Name
+        echo "Checking for MPIR libraries (mpir.lib, mpirxx.lib)..."
+        Get-ChildItem -Path "$env:VCPKG_ROOT\installed\x64-windows-static\lib" -Filter "*mpir*.lib" | Select-Object Name
         if (Test-Path "$env:VCPKG_ROOT\vcpkg_installed\x64-windows-static\lib") {
-          Get-ChildItem -Path "$env:VCPKG_ROOT\vcpkg_installed\x64-windows-static\lib" -Filter "*.lib" | Select-Object -First 5 Name
+          Get-ChildItem -Path "$env:VCPKG_ROOT\vcpkg_installed\x64-windows-static\lib" -Filter "*mpir*.lib" | Select-Object Name
         }
     
     - name: Configure CMake
