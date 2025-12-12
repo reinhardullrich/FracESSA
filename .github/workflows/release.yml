@@ -147,21 +147,55 @@ jobs:
       shell: msys2 {0}
       run: |
         cd /tmp/gmp-6.3.0
-        # Bootstrap to generate configure script (needed when building from git source)
-        # Check which bootstrap script exists
-        if [ -f "./autogen.sh" ]; then
-          ./autogen.sh
-        elif [ -f "./bootstrap" ]; then
-          ./bootstrap
-        elif [ -f ".bootstrap" ]; then
-          sh .bootstrap
+        # Check if configure script already exists
+        if [ -f "./configure" ]; then
+          echo "configure script already exists, skipping bootstrap"
         else
-          echo "No bootstrap script found, trying autogen.sh anyway..."
-          ./autogen.sh || echo "Bootstrap failed, but continuing..."
+          # Bootstrap to generate configure script (needed when building from git source)
+          # GMP git repository uses .bootstrap file
+          echo "Checking for bootstrap files..."
+          ls -la | grep -E "(bootstrap|autogen|configure)" || echo "Listing all files:"; ls -la | head -20
+          
+          # Try bootstrap methods in order
+          if [ -f ".bootstrap" ]; then
+            echo "Running .bootstrap..."
+            sh .bootstrap
+          elif [ -f "./bootstrap" ]; then
+            echo "Running ./bootstrap..."
+            ./bootstrap
+          elif [ -f "./autogen.sh" ]; then
+            echo "Running ./autogen.sh..."
+            ./autogen.sh
+          else
+            echo "ERROR: No bootstrap script found and configure doesn't exist!"
+            echo "Available files:"
+            ls -la
+            exit 1
+          fi
+          
+          # Verify configure script was generated
+          if [ ! -f "./configure" ]; then
+            echo "ERROR: configure script was not generated!"
+            exit 1
+          fi
         fi
-        ./configure --prefix=/c/gmp-install --enable-cxx --enable-static --disable-shared
-        make -j$(nproc)
-        make install
+        
+        echo "Running configure..."
+        ./configure --prefix=/c/gmp-install --enable-cxx --enable-static --disable-shared || {
+          echo "Configure failed, showing config.log:"
+          cat config.log | tail -50
+          exit 1
+        }
+        echo "Building GMP..."
+        make -j$(nproc) || {
+          echo "Build failed, showing error:"
+          exit 1
+        }
+        echo "Installing GMP..."
+        make install || {
+          echo "Install failed"
+          exit 1
+        }
         echo "GMP built and installed to /c/gmp-install"
     
     - name: Set GMP paths for CMake
