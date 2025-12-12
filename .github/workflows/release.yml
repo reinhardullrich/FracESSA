@@ -6,10 +6,10 @@ on:
 
 jobs:
   # ============================================================================
-  # Linux Build (Ubuntu 22.04 - better runner availability)
+  # Linux Build (Ubuntu 20.04 - compatible with older systems)
   # ============================================================================
   build-linux:
-    runs-on: ubuntu-22.04  # glibc 2.35 - works on most modern systems
+    runs-on: ubuntu-20.04  # glibc 2.31 - compatible with Ubuntu 20.04+
     
     steps:
     - uses: actions/checkout@v4
