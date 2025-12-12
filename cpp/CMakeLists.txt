@@ -224,7 +224,7 @@ elseif(APPLE)
         message(STATUS "Using GMP_LIBRARY_DIR from environment: $ENV{GMP_LIBRARY_DIR}")
     elseif(DEFINED ENV{GMP_ROOT})
         list(APPEND GMP_LIB_SEARCH_PATHS "$ENV{GMP_ROOT}/lib")
-    endif
+    endif()
     
     # Add standard Homebrew paths (check both Apple Silicon and Intel)
     list(APPEND GMP_SEARCH_PATHS
