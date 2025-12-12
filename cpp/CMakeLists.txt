@@ -160,48 +160,60 @@ if(WIN32 OR MSVC OR MINGW OR MSYS)
         )
     endif()
     
-    message(STATUS "Searching for GMP in:")
-    message(STATUS "  Include paths: ${GMP_SEARCH_PATHS}")
-    message(STATUS "  Library paths: ${GMP_LIB_SEARCH_PATHS}")
-    
-    # Search for headers (try both gmp.h and gmpxx.h)
-    find_path(GMP_INCLUDE_DIR NAMES gmpxx.h gmp.h PATHS ${GMP_SEARCH_PATHS} NO_DEFAULT_PATH)
-    if(NOT GMP_INCLUDE_DIR)
-        find_path(GMP_INCLUDE_DIR NAMES gmpxx.h gmp.h) # Fallback
-    endif()
-    
-    # Search for libraries (Windows uses .lib files)
-    # GMP is built from source using MSYS2/MinGW
-    find_library(GMP_LIB 
-        NAMES gmp libgmp gmp.lib libgmp.lib
-        PATHS ${GMP_LIB_SEARCH_PATHS} 
-        NO_DEFAULT_PATH
-    )
-    if(NOT GMP_LIB)
-        find_library(GMP_LIB NAMES gmp libgmp gmp.lib libgmp.lib)
-    endif()
-    
-    find_library(GMPXX_LIB 
-        NAMES gmpxx libgmpxx gmpxx.lib libgmpxx.lib
-        PATHS ${GMP_LIB_SEARCH_PATHS} 
-        NO_DEFAULT_PATH
-    )
-    if(NOT GMPXX_LIB)
-        find_library(GMPXX_LIB NAMES gmpxx libgmpxx gmpxx.lib libgmpxx.lib)
-    endif()
-    
+    # Check if GMP variables are already set (e.g., from command line -D flags)
     if(GMP_INCLUDE_DIR AND GMP_LIB AND GMPXX_LIB)
-        set(GMP_FOUND TRUE)
-        set(GMP_LIBRARIES ${GMP_LIB} ${GMPXX_LIB})
-        message(STATUS "Found GMP on Windows:")
+        message(STATUS "Using GMP variables set from command line:")
         message(STATUS "  Include: ${GMP_INCLUDE_DIR}")
         message(STATUS "  Library: ${GMP_LIB}")
         message(STATUS "  C++ Library: ${GMPXX_LIB}")
+        set(GMP_FOUND TRUE)
+        if(NOT GMP_LIBRARIES)
+            set(GMP_LIBRARIES ${GMP_LIB} ${GMPXX_LIB})
+        endif()
     else()
-        message(STATUS "GMP detection failed:")
-        message(STATUS "  Include dir: ${GMP_INCLUDE_DIR}")
-        message(STATUS "  Library: ${GMP_LIB}")
-        message(STATUS "  C++ Library: ${GMPXX_LIB}")
+        message(STATUS "Searching for GMP in:")
+        message(STATUS "  Include paths: ${GMP_SEARCH_PATHS}")
+        message(STATUS "  Library paths: ${GMP_LIB_SEARCH_PATHS}")
+        
+        # Search for headers (try both gmp.h and gmpxx.h)
+        find_path(GMP_INCLUDE_DIR NAMES gmpxx.h gmp.h PATHS ${GMP_SEARCH_PATHS} NO_DEFAULT_PATH)
+        if(NOT GMP_INCLUDE_DIR)
+            find_path(GMP_INCLUDE_DIR NAMES gmpxx.h gmp.h) # Fallback
+        endif()
+        
+        # Search for libraries (Windows/MinGW uses .a files for static libraries)
+        # Try both .a (static) and .lib (import library) extensions
+        find_library(GMP_LIB 
+            NAMES gmp libgmp gmp.a libgmp.a gmp.lib libgmp.lib
+            PATHS ${GMP_LIB_SEARCH_PATHS} 
+            NO_DEFAULT_PATH
+        )
+        if(NOT GMP_LIB)
+            find_library(GMP_LIB NAMES gmp libgmp gmp.a libgmp.a gmp.lib libgmp.lib)
+        endif()
+        
+        find_library(GMPXX_LIB 
+            NAMES gmpxx libgmpxx gmpxx.a libgmpxx.a gmpxx.lib libgmpxx.lib
+            PATHS ${GMP_LIB_SEARCH_PATHS} 
+            NO_DEFAULT_PATH
+        )
+        if(NOT GMPXX_LIB)
+            find_library(GMPXX_LIB NAMES gmpxx libgmpxx gmpxx.a libgmpxx.a gmpxx.lib libgmpxx.lib)
+        endif()
+        
+        if(GMP_INCLUDE_DIR AND GMP_LIB AND GMPXX_LIB)
+            set(GMP_FOUND TRUE)
+            set(GMP_LIBRARIES ${GMP_LIB} ${GMPXX_LIB})
+            message(STATUS "Found GMP on Windows:")
+            message(STATUS "  Include: ${GMP_INCLUDE_DIR}")
+            message(STATUS "  Library: ${GMP_LIB}")
+            message(STATUS "  C++ Library: ${GMPXX_LIB}")
+        else()
+            message(STATUS "GMP detection failed:")
+            message(STATUS "  Include dir: ${GMP_INCLUDE_DIR}")
+            message(STATUS "  Library: ${GMP_LIB}")
+            message(STATUS "  C++ Library: ${GMPXX_LIB}")
+        endif()
     endif()
     
 elseif(APPLE)
