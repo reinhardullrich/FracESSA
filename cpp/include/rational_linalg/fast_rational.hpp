@@ -246,7 +246,7 @@ public:
         const int64_t b = d_;
         const int64_t c = r.n_;
         const int64_t d = r.d_;
-        
+    
         // Try safe 64-bit multiplication first (fast path)
         if (a > 0 && c > 0) {
             // Both positive - check for overflow risk

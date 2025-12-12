@@ -6,10 +6,10 @@ on:
 
 jobs:
   # ============================================================================
-  # Linux Build (Ubuntu 22.04 - better runner availability)
+  # Linux Build (Ubuntu 20.04 for glibc 2.31 compatibility)
   # ============================================================================
   build-linux:
-    runs-on: ubuntu-22.04  # glibc 2.35 - works on most modern systems
+    runs-on: ubuntu-20.04  # glibc 2.31 - works on most systems from 2020+
     
     steps:
     - uses: actions/checkout@v4
@@ -112,7 +112,6 @@ jobs:
         name: fracessa-macos-arm64
         path: cpp/build/fracessa
         retention-days: 30
-
 
   # ============================================================================
   # Windows Build with MSYS2/MinGW (GMP built from source)
@@ -344,11 +343,9 @@ jobs:
   # Upload Release Assets
   # ============================================================================
   upload-release-assets:
-    needs: [build-linux, build-macos, build-macos-universal, build-windows]
+    needs: [build-linux, build-macos, build-windows]
     runs-on: ubuntu-latest
     if: github.event_name == 'release'
-    permissions:
-      contents: write  # Required to upload release assets
     
     steps:
     - name: Download Linux Binary
@@ -357,17 +354,11 @@ jobs:
         name: fracessa-linux-x86_64
         path: ./artifacts/linux
     
-    - name: Download macOS ARM Binary
+    - name: Download macOS Binary
       uses: actions/download-artifact@v4
       with:
         name: fracessa-macos-arm64
         path: ./artifacts/macos
-    
-    - name: Download macOS Universal Binary
-      uses: actions/download-artifact@v4
-      with:
-        name: fracessa-macos-universal
-        path: ./artifacts/macos-universal
     
     - name: Download Windows Binary
       uses: actions/download-artifact@v4
@@ -380,19 +371,14 @@ jobs:
         mkdir -p ./release-assets
         cp ./artifacts/linux/fracessa ./release-assets/fracessa-linux-x86_64
         cp ./artifacts/macos/fracessa ./release-assets/fracessa-macos-arm64
-        cp ./artifacts/macos-universal/fracessa ./release-assets/fracessa-macos-universal
         cp ./artifacts/windows/fracessa.exe ./release-assets/fracessa-windows-x86_64.exe
         chmod +x ./release-assets/fracessa-linux-x86_64
         chmod +x ./release-assets/fracessa-macos-arm64
-        chmod +x ./release-assets/fracessa-macos-universal
     
     - name: Upload Release Assets
-      uses: softprops/action-gh-release@v2
+      uses: softprops/action-gh-release@v1
       with:
         files: ./release-assets/*
-        draft: false
-        prerelease: false
-        generate_release_notes: false
-        make_latest: true
+        tag_name: ${{ github.event.release.tag_name }}
       env:
         GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
