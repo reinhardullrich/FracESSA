@@ -7,7 +7,6 @@
 #include <spdlog/sinks/rotating_file_sink.h>
 
 #include <rational_linalg/matrix.hpp>
-#include <rational_linalg/types_rational.hpp>
 #include <fracessa/candidate.hpp>
 #include <fracessa/bitset64.hpp>
 #include <fracessa/supports.hpp>
@@ -18,7 +17,7 @@ class fracessa
 {
     public:
 
-        fracessa(const rational_linalg::Matrix<small_rational>& matrix, bool is_cs, bool with_candidates = false, bool exact = false, bool full_support = false, bool with_log = false, int matrix_id = -1);
+        fracessa(const rational_linalg::Matrix<fraction>& matrix, bool is_cs, bool with_candidates = false, bool exact = false, bool full_support = false, bool with_log = false, int matrix_id = -1);
 
         size_t ess_count_ = 0;
         std::vector<candidate> candidates_;
@@ -47,12 +46,11 @@ class fracessa
 
         void search_one_support(const bitset64& support, size_t support_size, bool is_cs_and_coprime = false);
         
-        // Templated function for all types (double, small_rational, rational)
+        // Templated function for all types (double, fraction)
         template<typename T>
         bool find_candidate(const bitset64& support, size_t support_size);
         
-        // Templated check_stability function for both rational and small_rational
-        template<typename T>
+        // check_stability function for fraction
         void check_stability();
 
 };

@@ -4,7 +4,7 @@
 #include <cstdlib>
 #include <type_traits>
 
-// Templated function for all types (double, small_rational, rational)
+// Templated function for all types (double, fraction)
 template<typename T>
 bool fracessa::find_candidate(const bitset64& support, size_t support_size)
 {
@@ -24,7 +24,7 @@ bool fracessa::find_candidate(const bitset64& support, size_t support_size)
     rational_linalg::Matrix<T> solution_full_n = rational_linalg::Matrix<T>(dimension_, 1);    
     size_t tracker = 0;
     for (size_t i = 0; i < dimension_; i++) {
-        if (bs64::test(support, i)) {
+        if (bs64::is_set_at_pos(support, i)) {
             solution_full_n(i, 0) = solution(tracker, 0);
             tracker += 1;
         } else 
@@ -36,41 +36,34 @@ bool fracessa::find_candidate(const bitset64& support, size_t support_size)
     candidate_.extended_support = support; //gets copied!
     
     for (size_t i = 0; i < dimension_; i++) {
-        if (!bs64::test(support, i)) { //not in the support - rows
+        if (!bs64::is_set_at_pos(support, i)) { //not in the support - rows
             T rowsum = T(0);
             for (size_t j = 0; j < dimension_; j++) {
-                if (bs64::test(support, j)) { // is in the support - columns
+                if (bs64::is_set_at_pos(support, j)) { // is in the support - columns
                     rowsum += game_matrix(i,j) * solution_full_n(j, 0);
                 }
             }
             if constexpr (std::is_same_v<T, double>) {
-                if (rowsum > payoff + 1e-4 * dimension_) // huge margin, false positives eliminated by rational check
+                if (rowsum > payoff + 1e-4 * dimension_) // huge margin, false positives eliminated by fractional check
                     return false;
             } else {
                 if (rowsum > payoff)
                     return false;
                 if (rowsum == payoff)
-                    bs64::set(candidate_.extended_support, i);
+                    candidate_.extended_support = bs64::set_bit_at_pos(candidate_.extended_support, i);
             }
         }
     }   
-    // Convert solution_full_n to candidate's vector (always rational) - only for rational types
+    // Convert solution_full_n to candidate's vector (always fraction) - only for fractional types
     if constexpr (!std::is_same_v<T, double>) {
-
-        if constexpr (std::is_same_v<T, rational>) {
-            candidate_.vector = solution_full_n;
-            candidate_.payoff = payoff;
-        } else {
-            candidate_.vector = rational_linalg::convert_small_to_rational(solution_full_n);
-            candidate_.payoff = small_to_rational(payoff);
-        }
-        candidate_.payoff_double = rational_to_double(payoff);        
-        candidate_.extended_support_size = bs64::count(candidate_.extended_support);
+        candidate_.vector = solution_full_n;
+        candidate_.payoff = payoff;
+        candidate_.payoff_double = payoff.to_double();        
+        candidate_.extended_support_size = bs64::count_set_bits(candidate_.extended_support);
     }
     return true;
 }
 
 // Explicit template instantiations
 template bool fracessa::find_candidate<double>(const bitset64&, size_t);
-template bool fracessa::find_candidate<small_rational>(const bitset64&, size_t);
-template bool fracessa::find_candidate<rational>(const bitset64&, size_t);
+template bool fracessa::find_candidate<fraction>(const bitset64&, size_t);

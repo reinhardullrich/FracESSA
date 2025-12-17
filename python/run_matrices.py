@@ -505,7 +505,7 @@ def main():
         sys.exit(1)
 
     # Set the executable path explicitly
-    executable_path = (project_root / "cpp" / "build" / "fracessa").resolve()
+    executable_path = (project_root / "build" / "fracessa").resolve()
 
     if not executable_path.exists():
         print(f"Error: fracessa executable not found at {executable_path}")

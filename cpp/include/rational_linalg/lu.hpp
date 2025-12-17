@@ -16,14 +16,14 @@ namespace rational_linalg {
  *   - Standard division at each step, but simpler computation.
  *
  * Stability / Accuracy:
- *   - Perfect for rational or symbolic types; no rounding errors.
+ *   - Perfect for fractional or symbolic types; no rounding errors.
  *   - Detects singular matrices exactly (pivot = 0).
  *   - Uses standard Gaussian elimination with partial pivoting.
  *   - Cannot suffer from numerical instability in exact arithmetic.
  *
  * Use case:
  *   - Exact solutions, guaranteed singularity detection,
- *     symbolic or rational arithmetic.
+ *     symbolic or fractional arithmetic.
  *   - When you want standard LU without Bareiss fraction-free optimization.
  */
 

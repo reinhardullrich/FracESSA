@@ -1,7 +1,6 @@
 #include <gtest/gtest.h>
 #include <fracessa/fracessa.hpp>
 #include <rational_linalg/matrix.hpp>
-#include <rational_linalg/types_rational.hpp>
 #include <fstream>
 #include <sstream>
 #include <string>
@@ -133,8 +132,8 @@ std::vector<MatrixData> load_verification_matrices(const std::string& filename) 
 }
 
 // Helper function to parse matrix string (similar to main.cpp)
-rational_linalg::Matrix<small_rational> parse_matrix_string(const std::string& matrix_str, int dimension, bool is_cs) {
-    std::vector<small_rational> rational_values;
+rational_linalg::Matrix<fraction> parse_matrix_string(const std::string& matrix_str, int dimension, bool is_cs) {
+    std::vector<fraction> rational_values;
     
     size_t start = 0;
     size_t comma_pos;
@@ -151,20 +150,20 @@ rational_linalg::Matrix<small_rational> parse_matrix_string(const std::string& m
             // Has denominator
             int64_t num = std::stoll(matrix_str.substr(start, slash_pos - start));
             int64_t den = std::stoll(matrix_str.substr(slash_pos + 1, comma_pos - slash_pos - 1));
-            rational_values.emplace_back(num, den);
+            rational_values.emplace_back(fraction(static_cast<long long>(num), static_cast<long long>(den)));
         } else {
             // No denominator, treat as integer
             int64_t num = std::stoll(matrix_str.substr(start, comma_pos - start));
-            rational_values.emplace_back(num, 1);
+            rational_values.emplace_back(fraction(static_cast<long long>(num), static_cast<long long>(1)));
         }
         
         start = comma_pos + 1;
     }
     
     if (is_cs) {
-        return rational_linalg::create_circular_symmetric<small_rational>(dimension, rational_values);
+        return rational_linalg::create_circular_symmetric<fraction>(dimension, rational_values);
     } else {
-        return rational_linalg::create_symmetric<small_rational>(dimension, rational_values);
+        return rational_linalg::create_symmetric<fraction>(dimension, rational_values);
     }
 }
 
@@ -196,7 +195,7 @@ protected:
 TEST_F(IntegrationTest, SmallMatrices) {
     for (const auto& m : matrices_) {
         if (m.dimension <= 5 && m.in_use) {
-            rational_linalg::Matrix<small_rational> A = parse_matrix_string(m.matrix_old, m.dimension, m.is_cs);
+            rational_linalg::Matrix<fraction> A = parse_matrix_string(m.matrix_old, m.dimension, m.is_cs);
             EXPECT_NO_THROW({
                 fracessa solver(A, m.is_cs, false, false, false, false, m.id);
                 // Just verify it completes without error
@@ -210,7 +209,7 @@ TEST_F(IntegrationTest, SmallMatrices) {
 TEST_F(IntegrationTest, MediumMatrices) {
     for (const auto& m : matrices_) {
         if (m.dimension > 5 && m.dimension <= 15 && m.in_use) {
-            rational_linalg::Matrix<small_rational> A = parse_matrix_string(m.matrix_old, m.dimension, m.is_cs);
+            rational_linalg::Matrix<fraction> A = parse_matrix_string(m.matrix_old, m.dimension, m.is_cs);
             fracessa solver(A, m.is_cs, false, false, false, false, m.id);
             EXPECT_EQ(solver.ess_count_, m.number_ess) 
                 << "Matrix ID " << m.id << " (dim " << m.dimension << ") expected " 
@@ -223,7 +222,7 @@ TEST_F(IntegrationTest, MediumMatrices) {
 TEST_F(IntegrationTest, CircularSymmetricMatrices) {
     for (const auto& m : matrices_) {
         if (m.is_cs && m.in_use) {
-            rational_linalg::Matrix<small_rational> A = parse_matrix_string(m.matrix_old, m.dimension, m.is_cs);
+            rational_linalg::Matrix<fraction> A = parse_matrix_string(m.matrix_old, m.dimension, m.is_cs);
             fracessa solver(A, m.is_cs, false, false, false, false, m.id);
             EXPECT_EQ(solver.ess_count_, m.number_ess) 
                 << "Matrix ID " << m.id << " (circular symmetric, dim " << m.dimension << ") expected " 
@@ -237,7 +236,7 @@ TEST_F(IntegrationTest, CircularSymmetricMatrices) {
 TEST_F(IntegrationTest, NonCircularSymmetricMatrices) {
     for (const auto& m : matrices_) {
         if (!m.is_cs && m.in_use) {
-            rational_linalg::Matrix<small_rational> A = parse_matrix_string(m.matrix_old, m.dimension, m.is_cs);
+            rational_linalg::Matrix<fraction> A = parse_matrix_string(m.matrix_old, m.dimension, m.is_cs);
             EXPECT_NO_THROW({
                 fracessa solver(A, m.is_cs, false, false, false, false, m.id);
                 // Just verify it completes without error
@@ -250,24 +249,24 @@ TEST_F(IntegrationTest, NonCircularSymmetricMatrices) {
 // Test specific matrices from verification set
 TEST_F(IntegrationTest, Matrix1_Dim2_Ess1) {
     // matrix: "0,1,0" (upper triangular for symmetric)
-    std::vector<small_rational> upper = {0, 1, 0};
-    auto matrix = rational_linalg::create_symmetric<small_rational>(2, upper);
+    std::vector<fraction> upper = {fraction(0), fraction(1), fraction(0)};
+    auto matrix = rational_linalg::create_symmetric<fraction>(2, upper);
     fracessa solver(matrix, false, false, false, false, false, 1);
     EXPECT_EQ(solver.ess_count_, 1);
 }
 
 TEST_F(IntegrationTest, Matrix2_Dim2_Ess2) {
     // matrix: "3,3/2,4"
-    std::vector<small_rational> upper = {3, small_rational(3, 2), 4};
-    auto matrix = rational_linalg::create_symmetric<small_rational>(2, upper);
+    std::vector<fraction> upper = {fraction(3), fraction(3, 2), fraction(4)};
+    auto matrix = rational_linalg::create_symmetric<fraction>(2, upper);
     fracessa solver(matrix, false, false, false, false, false, 2);
     EXPECT_EQ(solver.ess_count_, 2);
 }
 
 TEST_F(IntegrationTest, Matrix8_Dim5_Ess5) {
     // Circular symmetric: "1,3"
-    std::vector<small_rational> half_row = {1, 3};
-    auto matrix = rational_linalg::create_circular_symmetric<small_rational>(5, half_row);
+    std::vector<fraction> half_row = {fraction(1), fraction(3)};
+    auto matrix = rational_linalg::create_circular_symmetric<fraction>(5, half_row);
     fracessa solver(matrix, true, false, false, false, false, 8);
     EXPECT_EQ(solver.ess_count_, 5);
 }
@@ -276,8 +275,8 @@ TEST_F(IntegrationTest, Matrix8_Dim5_Ess5) {
 TEST_F(IntegrationTest, OverflowRecovery) {
     // Test with a matrix that might cause overflow
     // This is a placeholder - actual overflow cases would need to be identified
-    std::vector<small_rational> upper = {1, 2, 1, 1, 1, 1};
-    auto matrix = rational_linalg::create_symmetric<small_rational>(3, upper);
+    std::vector<fraction> upper = {fraction(1), fraction(2), fraction(1), fraction(1), fraction(1), fraction(1)};
+    auto matrix = rational_linalg::create_symmetric<fraction>(3, upper);
     
     // Should not throw - overflow should be handled gracefully
     EXPECT_NO_THROW({
@@ -287,8 +286,8 @@ TEST_F(IntegrationTest, OverflowRecovery) {
 
 // Test with candidates enabled
 TEST_F(IntegrationTest, WithCandidates) {
-    std::vector<small_rational> upper = {0, 1, 0};
-    auto matrix = rational_linalg::create_symmetric<small_rational>(2, upper);
+    std::vector<fraction> upper = {fraction(0), fraction(1), fraction(0)};
+    auto matrix = rational_linalg::create_symmetric<fraction>(2, upper);
     fracessa solver(matrix, false, true, false, false, false, 1);
     EXPECT_EQ(solver.ess_count_, 1);
     EXPECT_GT(solver.candidates_.size(), 0);

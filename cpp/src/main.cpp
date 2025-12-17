@@ -6,13 +6,12 @@
 #include <cstdint>
 
 #include <fracessa/fracessa.hpp>
-#include <rational_linalg/types_rational.hpp>
 #include <rational_linalg/matrix.hpp>
 #include <argparse/argparse.hpp>
 
 // Helper function to parse matrix string format: "n#values"
 // Returns true on success, false on error
-bool parse_matrix_string(const std::string& matrix_str, rational_linalg::Matrix<small_rational>& A, bool& is_cs)
+bool parse_matrix_string(const std::string& matrix_str, rational_linalg::Matrix<fraction>& A, bool& is_cs)
 {
     // Parse CLI string format: "n#values" - optimized manual parsing
     const size_t hash_pos = matrix_str.find('#');
@@ -37,7 +36,7 @@ bool parse_matrix_string(const std::string& matrix_str, rational_linalg::Matrix<
     
     // Parse comma-separated values - optimized manual parsing
     const std::string& values_str = matrix_str.substr(hash_pos + 1);
-    std::vector<small_rational> rational_values;
+    std::vector<fraction> rational_values;
     
     // Pre-allocate vector with estimated size (at least n/2 for circular symmetric)
     rational_values.reserve(n / 2);
@@ -58,17 +57,19 @@ bool parse_matrix_string(const std::string& matrix_str, rational_linalg::Matrix<
                 // Has denominator
                 int64_t num = std::stoll(values_str.substr(start, slash_pos - start));
                 int64_t den = std::stoll(values_str.substr(slash_pos + 1, comma_pos - slash_pos - 1));
-                rational_values.emplace_back(num, den);
+                // Explicitly construct fraction to avoid ambiguity
+                rational_values.push_back(fraction(static_cast<long>(num), static_cast<long>(den)));
             } else {
                 // No denominator, treat as integer
                 int64_t num = std::stoll(values_str.substr(start, comma_pos - start));
-                rational_values.emplace_back(num, 1);
+                // Explicitly construct fraction to avoid ambiguity
+                rational_values.push_back(fraction(static_cast<long>(num), 1L));
             }
             
             start = comma_pos + 1;
         }
     } catch (const std::exception& e) {
-        std::cerr << "Error: Could not convert matrix values to rational numbers!" << std::endl;
+        std::cerr << "Error: Could not convert matrix values to fraction numbers!" << std::endl;
         std::cerr << "  " << e.what() << std::endl;
         return false;
     }
@@ -80,11 +81,13 @@ bool parse_matrix_string(const std::string& matrix_str, rational_linalg::Matrix<
     
     if (actual_size == expected_cs) {
         // Circular symmetric matrix
-        A = rational_linalg::create_circular_symmetric<small_rational>(n, rational_values);
+        // COMMENTED OUT - now using fraction only (FLINT fraction)
+        A = rational_linalg::create_circular_symmetric<fraction>(n, rational_values);
         is_cs = true;
     } else if (actual_size == expected_sym) {
         // Symmetric matrix (upper triangular)
-        A = rational_linalg::create_symmetric<small_rational>(n, rational_values);
+        // COMMENTED OUT - now using fraction only (FLINT fraction)
+        A = rational_linalg::create_symmetric<fraction>(n, rational_values);
         is_cs = false;
     } else {
         std::cerr << "Error: The number of matrix-elements must either be floor(dimension/2) (for a circular symmetric matrix) or dimension*(dimension+1)/2 (for a symmetric matrix)!" << std::endl;
@@ -97,7 +100,8 @@ bool parse_matrix_string(const std::string& matrix_str, rational_linalg::Matrix<
 
 // Unsafe version: parses matrix string without any safety checks for maximum performance
 // Assumes valid input format: "n#values" where values are comma-separated rationals
-void parse_matrix_string_unsafe(const std::string& matrix_str, rational_linalg::Matrix<small_rational>& A, bool& is_cs)
+// COMMENTED OUT - now using fraction only (FLINT fraction)
+void parse_matrix_string_unsafe(const std::string& matrix_str, rational_linalg::Matrix<fraction>& A, bool& is_cs)
 {
     // Find '#' by direct iteration
     size_t hash_pos = 0;
@@ -112,7 +116,7 @@ void parse_matrix_string_unsafe(const std::string& matrix_str, rational_linalg::
     }
     
     // Pre-allocate vector with estimated size
-    std::vector<small_rational> rational_values;
+    std::vector<fraction> rational_values;
     rational_values.reserve(n / 2);
     
     // Parse values by direct character iteration
@@ -160,10 +164,12 @@ void parse_matrix_string_unsafe(const std::string& matrix_str, rational_linalg::
                 den = -den;
             }
             
-            rational_values.emplace_back(num, den);
+            // Explicitly construct fraction to avoid ambiguity
+            rational_values.push_back(fraction(static_cast<long>(num), static_cast<long>(den)));
         } else {
             // No denominator, treat as integer
-            rational_values.emplace_back(num, 1);
+            // Explicitly construct fraction to avoid ambiguity
+            rational_values.push_back(fraction(static_cast<long>(num), 1L));
         }
         
         // Skip comma if present
@@ -178,11 +184,13 @@ void parse_matrix_string_unsafe(const std::string& matrix_str, rational_linalg::
     
     if (actual_size == expected_cs) {
         // Circular symmetric matrix
-        A = rational_linalg::create_circular_symmetric<small_rational>(n, rational_values);
+        // COMMENTED OUT - now using fraction only (FLINT fraction)
+        A = rational_linalg::create_circular_symmetric<fraction>(n, rational_values);
         is_cs = true;
     } else {
         // Symmetric matrix (upper triangular)
-        A = rational_linalg::create_symmetric<small_rational>(n, rational_values);
+        // COMMENTED OUT - now using fraction only (FLINT fraction)
+        A = rational_linalg::create_symmetric<fraction>(n, rational_values);
         is_cs = false;
     }
 }
@@ -204,7 +212,7 @@ int main(int argc, char *argv[])
         .default_value(false);
 
     program.add_argument("-e", "--exact")
-        .help("only uses rational numbers, for matrices with extreme differences in the input, is much much slower!")
+        .help("only uses fraction numbers, for matrices with extreme differences in the input, is much much slower!")
         .implicit_value(true)
         .default_value(false);
 
@@ -251,7 +259,8 @@ int main(int argc, char *argv[])
 
     // Parse matrix from CLI string format: "n#values"
     bool is_cs;
-    rational_linalg::Matrix<small_rational> A;
+    // COMMENTED OUT - now using fraction only (FLINT fraction)
+    rational_linalg::Matrix<fraction> A;
     if (unsafe) {
         parse_matrix_string_unsafe(matrix_str, A, is_cs);
     } else {

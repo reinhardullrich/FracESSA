@@ -20,9 +20,16 @@ set(CMAKE_CXX_STANDARD 17)
 set(CMAKE_CXX_STANDARD_REQUIRED ON)
 set(CMAKE_CXX_EXTENSIONS OFF)
 
-# Enforce Release
-if(NOT CMAKE_BUILD_TYPE STREQUAL "Release")
-    message(FATAL_ERROR "Only Release builds supported. Current: ${CMAKE_BUILD_TYPE}")
+# Default to Release, but allow Debug builds
+if(NOT CMAKE_BUILD_TYPE)
+    set(CMAKE_BUILD_TYPE Release CACHE STRING "Build type" FORCE)
+endif()
+
+# Set Debug flags if Debug build is requested
+if(CMAKE_BUILD_TYPE STREQUAL "Debug")
+    set(CMAKE_CXX_FLAGS_DEBUG "-g -O0" CACHE STRING "C++ Debug flags" FORCE)
+    set(CMAKE_C_FLAGS_DEBUG "-g -O0" CACHE STRING "C Debug flags" FORCE)
+    message(STATUS "Building in Debug mode")
 endif()
 
 # LTO if supported
@@ -40,6 +47,15 @@ find_program(CCACHE_PROGRAM ccache)
 if(CCACHE_PROGRAM)
     set(CMAKE_CXX_COMPILER_LAUNCHER ${CCACHE_PROGRAM})
     set(CMAKE_C_COMPILER_LAUNCHER ${CCACHE_PROGRAM})
+    # Optionally set ccache cache directory to project .cache folder
+    get_filename_component(PROJECT_ROOT "${CMAKE_CURRENT_SOURCE_DIR}/../.." ABSOLUTE)
+    set(CCACHE_DIR "${PROJECT_ROOT}/.cache/ccache")
+    if(EXISTS "${CCACHE_DIR}")
+        set(ENV{CCACHE_DIR} "${CCACHE_DIR}")
+        message(STATUS "ccache found, using cache directory: ${CCACHE_DIR}")
+    else()
+        message(STATUS "ccache found, using default cache directory")
+    endif()
 endif()
 
 set(CMAKE_EXPORT_COMPILE_COMMANDS ON)
@@ -83,16 +99,143 @@ FetchContent_MakeAvailable(
     spdlog argparse
 )
 
+# FLINT requires autotools build on Linux (CMake is Windows-only)
+# Use ExternalProject to build FLINT with autotools
+# FLINT requires both GMP and MPFR
+include(ExternalProject)
+
 # ============================================================================
-# GMP Detection - Windows, Linux, macOS
+# MPFR Detection (FLINT dependency) - Windows, Linux, macOS
 # ============================================================================
 
 # Initialize
+set(MPFR_FOUND FALSE)
+set(MPFR_INCLUDE_DIR "")
+set(MPFR_LIB "")
+
+# Platform-specific search
+if(WIN32 OR MSVC OR MINGW OR MSYS)
+    # Windows: Check standard locations
+    find_path(MPFR_INCLUDE_DIR NAMES mpfr.h
+        PATHS
+            "C:/msys64/mingw64/include"
+            "C:/gmp-install/include"
+            "C:/Program Files/mpfr/include"
+    )
+    find_library(MPFR_LIB NAMES mpfr libmpfr
+        PATHS
+            "C:/msys64/mingw64/lib"
+            "C:/gmp-install/lib"
+            "C:/Program Files/mpfr/lib"
+    )
+elseif(APPLE)
+    # macOS: Try pkg-config first, then Homebrew paths
+    find_package(PkgConfig QUIET)
+    if(PkgConfig_FOUND)
+        pkg_check_modules(MPFR QUIET mpfr)
+        if(MPFR_FOUND AND MPFR_INCLUDE_DIRS)
+            list(GET MPFR_INCLUDE_DIRS 0 MPFR_INCLUDE_DIR)
+        endif()
+    endif()
+    
+    if(NOT MPFR_INCLUDE_DIR)
+        find_path(MPFR_INCLUDE_DIR NAMES mpfr.h
+            PATHS
+                /opt/homebrew/include
+                /usr/local/include
+                /opt/local/include
+        )
+    endif()
+    
+    find_library(MPFR_LIB NAMES mpfr
+        PATHS
+            /opt/homebrew/lib
+            /usr/local/lib
+            /opt/local/lib
+    )
+else()
+    # Linux: Try pkg-config first, then standard locations
+    find_package(PkgConfig QUIET)
+    if(PkgConfig_FOUND)
+        pkg_check_modules(MPFR QUIET mpfr)
+        if(MPFR_FOUND AND MPFR_INCLUDE_DIRS)
+            list(GET MPFR_INCLUDE_DIRS 0 MPFR_INCLUDE_DIR)
+        endif()
+    endif()
+    
+    # Always do manual search to ensure we find both include and library
+    if(NOT MPFR_INCLUDE_DIR)
+        # Try common locations directly first
+        if(EXISTS "/usr/include/mpfr.h")
+            set(MPFR_INCLUDE_DIR "/usr/include")
+        elseif(EXISTS "/usr/include/x86_64-linux-gnu/mpfr.h")
+            set(MPFR_INCLUDE_DIR "/usr/include/x86_64-linux-gnu")
+        else()
+            find_path(MPFR_INCLUDE_DIR NAMES mpfr.h
+                PATHS
+                    /usr/include
+                    /usr/include/x86_64-linux-gnu
+                    /usr/local/include
+            )
+        endif()
+    endif()
+    
+    # Always search for library manually
+    if(NOT MPFR_LIB)
+        # If pkg-config provided libraries, try to extract the path
+        if(MPFR_FOUND AND MPFR_LIBRARIES)
+            # pkg-config might return -lmpfr, try to find the actual library
+            find_library(MPFR_LIB NAMES mpfr
+                PATHS
+                    /usr/lib
+                    /usr/lib/x86_64-linux-gnu
+                    /usr/lib64
+                    /usr/local/lib
+            )
+        endif()
+        
+        # If still not found, try common locations directly
+        if(NOT MPFR_LIB)
+            if(EXISTS "/usr/lib/x86_64-linux-gnu/libmpfr.so")
+                set(MPFR_LIB "/usr/lib/x86_64-linux-gnu/libmpfr.so")
+            elseif(EXISTS "/usr/lib/libmpfr.so")
+                set(MPFR_LIB "/usr/lib/libmpfr.so")
+            else()
+                find_library(MPFR_LIB NAMES mpfr
+                    PATHS
+                        /usr/lib
+                        /usr/lib/x86_64-linux-gnu
+                        /usr/lib64
+                        /usr/local/lib
+                )
+            endif()
+        endif()
+    endif()
+endif()
+
+if(MPFR_INCLUDE_DIR AND MPFR_LIB)
+    set(MPFR_FOUND TRUE)
+    message(STATUS "Found MPFR:")
+    message(STATUS "  Include: ${MPFR_INCLUDE_DIR}")
+    message(STATUS "  Library: ${MPFR_LIB}")
+else()
+    set(MPFR_FOUND FALSE)
+    message(STATUS "MPFR not found. FLINT requires MPFR.")
+    message(STATUS "  Linux:   sudo apt-get install libmpfr-dev")
+    message(STATUS "  macOS:   brew install mpfr")
+    message(STATUS "  Windows: Install via MSYS2 or vcpkg")
+endif()
+
+# ============================================================================
+# GMP Detection - Windows, Linux, macOS
+# ============================================================================
+# Priority: System GMP first, then local GMP as fallback
+
 set(GMP_FOUND FALSE)
 set(GMP_INCLUDE_DIR "")
 set(GMP_LIBRARIES "")
 
-# Platform-specific search
+# Platform-specific search (system GMP first)
 if(WIN32 OR MSVC OR MINGW OR MSYS)
     # ===== WINDOWS =====
     message(STATUS "Detecting GMP on Windows...")
@@ -167,24 +310,23 @@ if(WIN32 OR MSVC OR MINGW OR MSYS)
     endif()
     
     # Check if GMP variables are already set (e.g., from command line -D flags)
-    if(GMP_INCLUDE_DIR AND GMP_LIB AND GMPXX_LIB)
+    if(GMP_INCLUDE_DIR AND GMP_LIB)
         message(STATUS "Using GMP variables set from command line:")
         message(STATUS "  Include: ${GMP_INCLUDE_DIR}")
         message(STATUS "  Library: ${GMP_LIB}")
-        message(STATUS "  C++ Library: ${GMPXX_LIB}")
         set(GMP_FOUND TRUE)
         if(NOT GMP_LIBRARIES)
-            set(GMP_LIBRARIES ${GMP_LIB} ${GMPXX_LIB})
+            set(GMP_LIBRARIES ${GMP_LIB})
         endif()
     else()
         message(STATUS "Searching for GMP in:")
         message(STATUS "  Include paths: ${GMP_SEARCH_PATHS}")
         message(STATUS "  Library paths: ${GMP_LIB_SEARCH_PATHS}")
         
-        # Search for headers (try both gmp.h and gmpxx.h)
-        find_path(GMP_INCLUDE_DIR NAMES gmpxx.h gmp.h PATHS ${GMP_SEARCH_PATHS} NO_DEFAULT_PATH)
+        # Search for headers (gmp.h - only C library needed for FLINT)
+        find_path(GMP_INCLUDE_DIR NAMES gmp.h PATHS ${GMP_SEARCH_PATHS} NO_DEFAULT_PATH)
         if(NOT GMP_INCLUDE_DIR)
-            find_path(GMP_INCLUDE_DIR NAMES gmpxx.h gmp.h) # Fallback
+            find_path(GMP_INCLUDE_DIR NAMES gmp.h) # Fallback
         endif()
         
         # Search for libraries (Windows/MinGW uses .dll.a files for dynamic linking)
@@ -198,27 +340,16 @@ if(WIN32 OR MSVC OR MINGW OR MSYS)
             find_library(GMP_LIB NAMES libgmp.dll.a gmp.dll.a libgmp gmp libgmp.a gmp.a gmp.lib libgmp.lib)
         endif()
         
-        find_library(GMPXX_LIB 
-            NAMES libgmpxx.dll.a gmpxx.dll.a libgmpxx gmpxx libgmpxx.a gmpxx.a gmpxx.lib libgmpxx.lib
-            PATHS ${GMP_LIB_SEARCH_PATHS} 
-            NO_DEFAULT_PATH
-        )
-        if(NOT GMPXX_LIB)
-            find_library(GMPXX_LIB NAMES libgmpxx.dll.a gmpxx.dll.a libgmpxx gmpxx libgmpxx.a gmpxx.a gmpxx.lib libgmpxx.lib)
-        endif()
-        
-        if(GMP_INCLUDE_DIR AND GMP_LIB AND GMPXX_LIB)
+        if(GMP_INCLUDE_DIR AND GMP_LIB)
             set(GMP_FOUND TRUE)
-            set(GMP_LIBRARIES ${GMP_LIB} ${GMPXX_LIB})
+            set(GMP_LIBRARIES ${GMP_LIB})
             message(STATUS "Found GMP on Windows:")
             message(STATUS "  Include: ${GMP_INCLUDE_DIR}")
             message(STATUS "  Library: ${GMP_LIB}")
-            message(STATUS "  C++ Library: ${GMPXX_LIB}")
         else()
             message(STATUS "GMP detection failed:")
             message(STATUS "  Include dir: ${GMP_INCLUDE_DIR}")
             message(STATUS "  Library: ${GMP_LIB}")
-            message(STATUS "  C++ Library: ${GMPXX_LIB}")
         endif()
     endif()
     
@@ -270,9 +401,9 @@ elseif(APPLE)
     
     # Only search if not found via pkg-config
     if(NOT GMP_INCLUDE_DIR)
-        find_path(GMP_INCLUDE_DIR NAMES gmpxx.h gmp.h PATHS ${GMP_SEARCH_PATHS} NO_DEFAULT_PATH)
+        find_path(GMP_INCLUDE_DIR NAMES gmp.h PATHS ${GMP_SEARCH_PATHS} NO_DEFAULT_PATH)
         if(NOT GMP_INCLUDE_DIR)
-            find_path(GMP_INCLUDE_DIR NAMES gmpxx.h gmp.h)
+            find_path(GMP_INCLUDE_DIR NAMES gmp.h)
         endif()
     endif()
     
@@ -282,23 +413,16 @@ elseif(APPLE)
         find_library(GMP_LIB NAMES gmp)
     endif()
     
-    find_library(GMPXX_LIB NAMES gmpxx PATHS ${GMP_LIB_SEARCH_PATHS} NO_DEFAULT_PATH)
-    if(NOT GMPXX_LIB)
-        find_library(GMPXX_LIB NAMES gmpxx)
-    endif()
-    
-    if(GMP_INCLUDE_DIR AND GMP_LIB AND GMPXX_LIB)
+    if(GMP_INCLUDE_DIR AND GMP_LIB)
         set(GMP_FOUND TRUE)
-        set(GMP_LIBRARIES ${GMP_LIB} ${GMPXX_LIB})
+        set(GMP_LIBRARIES ${GMP_LIB})
         message(STATUS "Found GMP on macOS:")
         message(STATUS "  Include: ${GMP_INCLUDE_DIR}")
         message(STATUS "  GMP lib: ${GMP_LIB}")
-        message(STATUS "  GMPXX lib: ${GMPXX_LIB}")
     else()
         message(STATUS "GMP detection failed:")
         message(STATUS "  Include dir: ${GMP_INCLUDE_DIR}")
         message(STATUS "  GMP lib: ${GMP_LIB}")
-        message(STATUS "  GMPXX lib: ${GMPXX_LIB}")
     endif()
     
 else()
@@ -317,9 +441,9 @@ else()
     # Manual search for include directory if not found via pkg-config
     if(NOT GMP_INCLUDE_DIR)
         # Try common locations directly first
-        if(EXISTS "/usr/include/gmpxx.h")
+        if(EXISTS "/usr/include/gmp.h")
             set(GMP_INCLUDE_DIR "/usr/include")
-        elseif(EXISTS "/usr/include/x86_64-linux-gnu/gmpxx.h")
+        elseif(EXISTS "/usr/include/x86_64-linux-gnu/gmp.h")
             set(GMP_INCLUDE_DIR "/usr/include/x86_64-linux-gnu")
         else()
             set(GMP_SEARCH_PATHS
@@ -327,10 +451,10 @@ else()
                 /usr/include/x86_64-linux-gnu
                 /usr/local/include
             )
-            # Try to find gmpxx.h first, then fall back to gmp.h
-            find_path(GMP_INCLUDE_DIR NAMES gmpxx.h PATHS ${GMP_SEARCH_PATHS} NO_DEFAULT_PATH)
+            # Find gmp.h (C library only, needed for FLINT)
+            find_path(GMP_INCLUDE_DIR NAMES gmp.h PATHS ${GMP_SEARCH_PATHS} NO_DEFAULT_PATH)
             if(NOT GMP_INCLUDE_DIR)
-                find_path(GMP_INCLUDE_DIR NAMES gmpxx.h)
+                find_path(GMP_INCLUDE_DIR NAMES gmp.h)
             endif()
         endif()
     endif()
@@ -347,14 +471,10 @@ else()
     if(NOT GMP_LIB)
         find_library(GMP_LIB NAMES gmp)
     endif()
-    find_library(GMPXX_LIB NAMES gmpxx PATHS ${GMP_LIB_SEARCH_PATHS} NO_DEFAULT_PATH)
-    if(NOT GMPXX_LIB)
-        find_library(GMPXX_LIB NAMES gmpxx)
-    endif()
     
-    if(GMP_INCLUDE_DIR AND GMP_LIB AND GMPXX_LIB)
+    if(GMP_INCLUDE_DIR AND GMP_LIB)
         set(GMP_FOUND TRUE)
-        set(GMP_LIBRARIES ${GMP_LIB} ${GMPXX_LIB})
+        set(GMP_LIBRARIES ${GMP_LIB})
         if(PkgConfig_FOUND)
             message(STATUS "Found GMP via pkg-config and manual library search")
         else()
@@ -364,6 +484,24 @@ else()
         set(GMP_FOUND FALSE)
         message(STATUS "GMP detection failed - missing components")
     endif()
+endif()  # End of platform-specific search
+
+# Fallback to local GMP if system GMP not found
+if(NOT GMP_FOUND)
+    get_filename_component(PROJECT_ROOT "${CMAKE_CURRENT_SOURCE_DIR}/../.." ABSOLUTE)
+    set(PROJECT_GMP_DIR "${PROJECT_ROOT}/gmp")
+    if(EXISTS "${PROJECT_GMP_DIR}/include/gmp.h")
+        set(GMP_INCLUDE_DIR "${PROJECT_GMP_DIR}/include")
+        find_library(GMP_LIB NAMES gmp PATHS ${PROJECT_GMP_DIR}/lib NO_DEFAULT_PATH)
+        if(GMP_LIB)
+            set(GMP_FOUND TRUE)
+            set(GMP_LIBRARIES ${GMP_LIB})
+            message(STATUS "Found local GMP 6.3 in project directory (fallback):")
+            message(STATUS "  Path: ${PROJECT_GMP_DIR}")
+            message(STATUS "  Include: ${GMP_INCLUDE_DIR}")
+            message(STATUS "  Libraries: ${GMP_LIBRARIES}")
+        endif()
+    endif()
 endif()
 
 # Verify GMP found
@@ -372,9 +510,9 @@ if(NOT GMP_FOUND OR NOT GMP_INCLUDE_DIR OR NOT GMP_LIBRARIES)
     GMP library not found!
     
     Installation instructions:
-    - Linux:   sudo apt-get install libgmp-dev libgmpxx4ldbl
+    - Linux:   sudo apt-get install libgmp-dev
     - macOS:   brew install gmp
-    - Windows: vcpkg install gmp gmpxx
+    - Windows: vcpkg install gmp
                (or download from https://gmplib.org/)
     ")
 endif()
@@ -383,8 +521,8 @@ message(STATUS "GMP Configuration:")
 message(STATUS "  Include: ${GMP_INCLUDE_DIR}")
 message(STATUS "  Libraries: ${GMP_LIBRARIES}")
 
-# Verify header (check for gmpxx.h which includes gmp.h)
-if(NOT EXISTS "${GMP_INCLUDE_DIR}/gmpxx.h" AND NOT EXISTS "${GMP_INCLUDE_DIR}/gmp.h")
+# Verify header (check for gmp.h)
+if(NOT EXISTS "${GMP_INCLUDE_DIR}/gmp.h")
     message(FATAL_ERROR "GMP header not found in: ${GMP_INCLUDE_DIR}")
 endif()
 
@@ -399,10 +537,8 @@ if(ENABLE_STATIC_LINKING)
         # Linux/macOS: find static libraries
         get_filename_component(GMP_LIB_DIR "${GMP_LIB}" DIRECTORY)
         find_library(GMP_STATIC NAMES libgmp.a PATHS ${GMP_LIB_DIR} NO_DEFAULT_PATH)
-        find_library(GMPXX_STATIC NAMES libgmpxx.a PATHS ${GMP_LIB_DIR} NO_DEFAULT_PATH)
-        
-        if(GMP_STATIC AND GMPXX_STATIC)
-            set(GMP_LIBRARIES ${GMP_STATIC} ${GMPXX_STATIC})
+        if(GMP_STATIC)
+            set(GMP_LIBRARIES ${GMP_STATIC})
             message(STATUS "Using static GMP")
             
             if(UNIX AND NOT APPLE)
@@ -413,6 +549,55 @@ if(ENABLE_STATIC_LINKING)
         else()
             message(WARNING "Static GMP not found, using dynamic")
         endif()
+    endif()
+endif()
+
+# ============================================================================
+# FLINT Build Configuration
+# ============================================================================
+# FLINT requires both GMP and MPFR
+
+set(FLINT_BUILD_ENABLED FALSE)
+
+if(GMP_FOUND AND MPFR_FOUND)
+    set(FLINT_BUILD_ENABLED TRUE)
+    
+    # Determine GMP root directory for FLINT configure
+    get_filename_component(GMP_LIB_DIR "${GMP_LIB}" DIRECTORY)
+    get_filename_component(GMP_ROOT_DIR "${GMP_LIB_DIR}/.." ABSOLUTE)
+    
+    # Determine MPFR root directory for FLINT configure
+    get_filename_component(MPFR_LIB_DIR "${MPFR_LIB}" DIRECTORY)
+    get_filename_component(MPFR_ROOT_DIR "${MPFR_LIB_DIR}/.." ABSOLUTE)
+    
+    # Build FLINT using ExternalProject with autotools
+    # Using v3.0.0 (compatible with system GMP 6.2.0 and MPFR 4.0.2) with both GMP and MPFR
+    ExternalProject_Add(flint_build
+        GIT_REPOSITORY https://github.com/flintlib/flint.git
+        GIT_TAG v3.0.0
+        SOURCE_DIR ${CMAKE_CURRENT_SOURCE_DIR}/third_party/flint-src
+        CONFIGURE_COMMAND bash -c "cd <SOURCE_DIR> && ./bootstrap.sh && CPPFLAGS='-I${GMP_INCLUDE_DIR} -I${MPFR_INCLUDE_DIR}' LDFLAGS='-L${GMP_LIB_DIR} -L${MPFR_LIB_DIR}' ./configure --prefix=<INSTALL_DIR> --with-gmp=${GMP_ROOT_DIR} --with-mpfr=${MPFR_ROOT_DIR} --enable-shared=no --enable-static=yes"
+        BUILD_COMMAND bash -c "cd <SOURCE_DIR> && make -j$(nproc)"
+        BUILD_IN_SOURCE 1
+        INSTALL_COMMAND bash -c "cd <SOURCE_DIR> && make install"
+        BUILD_ALWAYS FALSE
+        UPDATE_COMMAND ""
+    )
+    
+    # Set FLINT variables for linking
+    ExternalProject_Get_Property(flint_build INSTALL_DIR)
+    set(FLINT_LIB_DIR ${INSTALL_DIR}/lib)
+    set(FLINT_INCLUDE_DIR ${INSTALL_DIR}/include)
+    set(FLINT_LIBRARIES ${FLINT_LIB_DIR}/libflint.a)
+    
+    message(STATUS "FLINT will be built with GMP and MPFR")
+    message(STATUS "FLINT will be installed to: ${INSTALL_DIR}")
+else()
+    if(NOT GMP_FOUND)
+        message(STATUS "FLINT build disabled: GMP not found")
+    endif()
+    if(NOT MPFR_FOUND)
+        message(STATUS "FLINT build disabled: MPFR not found")
     endif()
 endif()
 
@@ -438,14 +623,31 @@ target_include_directories(fracessa_lib
         $<BUILD_INTERFACE:${argparse_SOURCE_DIR}/include>
         $<BUILD_INTERFACE:${spdlog_SOURCE_DIR}/include>
         ${GMP_INCLUDE_DIR}
+        ${MPFR_INCLUDE_DIR}
     PRIVATE
         ${CMAKE_CURRENT_SOURCE_DIR}/src
 )
 
+# Add FLINT include directory if enabled
+if(FLINT_BUILD_ENABLED)
+    target_include_directories(fracessa_lib PRIVATE
+        ${FLINT_INCLUDE_DIR}
+    )
+    # Add dependency so FLINT builds before fracessa_lib
+    add_dependencies(fracessa_lib flint_build)
+endif()
 
 target_link_libraries(fracessa_lib PRIVATE
     ${GMP_LIBRARIES}
+    ${MPFR_LIB}
 )
+
+# Link FLINT library if enabled
+if(FLINT_BUILD_ENABLED)
+    target_link_libraries(fracessa_lib PRIVATE
+        ${FLINT_LIBRARIES}
+    )
+endif()
 
 # ============================================================================
 # Build Executable
@@ -456,12 +658,29 @@ add_executable(fracessa src/main.cpp)
 target_include_directories(fracessa PRIVATE
     ${argparse_SOURCE_DIR}/include
     ${GMP_INCLUDE_DIR}
+    ${MPFR_INCLUDE_DIR}
 )
+
+# Add FLINT include directory if enabled
+if(FLINT_BUILD_ENABLED)
+    target_include_directories(fracessa PRIVATE
+        ${FLINT_INCLUDE_DIR}
+    )
+endif()
 
 target_link_libraries(fracessa PRIVATE
     fracessa_lib
     ${GMP_LIBRARIES}
+    ${MPFR_LIB}
 )
+
+# Add FLINT library and pthread if enabled
+if(FLINT_BUILD_ENABLED)
+    target_link_libraries(fracessa PRIVATE
+        ${FLINT_LIBRARIES}
+        pthread
+    )
+endif()
 
 # Windows-specific
 if(WIN32 OR MSVC OR MSYS OR MINGW)

@@ -1,6 +1,7 @@
 // supports.hpp
 #pragma once
 #include <cstddef>
+#include <cstdint>
 #include <vector>
 #include <algorithm>
 #include <numeric>
@@ -38,7 +39,7 @@ private:
     
 public:
     /// Constructor - stores parameters, does not initialize supports
-    FORCE_INLINE Supports(size_t dimension, bool is_cs) noexcept
+    inline Supports(size_t dimension, bool is_cs) noexcept
         : supports_(dimension)
         , dimension_(dimension)
         , is_cs_(is_cs)
@@ -56,9 +57,8 @@ public:
         
         // Populate supports based on is_cs_ flag
         if (is_cs_) {
-            for (uint64_t bits = 1ULL; bits < (1ULL << dimension_); ++bits) {
-                bitset64 support = bits;
-                size_t current_index = bs64::count(support) - 1;
+            for (uint64_t support = 1ULL; support < bs64::two_to_the_power_of(dimension_); ++support) {
+                size_t current_index = bs64::count_set_bits(support) - 1;
                 if (is_coprime[current_index]) {
                     // Only add if it's the smallest representation (canonical form)
                     if (bs64::is_smallest_representation(support, dimension_)) {
@@ -69,29 +69,29 @@ public:
                 }
             }
         } else {
-            for (uint64_t bits = 1ULL; bits < (1ULL << dimension_); ++bits) {
+            for (uint64_t bits = 1ULL; bits < bs64::two_to_the_power_of(dimension_); ++bits) {
                 bitset64 support = bits;
-                supports_[bs64::count(support) - 1].push_back(support);
+                supports_[bs64::count_set_bits(support) - 1].push_back(support);
             }
         }
     }
     
     /// Get const reference to supports for a given support size (1-indexed)
     /// CRITICAL hot path - must be FORCE_INLINE
-    FORCE_INLINE const std::vector<bitset64>& get_supports(size_t support_size) const noexcept {
+    inline const std::vector<bitset64>& get_supports(size_t support_size) const noexcept {
         return supports_[support_size-1];
     }
     
     /// Remove all supersets of the given subset, starting from from_size
     /// Hot path - FORCE_INLINE for maximum performance
-    FORCE_INLINE void remove_supersets(const bitset64& subset, uint64_t support_size = 0) noexcept {
+    inline void remove_supersets(const bitset64& subset, uint64_t support_size = 0) noexcept {
         if (support_size == 0) {
-            support_size = bs64::count(subset);
+            support_size = bs64::count_set_bits(subset);
         }
         for (size_t i = support_size; i < dimension_; ++i) { //index support_size means erase from support_size+1 on!!!
             auto& vec = supports_[i];
             // Binary search: find first element where x > subset (only for dimension >= 10)
-            // this is an educated guess. for dimensions the overhead of the binary search is bigger than the time saved
+            // this is an educated guess. for small dimensions the overhead of the binary search is bigger than the time saved
             auto start_it = (dimension_ >= 10) 
                 ? std::upper_bound(vec.begin(), vec.end(), subset)
                 : vec.begin();
@@ -109,38 +109,5 @@ public:
         }
     }
     
-    /// Remove all supersets for a batch of subsets
-    /// More efficient than calling remove_supersets multiple times NOT TRUE!!!!!!
-    FORCE_INLINE void remove_supersets_batch(const std::vector<bitset64>& subset_list, size_t support_size) noexcept {
-        for (size_t i = support_size; i < dimension_; ++i) { //index support_size means erase from support_size+1 on!!!
-            auto& vec = supports_[i];
-            vec.erase(
-                std::remove_if(
-                    vec.begin(),
-                    vec.end(),
-                    [&](const bitset64& x) { 
-                        return std::any_of(
-                            subset_list.begin(), 
-                            subset_list.end(), 
-                            [&](const bitset64& s) { 
-                                return bs64::is_subset_of(s, x); 
-                            }
-                        ); 
-                    }
-                ),
-                vec.end()
-            );
-        }
-    }
-    
-    // /// Get size of supports for a given support size
-    // FORCE_INLINE size_t size(size_t support_size) const noexcept {
-    //     return supports_[support_size].size();
-    // }
-    
-    // /// Check if supports for a given size are empty
-    // FORCE_INLINE bool empty(size_t support_size) const noexcept {
-    //     return supports_[support_size].empty();
-    // }
 };
 

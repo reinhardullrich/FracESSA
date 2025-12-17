@@ -17,7 +17,7 @@ namespace rational_linalg {
  *     because it avoids floating-point division tricks and uses exact arithmetic.
  *
  * Stability / Accuracy:
- *   - Perfect for rational or symbolic types; no rounding errors.
+ *   - Perfect for fractional or symbolic types; no rounding errors.
  *   - Detects singular matrices exactly (pivot = 0).
  *   - Great for ill-conditioned matrices in exact arithmetic because
  *     no division by small numbers until necessary.
@@ -25,7 +25,7 @@ namespace rational_linalg {
  *
  * Use case:
  *   - Exact solutions, guaranteed singularity detection,
- *     symbolic or rational arithmetic.
+ *     symbolic or fractional arithmetic.
  */
 
 template<typename T>

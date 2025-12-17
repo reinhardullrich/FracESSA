@@ -4,7 +4,7 @@
 #include <exception>
 #include <numeric>
 
-fracessa::fracessa(const rational_linalg::Matrix<small_rational>& matrix, bool is_cs, bool with_candidates, bool exact, bool full_support, bool with_log, int matrix_id)
+fracessa::fracessa(const rational_linalg::Matrix<fraction>& matrix, bool is_cs, bool with_candidates, bool exact, bool full_support, bool with_log, int matrix_id)
     : matrix_server_(matrix)
     , dimension_(matrix.rows())
     , is_cs_(is_cs)
@@ -38,7 +38,7 @@ fracessa::fracessa(const rational_linalg::Matrix<small_rational>& matrix, bool i
         }
         
         logger_->info("n={}", dimension_);
-        logger_->info("game matrix:\n{}", rational_linalg::matrix_to_log(matrix_server_.get_game_matrix<small_rational>()));
+        logger_->info("game matrix:\n{}", matrix_server_.get_game_matrix<fraction>().to_log_string());
     }
         
     // Initialize supports
@@ -79,21 +79,8 @@ void fracessa::search_one_support(const bitset64& support, size_t support_size, 
             if (!find_candidate<double>(support, support_size))
                 return;
 
-    // Try small_rational first (fast path)
-        try {
-        if (!find_candidate<small_rational>(support, support_size))
-                return;
-        } catch (const std::exception& e) {
-            // Check if it's an overflow error
-            std::string error_msg = e.what();
-            if (error_msg.find("overflow") != std::string::npos) {
-            // Fall back to rational precision
-            if (!find_candidate<rational>(support, support_size))
-                    return;
-            } else {              
-                throw;  // Re-throw if it's not an overflow error
-            }
-    }
+    if (!find_candidate<fraction>(support, support_size))
+            return;
 
     candidate_.support_size = support_size;
     candidate_.support = support;
@@ -102,20 +89,7 @@ void fracessa::search_one_support(const bitset64& support, size_t support_size, 
     if (conf_with_log_)
         logger_->info("Found candidate! Check stability:");
 
-    // Try small_rational first (fast path)
-        try {
-        check_stability<small_rational>();
-        } catch (const std::exception& e) {
-            // Check if it's an overflow error
-            std::string error_msg = e.what();
-            if (error_msg.find("overflow") != std::string::npos) {
-            // Fall back to rational precision
-            check_stability<rational>();
-            } else {
-                // Re-throw if it's not an overflow error
-                throw;
-            }
-    }
+    check_stability();
 
     if (candidate_.is_ess)
         ess_count_++;
@@ -141,7 +115,7 @@ void fracessa::search_one_support(const bitset64& support, size_t support_size, 
 
         for (size_t i = 0; i < dimension_ - 1; i++) {
 
-            bs64::rot_one_right(candidate_.support, dimension_);
+            candidate_.support = bs64::rot_one_right(candidate_.support, dimension_);
 
             candidate_.candidate_id++;
 
@@ -150,13 +124,13 @@ void fracessa::search_one_support(const bitset64& support, size_t support_size, 
 
             if (conf_with_candidates_) {
                 // Rotate vector: move first element to end
-                rational first = candidate_.vector(0, 0);
+                fraction first = candidate_.vector(0, 0);
                 size_t vec_size = candidate_.vector.rows();
                 for (size_t j = 0; j < vec_size - 1; j++) {
                     candidate_.vector(j, 0) = candidate_.vector(j + 1, 0);
                 }
                 candidate_.vector(vec_size - 1, 0) = first;
-                bs64::rot_one_right(candidate_.extended_support, dimension_);
+                candidate_.extended_support = bs64::rot_one_right(candidate_.extended_support, dimension_);
                 candidates_.push_back(candidate_);
 
                 if (conf_with_log_) {

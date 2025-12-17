@@ -12,13 +12,13 @@ namespace rational_linalg {
  *
  * Speed:
  *   - Complexity: O(n^3), same as standard Gaussian elimination.
- *   - Much slower in practice with rational or big integer types
+ *   - Much slower in practice with fractional or big integer types
  *     because intermediate numbers grow rapidly.
  *   - For floating-point, Bareiss is slower than standard methods
  *     because it avoids floating-point division tricks and uses exact arithmetic.
  *
  * Stability / Accuracy:
- *   - Perfect for rational or symbolic types; no rounding errors.
+ *   - Perfect for fractional or symbolic types; no rounding errors.
  *   - Detects singular matrices exactly (pivot = 0).
  *   - Great for ill-conditioned matrices in exact arithmetic because
  *     no division by small numbers until necessary.
@@ -26,7 +26,7 @@ namespace rational_linalg {
  *
  * Use case:
  *   - Exact solutions, guaranteed singularity detection,
- *     symbolic or rational arithmetic.
+ *     symbolic or fractional arithmetic.
  */
 
 template<typename T>
@@ -137,9 +137,9 @@ public:
     bool solve(Matrix<double>& x) {
         const size_t n = M.rows();
 
-        const double errorbound = 1e-5 * n; // huge margin, false positives eliminated by rational check
+        const double errorbound = 1e-5 * n; // huge margin, false positives eliminated by fractional check
 
-        const double epsilon = 1e-15; //std::numeric_limits<double>::epsilon(); // * n; keep epsilon super small to avoid false negative. false positive will be detected by rational afterwards!!!
+        const double epsilon = 1e-15; //std::numeric_limits<double>::epsilon(); // * n; keep epsilon super small to avoid false negative. false positive will be detected by fractional afterwards!!!
 
         // Standard Gaussian elimination with partial pivoting
         for (size_t k = 0; k < n - 1; ++k) {
@@ -197,7 +197,7 @@ public:
 
             double temp_x = sum / pivot;
             // Check for not >zero in solution component with huge margin
-            // False positives will be eliminated by rational checks later
+            // False positives will be eliminated by fractional checks later
             if (temp_x < -errorbound) 
                 return false;
             else
@@ -218,7 +218,7 @@ private:
  *   - Complexity: O(n^3), same as BareissGauss
  *   - Faster than BareissGauss for types that support efficient division:
  *     - Uses direct division (no fraction-free arithmetic overhead)
- *     - Better for rational types when intermediate values don't grow too large
+ *     - Better for fractional types when intermediate values don't grow too large
  *     - More efficient for floating-point types
  *
  * Stability / Accuracy:
@@ -230,7 +230,7 @@ private:
  * Use case:
  *   - Fast solving of linear systems when exact arithmetic is available
  *   - Alternative to BareissGauss when division is efficient
- *   - For rational types when matrix is well-conditioned
+ *   - For fractional types when matrix is well-conditioned
  */
 template<typename T>
 class GaussRational {
@@ -317,8 +317,8 @@ private:
 // Automatically selects GaussDouble for double, GaussRational<T> for other types
 template<typename T>
 struct SolverSelector {
-    //using type = GaussRational<T>;
-    using type = BareissGauss<T>; //leave this here!!! for comparison!!!
+    using type = GaussRational<T>;
+    //using type = BareissGauss<T>; //leave this here!!! for comparison!!!
 };
 
 template<>
