@@ -17,12 +17,12 @@ if(MSVC)
     # Windows: VCPKG static triplet handles /MT (static runtime) automatically
     add_compile_options(/O2 /Oi /Ot /GL /fp:fast /DNDEBUG)
     add_link_options(/LTCG)
+    # Suppress warnings about unreferenced variables and conversion loss (common in GMP/FLINT headers)
+    add_compile_options(/wd4244 /wd4146 /wd4101) 
 else()
     # Linux/Mac: Optimization flags
     add_compile_options(-O3 -march=native -flto -funroll-loops -DNDEBUG)
     
-    # Linux: Link standard C++ libraries statically for maximum portability
-    # This ensures the binary runs on older Linux distros without "GLIBCXX not found" errors
     if(CMAKE_SYSTEM_NAME STREQUAL "Linux")
         add_link_options(-static-libgcc -static-libstdc++)
     endif()
@@ -53,10 +53,33 @@ FetchContent_MakeAvailable(spdlog argparse)
 # 3. Math Dependencies (GMP, MPFR, FLINT)
 # ==============================================================================
 
-# --- GMP & MPFR (Linux/Mac Only) ---
-# Windows handles this via vcpkg
-if(NOT WIN32)
-    # FORCE STATIC linking on Linux/Mac by looking for .a files only
+if(WIN32)
+    # --- WINDOWS (VCPKG) ---
+    # Use find_package which works reliably with vcpkg
+    # Vcpkg provides "Unofficial" configs for GMP/MPFR usually
+    find_package(gmp REQUIRED)
+    find_package(mpfr REQUIRED)
+    find_package(flint REQUIRED)
+    
+    # Map vcpkg targets to variables for consistency
+    # Note: different vcpkg versions might expose different target names.
+    # Common ones: gmp::gmp, mpfr::mpfr, flint::flint
+    set(GMP_LIBRARIES gmp::gmp)
+    set(MPFR_LIBRARIES mpfr::mpfr)
+    set(FLINT_LIBRARIES flint::flint)
+    
+    # FLINT often needs pthread on Windows if built with thread support
+    find_package(PThreads)
+    if(PThreads_FOUND)
+        list(APPEND FLINT_LIBRARIES PThreads::PThreads)
+    endif()
+    
+    message(STATUS "Found FLINT (Windows vcpkg)")
+
+else()
+    # --- LINUX / MACOS (Manual / Source) ---
+    
+    # Force Static Linking on Linux/Mac
     set(_ORIG_CMAKE_FIND_LIBRARY_SUFFIXES ${CMAKE_FIND_LIBRARY_SUFFIXES})
     set(CMAKE_FIND_LIBRARY_SUFFIXES ".a")
     
@@ -66,7 +89,7 @@ if(NOT WIN32)
     find_library(MPFR_LIB NAMES mpfr libmpfr)
     find_path(MPFR_INCLUDE_DIR NAMES mpfr.h)
 
-    # Restore original suffixes so other things don't break
+    # Restore suffixes
     set(CMAKE_FIND_LIBRARY_SUFFIXES ${_ORIG_CMAKE_FIND_LIBRARY_SUFFIXES})
 
     if(NOT (GMP_LIB AND GMP_INCLUDE_DIR))
@@ -76,29 +99,9 @@ if(NOT WIN32)
     if(NOT (MPFR_LIB AND MPFR_INCLUDE_DIR))
         message(FATAL_ERROR "MPFR static lib not found.")
     endif()
-endif()
-
-# --- FLINT ---
-set(FLINT_INCLUDE_DIRS "")
-set(FLINT_LIBRARIES "")
-
-if(WIN32)
-    # WINDOWS: Use vcpkg provided libraries
-    find_library(FLINT_LIB NAMES flint libflint)
-    find_path(FLINT_INCLUDE_DIR NAMES flint/flint.h)
     
-    if(FLINT_LIB AND FLINT_INCLUDE_DIR)
-        set(FLINT_LIBRARIES ${FLINT_LIB})
-        set(FLINT_INCLUDE_DIRS ${FLINT_INCLUDE_DIR})
-        message(STATUS "Found FLINT (Windows): ${FLINT_LIB}")
-    else()
-        message(FATAL_ERROR "FLINT not found. Ensure 'vcpkg install flint:x64-windows-static' ran.")
-    endif()
-else()
-    # LINUX / MACOS: Build FLINT from Source (Tarball)
-    # This ensures we get a static .a file linked into our binary
+    # Build FLINT from source
     include(ExternalProject)
-    
     get_filename_component(GMP_LIB_DIR ${GMP_LIB} DIRECTORY)
     get_filename_component(MPFR_LIB_DIR ${MPFR_LIB} DIRECTORY)
 
@@ -106,7 +109,6 @@ else()
         URL https://github.com/flintlib/flint/releases/download/v3.0.1/flint-3.0.1.tar.gz
         PREFIX ${CMAKE_BINARY_DIR}/third_party/flint
         BUILD_IN_SOURCE 1
-        # Configure FLINT to use the system's (static) GMP/MPFR
         CONFIGURE_COMMAND ./configure 
             --prefix=<INSTALL_DIR> 
             --with-gmp=${GMP_LIB_DIR}/.. 
@@ -120,6 +122,12 @@ else()
     ExternalProject_Get_Property(flint_build INSTALL_DIR)
     set(FLINT_INCLUDE_DIRS ${INSTALL_DIR}/include)
     set(FLINT_LIBRARIES ${INSTALL_DIR}/lib/libflint.a)
+    
+    # Set variables for consistent usage below
+    set(GMP_LIBRARIES ${GMP_LIB})
+    set(MPFR_LIBRARIES ${MPFR_LIB})
+    set(GMP_INCLUDE_DIR ${GMP_INCLUDE_DIR}) # Already set but consistent naming
+    set(MPFR_INCLUDE_DIR ${MPFR_INCLUDE_DIR})
 endif()
 
 # ==============================================================================
@@ -132,19 +140,27 @@ add_library(fracessa_lib
     src/checkstab.cpp
 )
 
+# Standard Include Paths
 target_include_directories(fracessa_lib PUBLIC
     $<BUILD_INTERFACE:${CMAKE_CURRENT_SOURCE_DIR}/include>
     $<BUILD_INTERFACE:${CMAKE_CURRENT_SOURCE_DIR}/include/fracessa>
-    ${FLINT_INCLUDE_DIRS}
-    ${GMP_INCLUDE_DIR}
-    ${MPFR_INCLUDE_DIR}
 )
 
+# Math Include Paths (Only needed explicitly for non-vcpkg/source builds usually, but safer to add)
+if(NOT WIN32)
+    target_include_directories(fracessa_lib PUBLIC
+        ${FLINT_INCLUDE_DIRS}
+        ${GMP_INCLUDE_DIR}
+        ${MPFR_INCLUDE_DIR}
+    )
+endif()
+
+# Linking
 target_link_libraries(fracessa_lib PUBLIC
     spdlog::spdlog
     ${FLINT_LIBRARIES}
-    ${MPFR_LIB}
-    ${GMP_LIB}
+    ${MPFR_LIBRARIES}
+    ${GMP_LIBRARIES}
 )
 
 if(NOT WIN32)
@@ -153,6 +169,7 @@ if(NOT WIN32)
     target_link_libraries(fracessa_lib PUBLIC Threads::Threads)
 endif()
 
+# Executable
 add_executable(fracessa src/main.cpp)
 
 target_link_libraries(fracessa PRIVATE
