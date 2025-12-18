@@ -1,0 +1,1695 @@
+=== python/fracessa_py.py ===
+#!/usr/bin/env python3
+"""
+FRACESSA Python Wrapper Module
+
+This module provides a Python API for the FRACESSA executable,
+allowing you to compute evolutionary stable strategies (ESS) from Python code.
+"""
+
+import subprocess
+import json
+import os
+from pathlib import Path
+from typing import List, Dict, Optional, Union, Tuple
+import time
+
+
+class FracessaError(Exception):
+    """Exception raised for FRACESSA-related errors."""
+    pass
+
+
+class Matrix:
+    """
+    Represents a payoff matrix for evolutionary game theory.
+
+    Args:
+        matrix_str: String representation of the matrix (e.g., "0,1,1,0" for 2x2)
+        dimension: Matrix dimension (will be auto-detected if not provided)
+        is_circular: Whether this is a circular symmetric matrix
+    """
+
+    def __init__(self, matrix_str: str, dimension: Optional[int] = None, is_circular: bool = False):
+        self.matrix_str = matrix_str
+        self.dimension = dimension
+        self.is_circular = is_circular
+
+        # Validate or auto-detect dimension
+        elements = matrix_str.split(',')
+        n = len(elements)
+        
+        if self.dimension is None:
+            # Auto-detect dimension
+            # Try to find square dimension (for general matrices)
+            dim = int(n ** 0.5)
+            if dim * dim == n:
+                self.dimension = dim
+                self.is_circular = False
+            elif self.is_circular:
+                # For circular symmetric matrices, we need dimension to be provided
+                # because n elements could correspond to dimension 2*n (even) or 2*n+1 (odd)
+                raise ValueError(f"Cannot auto-detect dimension for circular symmetric matrix with {n} elements. Please provide dimension.")
+            else:
+                raise ValueError(f"Cannot auto-detect dimension for {n} elements")
+        else:
+            # Dimension provided - validate number of elements
+            if self.is_circular:
+                # Circular symmetric: should have floor(dimension/2) elements
+                expected_elements = self.dimension // 2
+                if n != expected_elements:
+                    raise ValueError(f"Circular symmetric matrix with dimension {self.dimension} should have {expected_elements} elements, but got {n}")
+            else:
+                # General matrix: should have n*(n+1)/2 elements (upper triangular format)
+                expected_elements = self.dimension * (self.dimension + 1) // 2
+                if n != expected_elements:
+                    raise ValueError(f"General matrix with dimension {self.dimension} should have {expected_elements} elements (upper triangular), but got {n}")
+
+    def to_cli_string(self) -> str:
+        """Convert to command-line format for fracessa executable."""
+        return f"{self.dimension}#{self.matrix_str}"
+
+    def __str__(self):
+        return f"Matrix({self.dimension}x{self.dimension}, circular={self.is_circular})"
+
+    def __repr__(self):
+        return f"Matrix('{self.matrix_str}', dimension={self.dimension}, is_circular={self.is_circular})"
+
+
+class Candidate:
+    """
+    Represents an ESS candidate found by FRACESSA.
+
+    Attributes:
+        candidate_id: Unique identifier for this candidate
+        vector: Strategy vector (list of rational numbers as strings)
+        support: Bitmask representing the support set
+        support_size: Size of the support set
+        extended_support: Extended support bitmask
+        extended_support_size: Size of extended support
+        shift_reference: Shift reference value
+        is_ess: Whether this is confirmed to be an ESS
+        reason_ess: Reason why this is/isn't an ESS
+        payoff: Payoff value (rational)
+        payoff_double: Payoff value (floating point)
+    """
+
+    def __init__(self, data: Dict):
+        self.candidate_id = data.get('candidate_id', 0)
+        self.vector = data.get('vector', [])
+        self.support = data.get('support', 0)
+        self.support_size = data.get('support_size', 0)
+        self.extended_support = data.get('extended_support', 0)
+        self.extended_support_size = data.get('extended_support_size', 0)
+        self.shift_reference = data.get('shift_reference', 0)
+        self.is_ess = data.get('is_ess', False)
+        self.reason_ess = data.get('reason_ess', '')
+        self.payoff = data.get('payoff', '0')
+        self.payoff_double = data.get('payoff_double', 0.0)
+
+    def __str__(self):
+        return f"{'ESS' if self.is_ess else 'Candidate'} {self.candidate_id}: payoff={self.payoff_double:.6f}"
+
+    def __repr__(self):
+        return f"{'ESS' if self.is_ess else 'Candidate'}(id={self.candidate_id}, payoff={self.payoff_double:.6f}, is_ess={self.is_ess})"
+
+
+class ESSResult:
+    """
+    Result of an ESS computation.
+
+    Attributes:
+        ess_count: Number of evolutionary stable strategies found
+        candidates: List of Candidate objects
+        computation_time: Time taken for computation (seconds)
+        success: Whether the computation succeeded
+        error: Error message if computation failed
+    """
+
+    def __init__(self, ess_count: int = 0, candidates: List[Candidate] = None,
+                 computation_time: float = 0.0, success: bool = True, error: str = ""):
+        self.ess_count = ess_count
+        self.candidates = candidates or []
+        self.computation_time = computation_time
+        self.success = success
+        self.error = error
+
+    def __str__(self):
+        if self.success:
+            return f"ESS Result: {self.ess_count} ESS found in {self.computation_time:.6f}s"
+        else:
+            return f"ESS Result: Failed - {self.error}"
+
+    def __repr__(self):
+        return f"ESSResult(ess_count={self.ess_count}, candidates={len(self.candidates)}, success={self.success})"
+
+
+class Fracessa:
+    """
+    Main FRACESSA interface for computing evolutionary stable strategies.
+
+    Args:
+        executable_path: Path to the fracessa executable (auto-detected if not provided)
+    """
+
+    def __init__(self, executable_path: Optional[str] = None):
+        if executable_path:
+            self.executable_path = Path(executable_path)
+        else:
+            # Auto-detect executable path
+            # __file__ is at fracessa/python/fracessa_py.py
+            # Go up to project root: parent.parent.parent (from __file__)
+            script_file = Path(__file__).resolve()  # Get absolute path
+            project_root = script_file.parent.parent.parent  # project root
+            possible_paths = [
+                project_root / "build" / "fracessa",
+            ]
+
+            self.executable_path = None
+            for path in possible_paths:
+                if path.exists() and path.is_file():
+                    self.executable_path = path
+                    break
+
+            if self.executable_path is None:
+                raise FracessaError("Could not find fracessa executable. Please specify executable_path.")
+
+        if not self.executable_path.exists():
+            raise FracessaError(f"Fracessa executable not found at {self.executable_path}")
+
+        # Make executable
+        os.chmod(self.executable_path, 0o755)
+
+    def compute_ess(self, matrix: Union[Matrix, str],
+                   include_candidates: bool = True,
+                   exact_arithmetic: bool = False,
+                   full_support_search: bool = False,
+                   enable_logging: bool = False,
+                   timeout: float = 0.0,
+                   matrix_id: int = -1) -> ESSResult:
+        """
+        Compute evolutionary stable strategies for a given payoff matrix.
+
+        Args:
+            matrix: Matrix object or CLI string (e.g., "2#0,1,1,0")
+            include_candidates: Whether to return detailed candidate information
+            exact_arithmetic: Use exact rational arithmetic (slower but precise)
+            full_support_search: Search full support directly after size 1
+            enable_logging: Enable detailed logging to fracessa.log
+            timeout: Maximum computation time in seconds (0.0 means no timeout)
+            matrix_id: Optional matrix ID to write in the log file (default: -1, not logged)
+
+        Returns:
+            ESSResult object containing the computation results
+
+        Raises:
+            FracessaError: If computation fails
+        """
+
+        # Convert matrix to CLI string
+        if isinstance(matrix, Matrix):
+            cli_string = matrix.to_cli_string()
+        elif isinstance(matrix, str):
+            cli_string = matrix
+        else:
+            raise FracessaError("matrix must be a Matrix object or CLI string")
+
+        # Build command
+        cmd = [str(self.executable_path)]
+        if include_candidates:
+            cmd.append("-c")
+        if exact_arithmetic:
+            cmd.append("-e")
+        if full_support_search:
+            cmd.append("-f")
+        if enable_logging:
+            cmd.append("-l")
+        # Always use -t flag to get timing from executable
+        cmd.append("-t")
+        if matrix_id >= 0:
+            cmd.append("-m")
+            cmd.append(str(matrix_id))
+        cmd.append(cli_string)
+
+        try:
+            # Run command with timeout (0.0 means no timeout)
+            subprocess_timeout = None if timeout == 0.0 else timeout
+            result = subprocess.run(
+                cmd,
+                capture_output=True,
+                text=True,
+                timeout=subprocess_timeout
+            )
+
+            if result.returncode != 0:
+                # Fallback timing if command failed
+                computation_time = 0.0
+                return ESSResult(
+                    success=False,
+                    error=f"Command failed with return code {result.returncode}: {result.stderr}",
+                    computation_time=computation_time
+                )
+
+            # Parse output
+            lines = result.stdout.strip().split('\n')
+            if not lines or not lines[0].strip():
+                return ESSResult(
+                    success=False,
+                    error="No output from executable",
+                    computation_time=0.0
+                )
+
+            try:
+                ess_count = int(lines[0].strip())
+            except ValueError:
+                return ESSResult(
+                    success=False,
+                    error=f"Could not parse ESS count from: {lines[0]}",
+                    computation_time=0.0
+                )
+
+            # Parse timing from second line (when -t flag is used)
+            computation_time = 0.0
+            if len(lines) > 1:
+                try:
+                    computation_time = float(lines[1].strip())
+                except (ValueError, IndexError):
+                    # If timing line is missing or invalid, use 0.0
+                    computation_time = 0.0
+
+            candidates = []
+            # When -t flag is used, timing is on line 1, so candidates start at line 2
+            candidate_start_line = 2 if len(lines) > 1 else 1
+            if include_candidates and len(lines) > candidate_start_line:
+                header = lines[candidate_start_line]  # Header line
+                candidate_lines = lines[candidate_start_line + 1:]  # Candidate data lines
+
+                for line in candidate_lines:
+                    if line.strip():
+                        parts = line.split(';')
+                        if len(parts) >= 11:
+                            candidate_data = {
+                                'candidate_id': int(parts[0]) if parts[0] else 0,
+                                'vector': parts[1].split(',') if parts[1] else [],
+                                'support': int(parts[2]) if parts[2] else 0,
+                                'support_size': int(parts[3]) if parts[3] else 0,
+                                'extended_support': int(parts[4]) if parts[4] else 0,
+                                'extended_support_size': int(parts[5]) if parts[5] else 0,
+                                'shift_reference': int(parts[6]) if parts[6] else 0,
+                                'is_ess': parts[7].lower() == '1' if parts[7] else False,
+                                'reason_ess': parts[8] if len(parts) > 8 else '',
+                                'payoff': parts[9] if len(parts) > 9 else '0',
+                                'payoff_double': float(parts[10]) if len(parts) > 10 and parts[10] else 0.0
+                            }
+                            candidates.append(Candidate(candidate_data))
+
+            return ESSResult(
+                ess_count=ess_count,
+                candidates=candidates,
+                computation_time=computation_time,
+                success=True
+            )
+
+        except subprocess.TimeoutExpired:
+            return ESSResult(
+                success=False,
+                error=f"Computation timed out after {timeout} seconds",
+                computation_time=timeout
+            )
+        except Exception as e:
+            return ESSResult(
+                success=False,
+                error=f"Exception: {str(e)}",
+                computation_time=0.0
+            )
+
+    def __repr__(self):
+        return f"Fracessa(executable='{self.executable_path}')"
+
+=== python/run_matrices.py ===
+#!/usr/bin/env python3
+"""
+Script to run all matrices from matrices.json using the FRACESSA Python bindings
+and save results to a JSON file. Processes matrices sequentially.
+
+Optimized: Uses micro-benchmarking loops for small matrices to filter out OS noise.
+Features: Compares timing against 'baseline_result.json' AND the latest 'fracessa_verification_result_*.json'.
+"""
+
+import json
+import sys
+import time
+import csv
+from datetime import datetime
+from pathlib import Path
+from fracessa_py import Fracessa, Matrix, FracessaError
+
+
+def candidate_to_comparison_key(candidate):
+    """
+    Convert a candidate dict to a hashable tuple for comparison.
+    """
+    vector = candidate.get('vector', '')
+    if isinstance(vector, list):
+        vector = ','.join(str(v) for v in vector)
+    
+    return (
+        str(vector),
+        str(candidate.get('support', '')),
+        str(candidate.get('support_size', '')),
+        str(candidate.get('extended_support', '')),
+        str(candidate.get('extended_support_size', '')),
+        str(candidate.get('shift_reference', '')),
+        str(candidate.get('is_ess', '')),
+        str(candidate.get('payoff', '')),
+        str(candidate.get('payoff_double', ''))
+    )
+
+
+def compare_ess_counts(results, baseline_file):
+    """Compare ESS counts of current run against baseline JSON file."""
+    if not baseline_file.exists():
+        return {"status": "SKIPPED", "reason": f"Baseline file not found", "compared": 0, "mismatches": []}
+    
+    try:
+        with open(baseline_file, 'r') as f:
+            baseline_data = json.load(f)
+        baseline_results = baseline_data.get('results', [])
+    except Exception as e:
+        return {"status": "ERROR", "reason": f"Failed to load baseline: {e}", "compared": 0, "mismatches": []}
+    
+    baseline_ess_counts = {}
+    for result in baseline_results:
+        matrix_id = result.get('id')
+        if result.get('result', {}).get('success'):
+            baseline_ess_counts[matrix_id] = result['result'].get('ess_count', 0)
+    
+    compared = 0
+    mismatches = []
+    
+    for result in results:
+        matrix_id = result.get('id')
+        current_result = result.get('result', {})
+        if not current_result.get('success'): continue
+        if matrix_id not in baseline_ess_counts: continue
+        
+        current_ess_count = current_result.get('ess_count', 0)
+        baseline_ess_count = baseline_ess_counts[matrix_id]
+        compared += 1
+        
+        if current_ess_count != baseline_ess_count:
+            mismatches.append({
+                "matrix_id": matrix_id,
+                "dimension": result.get('dimension'),
+                "current_ess": current_ess_count,
+                "baseline_ess": baseline_ess_count
+            })
+    
+    return {"status": "SUCCESS", "compared": compared, "mismatches": mismatches}
+
+
+def verify_against_baseline(all_candidates, baseline_file):
+    """Verify produced candidates against baseline CSV."""
+    from collections import defaultdict
+    
+    if not baseline_file.exists():
+        return {"status": "SKIPPED", "reason": f"Baseline file not found", "verified": 0, "passed": 0, "failed": 0, "details": []}
+    
+    baseline_candidates = []
+    with open(baseline_file, 'r', newline='') as f:
+        reader = csv.DictReader(f)
+        for row in reader:
+            baseline_candidates.append(row)
+    
+    produced_by_matrix = defaultdict(set)
+    baseline_by_matrix = defaultdict(set)
+    produced_counts = defaultdict(int)
+    baseline_counts = defaultdict(int)
+    
+    for candidate in all_candidates:
+        matrix_id = candidate.get('matrix_id')
+        if matrix_id is None: continue
+        matrix_id = int(matrix_id)
+        key = candidate_to_comparison_key(candidate)
+        produced_by_matrix[matrix_id].add(key)
+        produced_counts[matrix_id] += 1
+    
+    for candidate in baseline_candidates:
+        matrix_id = int(candidate.get('matrix_id'))
+        key = candidate_to_comparison_key(candidate)
+        baseline_by_matrix[matrix_id].add(key)
+        baseline_counts[matrix_id] += 1
+    
+    produced_ids = set(produced_by_matrix.keys())
+    baseline_ids = set(baseline_by_matrix.keys())
+    to_verify = produced_ids & baseline_ids
+    
+    passed = 0
+    failed = 0
+    mismatches = []
+    errors = []
+    count_mismatches = []
+    
+    # Check for matrices not in baseline (ERROR)
+    for matrix_id in sorted(produced_ids - baseline_ids):
+        failed += 1
+        errors.append({"matrix_id": matrix_id, "error": "Matrix ID not found in baseline"})
+    
+    for matrix_id in sorted(to_verify):
+        p_set = produced_by_matrix[matrix_id]
+        b_set = baseline_by_matrix[matrix_id]
+        p_count = produced_counts[matrix_id]
+        b_count = baseline_counts[matrix_id]
+        
+        if p_count != b_count:
+            failed += 1
+            count_mismatches.append({"matrix_id": matrix_id, "produced_count": p_count, "baseline_count": b_count})
+        
+        if p_set == b_set and p_count == b_count:
+            passed += 1
+        elif p_set != b_set:
+            failed += 1
+            mismatches.append({
+                "matrix_id": matrix_id, 
+                "produced_count": len(p_set), 
+                "baseline_count": len(b_set),
+                "extra_count": len(p_set - b_set), 
+                "missing_count": len(b_set - p_set)
+            })
+    
+    return {
+        "status": "PASS" if failed == 0 else "FAIL",
+        "verified": len(to_verify),
+        "passed": passed, "failed": failed,
+        "errors": errors, "mismatches": mismatches, "candidate_count_mismatches": count_mismatches
+    }
+
+
+def process_matrix(matrix_data):
+    """
+    Process a single matrix.
+    If the matrix is small (dimension < 15), run it multiple times to get stable timing.
+    """
+    matrix_id = matrix_data['id']
+    dimension = matrix_data['dimension']
+    number_ess = matrix_data['number_ess']
+    is_cs = matrix_data['is_cs']
+    matrix_str = matrix_data['matrix']
+    
+    # HEURISTIC: Small matrices are noisy. Run them multiple times.
+    if dimension < 10:
+        iterations = 20
+    elif dimension < 15:
+        iterations = 5
+    else:
+        iterations = 1
+
+    best_result = None
+    min_time = float('inf')
+
+    try:
+        fracessa = Fracessa()
+        matrix = Matrix(matrix_str, dimension, is_circular=is_cs)
+        
+        # BENCHMARK LOOP
+        for i in range(iterations):
+            result = fracessa.compute_ess(
+                matrix=matrix,
+                include_candidates=True,
+                enable_logging=False,
+                timeout=1800.0,
+                matrix_id=matrix_id
+            )
+            
+            if not result.success:
+                return (matrix_id, dimension, number_ess, {
+                    "id": matrix_id, "dimension": dimension, "number_ess_expected": number_ess,
+                    "is_cs": is_cs, "matrix": matrix_str,
+                    "result": {"success": False, "error": result.error, "timing": result.computation_time}
+                }, [], {"success": False, "error": result.error})
+            
+            if result.computation_time < min_time:
+                min_time = result.computation_time
+                best_result = result
+        
+        if best_result and best_result.success:
+            candidates_data = []
+            for candidate in best_result.candidates:
+                candidate_dict = {
+                    'candidate_id': candidate.candidate_id,
+                    'vector': candidate.vector,
+                    'support': candidate.support,
+                    'support_size': candidate.support_size,
+                    'extended_support': candidate.extended_support,
+                    'extended_support_size': candidate.extended_support_size,
+                    'shift_reference': candidate.shift_reference,
+                    'is_ess': candidate.is_ess,
+                    'reason_ess': str(candidate.reason_ess),
+                    'payoff': candidate.payoff,
+                    'payoff_double': candidate.payoff_double
+                }
+                candidates_data.append(candidate_dict)
+            
+            computation_result = {
+                "success": True,
+                "ess_count": best_result.ess_count,
+                "timing": min_time,
+                "candidates": candidates_data
+            }
+        else:
+             computation_result = {"success": False, "error": "No valid result found", "timing": 0.0}
+    
+    except FracessaError as e:
+        computation_result = {"success": False, "error": f"FRACESSA Error: {str(e)}", "timing": 0.0}
+    except Exception as e:
+        computation_result = {"success": False, "error": f"Exception: {str(e)}", "timing": 0.0}
+    
+    candidates_list = []
+    if computation_result["success"] and "candidates" in computation_result:
+        for candidate in computation_result["candidates"]:
+            candidate_with_matrix_id = {"matrix_id": matrix_id}
+            candidate_with_matrix_id.update(candidate)
+            candidates_list.append(candidate_with_matrix_id)
+    
+    result_without_candidates = {k: v for k, v in computation_result.items() if k != "candidates"}
+    
+    result_entry = {
+        "id": matrix_id, "dimension": dimension, "number_ess_expected": number_ess,
+        "is_cs": is_cs, "matrix": matrix_str, "result": result_without_candidates
+    }
+    
+    return (matrix_id, dimension, number_ess, result_entry, candidates_list, computation_result)
+
+
+def get_latest_timings(results_dir: Path):
+    """
+    Finds the most recent result file (excluding current run) and extracts timings.
+    Returns: (timings_dict, filename)
+    """
+    if not results_dir.exists():
+        return {}, None
+    
+    # glob files like 'fracessa_verification_result_*.json'
+    files = list(results_dir.glob("fracessa_verification_result_*.json"))
+    if not files:
+        return {}, None
+        
+    # Sort files by name (timestamps are in the name YYYYMMDD_HHMMSS)
+    files.sort(key=lambda x: x.name)
+    
+    # Pick the last one
+    latest_file = files[-1]
+    
+    timings = {}
+    try:
+        with open(latest_file, 'r') as f:
+            data = json.load(f)
+        for r in data.get('results', []):
+            if r.get('result', {}).get('success'):
+                timings[r['id']] = r['result'].get('timing', 0.0)
+        return timings, latest_file.name
+    except Exception:
+        return {}, None
+
+
+def format_comparison(current_time, ref_time):
+    """Generates string: (was Xs, +Z%)"""
+    if ref_time <= 0:
+        return f"(was {ref_time:.6f}s)"
+    
+    difference = current_time - ref_time
+    pct = ((current_time - ref_time) / ref_time) * 100
+    
+    if difference > 0:
+        return f"(was {ref_time:.6f}s, +{pct:.2f}%)"
+    elif difference < 0:
+        return f"(was {ref_time:.6f}s, {pct:.2f}%)"
+    else:
+        return f"(was {ref_time:.6f}s, 0.00%)"
+
+
+def main():
+    # Paths
+    script_dir = Path(__file__).resolve().parent
+    matrices_file = script_dir / "verification" / "verification_matrices.json"
+    
+    # Setup Output Paths
+    timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
+    results_dir = script_dir / "results"
+    results_dir.mkdir(exist_ok=True)
+    results_file = results_dir / f"fracessa_verification_result_{timestamp}.json"
+    candidates_file = results_dir / f"fracessa_verification_candidates_{timestamp}.csv"
+    
+    # Baseline Files
+    baseline_candidates_file = script_dir / "verification" / "baseline_candidates.csv"
+    baseline_results_file = script_dir / "verification" / "baseline_result.json"
+
+    # 1. Load Baseline Timings (Old Exe)
+    baseline_timings = {}
+    if baseline_results_file.exists():
+        try:
+            with open(baseline_results_file, 'r') as f:
+                data = json.load(f)
+            for r in data.get('results', []):
+                if r.get('result', {}).get('success'):
+                    baseline_timings[r['id']] = r['result'].get('timing', 0.0)
+        except Exception:
+            pass
+
+    # 2. Load Previous Run Timings (Latest Python Run)
+    latest_timings, latest_filename = get_latest_timings(results_dir)
+    if latest_filename:
+        print(f"Comparing against Previous Run: {latest_filename}")
+
+    # Load Matrices
+    if not matrices_file.exists():
+        print(f"Error: {matrices_file} not found")
+        sys.exit(1)
+
+    try:
+        import fracessa_py
+        print("FRACESSA Python bindings loaded successfully")
+    except ImportError as e:
+        print(f"Error: Cannot import fracessa_py: {e}")
+        sys.exit(1)
+
+    with open(matrices_file, 'r') as f:
+        data = json.load(f)
+
+    matrices = [m for m in data.get('matrices', []) if m.get('in_use', True)]
+    matrices.sort(key=lambda x: x.get('id', 0))
+
+    print(f"Processing {len(matrices)} matrices")
+    
+    results = []
+    all_candidates = []
+    successful = 0
+    failed = 0
+    total_matrices = len(matrices)
+
+    print(f"\nStarting sequential processing...")
+    start_time = time.time()
+
+    for i, matrix_data in enumerate(matrices):
+        result_tuple = process_matrix(matrix_data)
+        matrix_id, dimension, number_ess, result_entry, candidates_list, computation_result = result_tuple
+        
+        results.append(result_entry)
+        all_candidates.extend(candidates_list)
+        
+        if computation_result["success"]:
+            actual_ess = computation_result["ess_count"]
+            timing = computation_result["timing"]
+            
+            # Base status string
+            status = f"✅ {actual_ess} ESS in {timing:.6f}s"
+            
+            # 1. Compare to Old Exe (Baseline)
+            if matrix_id in baseline_timings:
+                diff_str = format_comparison(timing, baseline_timings[matrix_id])
+                status += f" | Old: {diff_str}"
+            
+            # 2. Compare to Previous Python Run (Latest)
+            if matrix_id in latest_timings:
+                diff_str = format_comparison(timing, latest_timings[matrix_id])
+                status += f" | Prev: {diff_str}"
+            
+            if actual_ess != number_ess:
+                status += f" ⚠️ (expected {number_ess})"
+            
+            print(f"[{i+1}/{total_matrices}] Matrix ID {matrix_id} (dim {dimension}): {status}")
+            successful += 1
+        else:
+            error_msg = computation_result.get('error', 'Unknown error')
+            if "Timed out" in error_msg:
+                print(f"[{i+1}/{total_matrices}] Matrix ID {matrix_id}: ⏰ {error_msg}")
+            else:
+                print(f"[{i+1}/{total_matrices}] Matrix ID {matrix_id}: ❌ {error_msg}")
+            failed += 1
+
+    elapsed_time = time.time() - start_time
+    print(f"\nProcessing completed in {elapsed_time:.2f}s")
+
+    # Save Results
+    results.sort(key=lambda x: x['id'])
+    all_candidates.sort(key=lambda x: (x['matrix_id'], x['candidate_id']))
+
+    with open(results_file, 'w') as f:
+        json.dump({
+            "metadata": {
+                "total_matrices": len(matrices),
+                "successful": successful,
+                "failed": failed,
+                "timestamp": time.time(),
+                "processing_time": elapsed_time
+            },
+            "results": results
+        }, f, indent=2)
+
+    csv_columns = [
+        "matrix_id", "candidate_id", "vector", "support", "support_size",
+        "extended_support", "extended_support_size", "shift_reference",
+        "is_ess", "reason_ess", "payoff", "payoff_double"
+    ]
+    
+    with open(candidates_file, 'w', newline='') as f:
+        writer = csv.DictWriter(f, fieldnames=csv_columns)
+        writer.writeheader()
+        for candidate in all_candidates:
+            row = candidate.copy()
+            if 'vector' in row and isinstance(row['vector'], list):
+                row['vector'] = ','.join(str(v) for v in row['vector'])
+            writer.writerow(row)
+
+    print(f"json saved: {results_file}")
+    print(f"csv saved: {candidates_file}")
+    
+    # Verification Steps
+    print("\n--- Verification ---")
+    ess_count_comparison = compare_ess_counts(results, baseline_results_file)
+    verification = verify_against_baseline(all_candidates, baseline_candidates_file)
+    
+    ess_ok = False
+    cand_ok = False
+    
+    # Check ESS
+    if ess_count_comparison["status"] == "SUCCESS":
+        if not ess_count_comparison["mismatches"]:
+            ess_ok = True
+        else:
+            print(f"❌ ESS Mismatches: {len(ess_count_comparison['mismatches'])}")
+    elif ess_count_comparison["status"] == "SKIPPED":
+        print("⚠️ Baseline not found for ESS check")
+        ess_ok = True # Treat as pass if file missing to avoid error noise
+
+    # Check Candidates
+    if verification["status"] == "PASS":
+        cand_ok = True
+    elif verification["status"] == "FAIL":
+        print(f"❌ Candidate Mismatches: {verification['failed']}")
+    elif verification["status"] == "SKIPPED":
+        cand_ok = True
+
+    if ess_ok and cand_ok:
+        print(f"✅ VERIFICATION PASSED")
+    else:
+        print(f"❌ VERIFICATION FAILED")
+
+if __name__ == "__main__":
+    main()
+=== python/verification/create_baselines.py ===
+#!/usr/bin/env python3
+"""
+Script to regenerate baseline files by running the modified executable (REF_linux64_modified.exe)
+on all matrices from verification_matrices.json.
+
+This script:
+1. Loads matrices from verification_matrices.json
+2. Runs the modified executable (python/the_old_exe/REF_linux64_modified.exe) with -c and -t flags
+3. Parses the output to extract ESS counts, timing (from C++), and candidates
+4. Writes both baseline files:
+   - baseline_result.json
+   - baseline_candidates.csv
+"""
+
+import json
+import csv
+import subprocess
+import sys
+import time
+import os
+from pathlib import Path
+from typing import List, Dict, Tuple, Optional
+
+
+def map_reason_ess_to_string(reason_ess_value: str) -> str:
+    """
+    Map old reason_ess numeric values to new string values.
+    
+    Old enum values (numbers):
+    1 = true_pure_ess -> "T_pure_ess"
+    2 = true_posdef_double -> "T_pd_double"
+    3 = true_posdef_rational -> "T_pd_rat"
+    4 = true_copositive -> "T_copos"
+    5 = false_not_posdef_and_kay_0_1 -> "F_not_pd_kay_0_1"
+    6 = false_not_partial_copositive -> "F_not_part_copos"
+    7 = false_not_copositive -> "F_not_copos"
+    """
+    mapping = {
+        '1': 'T_pure_ess',
+        '2': 'T_pd_double',
+        '3': 'T_pd_rat',
+        '4': 'T_copos',
+        '5': 'F_not_pd_kay_0_1',
+        '6': 'F_not_part_copos',
+        '7': 'F_not_copos'
+    }
+    # If it's already a string (new format), return as-is
+    if reason_ess_value in mapping.values():
+        return reason_ess_value
+    # Otherwise, try to map the number
+    return mapping.get(reason_ess_value.strip(), reason_ess_value)
+
+
+def full_matrix_to_upper_triangular(matrix_str: str, dimension: int) -> str:
+    """
+    Convert a full matrix (n*n elements in row-major order) to upper triangular format.
+    
+    For an n×n matrix, upper triangular includes elements where i <= j.
+    In row-major order: row i starts at index i*n, and we take elements from column i to n-1.
+    
+    Args:
+        matrix_str: Comma-separated string of n*n elements (row-major order)
+        dimension: Matrix dimension n
+        
+    Returns:
+        Comma-separated string of upper triangular elements
+    """
+    elements = matrix_str.split(',')
+    if len(elements) != dimension * dimension:
+        raise ValueError(f"Expected {dimension * dimension} elements, got {len(elements)}")
+    
+    upper_tri_elements = []
+    for i in range(dimension):
+        # Row i: take elements from column i to n-1
+        row_start = i * dimension
+        for j in range(i, dimension):
+            upper_tri_elements.append(elements[row_start + j])
+    
+    return ','.join(upper_tri_elements)
+
+
+def find_old_executable(script_dir: Path) -> Path:
+    """Find the modified executable path."""
+    # Try relative to script directory (python/verification/)
+    # The modified executable is in the_old_exe subdirectory of verification
+    old_exe_path = script_dir / "the_old_exe" / "REF_linux64_modified.exe"
+    
+    if old_exe_path.exists():
+        return old_exe_path
+    
+    # Try from project root
+    project_root = script_dir.parent.parent
+    old_exe_path = project_root / "python" / "verification" / "the_old_exe" / "REF_linux64_modified.exe"
+    if old_exe_path.exists():
+        return old_exe_path
+    
+    raise FileNotFoundError(f"Modified executable not found. Tried: {old_exe_path}")
+
+
+def run_old_executable(exe_path: Path, matrix_cli_string: str, matrix_id: int = -1, timeout: float = 1800.0) -> Tuple[bool, int, List[Dict], float, Optional[str]]:
+    """
+    Run the modified executable and parse output.
+    The modified executable supports -t flag for C++ timing output.
+    Note: matrix_id is kept for tracking but not passed to the executable (it doesn't support -m flag).
+    
+    Args:
+        exe_path: Path to the executable
+        matrix_cli_string: Matrix in CLI format (e.g., "2#0,1,1,0")
+        matrix_id: Matrix ID (kept for tracking, not passed to executable)
+        timeout: Maximum computation time in seconds
+    
+    Returns:
+        (success, ess_count, candidates, timing, error_message)
+    """
+    # Modified executable supports -t flag for timing (but not -m flag for matrix ID)
+    cmd = [str(exe_path), "-c", "-t", matrix_cli_string]
+    
+    try:
+        result = subprocess.run(
+            cmd,
+            capture_output=True,
+            text=True,
+            timeout=timeout
+        )
+        
+        if result.returncode != 0:
+            return (False, 0, [], 0.0, f"Command failed with return code {result.returncode}: {result.stderr}")
+        
+        # Parse output
+        lines = result.stdout.strip().split('\n')
+        if not lines or not lines[0].strip():
+            return (False, 0, [], 0.0, "No output from executable")
+        
+        try:
+            ess_count = int(lines[0].strip())
+        except ValueError:
+            return (False, 0, [], 0.0, f"Could not parse ESS count from: {lines[0]}")
+        
+        # Parse timing from line 1 (C++ timing output)
+        timing = 0.0
+        if len(lines) > 1:
+            try:
+                timing = float(lines[1].strip())
+            except (ValueError, IndexError):
+                # If timing line is missing or invalid, use 0.0
+                timing = 0.0
+        
+        # Parse candidates
+        candidates = []
+        # Modified executable output format with -t flag:
+        # Line 0: ESS count
+        # Line 1: Timing (float)
+        # Line 2: CSV header
+        # Lines 3+: CSV data rows
+        if len(lines) > 3:
+            # Skip line 0 (ESS count), line 1 (timing), and line 2 (header), process remaining lines
+            candidate_lines = lines[3:]
+            
+            for line in candidate_lines:
+                if line.strip():
+                    parts = line.split(';')
+                    if len(parts) >= 11:
+                        # Parse is_ess: could be "1", "True", "true", etc.
+                        is_ess_str = parts[7].strip().lower() if len(parts) > 7 else "0"
+                        is_ess = is_ess_str in ("1", "true", "yes")
+                        
+                        # Map old reason_ess number to new string format
+                        reason_ess_raw = parts[8] if len(parts) > 8 else ''
+                        reason_ess_string = map_reason_ess_to_string(reason_ess_raw)
+                        
+                        candidate_data = {
+                            'candidate_id': int(parts[0]) if parts[0] else 0,
+                            'vector': parts[1] if parts[1] else '',  # Keep as string (comma-separated)
+                            'support': int(parts[2]) if parts[2] else 0,
+                            'support_size': int(parts[3]) if parts[3] else 0,
+                            'extended_support': int(parts[4]) if parts[4] else 0,
+                            'extended_support_size': int(parts[5]) if parts[5] else 0,
+                            'shift_reference': int(parts[6]) if parts[6] else 0,
+                            'is_ess': is_ess,
+                            'reason_ess': reason_ess_string,
+                            'payoff': parts[9] if len(parts) > 9 else '0',
+                            'payoff_double': float(parts[10]) if len(parts) > 10 and parts[10] else 0.0
+                        }
+                        candidates.append(candidate_data)
+        
+        return (True, ess_count, candidates, timing, None)
+        
+    except subprocess.TimeoutExpired:
+        return (False, 0, [], 0.0, f"Computation timed out after {timeout} seconds")
+    except Exception as e:
+        return (False, 0, [], 0.0, f"Exception: {str(e)}")
+
+
+def process_matrix(matrix_data: Dict, old_exe_path: Path) -> Tuple[Dict, List[Dict]]:
+    """
+    Process a single matrix.
+    
+    Returns:
+        (result_entry, candidates_list)
+    """
+    matrix_id = matrix_data['id']
+    dimension = matrix_data['dimension']
+    number_ess = matrix_data['number_ess']
+    is_cs = matrix_data['is_cs']
+    # Use matrix_old if available (contains original format), otherwise fall back to matrix
+    matrix_str = matrix_data.get('matrix_old', matrix_data['matrix'])
+    
+    # Build CLI string: dimension#matrix_string
+    # For circular symmetric: matrix_str has n/2 elements (compact format)
+    # For non-circular symmetric: matrix_str has n*n elements (full matrix in row-major order from matrix_old)
+    cli_string = f"{dimension}#{matrix_str}"
+    
+    # Run old executable
+    success, ess_count, candidates, timing, error = run_old_executable(old_exe_path, cli_string, matrix_id)
+    
+    if success:
+        # For output, use the new format from 'matrix' field if available
+        # (matrix_old was used for CLI string, but output should use the new format)
+        if 'matrix' in matrix_data:
+            matrix_str_for_output = matrix_data['matrix']
+        else:
+            # Fallback: convert matrix_old to appropriate format
+            if not is_cs:
+                matrix_str_for_output = full_matrix_to_upper_triangular(matrix_str, dimension)
+            else:
+                matrix_str_for_output = matrix_str
+        
+        result_entry = {
+            "id": matrix_id,
+            "dimension": dimension,
+            "number_ess_expected": number_ess,
+            "is_cs": is_cs,
+            "matrix": matrix_str_for_output,
+            "result": {
+                "success": True,
+                "ess_count": ess_count,
+                "timing": timing
+            }
+        }
+        
+        # Add matrix_id to each candidate
+        candidates_list = []
+        for candidate in candidates:
+            candidate_with_matrix_id = {"matrix_id": matrix_id}
+            candidate_with_matrix_id.update(candidate)
+            candidates_list.append(candidate_with_matrix_id)
+        
+        return (result_entry, candidates_list)
+    else:
+        # For output, use the new format from 'matrix' field if available
+        if 'matrix' in matrix_data:
+            matrix_str_for_output = matrix_data['matrix']
+        else:
+            # Fallback: convert matrix_old to appropriate format
+            if not is_cs:
+                matrix_str_for_output = full_matrix_to_upper_triangular(matrix_str, dimension)
+            else:
+                matrix_str_for_output = matrix_str
+        
+        result_entry = {
+            "id": matrix_id,
+            "dimension": dimension,
+            "number_ess_expected": number_ess,
+            "is_cs": is_cs,
+            "matrix": matrix_str_for_output,
+            "result": {
+                "success": False,
+                "error": error,
+                "timing": timing
+            }
+        }
+        return (result_entry, [])
+
+
+def main():
+    """Main function."""
+    script_dir = Path(__file__).resolve().parent
+    matrices_file = script_dir / "verification_matrices.json"
+    baseline_results_file = script_dir / "baseline_result.json"
+    baseline_candidates_file = script_dir / "baseline_candidates.csv"
+    
+    # Find modified executable
+    try:
+        old_exe_path = find_old_executable(script_dir)
+        print(f"Using modified executable: {old_exe_path}")
+        
+        # Make executable if needed
+        os.chmod(old_exe_path, 0o755)
+    except FileNotFoundError as e:
+        print(f"Error: {e}")
+        sys.exit(1)
+    
+    # Load matrices
+    if not matrices_file.exists():
+        print(f"Error: {matrices_file} not found")
+        sys.exit(1)
+    
+    print(f"Loading matrices from {matrices_file}")
+    with open(matrices_file, 'r') as f:
+        data = json.load(f)
+    
+    matrices = data.get('matrices', [])
+    
+    # Filter to only matrices marked as in_use
+    original_count = len(matrices)
+    matrices = [m for m in matrices if m.get('in_use', True)]
+    skipped_count = original_count - len(matrices)
+    
+    print(f"Found {original_count} matrices total, skipping {skipped_count} matrices not in use")
+    print(f"Processing {len(matrices)} matrices")
+    print()
+    
+    # Process matrices sequentially
+    results = []
+    all_candidates = []
+    successful = 0
+    failed = 0
+    total_matrices = len(matrices)
+    
+    start_time = time.time()
+    
+    for i, matrix_data in enumerate(matrices):
+        matrix_id = matrix_data['id']
+        dimension = matrix_data['dimension']
+        
+        print(f"[{i+1}/{total_matrices}] Processing Matrix ID {matrix_id} (dim {dimension})...", end=" ", flush=True)
+        
+        result_entry, candidates_list = process_matrix(matrix_data, old_exe_path)
+        results.append(result_entry)
+        all_candidates.extend(candidates_list)
+        
+        if result_entry["result"]["success"]:
+            actual_ess = result_entry["result"]["ess_count"]
+            timing = result_entry["result"]["timing"]
+            expected_ess = matrix_data['number_ess']
+            status = f"✅ {actual_ess} ESS in {timing:.6f}s"
+            if actual_ess != expected_ess:
+                status += f" ⚠️ (expected {expected_ess})"
+            print(status)
+            successful += 1
+        else:
+            error_msg = result_entry["result"].get('error', 'Unknown error')
+            print(f"❌ {error_msg}")
+            failed += 1
+    
+    elapsed_time = time.time() - start_time
+    print()
+    print(f"Processing completed in {elapsed_time:.2f}s")
+    
+    # Sort results by matrix ID for consistent output
+    results.sort(key=lambda x: x['id'])
+    all_candidates.sort(key=lambda x: (x['matrix_id'], x['candidate_id']))
+    
+    # Write JSON baseline file
+    print(f"\nWriting results to {baseline_results_file}")
+    with open(baseline_results_file, 'w') as f:
+        json.dump({
+            "metadata": {
+                "total_matrices": len(matrices),
+                "successful": successful,
+                "failed": failed,
+                "timestamp": time.time(),
+                "processing_time": elapsed_time,
+                "num_processes": 1,  # Sequential processing
+                "fracessa_settings": {
+                    "include_candidates": True,
+                    "enable_logging": False,
+                    "exact_arithmetic": False,
+                    "full_support_search": False,
+                    "timeout": 1800.0,
+                    "use_cpp_timing": True
+                }
+            },
+            "results": results
+        }, f, indent=2)
+    
+    # Write CSV baseline file
+    print(f"Writing candidates to {baseline_candidates_file}")
+    csv_columns = [
+        "matrix_id", "candidate_id", "vector", "support", "support_size",
+        "extended_support", "extended_support_size", "shift_reference",
+        "is_ess", "reason_ess", "payoff", "payoff_double"
+    ]
+    
+    with open(baseline_candidates_file, 'w', newline='') as f:
+        writer = csv.DictWriter(f, fieldnames=csv_columns)
+        writer.writeheader()
+        for candidate in all_candidates:
+            # Convert is_ess boolean to string representation for CSV
+            # reason_ess is already converted to string format by map_reason_ess_to_string
+            row = candidate.copy()
+            row['is_ess'] = 'True' if row.get('is_ess', False) else 'False'
+            # Ensure reason_ess is a string (should already be converted, but double-check)
+            if 'reason_ess' in row:
+                row['reason_ess'] = map_reason_ess_to_string(str(row['reason_ess']))
+            writer.writerow(row)
+    
+    print("\n✅ Baseline files created successfully!")
+    print(f"  JSON: {baseline_results_file}")
+    print(f"  CSV:  {baseline_candidates_file}")
+    print(f"\nSummary: {successful} successful, {failed} failed out of {len(matrices)} matrices")
+    print(f"Total candidates: {len(all_candidates)}")
+    
+    if failed > 0:
+        print("\nFailed matrices:")
+        for result in results:
+            if not result["result"]["success"]:
+                print(f"  ID {result['id']}: {result['result']['error']}")
+
+
+if __name__ == "__main__":
+    main()
+
+
+=== python/verification/verification_matrices.json ===
+{
+  "matrices": [
+    {"id":1,"dimension":2,"number_ess":1,"is_cs":false,"in_use":true,"matrix":"0,1,0","matrix_old":"0,1,1,0"},
+    {"id":2,"dimension":2,"number_ess":2,"is_cs":false,"in_use":true,"matrix":"3,3/2,4","matrix_old":"3,3/2,3/2,4"},
+    {"id":3,"dimension":3,"number_ess":1,"is_cs":false,"in_use":true,"matrix":"4,13/2,1/2,5,11/2,3","matrix_old":"4,13/2,1/2,13/2,5,11/2,1/2,11/2,3"},
+    {"id":4,"dimension":3,"number_ess":1,"is_cs":false,"in_use":true,"matrix":"1,2,1,1,1,1","matrix_old":"1,2,1,2,1,1,1,1,1"},
+    {"id":5,"dimension":3,"number_ess":0,"is_cs":false,"in_use":true,"matrix":"0,0,1/2,0,1/2,0","matrix_old":"0,0,1/2,0,0,1/2,1/2,1/2,0"},
+    {"id":6,"dimension":3,"number_ess":1,"is_cs":false,"in_use":true,"matrix":"0,2,-1,0,3,1/2","matrix_old":"0,2,-1,2,0,3,-1,3,1/2"},
+    {"id":7,"dimension":4,"number_ess":0,"is_cs":false,"in_use":true,"matrix":"-1,1,0,0,-1,0,0,0,-1,0","matrix_old":"-1,1,0,0,1,-1,0,0,0,0,0,-1,0,0,-1,0"},
+    {"id":8,"dimension":5,"number_ess":5,"is_cs":true,"in_use":true,"matrix":"1,3","matrix_old":"1,3"},
+    {"id":9,"dimension":5,"number_ess":6,"is_cs":false,"in_use":true,"matrix":"1,0,2,2,2,1,2,2,2,1,0,0,1,0,1","matrix_old":"1,0,2,2,2,0,1,2,2,2,2,2,1,0,0,2,2,0,1,0,2,2,0,0,1"},
+    {"id":10,"dimension":6,"number_ess":9,"is_cs":true,"in_use":true,"matrix":"1,-1,1","matrix_old":"1,-1,1"},
+    {"id":11,"dimension":7,"number_ess":14,"is_cs":true,"in_use":true,"matrix":"1,5,8","matrix_old":"1,5,8"},
+    {"id":12,"dimension":7,"number_ess":14,"is_cs":true,"in_use":true,"matrix":"8,13,2","matrix_old":"8,13,2"},
+    {"id":13,"dimension":8,"number_ess":20,"is_cs":true,"in_use":true,"matrix":"5,5,13,11","matrix_old":"5,5,13,11"},
+    {"id":14,"dimension":9,"number_ess":30,"is_cs":true,"in_use":true,"matrix":"1,5,10,13","matrix_old":"1,5,10,13"},
+    {"id":15,"dimension":10,"number_ess":50,"is_cs":true,"in_use":true,"matrix":"13,19,25,7,5","matrix_old":"13,19,25,7,5"},
+    {"id":16,"dimension":11,"number_ess":66,"is_cs":true,"in_use":true,"matrix":"1,4,6,6,5","matrix_old":"1,4,6,6,5"},
+    {"id":17,"dimension":11,"number_ess":55,"is_cs":true,"in_use":true,"matrix":"15,1/100,14,11/10,38/5","matrix_old":"15,1/100,14,11/10,38/5"},
+    {"id":18,"dimension":12,"number_ess":105,"is_cs":true,"in_use":true,"matrix":"533,118,326,357,118,477","matrix_old":"533,118,326,357,118,477"},
+    {"id":19,"dimension":12,"number_ess":12,"is_cs":true,"in_use":true,"matrix":"287,50,200,150,113,200","matrix_old":"287,50,200,150,113,200"},
+    {"id":20,"dimension":12,"number_ess":24,"is_cs":true,"in_use":true,"matrix":"292,-1,293,-1,293,-1","matrix_old":"292,-1,293,-1,293,-1"},
+    {"id":21,"dimension":12,"number_ess":105,"is_cs":true,"in_use":true,"matrix":"16029525,4007380,9088537,12022143,2147548,16029525","matrix_old":"16029525,4007380,9088537,12022143,2147548,16029525"},
+    {"id":22,"dimension":13,"number_ess":143,"is_cs":true,"in_use":true,"matrix":"7,18,18,10,7,10","matrix_old":"7,18,18,10,7,10"},
+    {"id":23,"dimension":14,"number_ess":224,"is_cs":true,"in_use":true,"matrix":"4,3,2,2,3,4,-1","matrix_old":"4,3,2,2,3,4,-1"},
+    {"id":24,"dimension":15,"number_ess":360,"is_cs":true,"in_use":true,"matrix":"9,9,5,9,3,5,9","matrix_old":"9,9,5,9,3,5,9"},
+    {"id":25,"dimension":16,"number_ess":512,"is_cs":true,"in_use":true,"matrix":"7,5,4,4,4,5,7,-1","matrix_old":"7,5,4,4,4,5,7,-1"},
+    {"id":26,"dimension":17,"number_ess":493,"is_cs":true,"in_use":true,"matrix":"1627,1039,1527,1075,1527,1039,1627,648","matrix_old":"1627,1039,1527,1075,1527,1039,1627,648"},
+    {"id":27,"dimension":18,"number_ess":1152,"is_cs":true,"in_use":true,"matrix":"8,7,5,5,5,5,7,8,-1","matrix_old":"8,7,5,5,5,5,7,8,-1"},
+    {"id":28,"dimension":19,"number_ess":1444,"is_cs":true,"in_use":true,"matrix":"13,31,31,27,31,27,13,13,27","matrix_old":"13,31,31,27,31,27,13,13,27"},
+    {"id":29,"dimension":19,"number_ess":19,"is_cs":true,"in_use":true,"matrix":"1,2,2,2,2,2,1,1,2","matrix_old":"1,2,2,2,2,2,1,1,2"},
+    {"id":30,"dimension":20,"number_ess":2560,"is_cs":true,"in_use":true,"matrix":"13,13,13,8,8,8,13,13,13,-1","matrix_old":"13,13,13,8,8,8,13,13,13,-1"},
+    {"id":31,"dimension":21,"number_ess":4410,"is_cs":true,"in_use":true,"matrix":"15,15,7,15,15,7,7,15,7,15","matrix_old":"15,15,7,15,15,7,7,15,7,15"},
+    {"id":32,"dimension":22,"number_ess":5632,"is_cs":true,"in_use":true,"matrix":"2,2,4,4,5,5,4,4,2,2,-1","matrix_old":"2,2,4,4,5,5,4,4,2,2,-1"},
+    {"id":33,"dimension":23,"number_ess":2507,"is_cs":true,"in_use":true,"matrix":"27478,22664,10976,25676,18552,18552,25676,10976,22664,27478,17939","matrix_old":"27478,22664,10976,25676,18552,18552,25676,10976,22664,27478,17939"},
+    {"id":34,"dimension":24,"number_ess":15120,"is_cs":true,"in_use":false,"matrix":"15,15,7,15,15,7,15,7,7,15,15,7","matrix_old":"15,15,7,15,15,7,15,7,7,15,15,7"},
+    {"id":35,"dimension":18,"number_ess":258,"is_cs":true,"in_use":true,"matrix":"581,294,539,448,702,431,676,568,431","matrix_old":"581,294,539,448,702,431,676,568,431"}
+  ]
+}
+=== python/verification/baseline_result.json ===
+{
+  "metadata": {
+    "total_matrices": 35,
+    "successful": 35,
+    "failed": 0,
+    "timestamp": 1765286989.9859257,
+    "processing_time": 118.46712350845337,
+    "num_processes": 1,
+    "fracessa_settings": {
+      "include_candidates": true,
+      "enable_logging": false,
+      "exact_arithmetic": false,
+      "full_support_search": false,
+      "timeout": 1800.0,
+      "use_cpp_timing": true
+    }
+  },
+  "results": [
+    {
+      "id": 1,
+      "dimension": 2,
+      "number_ess_expected": 1,
+      "is_cs": false,
+      "matrix": "0,1,0",
+      "result": {
+        "success": true,
+        "ess_count": 1,
+        "timing": 7.7e-05
+      }
+    },
+    {
+      "id": 2,
+      "dimension": 2,
+      "number_ess_expected": 2,
+      "is_cs": false,
+      "matrix": "3,3/2,4",
+      "result": {
+        "success": true,
+        "ess_count": 2,
+        "timing": 5.8e-05
+      }
+    },
+    {
+      "id": 3,
+      "dimension": 3,
+      "number_ess_expected": 1,
+      "is_cs": false,
+      "matrix": "4,13/2,1/2,5,11/2,3",
+      "result": {
+        "success": true,
+        "ess_count": 1,
+        "timing": 0.000111
+      }
+    },
+    {
+      "id": 4,
+      "dimension": 3,
+      "number_ess_expected": 1,
+      "is_cs": false,
+      "matrix": "1,2,1,1,1,1",
+      "result": {
+        "success": true,
+        "ess_count": 1,
+        "timing": 0.000134
+      }
+    },
+    {
+      "id": 5,
+      "dimension": 3,
+      "number_ess_expected": 0,
+      "is_cs": false,
+      "matrix": "0,0,1/2,0,1/2,0",
+      "result": {
+        "success": true,
+        "ess_count": 0,
+        "timing": 0.000212
+      }
+    },
+    {
+      "id": 6,
+      "dimension": 3,
+      "number_ess_expected": 1,
+      "is_cs": false,
+      "matrix": "0,2,-1,0,3,1/2",
+      "result": {
+        "success": true,
+        "ess_count": 1,
+        "timing": 8.3e-05
+      }
+    },
+    {
+      "id": 7,
+      "dimension": 4,
+      "number_ess_expected": 0,
+      "is_cs": false,
+      "matrix": "-1,1,0,0,-1,0,0,0,-1,0",
+      "result": {
+        "success": true,
+        "ess_count": 0,
+        "timing": 0.000283
+      }
+    },
+    {
+      "id": 8,
+      "dimension": 5,
+      "number_ess_expected": 5,
+      "is_cs": true,
+      "matrix": "1,3",
+      "result": {
+        "success": true,
+        "ess_count": 5,
+        "timing": 8e-05
+      }
+    },
+    {
+      "id": 9,
+      "dimension": 5,
+      "number_ess_expected": 6,
+      "is_cs": false,
+      "matrix": "1,0,2,2,2,1,2,2,2,1,0,0,1,0,1",
+      "result": {
+        "success": true,
+        "ess_count": 6,
+        "timing": 0.000403
+      }
+    },
+    {
+      "id": 10,
+      "dimension": 6,
+      "number_ess_expected": 9,
+      "is_cs": true,
+      "matrix": "1,-1,1",
+      "result": {
+        "success": true,
+        "ess_count": 9,
+        "timing": 0.000353
+      }
+    },
+    {
+      "id": 11,
+      "dimension": 7,
+      "number_ess_expected": 14,
+      "is_cs": true,
+      "matrix": "1,5,8",
+      "result": {
+        "success": true,
+        "ess_count": 14,
+        "timing": 0.000274
+      }
+    },
+    {
+      "id": 12,
+      "dimension": 7,
+      "number_ess_expected": 14,
+      "is_cs": true,
+      "matrix": "8,13,2",
+      "result": {
+        "success": true,
+        "ess_count": 14,
+        "timing": 0.000163
+      }
+    },
+    {
+      "id": 13,
+      "dimension": 8,
+      "number_ess_expected": 20,
+      "is_cs": true,
+      "matrix": "5,5,13,11",
+      "result": {
+        "success": true,
+        "ess_count": 20,
+        "timing": 0.003561
+      }
+    },
+    {
+      "id": 14,
+      "dimension": 9,
+      "number_ess_expected": 30,
+      "is_cs": true,
+      "matrix": "1,5,10,13",
+      "result": {
+        "success": true,
+        "ess_count": 30,
+        "timing": 0.003788
+      }
+    },
+    {
+      "id": 15,
+      "dimension": 10,
+      "number_ess_expected": 50,
+      "is_cs": true,
+      "matrix": "13,19,25,7,5",
+      "result": {
+        "success": true,
+        "ess_count": 50,
+        "timing": 0.006449
+      }
+    },
+    {
+      "id": 16,
+      "dimension": 11,
+      "number_ess_expected": 66,
+      "is_cs": true,
+      "matrix": "1,4,6,6,5",
+      "result": {
+        "success": true,
+        "ess_count": 66,
+        "timing": 0.001965
+      }
+    },
+    {
+      "id": 17,
+      "dimension": 11,
+      "number_ess_expected": 55,
+      "is_cs": true,
+      "matrix": "15,1/100,14,11/10,38/5",
+      "result": {
+        "success": true,
+        "ess_count": 55,
+        "timing": 0.000908
+      }
+    },
+    {
+      "id": 18,
+      "dimension": 12,
+      "number_ess_expected": 105,
+      "is_cs": true,
+      "matrix": "533,118,326,357,118,477",
+      "result": {
+        "success": true,
+        "ess_count": 105,
+        "timing": 0.015892
+      }
+    },
+    {
+      "id": 19,
+      "dimension": 12,
+      "number_ess_expected": 12,
+      "is_cs": true,
+      "matrix": "287,50,200,150,113,200",
+      "result": {
+        "success": true,
+        "ess_count": 12,
+        "timing": 0.019069
+      }
+    },
+    {
+      "id": 20,
+      "dimension": 12,
+      "number_ess_expected": 24,
+      "is_cs": true,
+      "matrix": "292,-1,293,-1,293,-1",
+      "result": {
+        "success": true,
+        "ess_count": 24,
+        "timing": 0.007613
+      }
+    },
+    {
+      "id": 21,
+      "dimension": 12,
+      "number_ess_expected": 105,
+      "is_cs": true,
+      "matrix": "16029525,4007380,9088537,12022143,2147548,16029525",
+      "result": {
+        "success": true,
+        "ess_count": 105,
+        "timing": 0.02128
+      }
+    },
+    {
+      "id": 22,
+      "dimension": 13,
+      "number_ess_expected": 143,
+      "is_cs": true,
+      "matrix": "7,18,18,10,7,10",
+      "result": {
+        "success": true,
+        "ess_count": 143,
+        "timing": 0.004509
+      }
+    },
+    {
+      "id": 23,
+      "dimension": 14,
+      "number_ess_expected": 224,
+      "is_cs": true,
+      "matrix": "4,3,2,2,3,4,-1",
+      "result": {
+        "success": true,
+        "ess_count": 224,
+        "timing": 0.007976
+      }
+    },
+    {
+      "id": 24,
+      "dimension": 15,
+      "number_ess_expected": 360,
+      "is_cs": true,
+      "matrix": "9,9,5,9,3,5,9",
+      "result": {
+        "success": true,
+        "ess_count": 360,
+        "timing": 0.02598
+      }
+    },
+    {
+      "id": 25,
+      "dimension": 16,
+      "number_ess_expected": 512,
+      "is_cs": true,
+      "matrix": "7,5,4,4,4,5,7,-1",
+      "result": {
+        "success": true,
+        "ess_count": 512,
+        "timing": 0.146789
+      }
+    },
+    {
+      "id": 26,
+      "dimension": 17,
+      "number_ess_expected": 493,
+      "is_cs": true,
+      "matrix": "1627,1039,1527,1075,1527,1039,1627,648",
+      "result": {
+        "success": true,
+        "ess_count": 493,
+        "timing": 0.042662
+      }
+    },
+    {
+      "id": 27,
+      "dimension": 18,
+      "number_ess_expected": 1152,
+      "is_cs": true,
+      "matrix": "8,7,5,5,5,5,7,8,-1",
+      "result": {
+        "success": true,
+        "ess_count": 1152,
+        "timing": 0.236248
+      }
+    },
+    {
+      "id": 28,
+      "dimension": 19,
+      "number_ess_expected": 1444,
+      "is_cs": true,
+      "matrix": "13,31,31,27,31,27,13,13,27",
+      "result": {
+        "success": true,
+        "ess_count": 1444,
+        "timing": 0.084418
+      }
+    },
+    {
+      "id": 29,
+      "dimension": 19,
+      "number_ess_expected": 19,
+      "is_cs": true,
+      "matrix": "1,2,2,2,2,2,1,1,2",
+      "result": {
+        "success": true,
+        "ess_count": 19,
+        "timing": 0.082956
+      }
+    },
+    {
+      "id": 30,
+      "dimension": 20,
+      "number_ess_expected": 2560,
+      "is_cs": true,
+      "matrix": "13,13,13,8,8,8,13,13,13,-1",
+      "result": {
+        "success": true,
+        "ess_count": 2560,
+        "timing": 2.039925
+      }
+    },
+    {
+      "id": 31,
+      "dimension": 21,
+      "number_ess_expected": 4410,
+      "is_cs": true,
+      "matrix": "15,15,7,15,15,7,7,15,7,15",
+      "result": {
+        "success": true,
+        "ess_count": 4410,
+        "timing": 4.454194
+      }
+    },
+    {
+      "id": 32,
+      "dimension": 22,
+      "number_ess_expected": 5632,
+      "is_cs": true,
+      "matrix": "2,2,4,4,5,5,4,4,2,2,-1",
+      "result": {
+        "success": true,
+        "ess_count": 5632,
+        "timing": 14.693517
+      }
+    },
+    {
+      "id": 33,
+      "dimension": 23,
+      "number_ess_expected": 2507,
+      "is_cs": true,
+      "matrix": "27478,22664,10976,25676,18552,18552,25676,10976,22664,27478,17939",
+      "result": {
+        "success": true,
+        "ess_count": 2507,
+        "timing": 1.734304
+      }
+    },
+    {
+      "id": 34,
+      "dimension": 24,
+      "number_ess_expected": 15120,
+      "is_cs": true,
+      "matrix": "15,15,7,15,15,7,15,7,7,15,15,7",
+      "result": {
+        "success": true,
+        "ess_count": 15120,
+        "timing": 93.322037
+      }
+    },
+    {
+      "id": 35,
+      "dimension": 18,
+      "number_ess_expected": 258,
+      "is_cs": true,
+      "matrix": "581,294,539,448,702,431,676,568,431",
+      "result": {
+        "success": true,
+        "ess_count": 258,
+        "timing": 0.602944
+      }
+    }
+  ]
+}
