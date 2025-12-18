@@ -7,25 +7,20 @@ project(fracessa
 )
 
 # ==============================================================================
-# 1. Compiler Settings & Optimization
+# 1. Compiler Settings
 # ==============================================================================
 set(CMAKE_CXX_STANDARD 17)
 set(CMAKE_CXX_STANDARD_REQUIRED ON)
 set(CMAKE_CXX_EXTENSIONS OFF)
 
 if(MSVC)
+    # Windows: VCPKG static triplet handles /MT (static runtime) automatically
     add_compile_options(/O2 /Oi /Ot /GL /fp:fast /DNDEBUG)
     add_link_options(/LTCG)
-    # Suppress noisy warnings from GMP/FLINT headers on Windows
-    add_compile_options(/wd4244 /wd4146 /wd4101)
-    # Ensure the linker finds all static dependencies correctly
-    add_link_options(/NODEFAULTLIB:library)
 else()
+    # Linux/Mac: Optimization flags
     add_compile_options(-O3 -march=native -flto -funroll-loops -DNDEBUG)
-    if(CMAKE_SYSTEM_NAME STREQUAL "Linux")
-        add_link_options(-static-libgcc -static-libstdc++)
-    endif()
-
+    
     include(CheckIPOSupported)
     check_ipo_supported(RESULT IPO_SUPPORTED)
     if(IPO_SUPPORTED)
@@ -52,30 +47,27 @@ FetchContent_MakeAvailable(spdlog argparse)
 # 3. Math Dependencies (GMP, MPFR, FLINT)
 # ==============================================================================
 
-# --- GMP & MPFR (Generic search for all platforms) ---
+# --- GMP & MPFR (Linux/Mac Only) ---
 if(NOT WIN32)
-    # Force static suffixes for Linux/Mac
+    # FORCE STATIC linking for Math libs only (keep system runtime dynamic)
     set(_ORIG_CMAKE_FIND_LIBRARY_SUFFIXES ${CMAKE_FIND_LIBRARY_SUFFIXES})
     set(CMAKE_FIND_LIBRARY_SUFFIXES ".a")
-endif()
+    
+    find_library(GMP_LIB NAMES gmp libgmp mpir)
+    find_path(GMP_INCLUDE_DIR NAMES gmp.h)
 
-# Search for GMP (Common names: gmp, libgmp, or mpir on Windows)
-find_path(GMP_INCLUDE_DIR NAMES gmp.h)
-find_library(GMP_LIB NAMES gmp libgmp mpir libmpir)
+    find_library(MPFR_LIB NAMES mpfr libmpfr)
+    find_path(MPFR_INCLUDE_DIR NAMES mpfr.h)
 
-# Search for MPFR
-find_path(MPFR_INCLUDE_DIR NAMES mpfr.h)
-find_library(MPFR_LIB NAMES mpfr libmpfr)
-
-if(NOT WIN32)
     set(CMAKE_FIND_LIBRARY_SUFFIXES ${_ORIG_CMAKE_FIND_LIBRARY_SUFFIXES})
-endif()
 
-if(NOT (GMP_LIB AND GMP_INCLUDE_DIR))
-    message(FATAL_ERROR "GMP not found.")
-endif()
-if(NOT (MPFR_LIB AND MPFR_INCLUDE_DIR))
-    message(FATAL_ERROR "MPFR not found.")
+    if(NOT (GMP_LIB AND GMP_INCLUDE_DIR))
+        message(FATAL_ERROR "GMP static lib not found.")
+    endif()
+
+    if(NOT (MPFR_LIB AND MPFR_INCLUDE_DIR))
+        message(FATAL_ERROR "MPFR static lib not found.")
+    endif()
 endif()
 
 # --- FLINT ---
@@ -83,25 +75,21 @@ set(FLINT_INCLUDE_DIRS "")
 set(FLINT_LIBRARIES "")
 
 if(WIN32)
-    # WINDOWS (vcpkg): Search for pre-installed static FLINT
-    find_path(FLINT_INCLUDE_DIR NAMES flint/flint.h)
+    # WINDOWS
     find_library(FLINT_LIB NAMES flint libflint)
+    find_path(FLINT_INCLUDE_DIR NAMES flint/flint.h)
     
     if(FLINT_LIB AND FLINT_INCLUDE_DIR)
         set(FLINT_LIBRARIES ${FLINT_LIB})
         set(FLINT_INCLUDE_DIRS ${FLINT_INCLUDE_DIR})
-        
-        # Static FLINT on Windows often needs pthreads
-        find_library(PTHREADS_LIB NAMES pthreadVC3 pthreadVC2 pthread pthreads)
-        if(PTHREADS_LIB)
-             list(APPEND FLINT_LIBRARIES ${PTHREADS_LIB})
-        endif()
+        message(STATUS "Found FLINT (Windows): ${FLINT_LIB}")
     else()
-        message(FATAL_ERROR "FLINT static library not found.")
+        message(FATAL_ERROR "FLINT not found. Ensure 'vcpkg install flint:x64-windows-static' ran.")
     endif()
 else()
-    # LINUX / MACOS: Build FLINT 3.0.1 from source
+    # LINUX / MACOS
     include(ExternalProject)
+    
     get_filename_component(GMP_LIB_DIR ${GMP_LIB} DIRECTORY)
     get_filename_component(MPFR_LIB_DIR ${MPFR_LIB} DIRECTORY)
 
@@ -134,7 +122,6 @@ add_library(fracessa_lib
     src/checkstab.cpp
 )
 
-# Set common include directories
 target_include_directories(fracessa_lib PUBLIC
     $<BUILD_INTERFACE:${CMAKE_CURRENT_SOURCE_DIR}/include>
     $<BUILD_INTERFACE:${CMAKE_CURRENT_SOURCE_DIR}/include/fracessa>
@@ -143,7 +130,6 @@ target_include_directories(fracessa_lib PUBLIC
     ${MPFR_INCLUDE_DIR}
 )
 
-# Link all math libraries. Order matters for static linking: FLINT -> MPFR -> GMP
 target_link_libraries(fracessa_lib PUBLIC
     spdlog::spdlog
     ${FLINT_LIBRARIES}
