@@ -1,20 +1,20 @@
-# FRACESSA
+# FracESSA
 
-**FRACESSA - Fractional ESS Analyzer**
+**FracESSA - Fractional ESS Analyzer**
 
 A high-performance C++ solver for finding Evolutionary Stable Strategies (ESS) in Standard Quadratic Problems using exact rational arithmetic.
 
 ## Overview
 
-FRACESSA solves the **Standard Quadratic Problem (SQP)**, which involves finding all **Evolutionary Stable Strategies (ESS)** for a given symmetric payoff matrix in evolutionary game theory. 
+FracESSA solves the **Standard Quadratic Problem (SQP)**, which involves finding all **Evolutionary Stable Strategies (ESS)** for a given symmetric payoff matrix in evolutionary game theory. 
 
 In the SQP, we seek strategies (probability distributions over pure strategies) that are:
 - **Nash equilibria**: Best responses to themselves
 - **Evolutionarily stable**: Resistant to invasion by alternative strategies
 
-The problem is formulated as finding all local maximizers of a quadratic form over the standard simplex, where the payoff matrix defines the interactions between strategies. FRACESSA uses exact rational arithmetic to guarantee correctness, avoiding floating-point errors that can occur with ill-conditioned matrices.
+The problem is formulated as finding all local maximizers of a quadratic form over the standard simplex, where the payoff matrix defines the interactions between strategies. FracESSA uses exact rational arithmetic to guarantee correctness, avoiding floating-point errors that can occur with ill-conditioned matrices.
 
-FRACESSA computes all ESS using:
+FracESSA computes all ESS using:
 - **Exact rational arithmetic** via FLINT (Fast Library for Number Theory)
 - **Optimized algorithms** including Hadeler's copositivity criterion and Bomze's stability checks
 - **High-performance implementation** with aggressive optimizations (LTO, native architecture, static linking)
@@ -78,7 +78,7 @@ The executable will be at `build/fracessa` (or `build/Release/fracessa.exe` on W
 
 ### Command Line
 
-FRACESSA accepts matrices in the format `dimension#values`, where values are comma-separated rational numbers.
+FracESSA accepts matrices in the format `dimension#values`, where values are comma-separated rational numbers.
 
 **Basic usage:**
 ```bash
@@ -147,7 +147,7 @@ fracessa/
 
 ## Algorithm
 
-FRACESSA implements:
+FracESSA implements:
 1. **Support enumeration** with efficient pruning
 2. **Double-precision filtering** for fast rejection
 3. **Exact rational computation** for candidates
@@ -169,4 +169,4 @@ See LICENSE file for details.
 
 ## Citation
 
-If you use FRACESSA in your research, please cite appropriately.
+If you use FracESSA in your research, please cite appropriately.
