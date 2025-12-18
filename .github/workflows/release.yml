@@ -21,50 +21,67 @@ jobs:
     - uses: actions/checkout@v3
 
     # --- CACHE VCPKG (Windows Only) ---
-    # Stores the static binaries. Key changed to v3 to ensure clean slate for static build.
     - name: Restore vcpkg cache
       if: runner.os == 'Windows'
       uses: actions/cache@v3
       with:
         path: C:/vcpkg/installed
-        key: ${{ runner.os }}-vcpkg-flint-static-v3
+        # Updated key to v2 to ensure we start fresh with the Release-only build
+        key: ${{ runner.os }}-vcpkg-flint-static-release-v2
         restore-keys: |
           ${{ runner.os }}-vcpkg-
 
-    # --- DEPENDENCIES ---
+    # --- DEPENDENCIES (Linux) ---
     - name: Install Dependencies (Linux)
       if: runner.os == 'Linux'
       run: |
         sudo apt-get update
-        # Installs both .so (dynamic) and .a (static) libraries
         sudo apt-get install -y libgmp-dev libmpfr-dev
 
+    # --- DEPENDENCIES (macOS) ---
     - name: Install Dependencies (macOS)
       if: runner.os == 'macOS'
       run: |
         brew install gmp mpfr
 
+    # --- DEPENDENCIES (Windows - PowerShell Optimized) ---
     - name: Install Dependencies (Windows)
       if: runner.os == 'Windows'
+      shell: powershell
       run: |
-        # Use STATIC triplet. This compiles FLINT/GMP/MPFR as static libs (.lib)
-        # This prevents the need for .dll files at runtime.
-        vcpkg install flint:x64-windows-static
+        # 1. Create the custom triplet file using PowerShell (more reliable on Windows runners)
+        New-Item -ItemType Directory -Force -Path triplets
+        
+        $content = @"
+        set(VCPKG_TARGET_ARCHITECTURE x64)
+        set(VCPKG_CRT_LINKAGE static)
+        set(VCPKG_LIBRARY_LINKAGE static)
+        set(VCPKG_BUILD_TYPE release)
+        "@
+        
+        Set-Content -Path triplets\x64-windows-static-release.cmake -Value $content
+        
+        # Verify file creation (for debugging log)
+        Get-Content triplets\x64-windows-static-release.cmake
+
+        # 2. Install FLINT using the custom triplet
+        # Note the usage of $(Get-Location) to pass absolute path to overlays
+        vcpkg install flint:x64-windows-static-release --overlay-triplets="$(Get-Location)/triplets"
         vcpkg integrate install
 
     # --- CONFIGURE ---
     - name: Configure CMake
+      shell: bash
       run: >
         cmake -B build -S cpp
         -DCMAKE_BUILD_TYPE=Release
-        ${{ runner.os == 'Windows' && '-DCMAKE_TOOLCHAIN_FILE=C:/vcpkg/scripts/buildsystems/vcpkg.cmake -DVCPKG_TARGET_TRIPLET=x64-windows-static' || '' }}
+        ${{ runner.os == 'Windows' && '-DCMAKE_TOOLCHAIN_FILE=C:/vcpkg/scripts/buildsystems/vcpkg.cmake -DVCPKG_TARGET_TRIPLET=x64-windows-static-release -DVCPKG_OVERLAY_TRIPLETS=triplets' || '' }}
 
     # --- BUILD ---
     - name: Build
       run: cmake --build build --config Release -j 4
 
-    # --- STRIP BINARIES (Reduce Size) ---
-    # Removes debug symbols from the Release binary
+    # --- STRIP BINARIES ---
     - name: Strip Binary (Linux/Mac)
       if: runner.os != 'Windows'
       run: strip build/fracessa
