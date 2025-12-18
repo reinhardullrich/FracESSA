@@ -21,13 +21,13 @@ jobs:
     - uses: actions/checkout@v3
 
     # --- CACHE VCPKG (Windows Only) ---
+    # Stores the static binaries. Key changed to v3 to ensure clean slate for static build.
     - name: Restore vcpkg cache
       if: runner.os == 'Windows'
       uses: actions/cache@v3
       with:
         path: C:/vcpkg/installed
-        # Changed key to separate static build cache from previous dynamic one
-        key: ${{ runner.os }}-vcpkg-flint-static-v1
+        key: ${{ runner.os }}-vcpkg-flint-static-v3
         restore-keys: |
           ${{ runner.os }}-vcpkg-
 
@@ -36,7 +36,7 @@ jobs:
       if: runner.os == 'Linux'
       run: |
         sudo apt-get update
-        # Installs .a files alongside .so files
+        # Installs both .so (dynamic) and .a (static) libraries
         sudo apt-get install -y libgmp-dev libmpfr-dev
 
     - name: Install Dependencies (macOS)
@@ -47,7 +47,8 @@ jobs:
     - name: Install Dependencies (Windows)
       if: runner.os == 'Windows'
       run: |
-        # Use STATIC triplet for fully standalone executable
+        # Use STATIC triplet. This compiles FLINT/GMP/MPFR as static libs (.lib)
+        # This prevents the need for .dll files at runtime.
         vcpkg install flint:x64-windows-static
         vcpkg integrate install
 
@@ -63,7 +64,7 @@ jobs:
       run: cmake --build build --config Release -j 4
 
     # --- STRIP BINARIES (Reduce Size) ---
-    # Only for Linux/Mac. Windows Release builds don't include symbols in exe by default.
+    # Removes debug symbols from the Release binary
     - name: Strip Binary (Linux/Mac)
       if: runner.os != 'Windows'
       run: strip build/fracessa

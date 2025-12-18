@@ -22,6 +22,7 @@ else()
     add_compile_options(-O3 -march=native -flto -funroll-loops -DNDEBUG)
     
     # Linux: Link standard C++ libraries statically for maximum portability
+    # This ensures the binary runs on older Linux distros without "GLIBCXX not found" errors
     if(CMAKE_SYSTEM_NAME STREQUAL "Linux")
         add_link_options(-static-libgcc -static-libstdc++)
     endif()
@@ -52,30 +53,29 @@ FetchContent_MakeAvailable(spdlog argparse)
 # 3. Math Dependencies (GMP, MPFR, FLINT)
 # ==============================================================================
 
-# --- GMP & MPFR ---
+# --- GMP & MPFR (Linux/Mac Only) ---
+# Windows handles this via vcpkg
 if(NOT WIN32)
     # FORCE STATIC linking on Linux/Mac by looking for .a files only
     set(_ORIG_CMAKE_FIND_LIBRARY_SUFFIXES ${CMAKE_FIND_LIBRARY_SUFFIXES})
     set(CMAKE_FIND_LIBRARY_SUFFIXES ".a")
-endif()
+    
+    find_library(GMP_LIB NAMES gmp libgmp mpir)
+    find_path(GMP_INCLUDE_DIR NAMES gmp.h)
 
-find_library(GMP_LIB NAMES gmp libgmp mpir)
-find_path(GMP_INCLUDE_DIR NAMES gmp.h)
+    find_library(MPFR_LIB NAMES mpfr libmpfr)
+    find_path(MPFR_INCLUDE_DIR NAMES mpfr.h)
 
-find_library(MPFR_LIB NAMES mpfr libmpfr)
-find_path(MPFR_INCLUDE_DIR NAMES mpfr.h)
-
-if(NOT WIN32)
-    # Restore original suffixes
+    # Restore original suffixes so other things don't break
     set(CMAKE_FIND_LIBRARY_SUFFIXES ${_ORIG_CMAKE_FIND_LIBRARY_SUFFIXES})
-endif()
 
-if(NOT (GMP_LIB AND GMP_INCLUDE_DIR))
-    message(FATAL_ERROR "GMP not found.")
-endif()
+    if(NOT (GMP_LIB AND GMP_INCLUDE_DIR))
+        message(FATAL_ERROR "GMP static lib not found.")
+    endif()
 
-if(NOT (MPFR_LIB AND MPFR_INCLUDE_DIR))
-    message(FATAL_ERROR "MPFR not found.")
+    if(NOT (MPFR_LIB AND MPFR_INCLUDE_DIR))
+        message(FATAL_ERROR "MPFR static lib not found.")
+    endif()
 endif()
 
 # --- FLINT ---
@@ -96,6 +96,7 @@ if(WIN32)
     endif()
 else()
     # LINUX / MACOS: Build FLINT from Source (Tarball)
+    # This ensures we get a static .a file linked into our binary
     include(ExternalProject)
     
     get_filename_component(GMP_LIB_DIR ${GMP_LIB} DIRECTORY)
