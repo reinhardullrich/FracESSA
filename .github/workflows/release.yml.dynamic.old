@@ -1,5 +1,6 @@
 name: Release Fracessa
 
+# Trigger ONLY on tags (e.g., v1.0.0)
 on:
   push:
     tags:
@@ -26,8 +27,7 @@ jobs:
       uses: actions/cache@v3
       with:
         path: C:/vcpkg/installed
-        # Changed key to separate static build cache from previous dynamic one
-        key: ${{ runner.os }}-vcpkg-flint-static-v1
+        key: ${{ runner.os }}-vcpkg-flint-cache-v2
         restore-keys: |
           ${{ runner.os }}-vcpkg-
 
@@ -36,7 +36,6 @@ jobs:
       if: runner.os == 'Linux'
       run: |
         sudo apt-get update
-        # Installs .a files alongside .so files
         sudo apt-get install -y libgmp-dev libmpfr-dev
 
     - name: Install Dependencies (macOS)
@@ -47,8 +46,7 @@ jobs:
     - name: Install Dependencies (Windows)
       if: runner.os == 'Windows'
       run: |
-        # Use STATIC triplet for fully standalone executable
-        vcpkg install flint:x64-windows-static
+        vcpkg install flint:x64-windows
         vcpkg integrate install
 
     # --- CONFIGURE ---
@@ -56,19 +54,14 @@ jobs:
       run: >
         cmake -B build -S cpp
         -DCMAKE_BUILD_TYPE=Release
-        ${{ runner.os == 'Windows' && '-DCMAKE_TOOLCHAIN_FILE=C:/vcpkg/scripts/buildsystems/vcpkg.cmake -DVCPKG_TARGET_TRIPLET=x64-windows-static' || '' }}
+        ${{ runner.os == 'Windows' && '-DCMAKE_TOOLCHAIN_FILE=C:/vcpkg/scripts/buildsystems/vcpkg.cmake -DVCPKG_TARGET_TRIPLET=x64-windows' || '' }}
 
     # --- BUILD ---
     - name: Build
       run: cmake --build build --config Release -j 4
 
-    # --- STRIP BINARIES (Reduce Size) ---
-    # Only for Linux/Mac. Windows Release builds don't include symbols in exe by default.
-    - name: Strip Binary (Linux/Mac)
-      if: runner.os != 'Windows'
-      run: strip build/fracessa
-
     # --- PREPARE ARTIFACTS ---
+    # Rename binaries so they are distinct
     - name: Rename Binary (Linux)
       if: runner.os == 'Linux'
       run: mv build/fracessa fracessa-linux
