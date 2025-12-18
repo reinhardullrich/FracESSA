@@ -7,19 +7,17 @@ project(fracessa
 )
 
 # ==============================================================================
-# Compiler Settings & Optimization
+# 1. Compiler Settings
 # ==============================================================================
 set(CMAKE_CXX_STANDARD 17)
 set(CMAKE_CXX_STANDARD_REQUIRED ON)
 set(CMAKE_CXX_EXTENSIONS OFF)
 
-# Optimization Flags
 if(MSVC)
     add_compile_options(/O2 /Oi /Ot /GL /fp:fast /DNDEBUG)
     add_link_options(/LTCG)
 else()
     add_compile_options(-O3 -march=native -flto -funroll-loops -DNDEBUG)
-    # Check for LTO support
     include(CheckIPOSupported)
     check_ipo_supported(RESULT IPO_SUPPORTED)
     if(IPO_SUPPORTED)
@@ -28,75 +26,73 @@ else()
 endif()
 
 # ==============================================================================
-# Dependencies: FetchContent (spdlog, argparse)
+# 2. Dependencies (spdlog, argparse)
 # ==============================================================================
 include(FetchContent)
 
 FetchContent_Declare(spdlog
     GIT_REPOSITORY https://github.com/gabime/spdlog.git
     GIT_TAG v1.13.0
+    GIT_PROGRESS TRUE     # <--- Shows progress
 )
 FetchContent_Declare(argparse
     GIT_REPOSITORY https://github.com/p-ranav/argparse.git
     GIT_TAG v2.9
+    GIT_PROGRESS TRUE     # <--- Shows progress
 )
 FetchContent_MakeAvailable(spdlog argparse)
 
 # ==============================================================================
-# Dependencies: Math Libraries (GMP, MPFR, FLINT)
+# 3. Math Dependencies (GMP, MPFR, FLINT)
 # ==============================================================================
 
-# 1. Find GMP
+# --- GMP ---
 find_library(GMP_LIB NAMES gmp libgmp mpir)
 find_path(GMP_INCLUDE_DIR NAMES gmp.h)
 
-if(GMP_LIB AND GMP_INCLUDE_DIR)
-    message(STATUS "Found GMP: ${GMP_LIB}")
-else()
+if(NOT (GMP_LIB AND GMP_INCLUDE_DIR))
     message(FATAL_ERROR "GMP not found. \nLinux: sudo apt install libgmp-dev\nMac: brew install gmp\nWindows: vcpkg install gmp")
 endif()
 
-# 2. Find MPFR
+# --- MPFR ---
 find_library(MPFR_LIB NAMES mpfr libmpfr)
 find_path(MPFR_INCLUDE_DIR NAMES mpfr.h)
 
-if(MPFR_LIB AND MPFR_INCLUDE_DIR)
-    message(STATUS "Found MPFR: ${MPFR_LIB}")
-else()
+if(NOT (MPFR_LIB AND MPFR_INCLUDE_DIR))
     message(FATAL_ERROR "MPFR not found. \nLinux: sudo apt install libmpfr-dev\nMac: brew install mpfr\nWindows: vcpkg install mpfr")
 endif()
 
-# 3. Handle FLINT
-# Strategy: On Windows, find pre-installed (via vcpkg). On Unix, build from source.
+# --- FLINT ---
 set(FLINT_INCLUDE_DIRS "")
 set(FLINT_LIBRARIES "")
 
 if(WIN32)
-    # Windows: Rely on VCPKG or pre-installed libs
+    # WINDOWS: Use vcpkg provided libraries
     find_library(FLINT_LIB NAMES flint libflint)
     find_path(FLINT_INCLUDE_DIR NAMES flint/flint.h)
     
     if(FLINT_LIB AND FLINT_INCLUDE_DIR)
-        message(STATUS "Found FLINT on Windows: ${FLINT_LIB}")
         set(FLINT_LIBRARIES ${FLINT_LIB})
         set(FLINT_INCLUDE_DIRS ${FLINT_INCLUDE_DIR})
+        message(STATUS "Found FLINT (Windows): ${FLINT_LIB}")
     else()
-        message(FATAL_ERROR "FLINT not found on Windows. Please install via vcpkg: 'vcpkg install flint'")
+        message(FATAL_ERROR "FLINT not found. Ensure 'vcpkg install flint:x64-windows' ran.")
     endif()
 else()
-    # Linux/macOS: Build from source to ensure version consistency
+    # LINUX / MACOS: Build FLINT 3.0.1 from Source (Tarball)
+    # Using tarball ensures 'configure' script is present (fixes 'configure not found' error)
     include(ExternalProject)
     
-    # We need the directories of the found libraries to pass to configure
+    # Get directories to pass to FLINT configure
     get_filename_component(GMP_LIB_DIR ${GMP_LIB} DIRECTORY)
     get_filename_component(MPFR_LIB_DIR ${MPFR_LIB} DIRECTORY)
 
     ExternalProject_Add(flint_build
-        GIT_REPOSITORY https://github.com/flintlib/flint.git
-        GIT_TAG v3.0.0
+        URL https://github.com/flintlib/flint/releases/download/v3.0.1/flint-3.0.1.tar.gz
         PREFIX ${CMAKE_BINARY_DIR}/third_party/flint
-        # Configure step: Pass GMP/MPFR locations explicitly
-        CONFIGURE_COMMAND <SOURCE_DIR>/configure 
+        BUILD_IN_SOURCE 1
+        # Configure FLINT to use the system's GMP/MPFR
+        CONFIGURE_COMMAND ./configure 
             --prefix=<INSTALL_DIR> 
             --with-gmp=${GMP_LIB_DIR}/.. 
             --with-mpfr=${MPFR_LIB_DIR}/..
@@ -112,10 +108,10 @@ else()
 endif()
 
 # ==============================================================================
-# Build Targets
+# 4. Build Targets
 # ==============================================================================
 
-# Library
+# --- Library ---
 add_library(fracessa_lib
     src/fracessa.cpp
     src/findeq.cpp
@@ -137,15 +133,14 @@ target_link_libraries(fracessa_lib PUBLIC
     ${GMP_LIB}
 )
 
+# On Linux/Mac, ensure FLINT is built before compiling the library
 if(NOT WIN32)
-    # Ensure header files are generated before compiling
     add_dependencies(fracessa_lib flint_build)
-    # Linux often needs pthread for C++ std::thread/async
     find_package(Threads REQUIRED)
     target_link_libraries(fracessa_lib PUBLIC Threads::Threads)
 endif()
 
-# Executable
+# --- Executable ---
 add_executable(fracessa src/main.cpp)
 
 target_link_libraries(fracessa PRIVATE
@@ -154,6 +149,6 @@ target_link_libraries(fracessa PRIVATE
 )
 
 # ==============================================================================
-# Installation
+# 5. Installation
 # ==============================================================================
 install(TARGETS fracessa RUNTIME DESTINATION bin)

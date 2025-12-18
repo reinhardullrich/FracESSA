@@ -9,10 +9,21 @@ jobs:
     strategy:
       fail-fast: false
       matrix:
-        os: [ubuntu-20.04, ubuntu-22.04, macos-latest, windows-latest]
+        os: [ubuntu-22.04, macos-latest, windows-latest]
 
     steps:
     - uses: actions/checkout@v3
+
+    # --- CACHE VCPKG (Windows Only) ---
+    # This stores the compiled FLINT/GMP/MPFR so we don't rebuild them every time
+    - name: Restore vcpkg cache
+      if: runner.os == 'Windows'
+      uses: actions/cache@v3
+      with:
+        path: C:/vcpkg/installed
+        key: ${{ runner.os }}-vcpkg-flint-cache-v1
+        restore-keys: |
+          ${{ runner.os }}-vcpkg-
 
     # --- LINUX SETUP ---
     - name: Install Dependencies (Linux)
@@ -31,19 +42,15 @@ jobs:
     - name: Install Dependencies (Windows)
       if: runner.os == 'Windows'
       run: |
-        # Update vcpkg to ensure we have the 'flint' port
-        cd C:/vcpkg
-        git pull
-        .\bootstrap-vcpkg.bat
-        
-        # Install flint (this automatically pulls gmp and mpfr)
-        .\vcpkg.exe install flint:x64-windows
-        .\vcpkg.exe integrate install
+        # Install flint (pulls in gmp/mpfr) using the pre-installed vcpkg
+        vcpkg install flint:x64-windows
+        vcpkg integrate install
 
     # --- CONFIGURE ---
+    # IMPORTANT: -S cpp tells CMake the source code is in the 'cpp' subdirectory
     - name: Configure CMake
       run: >
-        cmake -B build -S .
+        cmake -B build -S cpp
         -DCMAKE_BUILD_TYPE=Release
         ${{ runner.os == 'Windows' && '-DCMAKE_TOOLCHAIN_FILE=C:/vcpkg/scripts/buildsystems/vcpkg.cmake -DVCPKG_TARGET_TRIPLET=x64-windows' || '' }}
 
