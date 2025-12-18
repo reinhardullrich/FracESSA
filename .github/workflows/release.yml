@@ -1,10 +1,17 @@
-name: Build Fracessa
+name: Release Fracessa
 
-on: [push, pull_request]
+# Trigger ONLY on tags (e.g., v1.0.0)
+on:
+  push:
+    tags:
+      - 'v*'
+
+permissions:
+  contents: write
 
 jobs:
   build:
-    name: ${{ matrix.os }}
+    name: Build on ${{ matrix.os }}
     runs-on: ${{ matrix.os }}
     strategy:
       fail-fast: false
@@ -15,39 +22,34 @@ jobs:
     - uses: actions/checkout@v3
 
     # --- CACHE VCPKG (Windows Only) ---
-    # This stores the compiled FLINT/GMP/MPFR so we don't rebuild them every time
     - name: Restore vcpkg cache
       if: runner.os == 'Windows'
       uses: actions/cache@v3
       with:
         path: C:/vcpkg/installed
-        key: ${{ runner.os }}-vcpkg-flint-cache-v1
+        key: ${{ runner.os }}-vcpkg-flint-cache-v2
         restore-keys: |
           ${{ runner.os }}-vcpkg-
 
-    # --- LINUX SETUP ---
+    # --- DEPENDENCIES ---
     - name: Install Dependencies (Linux)
       if: runner.os == 'Linux'
       run: |
         sudo apt-get update
         sudo apt-get install -y libgmp-dev libmpfr-dev
 
-    # --- MAC SETUP ---
     - name: Install Dependencies (macOS)
       if: runner.os == 'macOS'
       run: |
         brew install gmp mpfr
 
-    # --- WINDOWS SETUP (VCPKG) ---
     - name: Install Dependencies (Windows)
       if: runner.os == 'Windows'
       run: |
-        # Install flint (pulls in gmp/mpfr) using the pre-installed vcpkg
         vcpkg install flint:x64-windows
         vcpkg integrate install
 
     # --- CONFIGURE ---
-    # IMPORTANT: -S cpp tells CMake the source code is in the 'cpp' subdirectory
     - name: Configure CMake
       run: >
         cmake -B build -S cpp
@@ -58,12 +60,47 @@ jobs:
     - name: Build
       run: cmake --build build --config Release -j 4
 
-    # --- TEST ---
-    - name: Run Test
-      shell: bash
-      run: |
-        if [ "$RUNNER_OS" == "Windows" ]; then
-          ./build/Release/fracessa.exe --help
-        else
-          ./build/fracessa --help
-        fi
+    # --- PREPARE ARTIFACTS ---
+    # Rename binaries so they are distinct
+    - name: Rename Binary (Linux)
+      if: runner.os == 'Linux'
+      run: mv build/fracessa fracessa-linux
+
+    - name: Rename Binary (macOS)
+      if: runner.os == 'macOS'
+      run: mv build/fracessa fracessa-macos
+
+    - name: Rename Binary (Windows)
+      if: runner.os == 'Windows'
+      run: mv build/Release/fracessa.exe fracessa-windows.exe
+
+    # --- UPLOAD TO STAGING ---
+    - name: Upload Artifact
+      uses: actions/upload-artifact@v4
+      with:
+        name: binary-${{ matrix.os }}
+        path: fracessa-*
+        if-no-files-found: error
+
+  # --- PUBLISH RELEASE ---
+  publish:
+    needs: build
+    runs-on: ubuntu-latest
+    
+    steps:
+    - name: Download All Artifacts
+      uses: actions/download-artifact@v4
+      with:
+        pattern: binary-*
+        merge-multiple: true
+
+    - name: Create GitHub Release
+      uses: softprops/action-gh-release@v1
+      with:
+        files: |
+          fracessa-linux
+          fracessa-macos
+          fracessa-windows.exe
+        draft: false
+        prerelease: false
+        generate_release_notes: true
