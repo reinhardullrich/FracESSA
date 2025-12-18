@@ -162,7 +162,7 @@ inline std::string to_string(bitset64 bits) noexcept {
   return std::to_string(bits);
 }
 
-// portable hash (fast)
+// portable hash (fast) **MurmurHash3 finalizer**
 inline std::size_t hash(bitset64 bits) noexcept {
   // 64-bit mix (FNV-like)
   uint64_t x = bits;

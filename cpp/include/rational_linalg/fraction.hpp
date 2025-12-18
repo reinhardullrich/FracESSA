@@ -265,9 +265,15 @@ public:
         return result;
     }
     
-    // Stream output
+    // Stream output - optimized to write directly without string allocation
     friend std::ostream& operator<<(std::ostream& os, const fraction& r) {
-        os << r.to_string();
+        char* str = fmpq_get_str(nullptr, 10, r.data_);
+        if (str == nullptr) {
+            os << "0";
+        } else {
+            os << str;  // Write directly to stream, no string allocation
+            free(str);
+        }
         return os;
     }
 };

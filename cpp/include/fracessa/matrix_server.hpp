@@ -3,7 +3,6 @@
 
 #include <rational_linalg/matrix.hpp>
 #include <fracessa/bitset64.hpp>
-#include <utility>
 
 /**
  * MatrixServer - Centralized matrix storage and operations for fracessa
@@ -33,7 +32,40 @@ public:
     template<typename T>
     rational_linalg::Matrix<T>& get_linear_system(const bitset64& support, size_t support_size) {
         auto& Ab = get_augmented<T>();
-        build_kkt_augmented<T>(support, support_size, Ab);
+        const auto& game = get_game<T>();
+        
+        // Resize if needed (constructor zero-initializes)
+        if (Ab.rows() != support_size + 1) {
+            Ab = rational_linalg::Matrix<T>(support_size + 1, support_size + 2);
+        }
+
+        // Fill all rows in one pass
+        size_t ab_row = 0;
+        for (size_t i = 0; i < dimension_; ++i) {
+            if (bs64::is_set_at_pos(support, i)) {
+                // Fill submatrix columns (0 to support_size-1) from game_matrix
+                size_t ab_col = 0;
+                for (size_t j = 0; j < dimension_; ++j) {
+                    if (bs64::is_set_at_pos(support, j)) {
+                        Ab(ab_row, ab_col) = game(i, j);
+                        ab_col++;
+                    }
+                }
+                // Column support_size: -1 (last column of A)
+                Ab(ab_row, support_size) = T(-1);
+                // Column support_size + 1: 0 (b vector, initially zero)
+                Ab(ab_row, support_size + 1) = T(0);
+                ab_row++;
+            }
+        }
+        
+        // Fill last row: all 1s in columns 0..support_size-1, 0 in column support_size, 1 in column n
+        for (size_t i = 0; i < support_size; ++i) {
+            Ab(support_size, i) = T(1);
+        }
+        Ab(support_size, support_size) = T(0);      // Column support_size (last column of A)
+        Ab(support_size, support_size + 1) = T(1);  // Column support_size + 1 (b vector, last element is 1)
+        
         return Ab;
     }
 
@@ -71,52 +103,11 @@ public:
     }
 
     template<typename T>
-    const rational_linalg::Matrix<T>& get_game_matrix() const {
+    const rational_linalg::Matrix<T>& get_game_matrix() const noexcept {
         return get_game<T>();
     }
 
 private:
-    // =========================================================================
-    // Internal Matrix Builders (private)
-    // =========================================================================
-    
-    template<typename T>
-    void build_kkt_augmented(const bitset64& support, size_t support_size, rational_linalg::Matrix<T>& Ab) const {
-        const auto& game = get_game<T>();
-        
-        // Resize if needed (constructor zero-initializes)
-        if (Ab.rows() != support_size + 1) {
-            Ab = rational_linalg::Matrix<T>(support_size + 1, support_size + 2);
-        }
-
-        // Fill all rows in one pass
-        size_t ab_row = 0;
-        for (size_t i = 0; i < dimension_; ++i) {
-            if (bs64::is_set_at_pos(support, i)) {
-                // Fill submatrix columns (0 to support_size-1) from game_matrix
-                size_t ab_col = 0;
-                for (size_t j = 0; j < dimension_; ++j) {
-                    if (bs64::is_set_at_pos(support, j)) {
-                        Ab(ab_row, ab_col) = game(i, j);
-                        ab_col++;
-                    }
-                }
-                // Column support_size: -1 (last column of A)
-                Ab(ab_row, support_size) = T(-1);
-                // Column support_size + 1: 0 (b vector, initially zero)
-                Ab(ab_row, support_size + 1) = T(0);
-                ab_row++;
-            }
-        }
-        
-        // Fill last row: all 1s in columns 0..support_size-1, 0 in column support_size, 1 in column n
-        for (size_t i = 0; i < support_size; ++i) {
-            Ab(support_size, i) = T(1);
-        }
-        Ab(support_size, support_size) = T(0);      // Column support_size (last column of A)
-        Ab(support_size, support_size + 1) = T(1);  // Column support_size + 1 (b vector, last element is 1)
-    }
-
     // =========================================================================
     // Internal Helpers
     // =========================================================================
@@ -125,7 +116,7 @@ private:
      * Get the appropriate game matrix for the template type
      */
     template<typename T>
-    const rational_linalg::Matrix<T>& get_game() const {
+    const rational_linalg::Matrix<T>& get_game() const noexcept {
         if constexpr (std::is_same_v<T, double>) {
             return game_double_;
         } else {
@@ -137,7 +128,7 @@ private:
      * Get the appropriate augmented matrix reference
      */
     template<typename T>
-    rational_linalg::Matrix<T>& get_augmented() {
+    rational_linalg::Matrix<T>& get_augmented() noexcept {
         if constexpr (std::is_same_v<T, double>) {
             return subgame_augmented_double_;
         } else {
@@ -149,7 +140,7 @@ private:
      * Get the appropriate Bee matrix reference
      */
     template<typename T>
-    rational_linalg::Matrix<T>& get_bee() {
+    rational_linalg::Matrix<T>& get_bee() noexcept {
         if constexpr (std::is_same_v<T, double>) {
             return bee_double_;
         } else {

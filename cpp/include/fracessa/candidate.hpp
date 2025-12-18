@@ -4,6 +4,8 @@
 #include <rational_linalg/matrix.hpp>
 #include <fracessa/bitset64.hpp>
 #include <string>
+#include <sstream>
+#include <iomanip>
 
 class candidate
 {
@@ -20,28 +22,26 @@ class candidate
         fraction payoff;  // Always use arbitrary precision
         double payoff_double;
 
-        std::string to_string()
+        std::string to_string() const
         {
-            std::string str;
-            str.reserve(256);  // Pre-allocate reasonable size
-            str += std::to_string(candidate_id) + ";";
+            std::ostringstream oss;
+            oss << candidate_id << ";";
             for (size_t i = 0; i < vector.rows(); i++) {
-                // Convert fraction to string, normalize integers (X/1 -> X)
-                str += vector(i, 0).to_string() + ",";
+                oss << vector(i, 0);  // Uses optimized operator<<, no string allocation
+                if (i < vector.rows() - 1) {
+                    oss << ",";
+                }
             }
-            if (vector.rows() > 0)
-                str.pop_back();
-            str += ";" + bs64::to_string(support) + ";";
-            str += std::to_string(support_size) + ";";
-            str += bs64::to_string(extended_support) + ";";
-            str += std::to_string(extended_support_size) + ";";
-            str += std::to_string(shift_reference) + ";";
-            str += std::to_string(is_ess) + ";";
-            str += stability + ";";
-            str += payoff.to_string() + ";";
-            str += std::to_string(payoff_double);
-
-            return str;
+            oss << ";" << bs64::to_string(support) << ";"
+                << support_size << ";"
+                << bs64::to_string(extended_support) << ";"
+                << extended_support_size << ";"
+                << shift_reference << ";"
+                << is_ess << ";"
+                << stability << ";"
+                << payoff << ";"  // Uses optimized operator<<, no string allocation
+                << std::fixed << std::setprecision(6) << payoff_double;
+            return oss.str();
         }
 
         static std::string header()

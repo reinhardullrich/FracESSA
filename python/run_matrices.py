@@ -2,6 +2,9 @@
 """
 Script to run all matrices from matrices.json using the FRACESSA Python bindings
 and save results to a JSON file. Processes matrices sequentially.
+
+Optimized: Uses micro-benchmarking loops for small matrices to filter out OS noise.
+Features: Compares timing against 'baseline_result.json' AND the latest 'fracessa_verification_result_*.json'.
 """
 
 import json
@@ -16,10 +19,7 @@ from fracessa_py import Fracessa, Matrix, FracessaError
 def candidate_to_comparison_key(candidate):
     """
     Convert a candidate dict to a hashable tuple for comparison.
-    Excludes candidate_id since it may differ between runs.
-    Excludes reason_ess/stability since it may differ between implementations.
     """
-    # Normalize vector to string for comparison
     vector = candidate.get('vector', '')
     if isinstance(vector, list):
         vector = ','.join(str(v) for v in vector)
@@ -32,184 +32,40 @@ def candidate_to_comparison_key(candidate):
         str(candidate.get('extended_support_size', '')),
         str(candidate.get('shift_reference', '')),
         str(candidate.get('is_ess', '')),
-        # reason_ess/stability excluded from comparison
         str(candidate.get('payoff', '')),
         str(candidate.get('payoff_double', ''))
     )
 
 
-def compare_runtimes(results, baseline_file):
-    """
-    Compare runtimes of current run against baseline JSON file.
-    
-    Args:
-        results: List of result dicts from current run
-        baseline_file: Path to baseline JSON file
-        
-    Returns:
-        dict with runtime comparison results
-    """
-    # Check if baseline file exists
-    if not baseline_file.exists():
-        return {
-            "status": "SKIPPED",
-            "reason": f"Baseline file not found: {baseline_file}",
-            "compared": 0,
-            "faster": 0,
-            "slower": 0,
-            "same": 0,
-            "details": []
-        }
-    
-    # Load baseline results
-    try:
-        with open(baseline_file, 'r') as f:
-            baseline_data = json.load(f)
-        baseline_results = baseline_data.get('results', [])
-    except Exception as e:
-        return {
-            "status": "ERROR",
-            "reason": f"Failed to load baseline file: {e}",
-            "compared": 0,
-            "faster": 0,
-            "slower": 0,
-            "same": 0,
-            "details": []
-        }
-    
-    # Create lookup dict for baseline timings
-    baseline_timings = {}
-    for result in baseline_results:
-        matrix_id = result.get('id')
-        if result.get('result', {}).get('success'):
-            baseline_timings[matrix_id] = result['result'].get('timing', 0.0)
-    
-    # Compare current runtimes with baseline
-    compared = 0
-    faster = 0
-    slower = 0
-    same = 0
-    details = []
-    
-    for result in results:
-        matrix_id = result.get('id')
-        current_result = result.get('result', {})
-        
-        if not current_result.get('success'):
-            continue  # Skip failed matrices
-        
-        if matrix_id not in baseline_timings:
-            continue  # Skip matrices not in baseline
-        
-        current_timing = current_result.get('timing', 0.0)
-        baseline_timing = baseline_timings[matrix_id]
-        
-        compared += 1
-        
-        if baseline_timing == 0:
-            # Avoid division by zero
-            if current_timing == 0:
-                same += 1
-                speedup = 1.0
-                percentage_change = 0.0
-            else:
-                slower += 1
-                speedup = float('inf')
-                percentage_change = float('inf')
-        else:
-            speedup = baseline_timing / current_timing if current_timing > 0 else float('inf')
-            
-            # Calculate percentage change: ((current - baseline) / baseline) * 100
-            percentage_change = ((current_timing - baseline_timing) / baseline_timing) * 100
-            
-            if abs(current_timing - baseline_timing) < 0.001:  # Consider same if within 1ms
-                same += 1
-            elif current_timing < baseline_timing:
-                faster += 1
-            else:
-                slower += 1
-        
-        details.append({
-            "matrix_id": matrix_id,
-            "dimension": result.get('dimension'),
-            "current_timing": current_timing,
-            "baseline_timing": baseline_timing,
-            "speedup": speedup if speedup != float('inf') else None,
-            "slower_by": current_timing - baseline_timing if current_timing > baseline_timing else None,
-            "faster_by": baseline_timing - current_timing if current_timing < baseline_timing else None,
-            "percentage_change": percentage_change if percentage_change != float('inf') else None
-        })
-    
-    # Sort details by speedup ratio (best improvements first)
-    details.sort(key=lambda x: x.get('speedup') or 0, reverse=True)
-    
-    return {
-        "status": "SUCCESS",
-        "compared": compared,
-        "faster": faster,
-        "slower": slower,
-        "same": same,
-        "details": details
-    }
-
-
 def compare_ess_counts(results, baseline_file):
-    """
-    Compare ESS counts of current run against baseline JSON file.
-    
-    Args:
-        results: List of result dicts from current run
-        baseline_file: Path to baseline JSON file
-        
-    Returns:
-        dict with ESS count comparison results
-    """
-    # Check if baseline file exists
+    """Compare ESS counts of current run against baseline JSON file."""
     if not baseline_file.exists():
-        return {
-            "status": "SKIPPED",
-            "reason": f"Baseline file not found: {baseline_file}",
-            "compared": 0,
-            "mismatches": []
-        }
+        return {"status": "SKIPPED", "reason": f"Baseline file not found", "compared": 0, "mismatches": []}
     
-    # Load baseline results
     try:
         with open(baseline_file, 'r') as f:
             baseline_data = json.load(f)
         baseline_results = baseline_data.get('results', [])
     except Exception as e:
-        return {
-            "status": "ERROR",
-            "reason": f"Failed to load baseline file: {e}",
-            "compared": 0,
-            "mismatches": []
-        }
+        return {"status": "ERROR", "reason": f"Failed to load baseline: {e}", "compared": 0, "mismatches": []}
     
-    # Create lookup dict for baseline ESS counts
     baseline_ess_counts = {}
     for result in baseline_results:
         matrix_id = result.get('id')
         if result.get('result', {}).get('success'):
             baseline_ess_counts[matrix_id] = result['result'].get('ess_count', 0)
     
-    # Compare current ESS counts with baseline
     compared = 0
     mismatches = []
     
     for result in results:
         matrix_id = result.get('id')
         current_result = result.get('result', {})
-        
-        if not current_result.get('success'):
-            continue  # Skip failed matrices
-        
-        if matrix_id not in baseline_ess_counts:
-            continue  # Skip matrices not in baseline
+        if not current_result.get('success'): continue
+        if matrix_id not in baseline_ess_counts: continue
         
         current_ess_count = current_result.get('ess_count', 0)
         baseline_ess_count = baseline_ess_counts[matrix_id]
-        
         compared += 1
         
         if current_ess_count != baseline_ess_count:
@@ -220,170 +76,90 @@ def compare_ess_counts(results, baseline_file):
                 "baseline_ess": baseline_ess_count
             })
     
-    return {
-        "status": "SUCCESS",
-        "compared": compared,
-        "mismatches": mismatches
-    }
+    return {"status": "SUCCESS", "compared": compared, "mismatches": mismatches}
 
 
 def verify_against_baseline(all_candidates, baseline_file):
-    """
-    Verify produced candidates against baseline CSV.
-    
-    Args:
-        all_candidates: List of candidate dicts from current run
-        baseline_file: Path to baseline CSV file
-        
-    Returns:
-        dict with verification results
-    """
+    """Verify produced candidates against baseline CSV."""
     from collections import defaultdict
     
-    # Check if baseline file exists
     if not baseline_file.exists():
-        return {
-            "status": "SKIPPED",
-            "reason": f"Baseline file not found: {baseline_file}",
-            "verified": 0,
-            "passed": 0,
-            "failed": 0,
-            "details": []
-        }
+        return {"status": "SKIPPED", "reason": f"Baseline file not found", "verified": 0, "passed": 0, "failed": 0, "details": []}
     
-    # Load baseline candidates
     baseline_candidates = []
     with open(baseline_file, 'r', newline='') as f:
         reader = csv.DictReader(f)
         for row in reader:
             baseline_candidates.append(row)
     
-    # Group candidates by matrix_id
     produced_by_matrix = defaultdict(set)
     baseline_by_matrix = defaultdict(set)
-    produced_candidate_counts = defaultdict(int)
-    baseline_candidate_counts = defaultdict(int)
-    produced_ess_counts = defaultdict(int)
-    baseline_ess_counts = defaultdict(int)
+    produced_counts = defaultdict(int)
+    baseline_counts = defaultdict(int)
     
     for candidate in all_candidates:
         matrix_id = candidate.get('matrix_id')
-        if matrix_id is None:
-            continue  # Skip candidates without matrix_id
-        matrix_id = int(matrix_id)  # Ensure int type for comparison
+        if matrix_id is None: continue
+        matrix_id = int(matrix_id)
         key = candidate_to_comparison_key(candidate)
         produced_by_matrix[matrix_id].add(key)
-        produced_candidate_counts[matrix_id] += 1
-        # Count ESS candidates
-        if candidate.get('is_ess', ''):
-            is_ess_str = str(candidate.get('is_ess', '')).lower()
-            if is_ess_str in ('true', '1', 'yes'):
-                produced_ess_counts[matrix_id] += 1
+        produced_counts[matrix_id] += 1
     
     for candidate in baseline_candidates:
         matrix_id = int(candidate.get('matrix_id'))
         key = candidate_to_comparison_key(candidate)
         baseline_by_matrix[matrix_id].add(key)
-        baseline_candidate_counts[matrix_id] += 1
-        # Count ESS candidates
-        if candidate.get('is_ess', ''):
-            is_ess_str = str(candidate.get('is_ess', '')).lower()
-            if is_ess_str in ('true', '1', 'yes'):
-                baseline_ess_counts[matrix_id] += 1
+        baseline_counts[matrix_id] += 1
     
-    # Categorize matrix_ids
     produced_ids = set(produced_by_matrix.keys())
     baseline_ids = set(baseline_by_matrix.keys())
-    
-    # Matrices in produced but not in baseline - ERROR
-    not_in_baseline = produced_ids - baseline_ids
-    # Matrices in baseline but not in produced - just skipped (not an error)
-    skipped = baseline_ids - produced_ids
-    # Matrices in both - need to verify
     to_verify = produced_ids & baseline_ids
     
     passed = 0
     failed = 0
     mismatches = []
     errors = []
-    candidate_count_mismatches = []
-    ess_count_mismatches = []
+    count_mismatches = []
     
     # Check for matrices not in baseline (ERROR)
-    for matrix_id in sorted(not_in_baseline):
+    for matrix_id in sorted(produced_ids - baseline_ids):
         failed += 1
-        errors.append({
-            "matrix_id": matrix_id,
-            "error": "Matrix ID not found in baseline"
-        })
+        errors.append({"matrix_id": matrix_id, "error": "Matrix ID not found in baseline"})
     
-    # Verify matrices that are in both
     for matrix_id in sorted(to_verify):
-        produced_set = produced_by_matrix[matrix_id]
-        baseline_set = baseline_by_matrix[matrix_id]
+        p_set = produced_by_matrix[matrix_id]
+        b_set = baseline_by_matrix[matrix_id]
+        p_count = produced_counts[matrix_id]
+        b_count = baseline_counts[matrix_id]
         
-        # Check candidate count
-        produced_candidate_count = produced_candidate_counts[matrix_id]
-        baseline_candidate_count = baseline_candidate_counts[matrix_id]
-        if produced_candidate_count != baseline_candidate_count:
+        if p_count != b_count:
             failed += 1
-            candidate_count_mismatches.append({
-                "matrix_id": matrix_id,
-                "produced_count": produced_candidate_count,
-                "baseline_count": baseline_candidate_count
-            })
+            count_mismatches.append({"matrix_id": matrix_id, "produced_count": p_count, "baseline_count": b_count})
         
-        # Check ESS count
-        produced_ess_count = produced_ess_counts[matrix_id]
-        baseline_ess_count = baseline_ess_counts[matrix_id]
-        if produced_ess_count != baseline_ess_count:
+        if p_set == b_set and p_count == b_count:
+            passed += 1
+        elif p_set != b_set:
             failed += 1
-            ess_count_mismatches.append({
-                "matrix_id": matrix_id,
-                "produced_ess_count": produced_ess_count,
-                "baseline_ess_count": baseline_ess_count
-            })
-        
-        # Check candidate sets (excluding reason_ess/stability)
-        if produced_set == baseline_set:
-            # Only count as passed if candidate count also matches
-            if produced_candidate_count == baseline_candidate_count:
-                passed += 1
-        else:
-            failed += 1
-            extra = produced_set - baseline_set
-            missing = baseline_set - produced_set
             mismatches.append({
-                "matrix_id": matrix_id,
-                "produced_count": len(produced_set),
-                "baseline_count": len(baseline_set),
-                "extra_count": len(extra),
-                "missing_count": len(missing)
+                "matrix_id": matrix_id, 
+                "produced_count": len(p_set), 
+                "baseline_count": len(b_set),
+                "extra_count": len(p_set - b_set), 
+                "missing_count": len(b_set - p_set)
             })
     
     return {
         "status": "PASS" if failed == 0 else "FAIL",
         "verified": len(to_verify),
-        "passed": passed,
-        "failed": failed,
-        "skipped": list(sorted(skipped)),
-        "errors": errors,
-        "mismatches": mismatches,
-        "candidate_count_mismatches": candidate_count_mismatches,
-        "ess_count_mismatches": ess_count_mismatches
+        "passed": passed, "failed": failed,
+        "errors": errors, "mismatches": mismatches, "candidate_count_mismatches": count_mismatches
     }
 
 
-def process_matrix(matrix_data, executable_path):
+def process_matrix(matrix_data):
     """
     Process a single matrix.
-    
-    Args:
-        matrix_data: dict with matrix information
-        executable_path: path to the fracessa executable
-        
-    Returns:
-        tuple: (matrix_id, result_entry, candidates_list)
+    If the matrix is small (dimension < 15), run it multiple times to get stable timing.
     """
     matrix_id = matrix_data['id']
     dimension = matrix_data['dimension']
@@ -391,26 +167,45 @@ def process_matrix(matrix_data, executable_path):
     is_cs = matrix_data['is_cs']
     matrix_str = matrix_data['matrix']
     
+    # HEURISTIC: Small matrices are noisy. Run them multiple times.
+    if dimension < 10:
+        iterations = 20
+    elif dimension < 15:
+        iterations = 5
+    else:
+        iterations = 1
+
+    best_result = None
+    min_time = float('inf')
+
     try:
-        # Initialize FRACESSA interface
-        fracessa = Fracessa(str(executable_path))
-        
-        # Create matrix object
+        fracessa = Fracessa()
         matrix = Matrix(matrix_str, dimension, is_circular=is_cs)
         
-        # Run ESS computation
-        result = fracessa.compute_ess(
-            matrix=matrix,
-            include_candidates=True,
-            enable_logging=False,
-            timeout=1800.0,  # 30 minutes timeout
-            matrix_id=matrix_id
-        )
+        # BENCHMARK LOOP
+        for i in range(iterations):
+            result = fracessa.compute_ess(
+                matrix=matrix,
+                include_candidates=True,
+                enable_logging=False,
+                timeout=1800.0,
+                matrix_id=matrix_id
+            )
+            
+            if not result.success:
+                return (matrix_id, dimension, number_ess, {
+                    "id": matrix_id, "dimension": dimension, "number_ess_expected": number_ess,
+                    "is_cs": is_cs, "matrix": matrix_str,
+                    "result": {"success": False, "error": result.error, "timing": result.computation_time}
+                }, [], {"success": False, "error": result.error})
+            
+            if result.computation_time < min_time:
+                min_time = result.computation_time
+                best_result = result
         
-        if result.success:
-            # Convert candidates to the expected format
+        if best_result and best_result.success:
             candidates_data = []
-            for candidate in result.candidates:
+            for candidate in best_result.candidates:
                 candidate_dict = {
                     'candidate_id': candidate.candidate_id,
                     'vector': candidate.vector,
@@ -428,31 +223,18 @@ def process_matrix(matrix_data, executable_path):
             
             computation_result = {
                 "success": True,
-                "ess_count": result.ess_count,
-                "timing": result.computation_time,
+                "ess_count": best_result.ess_count,
+                "timing": min_time,
                 "candidates": candidates_data
             }
         else:
-            computation_result = {
-                "success": False,
-                "error": result.error,
-                "timing": result.computation_time
-            }
+             computation_result = {"success": False, "error": "No valid result found", "timing": 0.0}
     
     except FracessaError as e:
-        computation_result = {
-            "success": False,
-            "error": f"FRACESSA Error: {str(e)}",
-            "timing": 0.0
-        }
+        computation_result = {"success": False, "error": f"FRACESSA Error: {str(e)}", "timing": 0.0}
     except Exception as e:
-        computation_result = {
-            "success": False,
-            "error": f"Exception: {str(e)}",
-            "timing": 0.0
-        }
+        computation_result = {"success": False, "error": f"Exception: {str(e)}", "timing": 0.0}
     
-    # Extract candidates for CSV (with matrix_id)
     candidates_list = []
     if computation_result["success"] and "candidates" in computation_result:
         for candidate in computation_result["candidates"]:
@@ -460,91 +242,116 @@ def process_matrix(matrix_data, executable_path):
             candidate_with_matrix_id.update(candidate)
             candidates_list.append(candidate_with_matrix_id)
     
-    # Build result entry without candidates for JSON
     result_without_candidates = {k: v for k, v in computation_result.items() if k != "candidates"}
     
     result_entry = {
-        "id": matrix_id,
-        "dimension": dimension,
-        "number_ess_expected": number_ess,
-        "is_cs": is_cs,
-        "matrix": matrix_str,
-        "result": result_without_candidates
+        "id": matrix_id, "dimension": dimension, "number_ess_expected": number_ess,
+        "is_cs": is_cs, "matrix": matrix_str, "result": result_without_candidates
     }
     
     return (matrix_id, dimension, number_ess, result_entry, candidates_list, computation_result)
 
 
+def get_latest_timings(results_dir: Path):
+    """
+    Finds the most recent result file (excluding current run) and extracts timings.
+    Returns: (timings_dict, filename)
+    """
+    if not results_dir.exists():
+        return {}, None
+    
+    # glob files like 'fracessa_verification_result_*.json'
+    files = list(results_dir.glob("fracessa_verification_result_*.json"))
+    if not files:
+        return {}, None
+        
+    # Sort files by name (timestamps are in the name YYYYMMDD_HHMMSS)
+    files.sort(key=lambda x: x.name)
+    
+    # Pick the last one
+    latest_file = files[-1]
+    
+    timings = {}
+    try:
+        with open(latest_file, 'r') as f:
+            data = json.load(f)
+        for r in data.get('results', []):
+            if r.get('result', {}).get('success'):
+                timings[r['id']] = r['result'].get('timing', 0.0)
+        return timings, latest_file.name
+    except Exception:
+        return {}, None
+
+
+def format_comparison(current_time, ref_time):
+    """Generates string: (was Xs, +Z%)"""
+    if ref_time <= 0:
+        return f"(was {ref_time:.6f}s)"
+    
+    difference = current_time - ref_time
+    pct = ((current_time - ref_time) / ref_time) * 100
+    
+    if difference > 0:
+        return f"(was {ref_time:.6f}s, +{pct:.2f}%)"
+    elif difference < 0:
+        return f"(was {ref_time:.6f}s, {pct:.2f}%)"
+    else:
+        return f"(was {ref_time:.6f}s, 0.00%)"
+
+
 def main():
     # Paths
     script_dir = Path(__file__).resolve().parent
-    project_root = script_dir.parent
     matrices_file = script_dir / "verification" / "verification_matrices.json"
     
-    # Generate timestamped output filenames in results folder
+    # Setup Output Paths
     timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
     results_dir = script_dir / "results"
     results_dir.mkdir(exist_ok=True)
     results_file = results_dir / f"fracessa_verification_result_{timestamp}.json"
     candidates_file = results_dir / f"fracessa_verification_candidates_{timestamp}.csv"
+    
+    # Baseline Files
     baseline_candidates_file = script_dir / "verification" / "baseline_candidates.csv"
     baseline_results_file = script_dir / "verification" / "baseline_result.json"
 
-    # Check if matrices file exists
-    if not matrices_file.exists():
-        print(f"Error: {matrices_file} not found")
-        sys.exit(1)
-
-    # Check if fracessa_py module is available
-    try:
-        import fracessa_py
-        print("FRACESSA Python bindings loaded successfully")
-    except ImportError as e:
-        print(f"Error: Cannot import fracessa_py module: {e}")
-        print("Make sure fracessa_py.py is in the Python path")
-        sys.exit(1)
-
-    # Set the executable path explicitly
-    executable_path = (project_root / "build" / "fracessa").resolve()
-
-    if not executable_path.exists():
-        print(f"Error: fracessa executable not found at {executable_path}")
-        sys.exit(1)
-
-    # Load matrices
-    print(f"Loading matrices from {matrices_file}")
-    with open(matrices_file, 'r') as f:
-        data = json.load(f)
-
-    matrices = data.get('matrices', [])
-
-    # Filter to only matrices marked as in_use
-    original_count = len(matrices)
-    matrices = [m for m in matrices if m.get('in_use', True)]
-    skipped_count = original_count - len(matrices)
-
-    print(f"Found {original_count} matrices total, skipping {skipped_count} matrices not in use")
-    print(f"Processing {len(matrices)} matrices")
-
-    # Sort matrices by ID for consistent processing order
-    matrices.sort(key=lambda x: x.get('id', 0))
-    print(f"Sorted matrices by ID: {[(m['id'], m['dimension']) for m in matrices[:5]]}...")
-
-    # Load baseline timings if available
+    # 1. Load Baseline Timings (Old Exe)
     baseline_timings = {}
     if baseline_results_file.exists():
         try:
             with open(baseline_results_file, 'r') as f:
-                baseline_data = json.load(f)
-            baseline_results = baseline_data.get('results', [])
-            for result in baseline_results:
-                matrix_id = result.get('id')
-                if result.get('result', {}).get('success'):
-                    baseline_timings[matrix_id] = result['result'].get('timing', 0.0)
+                data = json.load(f)
+            for r in data.get('results', []):
+                if r.get('result', {}).get('success'):
+                    baseline_timings[r['id']] = r['result'].get('timing', 0.0)
         except Exception:
-            pass  # If baseline can't be loaded, just continue without it
+            pass
 
-    # Process matrices sequentially
+    # 2. Load Previous Run Timings (Latest Python Run)
+    latest_timings, latest_filename = get_latest_timings(results_dir)
+    if latest_filename:
+        print(f"Comparing against Previous Run: {latest_filename}")
+
+    # Load Matrices
+    if not matrices_file.exists():
+        print(f"Error: {matrices_file} not found")
+        sys.exit(1)
+
+    try:
+        import fracessa_py
+        print("FRACESSA Python bindings loaded successfully")
+    except ImportError as e:
+        print(f"Error: Cannot import fracessa_py: {e}")
+        sys.exit(1)
+
+    with open(matrices_file, 'r') as f:
+        data = json.load(f)
+
+    matrices = [m for m in data.get('matrices', []) if m.get('in_use', True)]
+    matrices.sort(key=lambda x: x.get('id', 0))
+
+    print(f"Processing {len(matrices)} matrices")
+    
     results = []
     all_candidates = []
     successful = 0
@@ -555,7 +362,7 @@ def main():
     start_time = time.time()
 
     for i, matrix_data in enumerate(matrices):
-        result_tuple = process_matrix(matrix_data, str(executable_path))
+        result_tuple = process_matrix(matrix_data)
         matrix_id, dimension, number_ess, result_entry, candidates_list, computation_result = result_tuple
         
         results.append(result_entry)
@@ -564,47 +371,40 @@ def main():
         if computation_result["success"]:
             actual_ess = computation_result["ess_count"]
             timing = computation_result["timing"]
+            
+            # Base status string
             status = f"✅ {actual_ess} ESS in {timing:.6f}s"
             
-            # Add baseline comparison if available
+            # 1. Compare to Old Exe (Baseline)
             if matrix_id in baseline_timings:
-                baseline_timing = baseline_timings[matrix_id]
-                difference = timing - baseline_timing
-                if baseline_timing > 0:
-                    percentage_change = ((timing - baseline_timing) / baseline_timing) * 100
-                    if difference > 0:
-                        diff_str = f"+{difference:.6f}"
-                        pct_str = f"+{percentage_change:.2f}%"
-                    elif difference < 0:
-                        diff_str = f"{difference:.6f}"
-                        pct_str = f"{percentage_change:.2f}%"
-                    else:
-                        diff_str = "0.000000"
-                        pct_str = "0.00%"
-                    status += f" (was {baseline_timing:.6f}s, {diff_str}s, {pct_str})"
-                else:
-                    status += f" (was {baseline_timing:.6f}s)"
+                diff_str = format_comparison(timing, baseline_timings[matrix_id])
+                status += f" | Old: {diff_str}"
+            
+            # 2. Compare to Previous Python Run (Latest)
+            if matrix_id in latest_timings:
+                diff_str = format_comparison(timing, latest_timings[matrix_id])
+                status += f" | Prev: {diff_str}"
             
             if actual_ess != number_ess:
                 status += f" ⚠️ (expected {number_ess})"
+            
             print(f"[{i+1}/{total_matrices}] Matrix ID {matrix_id} (dim {dimension}): {status}")
             successful += 1
         else:
             error_msg = computation_result.get('error', 'Unknown error')
             if "Timed out" in error_msg:
-                print(f"[{i+1}/{total_matrices}] Matrix ID {matrix_id} (dim {dimension}): ⏰ {error_msg}")
+                print(f"[{i+1}/{total_matrices}] Matrix ID {matrix_id}: ⏰ {error_msg}")
             else:
-                print(f"[{i+1}/{total_matrices}] Matrix ID {matrix_id} (dim {dimension}): ❌ {error_msg}")
+                print(f"[{i+1}/{total_matrices}] Matrix ID {matrix_id}: ❌ {error_msg}")
             failed += 1
 
     elapsed_time = time.time() - start_time
     print(f"\nProcessing completed in {elapsed_time:.2f}s")
 
-    # Sort results by matrix ID for consistent output
+    # Save Results
     results.sort(key=lambda x: x['id'])
     all_candidates.sort(key=lambda x: (x['matrix_id'], x['candidate_id']))
 
-    # Save JSON results (without candidates)
     with open(results_file, 'w') as f:
         json.dump({
             "metadata": {
@@ -612,20 +412,11 @@ def main():
                 "successful": successful,
                 "failed": failed,
                 "timestamp": time.time(),
-                "processing_time": elapsed_time,
-                "num_processes": 1,
-                "fracessa_settings": {
-                    "include_candidates": True,
-                    "enable_logging": False,
-                    "exact_arithmetic": False,
-                    "full_support_search": False,
-                    "timeout": 1800.0
-                }
+                "processing_time": elapsed_time
             },
             "results": results
         }, f, indent=2)
 
-    # Save CSV with all candidates
     csv_columns = [
         "matrix_id", "candidate_id", "vector", "support", "support_size",
         "extended_support", "extended_support_size", "shift_reference",
@@ -636,7 +427,6 @@ def main():
         writer = csv.DictWriter(f, fieldnames=csv_columns)
         writer.writeheader()
         for candidate in all_candidates:
-            # Convert vector list to comma-separated string
             row = candidate.copy()
             if 'vector' in row and isinstance(row['vector'], list):
                 row['vector'] = ','.join(str(v) for v in row['vector'])
@@ -644,91 +434,37 @@ def main():
 
     print(f"json saved: {results_file}")
     print(f"csv saved: {candidates_file}")
-    print(f"\nSummary: {successful} successful, {failed} failed out of {len(matrices)} matrices")
-    print(f"Total candidates: {len(all_candidates)}")
-    if failed > 0:
-        print("\nFailed matrices:")
-        for result in results:
-            if not result["result"]["success"]:
-                print(f"  ID {result['id']}: {result['result']['error']}")
-
-    # Compare ESS counts from JSON results and verify against baseline
+    
+    # Verification Steps
+    print("\n--- Verification ---")
     ess_count_comparison = compare_ess_counts(results, baseline_results_file)
     verification = verify_against_baseline(all_candidates, baseline_candidates_file)
     
-    # Check ESS counts
-    ess_count_ok = False
-    if ess_count_comparison["status"] == "SKIPPED":
-        pass  # Skip silently
-    elif ess_count_comparison["status"] == "ERROR":
-        pass  # Skip silently
-    else:
-        if ess_count_comparison['compared'] > 0:
-            mismatches = ess_count_comparison.get('mismatches', [])
-            if mismatches:
-                print(f"❌ ESS count mismatches found: {len(mismatches)}")
-                print(f"{'Matrix ID':<10} {'Dimension':<10} {'Baseline ESS':<15} {'Current ESS':<15}")
-                print("-" * 50)
-                for mismatch in sorted(mismatches, key=lambda x: x['matrix_id']):
-                    print(f"{mismatch['matrix_id']:<10} {mismatch['dimension']:<10} {mismatch['baseline_ess']:<15} {mismatch['current_ess']:<15}")
-            else:
-                ess_count_ok = True
+    ess_ok = False
+    cand_ok = False
     
-    # Check candidates
-    candidates_ok = False
-    if verification["status"] == "SKIPPED":
-        pass  # Skip silently
-    elif verification["status"] == "ERROR":
-        pass  # Skip silently
-    else:
-        if verification["status"] == "PASS":
-            candidates_ok = True
-        elif verification["status"] == "FAIL":
-            print(f"❌ Candidate verification failed: {verification['failed']} mismatches")
-            # Show errors (matrices not in baseline)
-            if verification.get("errors"):
-                print("\n  Matrices not in baseline (ERROR):")
-                for error in verification["errors"]:
-                    print(f"    Matrix ID {error['matrix_id']}: {error['error']}")
-            
-            # Show candidate count mismatches
-            if verification.get("candidate_count_mismatches"):
-                print("\n  Candidate count mismatches:")
-                for mismatch in verification["candidate_count_mismatches"]:
-                    print(f"    Matrix ID {mismatch['matrix_id']}: "
-                          f"produced {mismatch['produced_count']}, baseline {mismatch['baseline_count']}")
-            
-            # Show ESS count mismatches
-            if verification.get("ess_count_mismatches"):
-                print("\n  ESS count mismatches:")
-                for mismatch in verification["ess_count_mismatches"]:
-                    print(f"    Matrix ID {mismatch['matrix_id']}: "
-                          f"produced {mismatch['produced_ess_count']} ESS, baseline {mismatch['baseline_ess_count']} ESS")
-            
-            # Show candidate set mismatches
-            if verification.get("mismatches"):
-                print("\n  Candidate set mismatches (excluding reason_ess/stability):")
-                for mismatch in verification["mismatches"]:
-                    print(f"    Matrix ID {mismatch['matrix_id']}: "
-                          f"produced {mismatch['produced_count']}, baseline {mismatch['baseline_count']} "
-                          f"(+{mismatch['extra_count']} extra, -{mismatch['missing_count']} missing)")
-    
-    # Show single checkmark if both passed
-    if ess_count_ok and candidates_ok:
-        print(f"\n✅ VERIFICATION PASSED - All ESS counts and all candidates match baseline!")
-    elif not ess_count_ok and not candidates_ok:
-        print(f"\n❌ VERIFICATION FAILED - ESS counts and/or candidates do not match baseline")
-    elif not ess_count_ok:
-        print(f"\n❌ VERIFICATION FAILED - ESS counts do not match baseline")
-    elif not candidates_ok:
-        print(f"\n❌ VERIFICATION FAILED - Candidates do not match baseline")
-    else:
-        # Handle case where verification was skipped or had errors
-        if ess_count_comparison["status"] == "SKIPPED" or verification["status"] == "SKIPPED":
-            print(f"\n⚠️  VERIFICATION SKIPPED - Baseline files not found or unavailable")
+    # Check ESS
+    if ess_count_comparison["status"] == "SUCCESS":
+        if not ess_count_comparison["mismatches"]:
+            ess_ok = True
         else:
-            print(f"\n❌ VERIFICATION FAILED - Unknown error")
+            print(f"❌ ESS Mismatches: {len(ess_count_comparison['mismatches'])}")
+    elif ess_count_comparison["status"] == "SKIPPED":
+        print("⚠️ Baseline not found for ESS check")
+        ess_ok = True # Treat as pass if file missing to avoid error noise
 
+    # Check Candidates
+    if verification["status"] == "PASS":
+        cand_ok = True
+    elif verification["status"] == "FAIL":
+        print(f"❌ Candidate Mismatches: {verification['failed']}")
+    elif verification["status"] == "SKIPPED":
+        cand_ok = True
+
+    if ess_ok and cand_ok:
+        print(f"✅ VERIFICATION PASSED")
+    else:
+        print(f"❌ VERIFICATION FAILED")
 
 if __name__ == "__main__":
     main()

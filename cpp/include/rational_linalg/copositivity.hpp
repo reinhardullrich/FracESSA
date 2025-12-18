@@ -100,9 +100,9 @@ public:
         // Clear cache for new computation
         memo.clear();       
         // Reserve map size to avoid reallocations (heuristic: worst case 2^n subsets)
-        memo.reserve(bs64::two_to_the_power_of(static_cast<unsigned>(n)));
+        memo.reserve(bs64::two_to_the_power_of(n));
         
-        bitset64 full_mask = bs64::set_all_n_bits(static_cast<unsigned>(n));
+        bitset64 full_mask = bs64::set_all_n_bits(n);
         return checkRecursive(A, full_mask);
     }
 };

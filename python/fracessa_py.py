@@ -156,10 +156,12 @@ class Fracessa:
             self.executable_path = Path(executable_path)
         else:
             # Auto-detect executable path
-            script_dir = Path(__file__).parent.parent
+            # __file__ is at fracessa/python/fracessa_py.py
+            # Go up to project root: parent.parent.parent (from __file__)
+            script_file = Path(__file__).resolve()  # Get absolute path
+            project_root = script_file.parent.parent.parent  # project root
             possible_paths = [
-                script_dir.parent / "build" / "fracessa",
-                script_dir / "../build/fracessa",
+                project_root / "build" / "fracessa",
             ]
 
             self.executable_path = None

@@ -45,19 +45,19 @@ public:
     }
 
     // Accessors - NO bounds checking
-    inline T& operator()(size_t i, size_t j) {
+    inline T& operator()(size_t i, size_t j) noexcept {
         return data_[i * cols_ + j];
     }
     
-    inline const T& operator()(size_t i, size_t j) const {
+    inline const T& operator()(size_t i, size_t j) const noexcept {
         return data_[i * cols_ + j];
     }
     
-    inline size_t rows() const { return rows_; }
-    inline size_t cols() const { return cols_; }
+    inline size_t rows() const noexcept { return rows_; }
+    inline size_t cols() const noexcept { return cols_; }
     
-    inline T* data() { return data_.data(); }
-    inline const T* data() const { return data_.data(); }
+    inline T* data() noexcept { return data_.data(); }
+    inline const T* data() const noexcept { return data_.data(); }
 
     // Arithmetic operators
     // unused
@@ -221,7 +221,7 @@ public:
     }
     
     // Check if all entries of a matrix are greater than zero
-    inline bool all_entries_greater_zero() const {
+    inline bool all_entries_greater_zero() const noexcept {
         const size_t n = rows_ * cols_;
         const T* data = data_.data();
         for (size_t i = 0; i < n; ++i) {
