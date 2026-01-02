@@ -36,13 +36,13 @@ jobs:
       if: runner.os == 'Linux'
       run: |
         sudo apt-get update
-        sudo apt-get install -y libgmp-dev libmpfr-dev
+        sudo apt-get install -y libgmp-dev libmpfr-dev libflint-dev
 
     # --- DEPENDENCIES (macOS) ---
     - name: Install Dependencies (macOS)
       if: runner.os == 'macOS'
       run: |
-        brew install gmp mpfr
+        brew install gmp mpfr flint
 
     # --- DEPENDENCIES (Windows - PowerShell Optimized) ---
     - name: Install Dependencies (Windows)
