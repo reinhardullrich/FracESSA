@@ -2,6 +2,7 @@
 #define RATIONAL_LINALG_LINEAR_SOLVER_HPP
 
 #include <rational_linalg/matrix.hpp>
+#include <rational_linalg/constants.hpp>
 #include <cmath>
 #include <limits>
 
@@ -40,18 +41,18 @@ public:
     bool solve(Matrix<T>& x) {
         const size_t n = M.rows();
 
-        T divPrev = T(1);
+        T divPrev = rational_linalg::one<T>();
 
         // Bareiss elimination with partial pivoting
         for (size_t k = 0; k < n - 1; ++k) {
             // Partial pivoting: find row with maximum absolute value in column k
             size_t max_row = k;
             T max_val = M(k, k);
-            if (max_val < T(0)) max_val = -max_val;
+            if (max_val < rational_linalg::zero<T>()) max_val = -max_val;
             
             for (size_t i = k + 1; i < n; ++i) {
                 T val = M(i, k);
-                if (val < T(0)) val = -val;
+                if (val < rational_linalg::zero<T>()) val = -val;
                 if (val > max_val) {
                     max_val = val;
                     max_row = i;
@@ -64,7 +65,7 @@ public:
             }
             
             const T pivot = M(k, k);
-            if (pivot == T(0)) {
+            if (pivot == rational_linalg::zero<T>()) {
                 return false;
             }
 
@@ -73,13 +74,13 @@ public:
                 for (size_t j = k + 1; j <= n; ++j) {
                     M(i, j) = (M(i, j) * pivot - M(i, k) * M(k, j)) / divPrev;
                 }
-                M(i, k) = T(0); // Zero out eliminated element (not updated in inner loop)
+                M(i, k) = rational_linalg::zero<T>(); // Zero out eliminated element (not updated in inner loop)
             }
 
             divPrev = pivot;
         }
 
-        if (M(n - 1, n - 1) == T(0)) return false;
+        if (M(n - 1, n - 1) == rational_linalg::zero<T>()) return false;
 
         // Back substitution
         x = Matrix<T>(n, 1);
@@ -91,11 +92,11 @@ public:
 
             const T pivot = M(i, i);
 
-            if (pivot == T(0)) 
+            if (pivot == rational_linalg::zero<T>()) 
                 return false;            
 
             T temp_x = sum / pivot;
-            if (temp_x <= T(0))
+            if (temp_x <= rational_linalg::zero<T>())
                 return false; //early exit if sum is not >zero! then it cannot be a solution (since x on the simplex is always positive!)
             else
                 x(i, 0) = temp_x;

@@ -2,6 +2,7 @@
 #define MATRIX_SERVER_HPP
 
 #include <rational_linalg/matrix.hpp>
+#include <rational_linalg/constants.hpp>
 #include <fracessa/bitset64.hpp>
 
 /**
@@ -52,19 +53,19 @@ public:
                     }
                 }
                 // Column support_size: -1 (last column of A)
-                Ab(ab_row, support_size) = T(-1);
+                Ab(ab_row, support_size) = rational_linalg::neg_one<T>();
                 // Column support_size + 1: 0 (b vector, initially zero)
-                Ab(ab_row, support_size + 1) = T(0);
+                Ab(ab_row, support_size + 1) = rational_linalg::zero<T>();
                 ab_row++;
             }
         }
         
         // Fill last row: all 1s in columns 0..support_size-1, 0 in column support_size, 1 in column n
         for (size_t i = 0; i < support_size; ++i) {
-            Ab(support_size, i) = T(1);
+            Ab(support_size, i) = rational_linalg::one<T>();
         }
-        Ab(support_size, support_size) = T(0);      // Column support_size (last column of A)
-        Ab(support_size, support_size + 1) = T(1);  // Column support_size + 1 (b vector, last element is 1)
+        Ab(support_size, support_size) = rational_linalg::zero<T>();      // Column support_size (last column of A)
+        Ab(support_size, support_size + 1) = rational_linalg::one<T>();  // Column support_size + 1 (b vector, last element is 1)
         
         return Ab;
     }

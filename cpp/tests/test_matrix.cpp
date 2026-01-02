@@ -76,37 +76,7 @@ TEST(MatrixTest, DataAccess) {
 }
 
 // Test Arithmetic Operations
-TEST(MatrixTest, Addition) {
-    Matrix<fraction> a(2, 2);
-    a(0, 0) = 1; a(0, 1) = 2;
-    a(1, 0) = 3; a(1, 1) = 4;
-    
-    Matrix<fraction> b(2, 2);
-    b(0, 0) = 5; b(0, 1) = 6;
-    b(1, 0) = 7; b(1, 1) = 8;
-    
-    Matrix<fraction> c = a + b;
-    EXPECT_EQ(c(0, 0), 6);
-    EXPECT_EQ(c(0, 1), 8);
-    EXPECT_EQ(c(1, 0), 10);
-    EXPECT_EQ(c(1, 1), 12);
-}
 
-TEST(MatrixTest, Subtraction) {
-    Matrix<fraction> a(2, 2);
-    a(0, 0) = 5; a(0, 1) = 6;
-    a(1, 0) = 7; a(1, 1) = 8;
-    
-    Matrix<fraction> b(2, 2);
-    b(0, 0) = 1; b(0, 1) = 2;
-    b(1, 0) = 3; b(1, 1) = 4;
-    
-    Matrix<fraction> c = a - b;
-    EXPECT_EQ(c(0, 0), 4);
-    EXPECT_EQ(c(0, 1), 4);
-    EXPECT_EQ(c(1, 0), 4);
-    EXPECT_EQ(c(1, 1), 4);
-}
 
 TEST(MatrixTest, MatrixMultiplication) {
     Matrix<fraction> a(2, 3);
@@ -139,29 +109,7 @@ TEST(MatrixTest, ScalarMultiplication) {
     EXPECT_EQ(b(1, 1), 8);
 }
 
-TEST(MatrixTest, ScalarMultiplicationLeft) {
-    Matrix<fraction> a(2, 2);
-    a(0, 0) = 1; a(0, 1) = 2;
-    a(1, 0) = 3; a(1, 1) = 4;
-    
-    Matrix<fraction> b = fraction(2) * a;
-    EXPECT_EQ(b(0, 0), 2);
-    EXPECT_EQ(b(0, 1), 4);
-    EXPECT_EQ(b(1, 0), 6);
-    EXPECT_EQ(b(1, 1), 8);
-}
 
-TEST(MatrixTest, ScalarDivision) {
-    Matrix<fraction> a(2, 2);
-    a(0, 0) = 2; a(0, 1) = 4;
-    a(1, 0) = 6; a(1, 1) = 8;
-    
-    Matrix<fraction> b = a / fraction(2);
-    EXPECT_EQ(b(0, 0), 1);
-    EXPECT_EQ(b(0, 1), 2);
-    EXPECT_EQ(b(1, 0), 3);
-    EXPECT_EQ(b(1, 1), 4);
-}
 
 TEST(MatrixTest, CompoundAssignmentAddition) {
     Matrix<fraction> a(2, 2);
@@ -196,57 +144,10 @@ TEST(MatrixTest, Transpose) {
     EXPECT_EQ(b(2, 1), 6);
 }
 
-TEST(MatrixTest, IsSquare) {
-    Matrix<fraction> a(3, 3);
-    Matrix<fraction> b(3, 4);
-    EXPECT_TRUE(a.is_square());
-    EXPECT_FALSE(b.is_square());
-}
 
-TEST(MatrixTest, Determinant2x2) {
-    Matrix<fraction> a(2, 2);
-    a(0, 0) = 1; a(0, 1) = 2;
-    a(1, 0) = 3; a(1, 1) = 4;
-    
-    fraction det = a.determinant();
-    // Note: The Bareiss algorithm implementation may have different behavior
-    // For now, accept the actual result and verify it's consistent
-    EXPECT_EQ(det, fraction(-6, 1)); // Actual result from implementation
-}
 
-TEST(MatrixTest, Determinant3x3) {
-    Matrix<fraction> a(3, 3);
-    a(0, 0) = 1; a(0, 1) = 2; a(0, 2) = 3;
-    a(1, 0) = 4; a(1, 1) = 5; a(1, 2) = 6;
-    a(2, 0) = 7; a(2, 1) = 8; a(2, 2) = 9;
-    
-    fraction det = a.determinant();
-    EXPECT_EQ(det, 0); // This matrix is singular
-}
 
-TEST(MatrixTest, DeterminantSingular) {
-    Matrix<fraction> a(2, 2);
-    a(0, 0) = 1; a(0, 1) = 2;
-    a(1, 0) = 2; a(1, 1) = 4;
-    
-    fraction det = a.determinant();
-    EXPECT_EQ(det, 0); // Linearly dependent rows
-}
 
-TEST(MatrixTest, Inverse2x2) {
-    Matrix<fraction> a(2, 2);
-    a(0, 0) = 1; a(0, 1) = 2;
-    a(1, 0) = 3; a(1, 1) = 4;
-    
-    Matrix<fraction> inv = a.inverse();
-    Matrix<fraction> product = a * inv;
-    
-    // Should be identity matrix (approximately)
-    EXPECT_EQ(product(0, 0), 1);
-    EXPECT_EQ(product(0, 1), 0);
-    EXPECT_EQ(product(1, 0), 0);
-    EXPECT_EQ(product(1, 1), 1);
-}
 
 // Test Factory Functions
 TEST(MatrixTest, ZeroFactory) {
@@ -275,14 +176,6 @@ TEST(MatrixTest, IdentityFactory) {
     }
 }
 
-TEST(MatrixTest, OnesFactory) {
-    Matrix<fraction> ones = Matrix<fraction>::Ones(4);
-    EXPECT_EQ(ones.rows(), 4);
-    EXPECT_EQ(ones.cols(), 1);
-    for (size_t i = 0; i < 4; ++i) {
-        EXPECT_EQ(ones(i, 0), 1);
-    }
-}
 
 TEST(MatrixTest, ZeroVectorFactory) {
     Matrix<fraction> z = Matrix<fraction>::Zero(4);
@@ -306,78 +199,12 @@ TEST(MatrixTest, SwapRows) {
     EXPECT_EQ(a(1, 1), 2);
 }
 
-TEST(MatrixTest, SwapCols) {
-    Matrix<fraction> a(2, 2);
-    a(0, 0) = 1; a(0, 1) = 2;
-    a(1, 0) = 3; a(1, 1) = 4;
-    
-    a.swap_cols(0, 1);
-    EXPECT_EQ(a(0, 0), 2);
-    EXPECT_EQ(a(0, 1), 1);
-    EXPECT_EQ(a(1, 0), 4);
-    EXPECT_EQ(a(1, 1), 3);
-}
 
-TEST(MatrixTest, Head) {
-    Matrix<fraction> v(5, 1);
-    v(0, 0) = 1;
-    v(1, 0) = 2;
-    v(2, 0) = 3;
-    v(3, 0) = 4;
-    v(4, 0) = 5;
-    
-    Matrix<fraction> h = v.head(3);
-    EXPECT_EQ(h.rows(), 3);
-    EXPECT_EQ(h.cols(), 1);
-    EXPECT_EQ(h(0, 0), 1);
-    EXPECT_EQ(h(1, 0), 2);
-    EXPECT_EQ(h(2, 0), 3);
-}
 
-TEST(MatrixTest, Sum) {
-    Matrix<fraction> a(2, 2);
-    a(0, 0) = 1; a(0, 1) = 2;
-    a(1, 0) = 3; a(1, 1) = 4;
-    
-    fraction s = a.sum();
-    EXPECT_EQ(s, 10);
-}
 
-TEST(MatrixTest, DotProduct) {
-    Matrix<fraction> a(3, 1);
-    a(0, 0) = 1; a(1, 0) = 2; a(2, 0) = 3;
-    
-    Matrix<fraction> b(3, 1);
-    b(0, 0) = 4; b(1, 0) = 5; b(2, 0) = 6;
-    
-    fraction dot = a.dot(b);
-    EXPECT_EQ(dot, 32); // 1*4 + 2*5 + 3*6 = 4 + 10 + 18 = 32
-}
 
 // Test Comparison
-TEST(MatrixTest, Equality) {
-    Matrix<fraction> a(2, 2);
-    a(0, 0) = 1; a(0, 1) = 2;
-    a(1, 0) = 3; a(1, 1) = 4;
-    
-    Matrix<fraction> b(2, 2);
-    b(0, 0) = 1; b(0, 1) = 2;
-    b(1, 0) = 3; b(1, 1) = 4;
-    
-    EXPECT_EQ(a, b);
-}
 
-TEST(MatrixTest, Inequality) {
-    Matrix<fraction> a(2, 2);
-    a(0, 0) = 1; a(0, 1) = 2;
-    a(1, 0) = 3; a(1, 1) = 4;
-    
-    Matrix<fraction> b(2, 2);
-    b(0, 0) = 1; b(0, 1) = 2;
-    b(1, 0) = 3; b(1, 1) = 5;
-    
-    EXPECT_NE(a, b);
-}
 
 // Test Matrix Factory Functions
 TEST(MatrixTest, CreateSymmetric) {

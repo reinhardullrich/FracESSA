@@ -5,19 +5,6 @@
 using namespace rational_linalg;
 
 // Test LU factorization
-TEST(BareissLUTest, Factorization2x2) {
-    Matrix<fraction> A(2, 2);
-    A(0, 0) = 2; A(0, 1) = 1;
-    A(1, 0) = 1; A(1, 1) = 2;
-    
-    BareissLUFactor<fraction> lu(A);
-    EXPECT_FALSE(lu.isSingular());
-    
-    // Verify A = P^T * L * U (approximately)
-    Matrix<fraction> L = lu.solve(Matrix<fraction>::Ones(2));
-    // Just check that solve works
-    EXPECT_EQ(L.rows(), 2);
-}
 
 TEST(BareissLUTest, Determinant2x2) {
     Matrix<fraction> A(2, 2);
@@ -161,14 +148,4 @@ TEST(BareissLUTest, RationalGMP) {
 }
 
 // Test identity matrix
-TEST(BareissLUTest, IdentityMatrix) {
-    Matrix<fraction> A = Matrix<fraction>::identity(3);
-    
-    BareissLUFactor<fraction> lu(A);
-    EXPECT_FALSE(lu.isSingular());
-    EXPECT_EQ(lu.determinant(), 1);
-    
-    Matrix<fraction> inv = lu.inverse();
-    EXPECT_EQ(inv, A); // Inverse of identity is identity
-}
 

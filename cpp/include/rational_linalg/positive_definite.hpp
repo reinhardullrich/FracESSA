@@ -2,6 +2,7 @@
 
 #include <rational_linalg/matrix.hpp>
 #include <rational_linalg/fraction.hpp>
+#include <rational_linalg/constants.hpp>
 #include <type_traits>
 #include <cmath>
 #include <limits>
@@ -21,24 +22,24 @@ inline bool Matrix<T>::is_positive_definite() const {
         // Initialize L as identity
         for (size_t i = 0; i < n; ++i) {
             for (size_t j = 0; j < n; ++j) {
-                L(i, j) = (i == j) ? T(1) : T(0);
+                L(i, j) = (i == j) ? rational_linalg::one<T>() : rational_linalg::zero<T>();
             }
         }
 
         for (size_t i = 0; i < n; ++i) {
             for (size_t j = 0; j < i; ++j) {
-                T aSum = T(0);
+                T aSum = rational_linalg::zero<T>();
                 for (size_t k = 0; k < j; ++k) {
                     aSum += L(i, k) * L(j, k) * D(k, k);
                 }
-                L(i, j) = (T(1) / D(j, j)) * ((*this)(i, j) - aSum);
+                L(i, j) = (rational_linalg::one<T>() / D(j, j)) * ((*this)(i, j) - aSum);
             }
-            T bSum = T(0);
+            T bSum = rational_linalg::zero<T>();
             for (size_t k = 0; k < i; ++k) {
                 bSum += L(i, k) * L(i, k) * D(k, k);
             }
             D(i, i) = (*this)(i, i) - bSum;
-            if (D(i, i) <= T(0)) {
+            if (D(i, i) <= rational_linalg::zero<T>()) {
                 return false;
             }
         }

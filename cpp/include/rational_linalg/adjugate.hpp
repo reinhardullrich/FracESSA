@@ -3,6 +3,7 @@
 
 #include <rational_linalg/matrix.hpp>
 #include <rational_linalg/lu.hpp>
+#include <rational_linalg/constants.hpp>
 
 namespace rational_linalg {
 
@@ -18,7 +19,7 @@ inline Matrix<T> adjugate(const Matrix<T>& A) {
     
     if (n == 1) {
         Matrix<T> result(1, 1);
-        result(0, 0) = T(1);
+        result(0, 0) = rational_linalg::one<T>();
         return result;
     }
     
@@ -49,7 +50,7 @@ inline Matrix<T> adjugate(const Matrix<T>& A) {
             
             // Compute cofactor: (-1)^(i+j) * det(M_ij)
             // Use bitwise AND for sign: (i+j) & 1 is faster than % 2
-            T sign = ((i + j) & 1) == 0 ? T(1) : T(-1);
+            T sign = ((i + j) & 1) == 0 ? rational_linalg::one<T>() : rational_linalg::neg_one<T>();
             cofactor_matrix(i, j) = sign * det_minor;
         }
     }

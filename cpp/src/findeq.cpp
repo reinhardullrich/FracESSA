@@ -1,6 +1,7 @@
 #include <fracessa/fracessa.hpp>
 #include <fracessa/bitset64.hpp>
 #include <rational_linalg/linear_solver.hpp>
+#include <rational_linalg/constants.hpp>
 #include <cstdlib>
 #include <type_traits>
 
@@ -31,7 +32,7 @@ bool fracessa::find_candidate(const bitset64& support, size_t support_size)
             solution_full_n(i, 0) = solution(tracker, 0);
             tracker += 1;
         } else 
-            solution_full_n(i, 0) = T(0);
+            solution_full_n(i, 0) = rational_linalg::zero<T>();
     }
 
     // Check (Ap)_i <= v for all rows i not in the support
@@ -60,7 +61,7 @@ bool fracessa::find_candidate(const bitset64& support, size_t support_size)
         // --- EXACT ARITHMETIC PATH ---
         for (size_t i = 0; i < dimension_; i++) {
             if (!bs64::is_set_at_pos(support, i)) { // Row not in the support
-                T rowsum = T(0);
+                T rowsum = rational_linalg::zero<T>();
                 for (size_t j = 0; j < dimension_; j++) {
                     if (bs64::is_set_at_pos(support, j)) { // Column is in the support
                         // Optimized FLINT arithmetic: rowsum += matrix(i,j) * solution(j)

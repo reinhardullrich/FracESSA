@@ -5,6 +5,7 @@
 #include <rational_linalg/matrix.hpp>
 #include <rational_linalg/bareiss_lu.hpp>
 #include <rational_linalg/adjugate.hpp>
+#include <rational_linalg/constants.hpp>
 #include <fracessa/bitset64.hpp>
 #include <unordered_map>
 
@@ -37,7 +38,7 @@ private:
         if (current_dim == 1) {
             unsigned idx = bs64::find_pos_first_set_bit(mask);
             // Check if diagonal element > 0 (Rational comparison)
-            bool result = A(static_cast<size_t>(idx), static_cast<size_t>(idx)) > T(0);
+            bool result = A(static_cast<size_t>(idx), static_cast<size_t>(idx)) > rational_linalg::zero<T>();
             memo[mask] = result;
             return result;
         }
@@ -68,7 +69,7 @@ private:
         BareissLUFactor<T> lu(subMat);
         T det = lu.determinant();
 
-        if (det <= T(0)) {
+        if (det <= rational_linalg::zero<T>()) {
             // Compute Adjugate: adj(A) = det(A) * A^(-1)
             // For singular matrices (det = 0), we can't use the inverse formula
             // because A^(-1) doesn't exist. We need to compute adjugate differently.

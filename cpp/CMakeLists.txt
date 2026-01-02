@@ -43,7 +43,13 @@ FetchContent_Declare(argparse
     GIT_REPOSITORY https://github.com/p-ranav/argparse.git
     GIT_TAG v2.9
 )
-FetchContent_MakeAvailable(spdlog argparse)
+FetchContent_Declare(googletest
+    GIT_REPOSITORY https://github.com/google/googletest.git
+    GIT_TAG v1.14.0
+)
+FetchContent_MakeAvailable(spdlog argparse googletest)
+
+enable_testing()
 
 # ==============================================================================
 # 3. Math Dependencies (GMP, MPFR, FLINT)
@@ -97,28 +103,17 @@ if(WIN32)
         message(FATAL_ERROR "FLINT static library not found.")
     endif()
 else()
-    # LINUX / MACOS: Build FLINT 3.0.1 from source
-    include(ExternalProject)
-    get_filename_component(GMP_LIB_DIR ${GMP_LIB} DIRECTORY)
-    get_filename_component(MPFR_LIB_DIR ${MPFR_LIB} DIRECTORY)
+    # LINUX / MACOS: Use system-installed FLINT
+    find_path(FLINT_INCLUDE_DIR NAMES flint/flint.h)
+    find_library(FLINT_LIB NAMES flint)
 
-    ExternalProject_Add(flint_build
-        URL https://github.com/flintlib/flint/releases/download/v3.0.1/flint-3.0.1.tar.gz
-        PREFIX ${CMAKE_BINARY_DIR}/third_party/flint
-        BUILD_IN_SOURCE 1
-        CONFIGURE_COMMAND ./configure 
-            --prefix=<INSTALL_DIR> 
-            --with-gmp=${GMP_LIB_DIR}/.. 
-            --with-mpfr=${MPFR_LIB_DIR}/..
-            --disable-shared 
-            --enable-static
-        BUILD_COMMAND make -j4
-        INSTALL_COMMAND make install
-    )
-
-    ExternalProject_Get_Property(flint_build INSTALL_DIR)
-    set(FLINT_INCLUDE_DIRS ${INSTALL_DIR}/include)
-    set(FLINT_LIBRARIES ${INSTALL_DIR}/lib/libflint.a)
+    if(FLINT_LIB AND FLINT_INCLUDE_DIR)
+        set(FLINT_INCLUDE_DIRS ${FLINT_INCLUDE_DIR})
+        set(FLINT_LIBRARIES ${FLINT_LIB})
+        message(STATUS "Found system FLINT: ${FLINT_LIB}")
+    else()
+        message(FATAL_ERROR "FLINT library not found. Install it with 'sudo apt install libflint-dev' or 'brew install flint'")
+    endif()
 endif()
 
 # ==============================================================================
@@ -149,7 +144,6 @@ target_link_libraries(fracessa_lib PUBLIC
 )
 
 if(NOT WIN32)
-    add_dependencies(fracessa_lib flint_build)
     find_package(Threads REQUIRED)
     target_link_libraries(fracessa_lib PUBLIC Threads::Threads)
 endif()
@@ -162,3 +156,5 @@ target_link_libraries(fracessa PRIVATE
 )
 
 install(TARGETS fracessa RUNTIME DESTINATION bin)
+
+add_subdirectory(tests)

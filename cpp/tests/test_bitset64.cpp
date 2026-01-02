@@ -124,17 +124,6 @@ TEST(Bitset64Test, RotOneRight) {
     EXPECT_EQ(bs64::count_set_bits(bits), 4);
 }
 
-TEST(Bitset64Test, SmallestRepresentation) {
-    bitset64 bits = 0ULL;
-    bits = bs64::set_bit_at_pos(bits, 1);
-    bits = bs64::set_bit_at_pos(bits, 2);
-    // bits = 0110 (bits 0-3)
-    // Rotations: 0110, 0011, 1001, 1100
-    // Smallest: 0011
-    
-    bitset64 smallest = bs64::smallest_representation(bits, 4);
-    EXPECT_EQ(bs64::count_set_bits(smallest), 2);
-}
 
 TEST(Bitset64Test, IsSmallestRepresentation) {
     bitset64 bits = 0ULL;

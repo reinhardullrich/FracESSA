@@ -2,6 +2,7 @@
 #include <fracessa/bitset64.hpp>
 #include <rational_linalg/copositivity.hpp>
 #include <rational_linalg/matrix.hpp>
+#include <rational_linalg/constants.hpp>
 #include <iostream>
 
 // check_stability function
@@ -124,7 +125,7 @@ void fracessa::check_stability()
         
         // Check pivot element
         const fraction& pivot = bee_vee[v-1](pivot_pos, pivot_pos);
-        if (pivot <= fraction(0)) {
+        if (pivot <= rational_linalg::zero<fraction>()) {
             if (conf_with_log_) {
                 logger_->info("Reason: false_not_partial_copositive (pivot={} at pos={})", pivot.to_string(), pivot_pos);
             }

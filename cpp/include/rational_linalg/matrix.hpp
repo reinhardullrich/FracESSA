@@ -2,6 +2,7 @@
 #define RATIONAL_LINALG_MATRIX_HPP
 
 #include <rational_linalg/fraction.hpp>
+#include <rational_linalg/constants.hpp>
 #include <fracessa/bitset64.hpp>
 #include <vector>
 #include <cstring>
@@ -84,7 +85,7 @@ public:
         Matrix result(rows_, other.cols_);
         for (size_t i = 0; i < rows_; ++i) {
             for (size_t j = 0; j < other.cols_; ++j) {
-                T sum = T(0);
+                T sum = rational_linalg::zero<T>();
                 for (size_t k = 0; k < cols_; ++k) {
                     sum += data_[i * cols_ + k] * other.data_[k * other.cols_ + j];
                 }
@@ -182,12 +183,12 @@ public:
     
     // Infinity norm: ||A||_inf = max_i(sum_j |A_ij|) - maximum absolute row sum
     inline T infinity_norm() const {
-        if (rows_ == 0 || cols_ == 0) return T(0);
+        if (rows_ == 0 || cols_ == 0) return rational_linalg::zero<T>();
         
-        T max_row_sum = T(0);
+        T max_row_sum = rational_linalg::zero<T>();
         
         for (size_t i = 0; i < rows_; ++i) {
-            T row_sum = T(0);
+            T row_sum = rational_linalg::zero<T>();
             for (size_t j = 0; j < cols_; ++j) {
                 T val = (*this)(i, j);
                 // Compute absolute value: for double use std::abs, for fraction use abs()
@@ -225,7 +226,7 @@ public:
         const size_t n = rows_ * cols_;
         const T* data = data_.data();
         for (size_t i = 0; i < n; ++i) {
-            if (data[i] <= T(0)) {
+            if (data[i] <= rational_linalg::zero<T>()) {
                 return false;
             }
         }
@@ -426,7 +427,7 @@ public:
         Matrix result(n, n);
         // Constructor already zero-initializes all elements, only need to set diagonal
         for (size_t i = 0; i < n; ++i) {
-            result(i, i) = T(1);
+            result(i, i) = rational_linalg::one<T>();
         }
         return result;
     }
@@ -499,7 +500,7 @@ inline Matrix<T> create_circular_symmetric(size_t n, const std::vector<T>& half_
     
     // Build first row
     std::vector<T> first_row(n);
-    first_row[0] = T(0);
+    first_row[0] = rational_linalg::zero<T>();
     
     if (n % 2 == 0) {
         // Even n

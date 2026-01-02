@@ -2,6 +2,7 @@
 #define RATIONAL_LINALG_BAREISS_LU_HPP
 
 #include <rational_linalg/matrix.hpp>
+#include <rational_linalg/constants.hpp>
 #include <stdexcept>
 
 namespace rational_linalg {
@@ -49,18 +50,18 @@ public:
         m_P = Matrix<T>::identity(n);
         m_swap_count = 0;
 
-        T divPrev = T(1);
+        T divPrev = rational_linalg::one<T>();
 
         for (size_t k = 0; k < n - 1; ++k) {
 
             // ----- Partial Pivoting -----
             size_t max_row = k;
             T max_val = m_U(k, k);
-            if (max_val < T(0)) max_val = -max_val;
+            if (max_val < rational_linalg::zero<T>()) max_val = -max_val;
             
             for (size_t i = k + 1; i < n; ++i) {
                 T val = m_U(i, k);
-                if (val < T(0)) val = -val;
+                if (val < rational_linalg::zero<T>()) val = -val;
                 if (val > max_val) {
                     max_val = val;
                     max_row = i;
@@ -82,7 +83,7 @@ public:
             }
             
             const T pivot = m_U(k, k);
-            if (pivot == T(0)) {
+            if (pivot == rational_linalg::zero<T>()) {
                 m_is_singular = true;
                 return;
             }
@@ -95,25 +96,25 @@ public:
                     m_U(i, j) =
                         (m_U(i, j) * pivot - m_U(i, k) * m_U(k, j)) / divPrev;
                 }
-                m_U(i, k) = T(0);
+                m_U(i, k) = rational_linalg::zero<T>();
             }
 
             divPrev = pivot;
         }
 
-        m_is_singular = (m_U(n - 1, n - 1) == T(0));
+        m_is_singular = (m_U(n - 1, n - 1) == rational_linalg::zero<T>());
     }
 
     // ------------------------------------------------------------------------
     // Compute exact determinant
     // ------------------------------------------------------------------------
     T determinant() const {
-        if (m_is_singular) return T(0);
+        if (m_is_singular) return rational_linalg::zero<T>();
 
-        T det = T(1);
+        T det = rational_linalg::one<T>();
 
         // determinant(P) = sign of permutation = (-1)^(swap_count)
-        if (m_swap_count % 2 == 1) det = T(-1);
+        if (m_swap_count % 2 == 1) det = rational_linalg::neg_one<T>();
 
         for (size_t i = 0; i < m_n; ++i)
             det *= m_U(i, i);
@@ -132,7 +133,7 @@ public:
 
         for (size_t col = 0; col < m_n; ++col) {
             Matrix<T> e = Matrix<T>::Zero(m_n);
-            e(col, 0) = T(1);
+            e(col, 0) = rational_linalg::one<T>();
             Matrix<T> col_result = solve(e);
             // Copy column result into inverse
             for (size_t i = 0; i < m_n; ++i) {
@@ -155,7 +156,7 @@ public:
         // Apply permutation: bp = P * b
         Matrix<T> bp(m_n, 1);
         for (size_t i = 0; i < m_n; ++i) {
-            T sum = T(0);
+            T sum = rational_linalg::zero<T>();
             for (size_t j = 0; j < m_n; ++j) {
                 sum += m_P(i, j) * b(j, 0);
             }
