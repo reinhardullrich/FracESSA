@@ -143,10 +143,6 @@ target_link_libraries(fracessa_lib PUBLIC
     ${GMP_LIB}
 )
 
-if(NOT WIN32)
-    find_package(Threads REQUIRED)
-    target_link_libraries(fracessa_lib PUBLIC Threads::Threads)
-endif()
 
 add_executable(fracessa src/main.cpp)
 

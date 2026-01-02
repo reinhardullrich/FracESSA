@@ -17,7 +17,6 @@ foreach(test_name ${TEST_LIST})
         ${FLINT_LIBRARIES}
         ${MPFR_LIB}
         ${GMP_LIB}
-        Threads::Threads
     )
     target_include_directories(${test_name} PRIVATE ${CMAKE_CURRENT_SOURCE_DIR}/../include)
 endforeach()
