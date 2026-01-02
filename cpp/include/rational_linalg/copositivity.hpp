@@ -34,11 +34,9 @@ private:
 
         size_t current_dim = bs64::count_set_bits(mask);
 
-        // 2. Base Case: 1x1 Matrix
         if (current_dim == 1) {
-            unsigned idx = bs64::find_pos_first_set_bit(mask);
-            // Check if diagonal element > 0 (Rational comparison)
-            bool result = A(static_cast<size_t>(idx), static_cast<size_t>(idx)) > rational_linalg::zero<T>();
+            size_t idx = bs64::find_pos_first_set_bit(mask);
+            bool result = A(idx, idx) > rational_linalg::zero<T>();
             memo[mask] = result;
             return result;
         }

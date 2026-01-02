@@ -1,4 +1,4 @@
-cmake_minimum_required(VERSION 3.14)
+cmake_minimum_required(VERSION 3.15)
 
 project(fracessa
     VERSION 1.0.0
@@ -14,12 +14,13 @@ set(CMAKE_CXX_STANDARD_REQUIRED ON)
 set(CMAKE_CXX_EXTENSIONS OFF)
 
 if(MSVC)
+    set(CMAKE_MSVC_RUNTIME_LIBRARY "MultiThreaded$<$<CONFIG:Debug>:Debug>")
     add_compile_options(/O2 /Oi /Ot /GL /fp:fast /DNDEBUG)
     add_link_options(/LTCG)
     # Suppress noisy warnings from GMP/FLINT headers on Windows
     add_compile_options(/wd4244 /wd4146 /wd4101)
     # Ensure the linker finds all static dependencies correctly
-    add_link_options(/NODEFAULTLIB:library)
+    add_link_options(/NODEFAULTLIB:MSVCRT /NODEFAULTLIB:MSVCRTD)
 else()
     add_compile_options(-O3 -march=native -flto -funroll-loops -DNDEBUG)
 
@@ -47,6 +48,11 @@ FetchContent_Declare(googletest
     GIT_REPOSITORY https://github.com/google/googletest.git
     GIT_TAG v1.14.0
 )
+# MSVC-specific settings for FetchContent
+if(MSVC)
+    set(gtest_force_shared_crt OFF CACHE BOOL "" FORCE)
+endif()
+
 FetchContent_MakeAvailable(spdlog argparse googletest)
 
 enable_testing()

@@ -101,7 +101,7 @@ void fracessa::check_stability()
     // Main loop
     for (size_t v = 1; v <= r; ++v) {
         // Get lowest set bit and its position
-        const unsigned iv_pos = bs64::find_pos_first_set_bit(jay_without_kay_vee[v-1]);
+        const size_t iv_pos = bs64::find_pos_first_set_bit(jay_without_kay_vee[v-1]);
         
         // Update sets
         jay_without_kay_vee[v] = bs64::subtract(jay_without_kay_vee[v-1], bs64::single_bit_at_pos(iv_pos));
