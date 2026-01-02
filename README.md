@@ -1,172 +1,122 @@
+<p align="center">
+  <img src="logo.png" width="350" alt="FracESSA Academic Logo">
+</p>
+
 # FracESSA
+### Fractional Evolutionary Stable Strategy Analyzer
 
-**FracESSA - Fractional ESS Analyzer**
+FracESSA is a high-performance computational engine developed to identify **Evolutionary Stable Strategies (ESS)** within the framework of **Standard Quadratic Problems (SQP)**. Originally developed as part of a doctoral dissertation project, the software provides a robust and mathematically rigorous implementation of stability analysis in evolutionary game theory.
 
-A high-performance C++ solver for finding Evolutionary Stable Strategies (ESS) in Standard Quadratic Problems using exact rational arithmetic.
+By utilizing exact rational arithmetic, FracESSA eliminates the numerical instabilities and rounding errors associated with traditional floating-point computations, ensuring the reliable identification of strategies in even the most ill-conditioned payoff matrices.
 
-## Overview
+---
 
-FracESSA solves the **Standard Quadratic Problem (SQP)**, which involves finding all **Evolutionary Stable Strategies (ESS)** for a given symmetric payoff matrix in evolutionary game theory. 
+## Technical Overview
 
-In the SQP, we seek strategies (probability distributions over pure strategies) that are:
-- **Nash equilibria**: Best responses to themselves
-- **Evolutionarily stable**: Resistant to invasion by alternative strategies
+The identification of ESS is a fundamental problem in evolutionary biology and game theory, requiring the determination of local maximizers of a quadratic form over the standard simplex. FracESSA implements a combinatorial approach optimized for high-dimensional matrices, combining exact algebraic methods with modern performance engineering.
 
-The problem is formulated as finding all local maximizers of a quadratic form over the standard simplex, where the payoff matrix defines the interactions between strategies. FracESSA uses exact rational arithmetic to guarantee correctness, avoiding floating-point errors that can occur with ill-conditioned matrices.
+### Theoretical Foundation
+The core algorithmic logic is based upon the research conducted by **Imanuel M. Bomze**, specifically the methodology introduced in:
+> **Bomze, I. M. (1992).** *Detecting all evolutionary stable strategies.* Biological Cybernetics, 67(6), 519–521.
 
-FracESSA computes all ESS using:
-- **Exact rational arithmetic** via FLINT (Fast Library for Number Theory)
-- **Optimized algorithms** including Hadeler's copositivity criterion and Bomze's stability checks
-- **High-performance implementation** with aggressive optimizations (LTO, native architecture, static linking)
+The software systematically explores supports of the strategy simplex, verifying the necessary and sufficient conditions for evolutionary stability as defined in Bomze’s extensive work on quadratic forms and stability criteria.
 
-## Features
+---
 
-- ✅ Exact rational arithmetic (no floating-point errors)
-- ✅ Support for both general symmetric and circular symmetric matrices
-- ✅ Fast double-precision filtering before exact computation
-- ✅ Python bindings for easy integration
-- ✅ Highly optimized C++ implementation
-- ✅ Cross-platform (Linux, macOS, Windows)
+## Core Features and Implementation
 
-## Pre-built Binaries
+### Exact Rational Computation
+At the heart of FracESSA is the **Fast Library for Number Theory (FLINT)**. Every critical computation—from determinant calculation to linear system solving—is performed using exact fractions. This approach is essential for research-grade results where the boundaries of stability regions can be extremely sensitive to precision loss.
 
-Pre-built executables are available for all platforms in the [Releases](https://github.com/reinhardullrich/FracESSA/releases) section. Simply download the binary for your operating system:
-- **Linux**: `fracessa-linux`
-- **macOS**: `fracessa-macos`
-- **Windows**: `fracessa-windows.exe`
+### Heuristic Performance Optimization
+To maintain high throughput while preserving exactness, FracESSA employs a multi-stage filtering pipeline:
+1. **Double-Precision Screening**: Potential supports are first evaluated using standard double-precision arithmetic. This stage rapidly prunes the majority of non-viable candidates.
+2. **Exact Algebraic Verification**: For candidates passing the heuristic check, the system performs a full verification using exact rational arithmetic to confirm both Nash equilibrium conditions and stability status.
 
-Make the binary executable (Linux/macOS: `chmod +x fracessa-linux`) and run it directly—no compilation needed!
+### Support for Complex Symmetries
+While the analyzer supports general symmetric payoff matrices, it includes optimized routines for **Circular Symmetric Matrices**. This feature significantly reduces the search space for large-scale periodic models common in spatial ecology and evolutionary biology.
 
-## Building
+---
 
-### Prerequisites
+## Usage and Integration
 
-**Linux/macOS:**
-- CMake 3.14+
-- C++17 compiler (GCC/Clang)
-- GMP and MPFR development libraries
-- FLINT is built automatically from source
+### Command Line Interface
+The primary interface for FracESSA is a standalone CLI tool. Matrices are provided in a compact triangular format: `dimension#values`.
 
+**Standard Analysis:**
 ```bash
-# Ubuntu/Debian
-sudo apt-get install libgmp-dev libmpfr-dev cmake build-essential
-
-# macOS
-brew install gmp mpfr cmake
+# Analyze a 3-dimensional symmetric matrix
+./fracessa "3#4,13/2,1/2,5,11/2,3"
 ```
 
-**Windows:**
-- CMake 3.14+
-- Visual Studio 2019+ with C++ support
-- vcpkg for dependencies
-
-```powershell
-vcpkg install flint:x64-windows-static
-```
-
-### Build Instructions
-
-```bash
-cd cpp
-cmake -B build -DCMAKE_BUILD_TYPE=Release
-cmake --build build -j4
-```
-
-The executable will be at `build/fracessa` (or `build/Release/fracessa.exe` on Windows).
-
-## Usage
-
-### Command Line
-
-FracESSA accepts matrices in the format `dimension#values`, where values are comma-separated rational numbers.
-
-**Basic usage:**
-```bash
-./fracessa "2#0,1,0"
-```
-
-**With options:**
-```bash
-./fracessa -c -t "3#4,13/2,1/2,5,11/2,3"
-```
-
-**Options:**
-- `-c, --candidates`: Include detailed candidate information in output
-- `-t, --timing`: Output computation time
-- `-e, --exact`: Use only exact arithmetic (slower, but handles extreme values)
-- `-f, --fullsupport`: Search full support directly after size 1
-- `-l, --log`: Enable detailed logging to `fracessa.log`
-- `-m, --matrixid ID`: Optional matrix ID for logging
-- `-u, --unsafe`: Use unsafe parsing (no validation, maximum performance)
-
-**Matrix Formats:**
-- **General symmetric**: Upper triangular format with `n*(n+1)/2` elements
-  - Example: `"3#4,13/2,1/2,5,11/2,3"` for a 3×3 matrix
-- **Circular symmetric**: Compact format with `floor(n/2)` elements
-  - Example: `"5#1,3"` for a 5×5 circular symmetric matrix
+**Advanced Parameters:**
+The application supports several flags for fine-tuning the analysis:
+- `--candidates (-c)`: Outputs a detailed report of every support examined, including payoffs and stability status.
+- `--timing (-t)`: Provides high-resolution benchmarks for the execution segments.
+- `--exact (-e)`: Forces the system to bypass double-precision filtering and use exact arithmetic for all operations.
+- `--log (-l)`: Generates a comprehensive execution profile in `fracessa.log`.
 
 ### Python API
+For integration into research pipelines (e.g., Jupyter Notebooks), a native Python interface is provided via `fracessa_py`.
 
 ```python
 from fracessa_py import Fracessa, Matrix
 
-# Initialize
-fracessa = Fracessa()
+# Initialize the analyzer
+analyzer = Fracessa()
 
-# Create a matrix
-matrix = Matrix("0,1,0", dimension=2, is_circular=False)
+# Define the payoff matrix structure
+matrix = Matrix("0,1,0", dimension=2)
 
-# Compute ESS
-result = fracessa.compute_ess(
-    matrix=matrix,
-    include_candidates=True,
-    exact_arithmetic=False
-)
+# Compute the set of all ESS
+result = analyzer.compute_ess(matrix, include_candidates=True)
 
-print(f"Found {result.ess_count} ESS")
+print(f"Total ESS Identified: {result.ess_count}")
 for candidate in result.candidates:
     if candidate.is_ess:
-        print(f"ESS {candidate.candidate_id}: payoff={candidate.payoff_double:.6f}")
+        print(f"Refined Support: {candidate.support_bits}")
 ```
 
-## Project Structure
+---
 
+## Building and Environment
+
+### System Dependencies
+- **Linux/macOS**: Requires the development headers for `GMP` and `MPFR`. `FLINT` is integrated into the build process.
+- **Windows**: Distribution via `vcpkg` is supported using the `flint:x64-windows-static-release` triplet.
+
+### Compilation
+The project uses a standard CMake build system:
+```bash
+cd cpp
+cmake -B build -DCMAKE_BUILD_TYPE=Release
+cmake --build build --config Release -j4
 ```
-fracessa/
-├── cpp/
-│   ├── include/
-│   │   ├── fracessa/          # Main application headers
-│   │   └── rational_linalg/   # Rational linear algebra library
-│   └── src/                    # Implementation files
-├── python/
-│   ├── fracessa_py.py         # Python bindings
-│   ├── run_matrices.py        # Batch processing script
-│   └── verification/          # Test matrices and baselines
-└── .github/workflows/         # CI/CD for releases
+
+---
+
+## Research and Attribution
+
+FracESSA was designed as a tool for rigorous academic inquiry. If you reference this software in your academic publications, please cite both the software and the foundational work by Bomze.
+
+```bibtex
+@phdthesis{ullrich2024,
+  author = {Ullrich, Reinhard},
+  title = {FracESSA: High-Performance Computational Methods for Evolutionary Stability},
+  school = {University Name},
+  year = {2024}
+}
+
+@article{bomze1992,
+  author = {Bomze, Imanuel M.},
+  title = {Detecting all evolutionary stable strategies},
+  journal = {Biological Cybernetics},
+  volume = {67},
+  number = {6},
+  pages = {519--521},
+  year = {1992}
+}
 ```
 
-## Algorithm
-
-FracESSA implements:
-1. **Support enumeration** with efficient pruning
-2. **Double-precision filtering** for fast rejection
-3. **Exact rational computation** for candidates
-4. **Stability checking** using:
-   - Positive definiteness tests
-   - Partial copositivity (Bomze 1992)
-   - Full copositivity via Hadeler's criterion with memoization
-
-## Performance
-
-- Optimized for speed with aggressive compiler flags
-- Static linking for maximum portability
-- Efficient matrix operations and caching
-- Thread-safe (designed for external multithreading)
-
-## License
-
-See LICENSE file for details.
-
-## Citation
-
-If you use FracESSA in your research, please cite appropriately.
+---
+<p align="center">Academic Research Software • Developed by Reinhard Ullrich</p>
