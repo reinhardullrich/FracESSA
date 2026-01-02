@@ -1,5 +1,5 @@
-<p align="center">
-  <img src="logo.png" width="350" alt="FracESSA Academic Logo">
+<p align="right">
+  <img src="logo.png" width="150" alt="FracESSA Academic Logo">
 </p>
 
 # FracESSA
