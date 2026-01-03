@@ -1,175 +1,153 @@
 #ifndef MATRIX_SERVER_HPP
 #define MATRIX_SERVER_HPP
 
-#include <rational_linalg/matrix.hpp>
-#include <rational_linalg/constants.hpp>
+#include <rational_linalg/matrix_fraction.hpp>
+#include <rational_linalg/matrix_double.hpp>
+#include <rational_linalg/positive_definite_fraction.hpp>
+#include <rational_linalg/positive_definite_double.hpp>
 #include <fracessa/bitset64.hpp>
 
 /**
  * MatrixServer - Centralized matrix storage and operations for fracessa
- * 
- * This class manages all matrix representations (fraction, double)
- * and provides the matrix-building functionality needed by find_candidate and check_stability.
  */
 class MatrixServer {
 public:
-    /**
-     * Constructor - initializes all matrix representations from the input game matrix
-     * @param game_matrix The input game matrix (fraction - FLINT fraction)
-     */
-    MatrixServer(const rational_linalg::Matrix<fraction>& game_matrix)
+    MatrixServer(const rational_linalg::matrix_fraction& game_matrix)
         : game_rational_(game_matrix)
     {
-        // Always create game_double matrix (faster than checking every time)
-        game_double_ = game_rational_.to_double();
-        dimension_ = game_matrix.rows();
+        dimensions_ = game_matrix.rows();
+        game_double_ = rational_linalg::matrix_double(dimensions_, dimensions_);
+        auto& rational_data = game_rational_.data();
+        auto& double_data = game_double_.data();
+        for (size_t i = 0; i < rational_data.size(); ++i) {
+            double_data[i] = rational_data[i].to_double();
+        }
     }
 
-    // =========================================================================
-    // Public API - Get matrices as needed
-    // =========================================================================
-
-
-    template<typename T>
-    rational_linalg::Matrix<T>& get_linear_system(const bitset64& support, size_t support_size) {
-        auto& Ab = get_augmented<T>();
-        const auto& game = get_game<T>();
-        
-        // Resize if needed (constructor zero-initializes)
-        if (Ab.rows() != support_size + 1) {
-            Ab = rational_linalg::Matrix<T>(support_size + 1, support_size + 2);
+    rational_linalg::matrix_fraction& get_linear_system_fraction(const bitset64& support, size_t support_size) {
+        if (subgame_augmented_rational_.rows() != support_size + 1) {
+            subgame_augmented_rational_ = rational_linalg::matrix_fraction(support_size + 1, support_size + 2);
         }
 
-        // Fill all rows in one pass
         size_t ab_row = 0;
-        for (size_t i = 0; i < dimension_; ++i) {
+        for (size_t i = 0; i < dimensions_; ++i) {
             if (bs64::is_set_at_pos(support, i)) {
-                // Fill submatrix columns (0 to support_size-1) from game_matrix
                 size_t ab_col = 0;
-                for (size_t j = 0; j < dimension_; ++j) {
+                for (size_t j = 0; j < dimensions_; ++j) {
                     if (bs64::is_set_at_pos(support, j)) {
-                        Ab(ab_row, ab_col) = game(i, j);
+                        subgame_augmented_rational_(ab_row, ab_col) = game_rational_(i, j);
                         ab_col++;
                     }
                 }
-                // Column support_size: -1 (last column of A)
-                Ab(ab_row, support_size) = rational_linalg::neg_one<T>();
-                // Column support_size + 1: 0 (b vector, initially zero)
-                Ab(ab_row, support_size + 1) = rational_linalg::zero<T>();
+                subgame_augmented_rational_(ab_row, support_size) = fraction::neg_one();
+                subgame_augmented_rational_(ab_row, support_size + 1) = fraction::zero();
                 ab_row++;
             }
         }
         
-        // Fill last row: all 1s in columns 0..support_size-1, 0 in column support_size, 1 in column n
         for (size_t i = 0; i < support_size; ++i) {
-            Ab(support_size, i) = rational_linalg::one<T>();
+            subgame_augmented_rational_(support_size, i) = fraction::one();
         }
-        Ab(support_size, support_size) = rational_linalg::zero<T>();      // Column support_size (last column of A)
-        Ab(support_size, support_size + 1) = rational_linalg::one<T>();  // Column support_size + 1 (b vector, last element is 1)
+        subgame_augmented_rational_(support_size, support_size) = fraction::zero();
+        subgame_augmented_rational_(support_size, support_size + 1) = fraction::one();
         
-        return Ab;
+        return subgame_augmented_rational_;
     }
 
-    template<typename T>
-    rational_linalg::Matrix<T>& get_bee_matrix(const bitset64& extended_support_reduced, size_t m) {
-        auto& Bee = get_bee<T>();
-        const auto& game = get_game<T>();
+    rational_linalg::matrix_double& get_linear_system_double(const bitset64& support, size_t support_size) {
+        if (subgame_augmented_double_.rows() != support_size + 1) {
+            subgame_augmented_double_ = rational_linalg::matrix_double(support_size + 1, support_size + 2);
+        }
+
+        size_t ab_row = 0;
+        for (size_t i = 0; i < dimensions_; ++i) {
+            if (bs64::is_set_at_pos(support, i)) {
+                size_t ab_col = 0;
+                for (size_t j = 0; j < dimensions_; ++j) {
+                    if (bs64::is_set_at_pos(support, j)) {
+                        subgame_augmented_double_(ab_row, ab_col) = game_double_(i, j);
+                        ab_col++;
+                    }
+                }
+                subgame_augmented_double_(ab_row, support_size) = -1.0;
+                subgame_augmented_double_(ab_row, support_size + 1) = 0.0;
+                ab_row++;
+            }
+        }
         
-        size_t extended_support_size_reduced = bs64::count_set_bits(extended_support_reduced);
+        for (size_t i = 0; i < support_size; ++i) {
+            subgame_augmented_double_(support_size, i) = 1.0;
+        }
+        subgame_augmented_double_(support_size, support_size) = 0.0;
+        subgame_augmented_double_(support_size, support_size + 1) = 1.0;
         
-        // Resize if needed (constructor zero-initializes)
-        if (Bee.rows() != extended_support_size_reduced) {
-            Bee = rational_linalg::Matrix<T>(extended_support_size_reduced, extended_support_size_reduced);
+        return subgame_augmented_double_;
+    }
+
+    rational_linalg::matrix_fraction& get_bee_matrix_fraction(const bitset64& extended_support_reduced, size_t m) {
+        size_t size = bs64::count_set_bits(extended_support_reduced);
+        if (bee_rational_.rows() != size) {
+            bee_rational_ = rational_linalg::matrix_fraction(size, size);
         }
 
         size_t row = 0;
-        size_t column = 0;
-        for (size_t i = 0; i < dimension_; i++) {
+        for (size_t i = 0; i < dimensions_; i++) {
             if (bs64::is_set_at_pos(extended_support_reduced, i)) {
-                column = 0;
+                size_t column = 0;
                 for (size_t j = 0; j < i + 1; j++) {
                     if (bs64::is_set_at_pos(extended_support_reduced, j)) {
-                        // Bee formula from Bomze 1992
-                        Bee(row, column) = Bee(column, row) = 
-                            game(m, j) + game(j, m) + game(i, m) + game(m, i) -
-                            game(i, j) - game(j, i) - T(2) * game(m, m);
+                        bee_rational_(row, column) = bee_rational_(column, row) = 
+                            game_rational_(m, j) + game_rational_(j, m) + game_rational_(i, m) + game_rational_(m, i) -
+                            game_rational_(i, j) - game_rational_(j, i) - fraction::two() * game_rational_(m, m);
                         column += 1;
                     }
                 }
                 row += 1;
             }
         }
-        
-        return Bee;
+        return bee_rational_;
     }
 
-    template<typename T>
-    const rational_linalg::Matrix<T>& get_game_matrix() const noexcept {
-        return get_game<T>();
+    rational_linalg::matrix_double& get_bee_matrix_double(const bitset64& extended_support_reduced, size_t m) {
+        size_t size = bs64::count_set_bits(extended_support_reduced);
+        if (bee_double_.rows() != size) {
+            bee_double_ = rational_linalg::matrix_double(size, size);
+        }
+
+        size_t row = 0;
+        for (size_t i = 0; i < dimensions_; i++) {
+            if (bs64::is_set_at_pos(extended_support_reduced, i)) {
+                size_t column = 0;
+                for (size_t j = 0; j < i + 1; j++) {
+                    if (bs64::is_set_at_pos(extended_support_reduced, j)) {
+                        bee_double_(row, column) = bee_double_(column, row) = 
+                            game_double_(m, j) + game_double_(j, m) + game_double_(i, m) + game_double_(m, i) -
+                            game_double_(i, j) - game_double_(j, i) - 2.0 * game_double_(m, m);
+                        column += 1;
+                    }
+                }
+                row += 1;
+            }
+        }
+        return bee_double_;
+    }
+
+    const rational_linalg::matrix_fraction& get_game_matrix_fraction() const noexcept {
+        return game_rational_;
+    }
+
+    const rational_linalg::matrix_double& get_game_matrix_double() const noexcept {
+        return game_double_;
     }
 
 private:
-    // =========================================================================
-    // Internal Helpers
-    // =========================================================================
-    
-    /**
-     * Get the appropriate game matrix for the template type
-     */
-    template<typename T>
-    const rational_linalg::Matrix<T>& get_game() const noexcept {
-        if constexpr (std::is_same_v<T, double>) {
-            return game_double_;
-        } else {
-            return game_rational_;
-        }
-    }
-    
-    /**
-     * Get the appropriate augmented matrix reference
-     */
-    template<typename T>
-    rational_linalg::Matrix<T>& get_augmented() noexcept {
-        if constexpr (std::is_same_v<T, double>) {
-            return subgame_augmented_double_;
-        } else {
-            return subgame_augmented_rational_;
-        }
-    }
-    
-    /**
-     * Get the appropriate Bee matrix reference
-     */
-    template<typename T>
-    rational_linalg::Matrix<T>& get_bee() noexcept {
-        if constexpr (std::is_same_v<T, double>) {
-            return bee_double_;
-        } else {
-            return bee_rational_;
-        }
-    }
-    
-
-    // =========================================================================
-    // Member Variables
-    // =========================================================================
-    
-    // Game matrices
-    rational_linalg::Matrix<fraction> game_rational_;
-    rational_linalg::Matrix<double> game_double_;
-    
-    // Augmented matrices for linear solver (KKT system)
-    rational_linalg::Matrix<double> subgame_augmented_double_;
-    rational_linalg::Matrix<fraction> subgame_augmented_rational_;
-    
-    // Bee matrices for copositivity check
-    rational_linalg::Matrix<fraction> bee_rational_;
-    rational_linalg::Matrix<double> bee_double_;
-    
-    // State
-
-    size_t dimension_;
+    rational_linalg::matrix_fraction game_rational_;
+    rational_linalg::matrix_double game_double_;
+    rational_linalg::matrix_fraction subgame_augmented_rational_;
+    rational_linalg::matrix_double subgame_augmented_double_;
+    rational_linalg::matrix_fraction bee_rational_;
+    rational_linalg::matrix_double bee_double_;
+    size_t dimensions_;
 };
 
 #endif // MATRIX_SERVER_HPP
-

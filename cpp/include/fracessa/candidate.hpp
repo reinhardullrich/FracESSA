@@ -1,7 +1,7 @@
 #ifndef CANDIDATE_H
 #define CANDIDATE_H
 
-#include <rational_linalg/matrix.hpp>
+#include <rational_linalg/matrix_fraction.hpp>
 #include <fracessa/bitset64.hpp>
 #include <string>
 #include <sstream>
@@ -11,23 +11,23 @@ class candidate
 {
     public:
         size_t candidate_id = 0;
-        rational_linalg::Matrix<fraction> vector;  // Column vector: Matrix<fraction>(n, 1) - always use arbitrary precision
+        rational_linalg::matrix_fraction vector;
         bitset64 support;
         size_t support_size = 0;
         bitset64 extended_support;
-        size_t extended_support_size;
-        size_t shift_reference;
-        bool is_ess;
+        size_t extended_support_size = 0;
+        size_t shift_reference = 0;
+        bool is_ess = false;
         std::string stability;
-        fraction payoff;  // Always use arbitrary precision
-        double payoff_double;
+        fraction payoff;
+        double payoff_double = 0.0;
 
         std::string to_string() const
         {
             std::ostringstream oss;
             oss << candidate_id << ";";
             for (size_t i = 0; i < vector.rows(); i++) {
-                oss << vector(i, 0);  // Uses optimized operator<<, no string allocation
+                oss << vector(i, 0);
                 if (i < vector.rows() - 1) {
                     oss << ",";
                 }
@@ -39,7 +39,7 @@ class candidate
                 << shift_reference << ";"
                 << is_ess << ";"
                 << stability << ";"
-                << payoff << ";"  // Uses optimized operator<<, no string allocation
+                << payoff << ";"
                 << std::fixed << std::setprecision(6) << payoff_double;
             return oss.str();
         }

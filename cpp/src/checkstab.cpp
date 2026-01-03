@@ -1,15 +1,16 @@
 #include <fracessa/fracessa.hpp>
 #include <fracessa/bitset64.hpp>
 #include <rational_linalg/copositivity.hpp>
-#include <rational_linalg/matrix.hpp>
-#include <rational_linalg/constants.hpp>
+#include <rational_linalg/matrix_fraction.hpp>
+#include <rational_linalg/matrix_double.hpp>
+#include <rational_linalg/positive_definite_fraction.hpp>
+#include <rational_linalg/positive_definite_double.hpp>
 #include <iostream>
 
-// check_stability function
 void fracessa::check_stability()
 {
-    bitset64 bitsetm = bs64::lowest_set_bit_as_bit(candidate_.support); //get lowest set bit as bitfield
-    bitset64 extended_support_reduced = bs64::subtract(candidate_.extended_support, bitsetm); //ext support without m
+    bitset64 bitsetm = bs64::lowest_set_bit_as_bit(candidate_.support);
+    bitset64 extended_support_reduced = bs64::subtract(candidate_.extended_support, bitsetm);
     size_t m = bs64::find_pos_first_set_bit(candidate_.support);
     size_t extended_support_size_reduced = candidate_.extended_support_size - 1;
 
@@ -31,8 +32,7 @@ void fracessa::check_stability()
         return;
     }
     
-    // Get Bee matrix as double and check positive definiteness (faster check first)
-    auto& Bee_double = matrix_server_.get_bee_matrix<double>(extended_support_reduced, m);
+    auto& Bee_double = matrix_server_.get_bee_matrix_double(extended_support_reduced, m);
     
     if (Bee_double.is_positive_definite()) {
         if (conf_with_log_)
@@ -42,8 +42,7 @@ void fracessa::check_stability()
         return;
     }
     
-    // Get Bee matrix from MatrixServer (builds it internally)
-    auto& Bee = matrix_server_.get_bee_matrix<fraction>(extended_support_reduced, m);
+    auto& Bee = matrix_server_.get_bee_matrix_fraction(extended_support_reduced, m);
 
     if (conf_with_log_) {
         logger_->info("matrix bee:\n{}", Bee.to_log_string());
@@ -57,13 +56,13 @@ void fracessa::check_stability()
         return;
     }
 
-    bitset64 kay = bs64::subtract(candidate_.extended_support, candidate_.support); //extended_support without support
+    bitset64 kay = bs64::subtract(candidate_.extended_support, candidate_.support);
     size_t kay_size = bs64::count_set_bits(kay);
 
     if (conf_with_log_)
         logger_->info("kay: {}", bs64::to_bitstring(kay, dimension_));
 
-    if (kay_size==0 || kay_size==1) {
+    if (kay_size == 0 || kay_size == 1) {
         if (conf_with_log_)
             logger_->info("Reason: false_not_posdef_and_kay_0_1");
         candidate_.stability = "F_not_pd_kay_0_1";
@@ -71,18 +70,15 @@ void fracessa::check_stability()
         return;
     }
    
-    // Optimized partial copositivity check (Bomze 1992, p. 321/322)
     const bitset64 jay = extended_support_reduced;
     const bitset64 jay_minus_kay = bs64::subtract(jay, kay);
     const size_t r = bs64::count_set_bits(jay_minus_kay);
 
-    // Pre-allocate all vectors
     std::vector<bitset64> kay_vee(r + 1);
     std::vector<size_t> kay_vee_size(r + 1);
     std::vector<bitset64> jay_without_kay_vee(r + 1);
-    std::vector<rational_linalg::Matrix<fraction>> bee_vee(r + 1);
+    std::vector<rational_linalg::matrix_fraction> bee_vee(r + 1);
 
-    // Initialize v=0
     kay_vee[0] = jay;
     kay_vee_size[0] = extended_support_size_reduced;
     jay_without_kay_vee[0] = jay_minus_kay;
@@ -98,18 +94,13 @@ void fracessa::check_stability()
         logger_->info("bee_vee[0]:\n{}", bee_vee[0].to_log_string());
     }
 
-    // Main loop
     for (size_t v = 1; v <= r; ++v) {
-        // Get lowest set bit and its position
         const size_t iv_pos = bs64::find_pos_first_set_bit(jay_without_kay_vee[v-1]);
         
-        // Update sets
         jay_without_kay_vee[v] = bs64::subtract(jay_without_kay_vee[v-1], bs64::single_bit_at_pos(iv_pos));
         kay_vee[v] = bs64::subtract(kay_vee[v-1], bs64::single_bit_at_pos(iv_pos));
         kay_vee_size[v] = kay_vee_size[v-1] - 1;
         
-        // OPTIMIZED: Calculate pivot position using popcount
-        // Count set bits in kay_vee[v-1] that are BEFORE iv_pos
         const bitset64 bits_before_iv = bs64::bits_before_pos(kay_vee[v-1], iv_pos);
         const size_t pivot_pos = bs64::count_set_bits(bits_before_iv);
         
@@ -119,13 +110,12 @@ void fracessa::check_stability()
                         bs64::to_bitstring(kay_vee[v], dimension_),
                         kay_vee_size[v],
                         bs64::to_bitstring(jay_without_kay_vee[v], dimension_),
-                        iv_pos,
-                        pivot_pos);
+                        static_cast<unsigned int>(iv_pos),
+                        static_cast<unsigned int>(pivot_pos));
         }
         
-        // Check pivot element
         const fraction& pivot = bee_vee[v-1](pivot_pos, pivot_pos);
-        if (pivot <= rational_linalg::zero<fraction>()) {
+        if (pivot <= fraction::zero()) {
             if (conf_with_log_) {
                 logger_->info("Reason: false_not_partial_copositive (pivot={} at pos={})", pivot.to_string(), pivot_pos);
             }
@@ -134,20 +124,17 @@ void fracessa::check_stability()
             return;
         }
         
-        // Allocate new matrix
-        bee_vee[v] = rational_linalg::Matrix<fraction>(kay_vee_size[v], kay_vee_size[v]);
-        // Equation (20) in Bomze 1992
+        bee_vee[v] = rational_linalg::matrix_fraction(kay_vee_size[v], kay_vee_size[v]);
         const size_t n_old = kay_vee_size[v-1];
         const auto& B_old = bee_vee[v-1];
         auto& B_new = bee_vee[v];
         
-        // Process rows/columns, skipping pivot
         for (size_t i_old = 0, i_new = 0; i_old < n_old; ++i_old) {
-            if (i_old == pivot_pos) continue;  // Skip pivot row            
+            if (i_old == pivot_pos) continue;            
             for (size_t j_old = 0, j_new = 0; j_old < n_old; ++j_old) {
-                if (j_old == pivot_pos) continue;  // Skip pivot column               
-                // Rank-1 update: B'[i,j] = pivot*B[i,j] - B[i,pivot]*B[pivot,j]
-                B_new(i_new, j_new) = pivot * B_old(i_old, j_old) - B_old(i_old, pivot_pos) * B_old(pivot_pos, j_old);                
+                if (j_old == pivot_pos) continue;               
+                fraction::mul(B_new(i_new, j_new), pivot, B_old(i_old, j_old));
+                B_new(i_new, j_new).submul(B_old(i_old, pivot_pos), B_old(pivot_pos, j_old));
                 ++j_new;
             }
             ++i_new;
@@ -157,7 +144,7 @@ void fracessa::check_stability()
             logger_->info("bee_vee[{}]:\n{}", v, bee_vee[v].to_log_string());
         }
     }    
-    //copositivity check as in hadeler_1983
+
     if (conf_with_log_)
         logger_->info("Copositivity Check:");
 

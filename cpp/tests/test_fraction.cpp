@@ -119,7 +119,7 @@ TEST(FractionTest, Division) {
 
 TEST(FractionTest, DivisionByZeroThrows) {
     fraction f1(1, 2);
-    fraction f2(0);
+    fraction f2 = fraction::zero();
     EXPECT_THROW(f1 / f2, std::domain_error);
 }
 
@@ -158,8 +158,8 @@ TEST(FractionTest, CompoundAssignmentDivision) {
 
 TEST(FractionTest, CompoundAssignmentDivisionByZeroThrows) {
     fraction f(1, 2);
-    fraction zero(0);
-    EXPECT_THROW(f /= zero, std::domain_error);
+    fraction zero_val = fraction::zero();
+    EXPECT_THROW(f /= zero_val, std::domain_error);
 }
 
 // ============================================================================
@@ -210,7 +210,7 @@ TEST(FractionTest, NegativeComparisons) {
     fraction f1(-1, 2);
     fraction f2(1, 2);
     EXPECT_LT(f1, f2);
-    EXPECT_LT(f1, fraction(0));
+    EXPECT_LT(f1, fraction::zero());
     EXPECT_GT(f2, f1);
 }
 
@@ -219,7 +219,7 @@ TEST(FractionTest, NegativeComparisons) {
 // ============================================================================
 
 TEST(FractionTest, IsZero) {
-    fraction f1(0);
+    fraction f1 = fraction::zero();
     fraction f2(0, 5);
     fraction f3(1, 2);
     EXPECT_TRUE(f1.is_zero());
@@ -228,7 +228,7 @@ TEST(FractionTest, IsZero) {
 }
 
 TEST(FractionTest, IsOne) {
-    fraction f1(1);
+    fraction f1 = fraction::one();
     fraction f2(2, 2);
     fraction f3(1, 2);
     EXPECT_TRUE(f1.is_one());
@@ -257,8 +257,8 @@ TEST(FractionTest, Inverse) {
 }
 
 TEST(FractionTest, InverseOfZeroThrows) {
-    fraction zero(0);
-    EXPECT_THROW(zero.inverse(), std::domain_error);
+    fraction zero_val = fraction::zero();
+    EXPECT_THROW(zero_val.inverse(), std::domain_error);
 }
 
 // ============================================================================
@@ -279,7 +279,7 @@ TEST(FractionTest, ToString) {
 }
 
 TEST(FractionTest, ToStringZero) {
-    fraction f(0);
+    fraction f = fraction::zero();
     std::string str = f.to_string();
     EXPECT_FALSE(str.empty());
 }
@@ -326,8 +326,8 @@ TEST(FractionTest, DivInplace) {
 
 TEST(FractionTest, DivInplaceByZeroThrows) {
     fraction f(1, 2);
-    fraction zero(0);
-    EXPECT_THROW(f.div_inplace(zero), std::domain_error);
+    fraction zero_val = fraction::zero();
+    EXPECT_THROW(f.div_inplace(zero_val), std::domain_error);
 }
 
 TEST(FractionTest, NegateInplace) {

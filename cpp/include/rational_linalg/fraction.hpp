@@ -129,6 +129,47 @@ public:
         fmpq_abs(data_, data_);
     }
     
+    // Combined operations (EXTREMELY FAST - No Temporaries)
+    void addmul(const fraction& a, const fraction& b) noexcept {
+        fmpq_addmul(data_, a.data_, b.data_);
+    }
+    
+    void submul(const fraction& a, const fraction& b) noexcept {
+        fmpq_submul(data_, a.data_, b.data_);
+    }
+
+    // Static helpers for direct result manipulation
+    static void mul(fraction& res, const fraction& a, const fraction& b) noexcept {
+        fmpq_mul(res.data_, a.data_, b.data_);
+    }
+
+    static void div(fraction& res, const fraction& a, const fraction& b) {
+        if (fmpq_is_zero(b.data_)) {
+            throw std::domain_error("Division by zero");
+        }
+        fmpq_div(res.data_, a.data_, b.data_);
+    }
+
+    static void add(fraction& res, const fraction& a, const fraction& b) noexcept {
+        fmpq_add(res.data_, a.data_, b.data_);
+    }
+
+    static void sub(fraction& res, const fraction& a, const fraction& b) noexcept {
+        fmpq_sub(res.data_, a.data_, b.data_);
+    }
+
+    static void set(fraction& res, const fraction& a) noexcept {
+        fmpq_set(res.data_, a.data_);
+    }
+
+    void set_zero() noexcept {
+        fmpq_zero(data_);
+    }
+
+    int sgn() const noexcept {
+        return fmpq_sgn(data_);
+    }
+    
     // ========================================================================
     // Arithmetic Operators (RVO-Friendly)
     // ========================================================================
@@ -275,6 +316,29 @@ public:
             free(str);
         }
         return os;
+    }
+    // ========================================================================
+    // Static Constants (C++17 inline static for performance/convenience)
+    // ========================================================================
+    
+    static const fraction& zero() noexcept {
+        static const fraction z(0);
+        return z;
+    }
+    
+    static const fraction& one() noexcept {
+        static const fraction o(1);
+        return o;
+    }
+    
+    static const fraction& neg_one() noexcept {
+        static const fraction n(-1);
+        return n;
+    }
+    
+    static const fraction& two() noexcept {
+        static const fraction t(2);
+        return t;
     }
 };
 

@@ -6,21 +6,18 @@
 #include <cstdint>
 
 #include <fracessa/fracessa.hpp>
-#include <rational_linalg/matrix.hpp>
+#include <rational_linalg/matrix_fraction.hpp>
 #include <argparse/argparse.hpp>
 
 // Helper function to parse matrix string format: "n#values"
-// Returns true on success, false on error
-bool parse_matrix_string(const std::string& matrix_str, rational_linalg::Matrix<fraction>& A, bool& is_cs)
+bool parse_matrix_string(const std::string& matrix_str, rational_linalg::matrix_fraction& A, bool& is_cs)
 {
-    // Parse CLI string format: "n#values" - optimized manual parsing
     const size_t hash_pos = matrix_str.find('#');
     if (hash_pos == std::string::npos || hash_pos == 0 || hash_pos == matrix_str.length() - 1) {
         std::cerr << "Error: String for the matrix does not include '#' as a separator between dimension and matrix!" << std::endl;
         return false;
     }
     
-    // Check for multiple '#' characters
     if (matrix_str.find('#', hash_pos + 1) != std::string::npos) {
         std::cerr << "Error: Multiple '#' characters found in matrix string!" << std::endl;
         return false;
@@ -34,11 +31,8 @@ bool parse_matrix_string(const std::string& matrix_str, rational_linalg::Matrix<
         return false;
     }
     
-    // Parse comma-separated values - optimized manual parsing
     const std::string& values_str = matrix_str.substr(hash_pos + 1);
     std::vector<fraction> rational_values;
-    
-    // Pre-allocate vector with estimated size (at least n/2 for circular symmetric)
     rational_values.reserve(n / 2);
     
     try {
@@ -51,18 +45,13 @@ bool parse_matrix_string(const std::string& matrix_str, rational_linalg::Matrix<
                 comma_pos = values_str.length();
             }
             
-            // Parse value: "numerator/denominator" or just "numerator"
             const size_t slash_pos = values_str.find('/', start);
             if (slash_pos != std::string::npos && slash_pos < comma_pos) {
-                // Has denominator
                 int64_t num = std::stoll(values_str.substr(start, slash_pos - start));
                 int64_t den = std::stoll(values_str.substr(slash_pos + 1, comma_pos - slash_pos - 1));
-                // Explicitly construct fraction to avoid ambiguity
                 rational_values.push_back(fraction(static_cast<long>(num), static_cast<long>(den)));
             } else {
-                // No denominator, treat as integer
                 int64_t num = std::stoll(values_str.substr(start, comma_pos - start));
-                // Explicitly construct fraction to avoid ambiguity
                 rational_values.push_back(fraction(static_cast<long>(num), 1L));
             }
             
@@ -74,123 +63,71 @@ bool parse_matrix_string(const std::string& matrix_str, rational_linalg::Matrix<
         return false;
     }
     
-    // Determine matrix type and create matrix
     const size_t expected_cs = n / 2;
     const size_t expected_sym = n * (n + 1) / 2;
     const size_t actual_size = rational_values.size();
     
     if (actual_size == expected_cs) {
-        // Circular symmetric matrix
-        // COMMENTED OUT - now using fraction only (FLINT fraction)
-        A = rational_linalg::create_circular_symmetric<fraction>(n, rational_values);
+        A = rational_linalg::create_circular_symmetric(n, rational_values);
         is_cs = true;
     } else if (actual_size == expected_sym) {
-        // Symmetric matrix (upper triangular)
-        // COMMENTED OUT - now using fraction only (FLINT fraction)
-        A = rational_linalg::create_symmetric<fraction>(n, rational_values);
+        A = rational_linalg::create_symmetric(n, rational_values);
         is_cs = false;
     } else {
-        std::cerr << "Error: The number of matrix-elements must either be floor(dimension/2) (for a circular symmetric matrix) or dimension*(dimension+1)/2 (for a symmetric matrix)!" << std::endl;
-        std::cerr << "  Got " << actual_size << " values, but expected " << expected_cs << " (circular symmetric) or " << expected_sym << " (symmetric)." << std::endl;
+        std::cerr << "Error: Expected " << expected_cs << " (CS) or " << expected_sym << " (Sym) values, got " << actual_size << std::endl;
         return false;
     }
     
     return true;
 }
 
-// Unsafe version: parses matrix string without any safety checks for maximum performance
-// Assumes valid input format: "n#values" where values are comma-separated rationals
-// COMMENTED OUT - now using fraction only (FLINT fraction)
-void parse_matrix_string_unsafe(const std::string& matrix_str, rational_linalg::Matrix<fraction>& A, bool& is_cs)
+void parse_matrix_string_unsafe(const std::string& matrix_str, rational_linalg::matrix_fraction& A, bool& is_cs)
 {
-    // Find '#' by direct iteration
     size_t hash_pos = 0;
-    while (matrix_str[hash_pos] != '#') {
-        ++hash_pos;
-    }
+    while (matrix_str[hash_pos] != '#') ++hash_pos;
     
-    // Parse dimension n manually (no stoull, no substr)
     size_t n = 0;
-    for (size_t i = 0; i < hash_pos; ++i) {
-        n = n * 10 + (matrix_str[i] - '0');
-    }
+    for (size_t i = 0; i < hash_pos; ++i) n = n * 10 + (matrix_str[i] - '0');
     
-    // Pre-allocate vector with estimated size
     std::vector<fraction> rational_values;
     rational_values.reserve(n / 2);
     
-    // Parse values by direct character iteration
     size_t pos = hash_pos + 1;
     const size_t len = matrix_str.length();
     
     while (pos < len) {
-        // Parse numerator
         int64_t num = 0;
         bool num_negative = false;
-        
-        if (matrix_str[pos] == '-') {
-            num_negative = true;
-            ++pos;
-        }
-        
+        if (matrix_str[pos] == '-') { num_negative = true; ++pos; }
         while (pos < len && matrix_str[pos] != '/' && matrix_str[pos] != ',') {
             num = num * 10 + (matrix_str[pos] - '0');
             ++pos;
         }
+        if (num_negative) num = -num;
         
-        if (num_negative) {
-            num = -num;
-        }
-        
-        // Check if there's a denominator
         if (pos < len && matrix_str[pos] == '/') {
-            ++pos; // skip '/'
-            
-            // Parse denominator
+            ++pos;
             int64_t den = 0;
             bool den_negative = false;
-            
-            if (matrix_str[pos] == '-') {
-                den_negative = true;
-                ++pos;
-            }
-            
+            if (matrix_str[pos] == '-') { den_negative = true; ++pos; }
             while (pos < len && matrix_str[pos] != ',') {
                 den = den * 10 + (matrix_str[pos] - '0');
                 ++pos;
             }
-            
-            if (den_negative) {
-                den = -den;
-            }
-            
-            // Explicitly construct fraction to avoid ambiguity
+            if (den_negative) den = -den;
             rational_values.push_back(fraction(static_cast<long>(num), static_cast<long>(den)));
         } else {
-            // No denominator, treat as integer
-            // Explicitly construct fraction to avoid ambiguity
             rational_values.push_back(fraction(static_cast<long>(num), 1L));
         }
-        
-        // Skip comma if present
-        if (pos < len && matrix_str[pos] == ',') {
-            ++pos;
-        }
+        if (pos < len && matrix_str[pos] == ',') ++pos;
     }
     
-    // Determine matrix type and create matrix
     const size_t expected_cs = n / 2;
-    const size_t actual_size = rational_values.size();
-    
-    if (actual_size == expected_cs) {
-        // Circular symmetric matrix
-        // COMMENTED OUT - now using fraction only (FLINT fraction)
-        A = rational_linalg::create_circular_symmetric<fraction>(n, rational_values);
+    if (rational_values.size() == expected_cs) {
+        A = rational_linalg::create_circular_symmetric(n, rational_values);
         is_cs = true;
     } else {
-        // Symmetric matrix (upper triangular)
-        // COMMENTED OUT - now using fraction only (FLINT fraction)
-        A = rational_linalg::create_symmetric<fraction>(n, rational_values);
+        A = rational_linalg::create_symmetric(n, rational_values);
         is_cs = false;
     }
 }
@@ -198,55 +135,19 @@ void parse_matrix_string_unsafe(const std::string& matrix_str, rational_linalg::
 int main(int argc, char *argv[])
 {
     argparse::ArgumentParser program("fracessa", "3.0.0");
+    program.add_description("FRACESSA - Fractional ESS Analyzer");
 
-    program.add_description("FRACESSA - Fractional ESS Analyzer - A solver for Standard Quadratic Problems");
+    program.add_argument("-c", "--candidates").help("include candidates").implicit_value(true).default_value(false);
+    program.add_argument("-l", "--log").help("output log file").implicit_value(true).default_value(false);
+    program.add_argument("-e", "--exact").help("exact only").implicit_value(true).default_value(false);
+    program.add_argument("-f", "--fullsupport").help("search full support directly").implicit_value(true).default_value(false);
+    program.add_argument("-t", "--timing").help("output computation time").implicit_value(true).default_value(false);
+    program.add_argument("-m", "--matrixid").help("optional matrix ID").scan<'i', int>().default_value(-1);
+    program.add_argument("-u", "--unsafe").help("unsafe parsing").implicit_value(true).default_value(false);
+    program.add_argument("matrix").help("the matrix to compute");
 
-    program.add_argument("-c", "--candidates")
-        .help("include the found candidates for ESS/solutions in the output")
-        .implicit_value(true)
-        .default_value(false);
-
-    program.add_argument("-l", "--log")
-        .help("output a detailed log file named 'fracessa.log' in the directory of the program, for diagnostic of learning purposes only")
-        .implicit_value(true)
-        .default_value(false);
-
-    program.add_argument("-e", "--exact")
-        .help("only uses fraction numbers, for matrices with extreme differences in the input, is much much slower!")
-        .implicit_value(true)
-        .default_value(false);
-
-    program.add_argument("-f", "--fullsupport")
-        .help("searches the full support directly after searching support size one. Enable if you expect the matrix to have exactly one ess in the interior of the simplex!")
-        .implicit_value(true)
-        .default_value(false);
-
-    program.add_argument("-t", "--timing")
-        .help("output the computation time in seconds on a new line after the ESS count")
-        .implicit_value(true)
-        .default_value(false);
-
-    program.add_argument("-m", "--matrixid")
-        .help("optional matrix ID to write in the log file")
-        .scan<'i', int>()
-        .default_value(-1);
-
-    program.add_argument("-u", "--unsafe")
-        .help("use unsafe matrix string parsing for maximum performance (no input validation)")
-        .implicit_value(true)
-        .default_value(false);
-
-    program.add_argument("matrix")
-        .help("the matrix to compute");
-
-    try {
-        program.parse_args(argc, argv);
-    }
-    catch (const std::runtime_error& err) {
-        std::cerr << err.what() << std::endl;
-        std::cerr << program;
-        return EXIT_FAILURE;
-    }
+    try { program.parse_args(argc, argv); }
+    catch (const std::exception& err) { std::cerr << err.what() << std::endl << program; return EXIT_FAILURE; }
 
     const auto& matrix_str = program.get<std::string>("matrix");
     const auto candidates = program.get<bool>("--candidates");
@@ -257,47 +158,24 @@ int main(int argc, char *argv[])
     const auto matrix_id = program.get<int>("--matrixid");
     const auto unsafe = program.get<bool>("--unsafe");
 
-    // Parse matrix from CLI string format: "n#values"
     bool is_cs;
-    // COMMENTED OUT - now using fraction only (FLINT fraction)
-    rational_linalg::Matrix<fraction> A;
-    if (unsafe) {
-        parse_matrix_string_unsafe(matrix_str, A, is_cs);
-    } else {
-        if (!parse_matrix_string(matrix_str, A, is_cs)) {
-            return EXIT_FAILURE;
-        }
-    }
+    rational_linalg::matrix_fraction A;
+    if (unsafe) parse_matrix_string_unsafe(matrix_str, A, is_cs);
+    else if (!parse_matrix_string(matrix_str, A, is_cs)) return EXIT_FAILURE;
     
-    // Measure computation time only if timing flag is set
-    std::chrono::high_resolution_clock::time_point start_time, end_time;
-    double elapsed_seconds = 0.0;
-    
-    if (timing) {
-        start_time = std::chrono::high_resolution_clock::now();
-    }
-    
+    auto start_time = std::chrono::high_resolution_clock::now();
     ::fracessa x(A, is_cs, candidates, exact, fullsupport, logger, matrix_id);
+    auto end_time = std::chrono::high_resolution_clock::now();
     
-    if (timing) {
-        end_time = std::chrono::high_resolution_clock::now();
-        // Calculate elapsed time in seconds
-        const auto duration = std::chrono::duration_cast<std::chrono::microseconds>(end_time - start_time);
-        elapsed_seconds = duration.count() / 1000000.0;
-    }
-
     std::cout << x.ess_count_ << std::endl;
-    
-    // Output timing on second line if -t flag is present
     if (timing) {
-        std::cout << std::fixed << std::setprecision(6) << elapsed_seconds << std::endl;
+        auto duration = std::chrono::duration_cast<std::chrono::microseconds>(end_time - start_time);
+        std::cout << std::fixed << std::setprecision(6) << duration.count() / 1000000.0 << std::endl;
     }
 
     if (candidates) {
         std::cout << candidate::header() << std::endl;
-        for (auto& c : x.candidates_) {
-            std::cout << c.to_string() << std::endl;
-        }
+        for (auto& c : x.candidates_) std::cout << c.to_string() << std::endl;
     }
 
     return EXIT_SUCCESS;
