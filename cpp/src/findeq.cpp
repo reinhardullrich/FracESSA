@@ -1,21 +1,19 @@
 #include <fracessa/fracessa.hpp>
 #include <fracessa/bitset64.hpp>
-#include <rational_linalg/linear_solver_fraction.hpp>
-#include <rational_linalg/linear_solver_double.hpp>
+#include <linalg/linear_solver.hpp>
 #include <cstdlib>
 
-bool fracessa::find_candidate_double(const bitset64& support, size_t support_size)
+bool fracessa::find_candidate_dbl(const bitset64& support, size_t support_size)
 {
-    const auto& game_matrix = matrix_server_.get_game_matrix_double();
-    auto& Ab = matrix_server_.get_linear_system_double(support, support_size);
+    const auto& game_matrix = matrix_server_.get_game_matrix_dbl();
+    auto& Ab = matrix_server_.get_linear_system_dbl(support, support_size);
     
-    rational_linalg::linear_solver_double solver(Ab);
-    rational_linalg::matrix_double solution;
-    bool solved = solver.solve(solution);
+    linalg::matrix_dbl solution;
+    bool solved = linalg::solve_linear_dbl(Ab, solution);
     
     if (!solved) return false;
 
-    rational_linalg::matrix_double solution_full_n(dimension_, 1);
+    linalg::matrix_dbl solution_full_n(dimension_, 1);
     size_t tracker = 0;
     for (size_t i = 0; i < dimension_; i++) {
         if (bs64::is_set_at_pos(support, i)) {
@@ -26,6 +24,10 @@ bool fracessa::find_candidate_double(const bitset64& support, size_t support_siz
         }
     }
 
+    // --- FLOATING POINT FILTER PATH ---
+    // Use a large margin (threshold) to filter out clearly invalid supports early
+    // without the cost of exact arithmetic. The 1e-4 * dimension_ factor provides
+    // enough buffer to avoid false negatives due to precision loss.
     const double payoff = solution(support_size, 0);
     const double threshold = payoff + 1e-4 * dimension_;
     
@@ -43,18 +45,17 @@ bool fracessa::find_candidate_double(const bitset64& support, size_t support_siz
     return true;
 }
 
-bool fracessa::find_candidate_fraction(const bitset64& support, size_t support_size)
+bool fracessa::find_candidate_frc(const bitset64& support, size_t support_size)
 {
-    const auto& game_matrix = matrix_server_.get_game_matrix_fraction();
-    auto& Ab = matrix_server_.get_linear_system_fraction(support, support_size);
+    const auto& game_matrix = matrix_server_.get_game_matrix_frc();
+    auto& Ab = matrix_server_.get_linear_system_frc(support, support_size);
     
-    rational_linalg::linear_solver_fraction solver(Ab);
-    rational_linalg::matrix_fraction solution;
-    bool solved = solver.solve(solution);
+    linalg::matrix_frc solution;
+    bool solved = linalg::solve_linear_frc(Ab, solution);
     
     if (!solved) return false;
 
-    rational_linalg::matrix_fraction solution_full_n(dimension_, 1);
+    linalg::matrix_frc solution_full_n(dimension_, 1);
     size_t tracker = 0;
     for (size_t i = 0; i < dimension_; i++) {
         if (bs64::is_set_at_pos(support, i)) {
@@ -86,7 +87,7 @@ bool fracessa::find_candidate_fraction(const bitset64& support, size_t support_s
 
     candidate_.vector = solution_full_n;
     candidate_.payoff = payoff;
-    candidate_.payoff_double = payoff.to_double();        
+    candidate_.payoff_dbl = payoff.to_dbl();        
     candidate_.extended_support_size = bs64::count_set_bits(candidate_.extended_support);
     
     return true;

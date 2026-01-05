@@ -7,7 +7,7 @@
 #include <ostream>
 #include <cstdlib>  // For free()
 
-namespace rational_linalg {
+namespace linalg {
 
 // ============================================================================
 // fraction - OPTIMIZED FLINT Rational Number Wrapper
@@ -174,17 +174,17 @@ public:
     // Arithmetic Operators (RVO-Friendly)
     // ========================================================================
     
-    fraction operator+(const fraction& other) const {
-        fraction result;
-        fmpq_add(result.data_, data_, other.data_);
-        return result;
-    }
+    // fraction operator+(const fraction& other) const {
+    //     fraction result;
+    //     fmpq_add(result.data_, data_, other.data_);
+    //     return result;
+    // }
     
-    fraction operator-(const fraction& other) const {
-        fraction result;
-        fmpq_sub(result.data_, data_, other.data_);
-        return result;
-    }
+    // fraction operator-(const fraction& other) const {
+    //     fraction result;
+    //     fmpq_sub(result.data_, data_, other.data_);
+    //     return result;
+    // }
     
     fraction operator*(const fraction& other) const {
         fraction result;
@@ -291,7 +291,7 @@ public:
     // ========================================================================
     
     // Convert to double (ONLY conversion implemented)
-    double to_double() const noexcept {
+    double to_dbl() const noexcept {
         return fmpq_get_d(data_);
     }
     
@@ -342,11 +342,7 @@ public:
     }
 };
 
-// ============================================================================
-// Helper Functions
-// ============================================================================
-
-} // namespace rational_linalg
+} // namespace linalg
 
 // Global type alias for convenience
-typedef rational_linalg::fraction fraction;
+typedef linalg::fraction fraction;

@@ -8,7 +8,7 @@
 #include <spdlog/spdlog.h>
 #include <spdlog/sinks/rotating_file_sink.h>
 
-#include <rational_linalg/matrix_fraction.hpp>
+#include <linalg/matrix_fraction.hpp>
 #include <fracessa/candidate.hpp>
 #include <fracessa/bitset64.hpp>
 #include <fracessa/supports.hpp>
@@ -17,7 +17,7 @@
 class fracessa
 {
 public:
-    fracessa(const rational_linalg::matrix_fraction& matrix, bool is_cs, bool with_candidates = false, bool exact = false, bool full_support = false, bool with_log = false, int matrix_id = -1);
+    fracessa(const linalg::matrix_frc& matrix, bool is_cs, bool with_candidates = false, bool exact = false, bool full_support = false, bool with_log = false, int matrix_id = -1);
 
     size_t ess_count_ = 0;
     std::vector<candidate> candidates_;
@@ -43,8 +43,8 @@ private:
     void search_one_support(const bitset64& support, size_t support_size, bool is_cs_and_coprime = false);
     
     // No more templates
-    bool find_candidate_double(const bitset64& support, size_t support_size);
-    bool find_candidate_fraction(const bitset64& support, size_t support_size);
+    bool find_candidate_dbl(const bitset64& support, size_t support_size);
+    bool find_candidate_frc(const bitset64& support, size_t support_size);
     
     void check_stability();
 };

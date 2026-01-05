@@ -1,7 +1,7 @@
 #ifndef CANDIDATE_H
 #define CANDIDATE_H
 
-#include <rational_linalg/matrix_fraction.hpp>
+#include <linalg/matrix_fraction.hpp>
 #include <fracessa/bitset64.hpp>
 #include <string>
 #include <sstream>
@@ -11,7 +11,7 @@ class candidate
 {
     public:
         size_t candidate_id = 0;
-        rational_linalg::matrix_fraction vector;
+        linalg::matrix_frc vector;
         bitset64 support;
         size_t support_size = 0;
         bitset64 extended_support;
@@ -20,7 +20,7 @@ class candidate
         bool is_ess = false;
         std::string stability;
         fraction payoff;
-        double payoff_double = 0.0;
+        double payoff_dbl = 0.0;
 
         std::string to_string() const
         {
@@ -40,13 +40,13 @@ class candidate
                 << is_ess << ";"
                 << stability << ";"
                 << payoff << ";"
-                << std::fixed << std::setprecision(6) << payoff_double;
+                << std::fixed << std::setprecision(6) << payoff_dbl;
             return oss.str();
         }
 
         static std::string header()
         {
-            return "candidate_id;vector;support;support_size;extended_support;extended_support_size;shift_reference;is_ess;stability;payoff;payoff_double;";
+            return "candidate_id;vector;support;support_size;extended_support;extended_support_size;shift_reference;is_ess;stability;payoff;payoff_dbl;";
         }
 };
 

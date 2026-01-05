@@ -1,10 +1,10 @@
 #include <fracessa/fracessa.hpp>
 #include <fracessa/bitset64.hpp>
-#include <rational_linalg/matrix_fraction.hpp>
+#include <linalg/matrix_fraction.hpp>
 #include <exception>
 #include <numeric>
 
-fracessa::fracessa(const rational_linalg::matrix_fraction& matrix, bool is_cs, bool with_candidates, bool exact, bool full_support, bool with_log, int matrix_id)
+fracessa::fracessa(const linalg::matrix_frc& matrix, bool is_cs, bool with_candidates, bool exact, bool full_support, bool with_log, int matrix_id)
     : matrix_server_(matrix)
     , dimension_(matrix.rows())
     , is_cs_(is_cs)
@@ -36,7 +36,7 @@ fracessa::fracessa(const rational_linalg::matrix_fraction& matrix, bool is_cs, b
         }
         
         logger_->info("n={}", dimension_);
-        logger_->info("game matrix:\n{}", matrix_server_.get_game_matrix_fraction().to_log_string());
+        logger_->info("game matrix:\n{}", matrix_server_.get_game_matrix_frc().to_log_string());
     }
         
     supports_.initialize();
@@ -64,10 +64,10 @@ fracessa::fracessa(const rational_linalg::matrix_fraction& matrix, bool is_cs, b
 void fracessa::search_one_support(const bitset64& support, size_t support_size, bool is_cs_and_coprime)
 {
     if (!conf_exact_) 
-        if (!find_candidate_double(support, support_size))
+        if (!find_candidate_dbl(support, support_size))
             return;
 
-    if (!find_candidate_fraction(support, support_size))
+    if (!find_candidate_frc(support, support_size))
             return;
 
     candidate_.support_size = support_size;

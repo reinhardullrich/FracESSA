@@ -6,11 +6,11 @@
 #include <cstdint>
 
 #include <fracessa/fracessa.hpp>
-#include <rational_linalg/matrix_fraction.hpp>
+#include <linalg/matrix_fraction.hpp>
 #include <argparse/argparse.hpp>
 
 // Helper function to parse matrix string format: "n#values"
-bool parse_matrix_string(const std::string& matrix_str, rational_linalg::matrix_fraction& A, bool& is_cs)
+bool parse_matrix_string(const std::string& matrix_str, linalg::matrix_frc& A, bool& is_cs)
 {
     const size_t hash_pos = matrix_str.find('#');
     if (hash_pos == std::string::npos || hash_pos == 0 || hash_pos == matrix_str.length() - 1) {
@@ -68,10 +68,10 @@ bool parse_matrix_string(const std::string& matrix_str, rational_linalg::matrix_
     const size_t actual_size = rational_values.size();
     
     if (actual_size == expected_cs) {
-        A = rational_linalg::create_circular_symmetric(n, rational_values);
+        A = linalg::create_circular_symmetric(n, rational_values);
         is_cs = true;
     } else if (actual_size == expected_sym) {
-        A = rational_linalg::create_symmetric(n, rational_values);
+        A = linalg::create_symmetric(n, rational_values);
         is_cs = false;
     } else {
         std::cerr << "Error: Expected " << expected_cs << " (CS) or " << expected_sym << " (Sym) values, got " << actual_size << std::endl;
@@ -81,7 +81,7 @@ bool parse_matrix_string(const std::string& matrix_str, rational_linalg::matrix_
     return true;
 }
 
-void parse_matrix_string_unsafe(const std::string& matrix_str, rational_linalg::matrix_fraction& A, bool& is_cs)
+void parse_matrix_string_unsafe(const std::string& matrix_str, linalg::matrix_frc& A, bool& is_cs)
 {
     size_t hash_pos = 0;
     while (matrix_str[hash_pos] != '#') ++hash_pos;
@@ -124,10 +124,10 @@ void parse_matrix_string_unsafe(const std::string& matrix_str, rational_linalg::
     
     const size_t expected_cs = n / 2;
     if (rational_values.size() == expected_cs) {
-        A = rational_linalg::create_circular_symmetric(n, rational_values);
+        A = linalg::create_circular_symmetric(n, rational_values);
         is_cs = true;
     } else {
-        A = rational_linalg::create_symmetric(n, rational_values);
+        A = linalg::create_symmetric(n, rational_values);
         is_cs = false;
     }
 }
@@ -159,7 +159,7 @@ int main(int argc, char *argv[])
     const auto unsafe = program.get<bool>("--unsafe");
 
     bool is_cs;
-    rational_linalg::matrix_fraction A;
+    linalg::matrix_frc A;
     if (unsafe) parse_matrix_string_unsafe(matrix_str, A, is_cs);
     else if (!parse_matrix_string(matrix_str, A, is_cs)) return EXIT_FAILURE;
     

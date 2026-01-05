@@ -8,16 +8,16 @@
 #include <cmath>
 #include <fracessa/bitset64.hpp>
 
-namespace rational_linalg {
+namespace linalg {
 
-class matrix_double {
+class matrix_dbl {
 public:
-    matrix_double() : rows_(0), cols_(0) {}
-    matrix_double(size_t rows, size_t cols) 
+    matrix_dbl() : rows_(0), cols_(0) {}
+    matrix_dbl(size_t rows, size_t cols) 
         : rows_(rows), cols_(cols), data_(rows * cols, 0.0) {}
 
-    static matrix_double identity(size_t n) {
-        matrix_double result(n, n);
+    static matrix_dbl identity(size_t n) {
+        matrix_dbl result(n, n);
         for (size_t i = 0; i < n; ++i) {
             result(i, i) = 1.0;
         }
@@ -44,29 +44,14 @@ public:
         }
     }
 
-    matrix_double transpose() const {
-        matrix_double result(cols_, rows_);
+    matrix_dbl transpose() const {
+        matrix_dbl result(cols_, rows_);
         for (size_t i = 0; i < rows_; ++i) {
             for (size_t j = 0; j < cols_; ++j) {
                 result(j, i) = (*this)(i, j);
             }
         }
         return result;
-    }
-
-    matrix_double principal_submatrix(const bitset64& support) const {
-        size_t support_size = bs64::count_set_bits(support);
-        matrix_double submatrix(support_size, support_size);
-        size_t row = 0;
-        for (size_t i = bs64::find_pos_first_set_bit(support); i < 64; i = bs64::find_pos_next_set_bit(support, i)) {
-            size_t col = 0;
-            for (size_t j = bs64::find_pos_first_set_bit(support); j < 64; j = bs64::find_pos_next_set_bit(support, j)) {
-                submatrix(row, col) = (*this)(i, j);
-                ++col;
-            }
-            ++row;
-        }
-        return submatrix;
     }
 
     double infinity_norm() const {
@@ -102,6 +87,6 @@ private:
     std::vector<double> data_;
 };
 
-} // namespace rational_linalg
+} // namespace linalg
 
 #endif // RATIONAL_LINALG_MATRIX_DOUBLE_HPP

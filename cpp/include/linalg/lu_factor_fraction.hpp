@@ -1,23 +1,39 @@
 #ifndef RATIONAL_LINALG_LU_FACTOR_FRACTION_HPP
 #define RATIONAL_LINALG_LU_FACTOR_FRACTION_HPP
 
-#include <rational_linalg/matrix_fraction.hpp>
+#include <linalg/matrix_fraction.hpp>
 #include <stdexcept>
 
-namespace rational_linalg {
+namespace linalg {
 
-class lu_factor_fraction {
+/**
+ * LU_Factorization (Standard LU factorization with partial pivoting)
+ *
+ * Performance:
+ *   - Complexity: O(n^3), similar to Bareiss LU.
+ *   - Efficiency: In rational arithmetic, standard LU is often faster than Bareiss 
+ *     because intermediate coefficients grow less rapidly when GCD-canonicalized.
+ *
+ * Stability / Accuracy:
+ *   - Perfect for rational types; no rounding errors.
+ *   - Detects singular matrices exactly (pivot = 0).
+ */
+class LU_Factorization {
 public:
-    lu_factor_fraction(const matrix_fraction& A) {
+    /**
+     * Constructor performs a DEEP COPY of A into internal storage m_U.
+     * Original matrix A is NOT modified.
+     */
+    explicit LU_Factorization(const matrix_frc& A) {
         compute(A);
     }
 
-    void compute(const matrix_fraction& A) {
+    void compute(const matrix_frc& A) {
         const size_t n = A.rows();
         m_n = n;
-        m_L = matrix_fraction::identity(n);
+        m_L = matrix_frc::identity(n);
         m_U = A;
-        m_P = matrix_fraction::identity(n);
+        m_P = matrix_frc::identity(n);
         m_swap_count = 0;
         m_is_singular = false;
 
@@ -76,13 +92,13 @@ public:
         return det;
     }
 
-    matrix_fraction inverse() const {
+    matrix_frc inverse() const {
         if (m_is_singular) throw std::runtime_error("Matrix is singular");
-        matrix_fraction Inv(m_n, m_n);
+        matrix_frc Inv(m_n, m_n);
         for (size_t col = 0; col < m_n; ++col) {
-            matrix_fraction b(m_n, 1);
+            matrix_frc b(m_n, 1);
             b(col, 0) = fraction::one();
-            matrix_fraction x = solve(b);
+            matrix_frc x = solve(b);
             for (size_t i = 0; i < m_n; ++i) {
                 Inv(i, col) = x(i, 0);
             }
@@ -90,9 +106,9 @@ public:
         return Inv;
     }
 
-    matrix_fraction solve(const matrix_fraction& b) const {
+    matrix_frc solve(const matrix_frc& b) const {
         
-        matrix_fraction bp(m_n, 1);
+        matrix_frc bp(m_n, 1);
         for (size_t i = 0; i < m_n; ++i) {
             fraction sum = fraction::zero();
             for (size_t j = 0; j < m_n; ++j) {
@@ -101,8 +117,8 @@ public:
             bp(i, 0) = sum;
         }
         
-        matrix_fraction y(m_n, 1);
-        matrix_fraction x(m_n, 1);
+        matrix_frc y(m_n, 1);
+        matrix_frc x(m_n, 1);
 
         for (size_t i = 0; i < m_n; ++i) {
             fraction sum = bp(i, 0);
@@ -125,11 +141,11 @@ public:
 
 private:
     size_t m_n;
-    matrix_fraction m_L, m_U, m_P;
+    matrix_frc m_L, m_U, m_P;
     bool m_is_singular = false;
     int m_swap_count = 0;
 };
 
-} // namespace rational_linalg
+} // namespace linalg
 
 #endif // RATIONAL_LINALG_LU_FACTOR_FRACTION_HPP

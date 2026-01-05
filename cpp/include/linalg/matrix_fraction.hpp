@@ -5,21 +5,41 @@
 #include <string>
 #include <sstream>
 #include <iomanip>
-#include <rational_linalg/fraction.hpp>
+#include <linalg/fraction.hpp>
 #include <fracessa/bitset64.hpp>
 
-namespace rational_linalg {
+namespace linalg {
 
-class matrix_fraction {
+class matrix_frc {
 public:
-    matrix_fraction() : rows_(0), cols_(0) {}
-    matrix_fraction(size_t rows, size_t cols) 
-        : rows_(rows), cols_(cols), data_(rows * cols, fraction::zero()) {}
+    matrix_frc() : rows_(0), cols_(0) {}
+    
+    // Default constructor: NO initialization (fast - elements must be assigned)
+    matrix_frc(size_t rows, size_t cols) 
+        : rows_(rows), cols_(cols) {
+        data_.resize(rows * cols);
+    }
 
-    static matrix_fraction identity(size_t n) {
-        matrix_fraction result(n, n);
+    // Factory function: creates zero-initialized matrix
+    static matrix_frc zero(size_t rows, size_t cols) {
+        matrix_frc result(rows, cols);
+        for (size_t i = 0; i < rows * cols; ++i) {
+            result.data_[i] = fraction::zero();
+        }
+        return result;
+    }
+
+    // Factory function: creates identity matrix
+    static matrix_frc identity(size_t n) {
+        matrix_frc result(n, n);
         for (size_t i = 0; i < n; ++i) {
-            result(i, i) = fraction::one();
+            for (size_t j = 0; j < n; ++j) {
+                if (i == j) {
+                    result(i, j) = fraction::one();
+                } else {
+                    result(i, j) = fraction::zero();
+                }
+            }
         }
         return result;
     }
@@ -44,8 +64,8 @@ public:
         }
     }
 
-    matrix_fraction transpose() const {
-        matrix_fraction result(cols_, rows_);
+    matrix_frc transpose() const {
+        matrix_frc result(cols_, rows_);
         for (size_t i = 0; i < rows_; ++i) {
             for (size_t j = 0; j < cols_; ++j) {
                 result(j, i) = (*this)(i, j);
@@ -54,20 +74,6 @@ public:
         return result;
     }
 
-    matrix_fraction principal_submatrix(const bitset64& support) const {
-        size_t support_size = bs64::count_set_bits(support);
-        matrix_fraction submatrix(support_size, support_size);
-        size_t row = 0;
-        for (size_t i = bs64::find_pos_first_set_bit(support); i < 64; i = bs64::find_pos_next_set_bit(support, i)) {
-            size_t col = 0;
-            for (size_t j = bs64::find_pos_first_set_bit(support); j < 64; j = bs64::find_pos_next_set_bit(support, j)) {
-                submatrix(row, col) = (*this)(i, j);
-                ++col;
-            }
-            ++row;
-        }
-        return submatrix;
-    }
 
     std::string to_log_string() const {
         std::stringstream ss;
@@ -87,9 +93,9 @@ public:
         return true;
     }
 
-    matrix_fraction operator*(const matrix_fraction& other) const {
+    matrix_frc operator*(const matrix_frc& other) const {
         if (cols_ != other.rows_) throw std::runtime_error("Matrix dimensions mismatch");
-        matrix_fraction result(rows_, other.cols_);
+        matrix_frc result(rows_, other.cols_);
         for (size_t i = 0; i < rows_; ++i) {
             for (size_t j = 0; j < other.cols_; ++j) {
                 fraction sum = fraction::zero();
@@ -102,8 +108,8 @@ public:
         return result;
     }
 
-    matrix_fraction operator*(const fraction& scalar) const {
-        matrix_fraction result(rows_, cols_);
+    matrix_frc operator*(const fraction& scalar) const {
+        matrix_frc result(rows_, cols_);
         for (size_t i = 0; i < data_.size(); ++i) {
             fraction::mul(result.data_[i], data_[i], scalar);
         }
@@ -112,7 +118,6 @@ public:
 
     // Forward declarations for methods defined in separate headers to keep this one lean
     bool is_positive_definite() const;
-    std::vector<double> to_double_vec() const;
 
 private:
     size_t rows_;
@@ -121,8 +126,8 @@ private:
 };
 
 // Factory functions
-inline matrix_fraction create_circular_symmetric(size_t n, const std::vector<fraction>& half_row) {
-    matrix_fraction result(n, n);
+inline matrix_frc create_circular_symmetric(size_t n, const std::vector<fraction>& half_row) {
+    matrix_frc result(n, n);
     std::vector<fraction> first_row(n);
     first_row[0] = fraction::zero();
     
@@ -147,8 +152,8 @@ inline matrix_fraction create_circular_symmetric(size_t n, const std::vector<fra
     return result;
 }
 
-inline matrix_fraction create_symmetric(size_t n, const std::vector<fraction>& upper_triangular) {
-    matrix_fraction result(n, n);
+inline matrix_frc create_symmetric(size_t n, const std::vector<fraction>& upper_triangular) {
+    matrix_frc result(n, n);
     size_t idx = 0;
     for (size_t i = 0; i < n; ++i) {
         for (size_t j = i; j < n; ++j) {
@@ -161,6 +166,6 @@ inline matrix_fraction create_symmetric(size_t n, const std::vector<fraction>& u
     return result;
 }
 
-} // namespace rational_linalg
+} // namespace linalg
 
 #endif // RATIONAL_LINALG_MATRIX_FRACTION_HPP

@@ -1,10 +1,9 @@
 #include <fracessa/fracessa.hpp>
 #include <fracessa/bitset64.hpp>
-#include <rational_linalg/copositivity.hpp>
-#include <rational_linalg/matrix_fraction.hpp>
-#include <rational_linalg/matrix_double.hpp>
-#include <rational_linalg/positive_definite_fraction.hpp>
-#include <rational_linalg/positive_definite_double.hpp>
+#include <linalg/copositive_fraction.hpp>
+#include <linalg/matrix_fraction.hpp>
+#include <linalg/matrix_double.hpp>
+#include <linalg/positive_definite.hpp>
 #include <iostream>
 
 void fracessa::check_stability()
@@ -32,17 +31,17 @@ void fracessa::check_stability()
         return;
     }
     
-    auto& Bee_double = matrix_server_.get_bee_matrix_double(extended_support_reduced, m);
+    auto& Bee_dbl = matrix_server_.get_bee_matrix_dbl(extended_support_reduced, m);
     
-    if (Bee_double.is_positive_definite()) {
+    if (Bee_dbl.is_positive_definite()) {
         if (conf_with_log_)
-            logger_->info("Reason: true_posdef_double");
-        candidate_.stability = "T_pd_double";
+            logger_->info("Reason: true_posdef_dbl");
+        candidate_.stability = "T_pd_dbl";
         candidate_.is_ess = true;
         return;
     }
     
-    auto& Bee = matrix_server_.get_bee_matrix_fraction(extended_support_reduced, m);
+    auto& Bee = matrix_server_.get_bee_matrix_frc(extended_support_reduced, m);
 
     if (conf_with_log_) {
         logger_->info("matrix bee:\n{}", Bee.to_log_string());
@@ -50,7 +49,7 @@ void fracessa::check_stability()
 
     if (Bee.is_positive_definite()) {
         if (conf_with_log_)
-            logger_->info("Reason: true_posdef_rational");
+            logger_->info("Reason: true_posdef_frc");
         candidate_.stability = "T_pd_rat";
         candidate_.is_ess = true;
         return;
@@ -77,7 +76,7 @@ void fracessa::check_stability()
     std::vector<bitset64> kay_vee(r + 1);
     std::vector<size_t> kay_vee_size(r + 1);
     std::vector<bitset64> jay_without_kay_vee(r + 1);
-    std::vector<rational_linalg::matrix_fraction> bee_vee(r + 1);
+    std::vector<linalg::matrix_frc> bee_vee(r + 1);
 
     kay_vee[0] = jay;
     kay_vee_size[0] = extended_support_size_reduced;
@@ -124,15 +123,18 @@ void fracessa::check_stability()
             return;
         }
         
-        bee_vee[v] = rational_linalg::matrix_fraction(kay_vee_size[v], kay_vee_size[v]);
+        // Equation (20) in Bomze 1992: Rank-1 update for partial copositivity.
+        bee_vee[v] = linalg::matrix_frc(kay_vee_size[v], kay_vee_size[v]);  // NO_INIT by default, all elements assigned below
         const size_t n_old = kay_vee_size[v-1];
         const auto& B_old = bee_vee[v-1];
         auto& B_new = bee_vee[v];
         
+        // Process rows/columns, skipping pivot
         for (size_t i_old = 0, i_new = 0; i_old < n_old; ++i_old) {
-            if (i_old == pivot_pos) continue;            
+            if (i_old == pivot_pos) continue;  // Skip pivot row            
             for (size_t j_old = 0, j_new = 0; j_old < n_old; ++j_old) {
-                if (j_old == pivot_pos) continue;               
+                if (j_old == pivot_pos) continue;  // Skip pivot column               
+                // B'[i,j] = pivot*B[i,j] - B[i,pivot]*B[pivot,j]
                 fraction::mul(B_new(i_new, j_new), pivot, B_old(i_old, j_old));
                 B_new(i_new, j_new).submul(B_old(i_old, pivot_pos), B_old(pivot_pos, j_old));
                 ++j_new;
@@ -148,7 +150,7 @@ void fracessa::check_stability()
     if (conf_with_log_)
         logger_->info("Copositivity Check:");
 
-    if (rational_linalg::isStrictlyCopositiveMemoized(bee_vee[r])) {
+    if (linalg::isStrictlyCopositiveMemoized(bee_vee[r])) {
         if (conf_with_log_)
             logger_->info("Reason: true_copositive");
         candidate_.stability = "T_copos";
