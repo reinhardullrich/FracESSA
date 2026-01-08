@@ -20,28 +20,29 @@ public:
         data_.resize(rows * cols);
     }
 
-    // Factory function: creates zero-initialized matrix
-    static matrix_frc zero(size_t rows, size_t cols) {
-        matrix_frc result(rows, cols);
+    // In-place initialization methods (no temporaries)
+    void set_zero(size_t rows, size_t cols) {
+        rows_ = rows;
+        cols_ = cols;
+        data_.resize(rows * cols);
         for (size_t i = 0; i < rows * cols; ++i) {
-            result.data_[i] = fraction::zero();
+            data_[i] = fraction::zero();
         }
-        return result;
     }
 
-    // Factory function: creates identity matrix
-    static matrix_frc identity(size_t n) {
-        matrix_frc result(n, n);
+    void set_identity(size_t n) {
+        rows_ = n;
+        cols_ = n;
+        data_.resize(n * n);
         for (size_t i = 0; i < n; ++i) {
             for (size_t j = 0; j < n; ++j) {
                 if (i == j) {
-                    result(i, j) = fraction::one();
+                    data_[i * n + j] = fraction::one();
                 } else {
-                    result(i, j) = fraction::zero();
+                    data_[i * n + j] = fraction::zero();
                 }
             }
         }
-        return result;
     }
 
     size_t rows() const noexcept { return rows_; }
@@ -64,16 +65,6 @@ public:
         }
     }
 
-    matrix_frc transpose() const {
-        matrix_frc result(cols_, rows_);
-        for (size_t i = 0; i < rows_; ++i) {
-            for (size_t j = 0; j < cols_; ++j) {
-                result(j, i) = (*this)(i, j);
-            }
-        }
-        return result;
-    }
-
 
     std::string to_log_string() const {
         std::stringstream ss;
@@ -86,27 +77,6 @@ public:
         return ss.str();
     }
 
-    bool all_entries_greater_zero() const noexcept {
-        for (const auto& val : data_) {
-            if (val <= fraction::zero()) return false;
-        }
-        return true;
-    }
-
-    matrix_frc operator*(const matrix_frc& other) const {
-        if (cols_ != other.rows_) throw std::runtime_error("Matrix dimensions mismatch");
-        matrix_frc result(rows_, other.cols_);
-        for (size_t i = 0; i < rows_; ++i) {
-            for (size_t j = 0; j < other.cols_; ++j) {
-                fraction sum = fraction::zero();
-                for (size_t k = 0; k < cols_; ++k) {
-                    sum.addmul((*this)(i, k), other(k, j));
-                }
-                result(i, j) = sum;
-            }
-        }
-        return result;
-    }
 
     matrix_frc operator*(const fraction& scalar) const {
         matrix_frc result(rows_, cols_);
@@ -116,8 +86,55 @@ public:
         return result;
     }
 
-    // Forward declarations for methods defined in separate headers to keep this one lean
-    bool is_positive_definite() const;
+    /**
+     * is_positive_definite - rational LDL^T decomposition.
+     * 
+     * Accuracy:
+     *   - Perfect accuracy with fraction types; no rounding errors.
+     *   - Checks if diagonal elements of D are strictly positive.
+     */
+    bool is_positive_definite() const {
+        const size_t n = rows_;
+        if (n == 0) return true;
+        
+        std::vector<fraction> d(n);
+        
+        matrix_frc L;
+        L.set_identity(n);
+
+        fraction aSum, bSum, term;
+
+        for (size_t i = 0; i < n; ++i) {
+            for (size_t j = 0; j < i; ++j) {
+                aSum = fraction::zero();
+                for (size_t k = 0; k < j; ++k) {
+                    // term = L(j, k) * d[k]
+                    fraction::mul(term, L(j, k), d[k]);
+                    // aSum += L(i, k) * term
+                    aSum.addmul(L(i, k), term);
+                }
+                // L(i, j) = A(i, j) - aSum
+                fraction::sub(L(i, j), (*this)(i, j), aSum);
+                // L(i, j) /= d[j]
+                L(i, j).div_inplace(d[j]);
+            }
+            
+            bSum = fraction::zero();
+            for (size_t k = 0; k < i; ++k) {
+                // term = L(i, k) * d[k]
+                fraction::mul(term, L(i, k), d[k]);
+                // bSum += L(i, k) * term
+                bSum.addmul(L(i, k), term);
+            }
+            
+            // d[i] = A(i, i) - bSum
+            fraction::sub(d[i], (*this)(i, i), bSum);
+            if (d[i].sgn() <= 0) {
+                return false;
+            }
+        }
+        return true;
+    }
 
 private:
     size_t rows_;

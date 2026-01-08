@@ -1,7 +1,6 @@
 #include <gtest/gtest.h>
 #include <linalg/matrix_fraction.hpp>
 #include <linalg/matrix_double.hpp>
-#include <linalg/positive_definite.hpp>
 
 using namespace linalg;
 
@@ -15,9 +14,9 @@ TEST(MatrixFractionTest, BasicOperations) {
     EXPECT_EQ(A(0, 0), fraction::one());
     EXPECT_EQ(A(1, 1), fraction(4));
 
-    matrix_frc AT = A.transpose();
-    EXPECT_EQ(AT(0, 1), fraction(3));
-    EXPECT_EQ(AT(1, 0), fraction::two());
+    // matrix_frc AT = A.transpose();
+    // EXPECT_EQ(AT(0, 1), fraction(3));
+    // EXPECT_EQ(AT(1, 0), fraction::two());
 }
 
 TEST(MatrixDoubleTest, BasicOperations) {

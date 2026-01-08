@@ -3,8 +3,9 @@
 #include <linalg/copositive_fraction.hpp>
 #include <linalg/matrix_fraction.hpp>
 #include <linalg/matrix_double.hpp>
-#include <linalg/positive_definite.hpp>
 #include <iostream>
+#include <cassert>
+#include <stdexcept>
 
 void fracessa::check_stability()
 {
@@ -55,8 +56,8 @@ void fracessa::check_stability()
         return;
     }
 
-    bitset64 kay = bs64::subtract(candidate_.extended_support, candidate_.support);
-    size_t kay_size = bs64::count_set_bits(kay);
+    bitset64 kay = bs64::subtract(candidate_.extended_support, candidate_.support); // will call them "unused best responses" or "ubr"
+    size_t kay_size = bs64::count_set_bits(kay); //ubr size
 
     if (conf_with_log_)
         logger_->info("kay: {}", bs64::to_bitstring(kay, dimension_));
@@ -70,18 +71,21 @@ void fracessa::check_stability()
     }
    
     const bitset64 jay = extended_support_reduced;
-    const bitset64 jay_minus_kay = bs64::subtract(jay, kay);
-    const size_t r = bs64::count_set_bits(jay_minus_kay);
+    const bitset64 jay_minus_kay = bs64::subtract(jay, kay); // extended support reduced - ubr = support minus m (since m is element of support!)
+    const size_t r = bs64::count_set_bits(jay_minus_kay); // must be support size - 1
+    if (r != candidate_.support_size - 1) {
+        throw std::runtime_error("Invariant violation: r != candidate_.support_size - 1");
+    }
 
     std::vector<bitset64> kay_vee(r + 1);
     std::vector<size_t> kay_vee_size(r + 1);
     std::vector<bitset64> jay_without_kay_vee(r + 1);
     std::vector<linalg::matrix_frc> bee_vee(r + 1);
 
-    kay_vee[0] = jay;
-    kay_vee_size[0] = extended_support_size_reduced;
-    jay_without_kay_vee[0] = jay_minus_kay;
-    bee_vee[0] = Bee;
+    kay_vee[0] = jay; // extended support reduced
+    kay_vee_size[0] = extended_support_size_reduced; // extended support size - 1
+    jay_without_kay_vee[0] = jay_minus_kay; // support minus m
+    bee_vee[0] = Bee; // size: extended support size - 1
 
     if (conf_with_log_) {
         logger_->info("Partial Copositivity Check:");
@@ -93,7 +97,7 @@ void fracessa::check_stability()
         logger_->info("bee_vee[0]:\n{}", bee_vee[0].to_log_string());
     }
 
-    for (size_t v = 1; v <= r; ++v) {
+    for (size_t v = 1; v <= r; ++v) { // reduce over all support minus m, hence dim bee_vee[r] must be ubr size!!!
         const size_t iv_pos = bs64::find_pos_first_set_bit(jay_without_kay_vee[v-1]);
         
         jay_without_kay_vee[v] = bs64::subtract(jay_without_kay_vee[v-1], bs64::single_bit_at_pos(iv_pos));
@@ -150,7 +154,7 @@ void fracessa::check_stability()
     if (conf_with_log_)
         logger_->info("Copositivity Check:");
 
-    if (linalg::isStrictlyCopositiveMemoized(bee_vee[r])) {
+    if (linalg::is_strictly_copositive(bee_vee[r])) {
         if (conf_with_log_)
             logger_->info("Reason: true_copositive");
         candidate_.stability = "T_copos";

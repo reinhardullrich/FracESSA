@@ -132,10 +132,9 @@ inline bool solve_linear_frc(matrix_frc& M, matrix_frc& x) {
             sum.submul(M(i, j), x(j, 0));
         }
 
-        fraction::div(x(i, 0), sum, M(i, i)); // Early exit: x must be > 0.
-        // Full support for this subgame <=> x is in the interior of the (sub)simplex 
-        // <=> all strategy probabilities x_i are strictly positive.
-        if (x(i, 0).sgn() <= 0) {
+        fraction::div(x(i, 0), sum, M(i, i)); 
+        // Full support for this subgame <=> x is in the interior of the (sub)simplex <=> all strategy probabilities x_i are strictly positive.
+        if (x(i, 0).sgn() <= 0) { // Early exit: x must be > 0.
             return false; 
         }
     }

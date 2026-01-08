@@ -6,6 +6,7 @@
 #include <sstream>
 #include <iomanip>
 #include <cmath>
+#include <limits>
 #include <fracessa/bitset64.hpp>
 
 namespace linalg {
@@ -16,13 +17,6 @@ public:
     matrix_dbl(size_t rows, size_t cols) 
         : rows_(rows), cols_(cols), data_(rows * cols, 0.0) {}
 
-    static matrix_dbl identity(size_t n) {
-        matrix_dbl result(n, n);
-        for (size_t i = 0; i < n; ++i) {
-            result(i, i) = 1.0;
-        }
-        return result;
-    }
 
     size_t rows() const noexcept { return rows_; }
     size_t cols() const noexcept { return cols_; }
@@ -44,15 +38,6 @@ public:
         }
     }
 
-    matrix_dbl transpose() const {
-        matrix_dbl result(cols_, rows_);
-        for (size_t i = 0; i < rows_; ++i) {
-            for (size_t j = 0; j < cols_; ++j) {
-                result(j, i) = (*this)(i, j);
-            }
-        }
-        return result;
-    }
 
     double infinity_norm() const {
         double max_norm = 0.0;
@@ -66,20 +51,45 @@ public:
         return max_norm;
     }
 
-    std::string to_log_string() const {
-        std::stringstream ss;
-        ss << std::fixed << std::setprecision(6);
-        for (size_t i = 0; i < rows_; ++i) {
-            for (size_t j = 0; j < cols_; ++j) {
-                ss << std::setw(12) << (*this)(i, j) << " ";
+    /**
+     * is_positive_definite - Cholesky decomposition for double matrices.
+     * 
+     * Stability / Accuracy:
+     *   - Uses machine epsilon scaled by infinity norm as a tolerance for 
+     *     better numerical stability in edge cases.
+     */
+    bool is_positive_definite() const {
+        const size_t n = rows_;
+        if (n == 0) return true;
+        if (n != cols_) return false;
+        
+        matrix_dbl L(n, n);
+        const double tolerance = std::numeric_limits<double>::epsilon() * infinity_norm();
+        
+        for (size_t i = 0; i < n; ++i) {
+            for (size_t j = 0; j < i; ++j) {
+                double sum = 0.0;
+                for (size_t k = 0; k < j; ++k) {
+                    sum += L(i, k) * L(j, k);
+                }
+                L(i, j) = (1.0 / L(j, j)) * ((*this)(i, j) - sum);
             }
-            ss << "\n";
+            
+            double sum = 0.0;
+            for (size_t k = 0; k < i; ++k) {
+                sum += L(i, k) * L(i, k);
+            }
+            double diagonal_value = (*this)(i, i) - sum;
+            
+            if (diagonal_value <= tolerance) {
+                return false;
+            }
+            
+            L(i, i) = std::sqrt(diagonal_value);
         }
-        return ss.str();
+        
+        return true;
     }
-
-    // Forward declaration for method defined in separate header
-    bool is_positive_definite() const;
 
 private:
     size_t rows_;

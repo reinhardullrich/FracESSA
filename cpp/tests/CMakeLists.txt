@@ -2,7 +2,7 @@
 set(TEST_LIST
     test_matrix
     test_linear_solver
-    test_bareiss_lu
+    test_lu
     test_copositivity
     test_bitset64
     test_integration
@@ -27,7 +27,7 @@ file(COPY ${CMAKE_CURRENT_SOURCE_DIR}/test_data DESTINATION ${CMAKE_CURRENT_BINA
 # Register tests with CTest
 add_test(NAME MatrixTests COMMAND test_matrix)
 add_test(NAME LinearSolverTests COMMAND test_linear_solver)
-add_test(NAME BareissLUTests COMMAND test_bareiss_lu)
+add_test(NAME LUTests COMMAND test_lu)
 add_test(NAME CopositivityTests COMMAND test_copositivity)
 add_test(NAME Bitset64Tests COMMAND test_bitset64)
 add_test(NAME IntegrationTests COMMAND test_integration)

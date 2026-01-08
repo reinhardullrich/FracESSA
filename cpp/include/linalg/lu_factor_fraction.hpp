@@ -31,9 +31,9 @@ public:
     void compute(const matrix_frc& A) {
         const size_t n = A.rows();
         m_n = n;
-        m_L = matrix_frc::identity(n);
+        m_L.set_identity(n);
         m_U = A;
-        m_P = matrix_frc::identity(n);
+        m_P.set_identity(n);
         m_swap_count = 0;
         m_is_singular = false;
 

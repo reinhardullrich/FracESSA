@@ -98,6 +98,9 @@ public:
     fmpq* ptr() noexcept { return data_; }
     const fmpq* ptr() const noexcept { return data_; }
     
+    // Raw pointer access for direct FLINT function calls (e.g., fmpq_sgn)
+    const fmpq* raw_ptr() const noexcept { return data_; }
+    
     // ========================================================================
     // In-Place Operations (FAST - No Temporaries)
     // ========================================================================
@@ -158,13 +161,13 @@ public:
         fmpq_sub(res.data_, a.data_, b.data_);
     }
 
-    static void set(fraction& res, const fraction& a) noexcept {
-        fmpq_set(res.data_, a.data_);
-    }
+    // static void set(fraction& res, const fraction& a) noexcept {
+    //     fmpq_set(res.data_, a.data_);
+    // }
 
-    void set_zero() noexcept {
-        fmpq_zero(data_);
-    }
+    // void set_zero() noexcept {
+    //     fmpq_zero(data_);
+    // }
 
     int sgn() const noexcept {
         return fmpq_sgn(data_);
@@ -180,11 +183,11 @@ public:
     //     return result;
     // }
     
-    // fraction operator-(const fraction& other) const {
-    //     fraction result;
-    //     fmpq_sub(result.data_, data_, other.data_);
-    //     return result;
-    // }
+    fraction operator-(const fraction& other) const {
+        fraction result;
+        fmpq_sub(result.data_, data_, other.data_);
+        return result;
+    }
     
     fraction operator*(const fraction& other) const {
         fraction result;
@@ -271,20 +274,20 @@ public:
         return fmpq_is_one(data_);
     }
     
-    fraction abs() const noexcept {
-        fraction result;
-        fmpq_abs(result.data_, data_);
-        return result;
-    }
+    // fraction abs() const noexcept {
+    //     fraction result;
+    //     fmpq_abs(result.data_, data_);
+    //     return result;
+    // }
     
-    fraction inverse() const {
-        if (fmpq_is_zero(data_)) {
-            throw std::domain_error("Cannot invert zero");
-        }
-        fraction result;
-        fmpq_inv(result.data_, data_);
-        return result;
-    }
+    // fraction inverse() const {
+    //     if (fmpq_is_zero(data_)) {
+    //         throw std::domain_error("Cannot invert zero");
+    //     }
+    //     fraction result;
+    //     fmpq_inv(result.data_, data_);
+    //     return result;
+    // }
     
     // ========================================================================
     // Conversions
