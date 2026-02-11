@@ -156,12 +156,13 @@ class Fracessa:
             self.executable_path = Path(executable_path)
         else:
             # Auto-detect executable path
-            # __file__ is at fracessa/python/fracessa_py.py
-            # Go up to project root: parent.parent.parent (from __file__)
+            # __file__ is at <repo>/python/fracessa_py.py
             script_file = Path(__file__).resolve()  # Get absolute path
-            project_root = script_file.parent.parent.parent  # project root
+            repo_root = script_file.parent.parent  # nested git repo root
+            workspace_root = repo_root.parent
             possible_paths = [
-                project_root / "build" / "fracessa",
+                repo_root / "build" / "fracessa",
+                workspace_root / "build" / "fracessa",  # backward compatibility with old layout
             ]
 
             self.executable_path = None

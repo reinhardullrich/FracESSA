@@ -29,7 +29,7 @@ def map_reason_ess_to_string(reason_ess_value: str) -> str:
     Old enum values (numbers):
     1 = true_pure_ess -> "T_pure_ess"
     2 = true_posdef_double -> "T_pd_dbl"
-    3 = true_posdef_rational -> "T_pd_rat"
+    3 = true_posdef_rational -> "T_pd_frc"
     4 = true_copositive -> "T_copos"
     5 = false_not_posdef_and_kay_0_1 -> "F_not_pd_kay_0_1"
     6 = false_not_partial_copositive -> "F_not_part_copos"
@@ -40,7 +40,7 @@ def map_reason_ess_to_string(reason_ess_value: str) -> str:
     numeric_mapping = {
         '1': 'T_pure_ess',
         '2': 'T_pd_dbl',
-        '3': 'T_pd_rat',
+        '3': 'T_pd_frc',
         '4': 'T_copos',
         '5': 'F_not_pd_kay_0_1',
         '6': 'F_not_part_copos',
@@ -48,6 +48,7 @@ def map_reason_ess_to_string(reason_ess_value: str) -> str:
     }
     legacy_string_mapping = {
         'T_pd_double': 'T_pd_dbl',
+        'T_pd_rat': 'T_pd_frc',
     }
 
     canonical_values = set(numeric_mapping.values())
@@ -308,10 +309,10 @@ def main():
     
     matrices = data.get('matrices', [])
     
-    # Baseline regeneration always processes all matrices, including in_use=false.
+    # Baseline regeneration always processes all matrices in verification_matrices.json.
     total_count = len(matrices)
     print(f"Found {total_count} matrices total")
-    print(f"Processing all {total_count} matrices (including in_use=false)")
+    print(f"Processing all {total_count} matrices")
     print()
     
     # Process matrices sequentially

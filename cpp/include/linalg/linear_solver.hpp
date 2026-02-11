@@ -73,8 +73,8 @@ inline bool solve_linear_dbl(matrix_dbl& M, matrix_dbl& x) {
         const double pivot = M(i, i);
         double temp_x = sum / pivot;
         
-        // Support-restricted ESS candidate requires nonnegative/positive probabilities.
-        if (temp_x < -1e-10) return false;
+        // Only support probabilities must be positive; the last variable is payoff.
+        if (i < n - 1 && temp_x < -1e-10) return false;
         
         x(i, 0) = temp_x;
     }
@@ -145,8 +145,8 @@ inline bool solve_linear_frc(matrix_frc& M, matrix_frc& x) {
         }
 
         fraction::div(x(i, 0), sum, M(i, i)); 
-        // Full-support condition: all strategy weights strictly positive.
-        if (x(i, 0).sgn() <= 0) {
+        // Only support weights must be strictly positive; x(n-1) is payoff.
+        if (i < n - 1 && x(i, 0).sgn() <= 0) {
             return false; 
         }
     }

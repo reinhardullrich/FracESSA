@@ -130,6 +130,7 @@ add_library(fracessa_lib
     src/fracessa.cpp
     src/findeq.cpp
     src/checkstab.cpp
+    src/matrix_parser.cpp
 )
 
 # Set common include directories

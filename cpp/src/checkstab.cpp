@@ -65,7 +65,7 @@ void fracessa::check_stability()
     if (Bee.is_positive_definite()) {
         if (conf_with_log_)
             logger_->info("Reason: true_posdef_frc");
-        candidate_.stability = "T_pd_rat";
+        candidate_.stability = "T_pd_frc";
         candidate_.is_ess = true;
         return;
     }

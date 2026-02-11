@@ -54,3 +54,35 @@ TEST(LUFactorFractionTest, Solve) {
     EXPECT_EQ(x(0, 0), fraction::two());
     EXPECT_EQ(x(1, 0), fraction::one());
 }
+
+TEST(LUFactorFractionTest, SingularDeterminantAndFlag) {
+    matrix_frc A(2, 2);
+    A(0, 0) = fraction::one(); A(0, 1) = fraction::two();
+    A(1, 0) = fraction::two(); A(1, 1) = fraction(4); // row 2 = 2 * row 1
+
+    LU_Factorization lu(A);
+    EXPECT_TRUE(lu.isSingular());
+    EXPECT_EQ(lu.determinant(), fraction::zero());
+}
+
+TEST(LUFactorFractionTest, SingularInverseThrows) {
+    matrix_frc A(2, 2);
+    A(0, 0) = fraction::one(); A(0, 1) = fraction::two();
+    A(1, 0) = fraction::two(); A(1, 1) = fraction(4);
+
+    LU_Factorization lu(A);
+    EXPECT_THROW(lu.inverse(), std::runtime_error);
+}
+
+TEST(LUFactorFractionTest, SingularSolveThrows) {
+    matrix_frc A(2, 2);
+    A(0, 0) = fraction::one(); A(0, 1) = fraction::two();
+    A(1, 0) = fraction::two(); A(1, 1) = fraction(4);
+
+    matrix_frc b(2, 1);
+    b(0, 0) = fraction::one();
+    b(1, 0) = fraction::two();
+
+    LU_Factorization lu(A);
+    EXPECT_THROW(lu.solve(b), std::domain_error);
+}

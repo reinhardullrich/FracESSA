@@ -60,3 +60,17 @@ TEST(MatrixPositiveDefiniteTest, Double) {
     A(1, 0) = -1.0; A(1, 1) = 2.0;
     EXPECT_TRUE(A.is_positive_definite());
 }
+
+TEST(MatrixPositiveDefiniteTest, DoubleRejectsIndefinite) {
+    matrix_dbl B(2, 2);
+    B(0, 0) = 1.0; B(0, 1) = 2.0;
+    B(1, 0) = 2.0; B(1, 1) = 1.0;
+    EXPECT_FALSE(B.is_positive_definite());
+}
+
+TEST(MatrixPositiveDefiniteTest, DoubleRejectsNonSquare) {
+    matrix_dbl C(2, 3);
+    C(0, 0) = 1.0; C(0, 1) = 0.0; C(0, 2) = 0.0;
+    C(1, 0) = 0.0; C(1, 1) = 1.0; C(1, 2) = 0.0;
+    EXPECT_FALSE(C.is_positive_definite());
+}

@@ -1,5 +1,6 @@
 #include <gtest/gtest.h>
 #include <fracessa/bitset64.hpp>
+#include <vector>
 
 /*
  * Bitset support tests.
@@ -124,6 +125,35 @@ TEST(Bitset64Test, RotOneRight) {
     EXPECT_EQ(bs64::count_set_bits(bits), 4);
 }
 
+TEST(Bitset64Test, RotOneRightExactPattern) {
+    // n=5, start with bits {0,2} -> bitstring "00101"
+    bitset64 bits = 0ULL;
+    bits = bs64::set_bit_at_pos(bits, 0);
+    bits = bs64::set_bit_at_pos(bits, 2);
+
+    bits = bs64::rot_one_right(bits, 5);
+
+    // After right-rotate by one on [0..4], bits become {1,4} -> "10010".
+    EXPECT_TRUE(bs64::is_set_at_pos(bits, 1));
+    EXPECT_TRUE(bs64::is_set_at_pos(bits, 4));
+    EXPECT_FALSE(bs64::is_set_at_pos(bits, 0));
+    EXPECT_FALSE(bs64::is_set_at_pos(bits, 2));
+    EXPECT_EQ(bs64::to_bitstring(bits, 5), "10010");
+}
+
+TEST(Bitset64Test, RotOneRightMasksBitsOutsideDimension) {
+    // Bit 6 is outside n=5 and must be masked out.
+    bitset64 bits = 0ULL;
+    bits = bs64::set_bit_at_pos(bits, 0);
+    bits = bs64::set_bit_at_pos(bits, 6);
+
+    bits = bs64::rot_one_right(bits, 5);
+
+    EXPECT_EQ(bs64::count_set_bits(bits), 1u);
+    EXPECT_TRUE(bs64::is_set_at_pos(bits, 4));
+    EXPECT_FALSE(bs64::is_set_at_pos(bits, 6));
+}
+
 
 TEST(Bitset64Test, IsSmallestRepresentation) {
     bitset64 bits = 0ULL;
@@ -179,6 +209,54 @@ TEST(Bitset64Test, LowestSetBitZero) {
     bitset64 bits = 0ULL;
     bitset64 lowest = bs64::lowest_set_bit_as_bit(bits);
     EXPECT_EQ(lowest, 0ULL);
+}
+
+TEST(Bitset64Test, FindNextSetBitAtTopBit) {
+    bitset64 bits = 0ULL;
+    bits = bs64::set_bit_at_pos(bits, 63);
+
+    const size_t first = bs64::find_pos_first_set_bit(bits);
+    EXPECT_EQ(first, 63u);
+    EXPECT_EQ(bs64::find_pos_next_set_bit(bits, first), 64u);
+}
+
+TEST(Bitset64Test, BitsBeforePosBoundary) {
+    bitset64 bits = 0ULL;
+    bits = bs64::set_bit_at_pos(bits, 0);
+    bits = bs64::set_bit_at_pos(bits, 3);
+    bits = bs64::set_bit_at_pos(bits, 5);
+
+    EXPECT_EQ(bs64::bits_before_pos(bits, 0), 0ULL);
+    EXPECT_EQ(bs64::bits_before_pos(bits, 4), (1ULL << 0) | (1ULL << 3));
+}
+
+TEST(Bitset64Test, ExtractSetIndicesBasic) {
+    bitset64 bits = 0ULL;
+    bits = bs64::set_bit_at_pos(bits, 0);
+    bits = bs64::set_bit_at_pos(bits, 2);
+    bits = bs64::set_bit_at_pos(bits, 5);
+
+    uint8_t idx[bs64::kMaxBitsetDimension] = {};
+    const size_t count = bs64::extract_set_indices(bits, 6, idx);
+
+    ASSERT_EQ(count, 3u);
+    EXPECT_EQ(idx[0], 0u);
+    EXPECT_EQ(idx[1], 2u);
+    EXPECT_EQ(idx[2], 5u);
+}
+
+TEST(Bitset64Test, ExtractSetIndicesRespectsDimension) {
+    bitset64 bits = 0ULL;
+    bits = bs64::set_bit_at_pos(bits, 1);
+    bits = bs64::set_bit_at_pos(bits, 3);
+    bits = bs64::set_bit_at_pos(bits, 6);
+
+    uint8_t idx[bs64::kMaxBitsetDimension] = {};
+    const size_t count = bs64::extract_set_indices(bits, 5, idx);
+
+    ASSERT_EQ(count, 2u);
+    EXPECT_EQ(idx[0], 1u);
+    EXPECT_EQ(idx[1], 3u);
 }
 
 // Test String Functions
