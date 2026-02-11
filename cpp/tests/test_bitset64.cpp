@@ -1,6 +1,13 @@
 #include <gtest/gtest.h>
 #include <fracessa/bitset64.hpp>
 
+/*
+ * Bitset support tests.
+ *
+ * These assert core set-theoretic primitives used everywhere in support
+ * enumeration and pruning. Failures here usually imply broad algorithmic breakage.
+ */
+
 // Test Basic Operations
 TEST(Bitset64Test, Set) {
     bitset64 bits = 0ULL;

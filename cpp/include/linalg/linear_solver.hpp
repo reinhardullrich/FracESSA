@@ -9,6 +9,15 @@
 
 namespace linalg {
 
+/*
+ * Small dense linear solvers for bordered support systems:
+ * [A_S  -1; 1^T 0] [x;u] = [0;1].
+ *
+ * Behavioral contract:
+ * - `false` means either singular/degenerate system or violation of positivity
+ *   constraints required for interior support candidates.
+ * - Input matrix is intentionally modified in place to avoid extra buffers.
+ */
 /**
  * solve_linear_dbl - Optimized Standard Gaussian elimination for double matrices.
  * 
@@ -34,6 +43,7 @@ inline bool solve_linear_dbl(matrix_dbl& M, matrix_dbl& x) {
             }
         }
         
+        // Pivot too small => numerically singular for filter purposes.
         if (max_val < 1e-12) return false;
         
         if (max_row != k) {
@@ -52,6 +62,7 @@ inline bool solve_linear_dbl(matrix_dbl& M, matrix_dbl& x) {
     
     if (std::abs(M(n - 1, n - 1)) < 1e-12) return false;
     
+    // Keep API simple: caller gets a right-sized output vector.
     x = matrix_dbl(n, 1);
     for (size_t i = n; i-- > 0; ) {
         double sum = M(i, n);
@@ -62,7 +73,8 @@ inline bool solve_linear_dbl(matrix_dbl& M, matrix_dbl& x) {
         const double pivot = M(i, i);
         double temp_x = sum / pivot;
         
-        if (temp_x < -1e-10) return false; // Early exit if not strictly positive
+        // Support-restricted ESS candidate requires nonnegative/positive probabilities.
+        if (temp_x < -1e-10) return false;
         
         x(i, 0) = temp_x;
     }
@@ -83,7 +95,7 @@ inline bool solve_linear_dbl(matrix_dbl& M, matrix_dbl& x) {
 inline bool solve_linear_frc(matrix_frc& M, matrix_frc& x) {
     const size_t n = M.rows();
 
-    // Forward elimination
+    // Forward elimination with exact arithmetic and first non-zero pivot selection.
     for (size_t k = 0; k < n - 1; ++k) {
         size_t max_row = k;
         
@@ -123,7 +135,7 @@ inline bool solve_linear_frc(matrix_frc& M, matrix_frc& x) {
         return false;
     }
 
-    // Back substitution
+    // Back substitution in exact arithmetic.
     x = matrix_frc(n, 1);
     for (size_t i = n; i-- > 0; ) {
         fraction sum = M(i, n);
@@ -133,8 +145,8 @@ inline bool solve_linear_frc(matrix_frc& M, matrix_frc& x) {
         }
 
         fraction::div(x(i, 0), sum, M(i, i)); 
-        // Full support for this subgame <=> x is in the interior of the (sub)simplex <=> all strategy probabilities x_i are strictly positive.
-        if (x(i, 0).sgn() <= 0) { // Early exit: x must be > 0.
+        // Full-support condition: all strategy weights strictly positive.
+        if (x(i, 0).sgn() <= 0) {
             return false; 
         }
     }

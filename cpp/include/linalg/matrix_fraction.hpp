@@ -10,25 +10,24 @@
 
 namespace linalg {
 
+/*
+ * Dense exact-rational matrix for FracESSA kernels.
+ *
+ * Design intent:
+ * - Keep storage contiguous for cache-friendly scans in elimination/factorization.
+ * - Avoid generic linear-algebra abstraction overhead; only operations needed by
+ *   the ESS pipeline are implemented.
+ */
 class matrix_frc {
 public:
     matrix_frc() : rows_(0), cols_(0) {}
     
-    // Default constructor: NO initialization (fast - elements must be assigned)
+    // Constructor resizes storage; elements become default-constructed fractions.
+    // Callers in hot paths usually overwrite all entries immediately.
     matrix_frc(size_t rows, size_t cols) 
         : rows_(rows), cols_(cols) {
         data_.resize(rows * cols);
     }
-
-    // In-place initialization method kept commented (unused in production path).
-    // void set_zero(size_t rows, size_t cols) {
-    //     rows_ = rows;
-    //     cols_ = cols;
-    //     data_.resize(rows * cols);
-    //     for (size_t i = 0; i < rows * cols; ++i) {
-    //         data_[i] = fraction::zero();
-    //     }
-    // }
 
     void set_identity(size_t n) {
         rows_ = n;
@@ -86,12 +85,11 @@ public:
         return result;
     }
 
-    /**
-     * is_positive_definite - rational LDL^T decomposition.
-     * 
-     * Accuracy:
-     *   - Perfect accuracy with fraction types; no rounding errors.
-     *   - Checks if diagonal elements of D are strictly positive.
+    /*
+     * Exact positive-definiteness test via LDL^T factorization.
+     *
+     * For rational arithmetic this is an exact sign test on D's diagonal,
+     * so there is no tolerance tuning unlike the double variant.
      */
     bool is_positive_definite() const {
         const size_t n = rows_;
@@ -142,7 +140,7 @@ private:
     std::vector<fraction> data_;
 };
 
-// Factory functions
+// Factory for circular-symmetric compact input representation (n/2 values).
 inline matrix_frc create_circular_symmetric(size_t n, const std::vector<fraction>& half_row) {
     matrix_frc result(n, n);
     std::vector<fraction> first_row(n);
@@ -169,6 +167,7 @@ inline matrix_frc create_circular_symmetric(size_t n, const std::vector<fraction
     return result;
 }
 
+// Factory for standard upper-triangular symmetric serialization.
 inline matrix_frc create_symmetric(size_t n, const std::vector<fraction>& upper_triangular) {
     matrix_frc result(n, n);
     size_t idx = 0;

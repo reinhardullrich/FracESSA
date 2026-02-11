@@ -4,6 +4,13 @@
 
 using namespace linalg;
 
+/*
+ * Copositivity regression tests for exact-rational checker.
+ *
+ * Cases cover minimal dimensions and representative sign patterns where the
+ * Hadeler-based logic should clearly accept or reject.
+ */
+
 TEST(CopositivityTest, OneByOnePositive) {
     matrix_frc A(1, 1);
     A(0, 0) = fraction::one();

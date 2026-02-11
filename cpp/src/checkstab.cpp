@@ -7,8 +7,20 @@
 #include <cassert>
 #include <stdexcept>
 
+/*
+ * ESS stability classification for one already-feasible candidate.
+ *
+ * Decision ladder (cheap -> expensive):
+ * 1) pure ESS shortcut,
+ * 2) positive-definite Bee in double,
+ * 3) positive-definite Bee in exact rationals,
+ * 4) partial copositivity reductions (Bomze-style rank-1 updates),
+ * 5) final strict copositivity test on reduced Bee matrix.
+ */
+
 void fracessa::check_stability()
 {
+    // `m` is the first support index; Bee construction uses this pivot strategy.
     bitset64 bitsetm = bs64::lowest_set_bit_as_bit(candidate_.support);
     bitset64 extended_support_reduced = bs64::subtract(candidate_.extended_support, bitsetm);
     size_t m = bs64::find_pos_first_set_bit(candidate_.support);
@@ -32,8 +44,9 @@ void fracessa::check_stability()
         return;
     }
     
+    // Fast numerical filter before exact arithmetic.
     auto& Bee_dbl = matrix_server_.get_bee_matrix_dbl(extended_support_reduced, m);
-    
+
     if (Bee_dbl.is_positive_definite()) {
         if (conf_with_log_)
             logger_->info("Reason: true_posdef_dbl");
@@ -42,6 +55,7 @@ void fracessa::check_stability()
         return;
     }
     
+    // Exact Bee matrix is used for all remaining mathematically strict checks.
     auto& Bee = matrix_server_.get_bee_matrix_frc(extended_support_reduced, m);
 
     if (conf_with_log_) {
@@ -97,7 +111,8 @@ void fracessa::check_stability()
         logger_->info("bee_vee[0]:\n{}", bee_vee[0].to_log_string());
     }
 
-    for (size_t v = 1; v <= r; ++v) { // reduce over all support minus m, hence dim bee_vee[r] must be ubr size!!!
+    // Iteratively eliminate support-minus-m coordinates to isolate UBR block.
+    for (size_t v = 1; v <= r; ++v) {
         const size_t iv_pos = bs64::find_pos_first_set_bit(jay_without_kay_vee[v-1]);
         
         jay_without_kay_vee[v] = bs64::subtract(jay_without_kay_vee[v-1], bs64::single_bit_at_pos(iv_pos));
@@ -127,7 +142,7 @@ void fracessa::check_stability()
             return;
         }
         
-        // Equation (20) in Bomze 1992: Rank-1 update for partial copositivity.
+        // Equation (20) in Bomze (1992): Schur-complement-like rank-1 update.
         bee_vee[v] = linalg::matrix_frc(kay_vee_size[v], kay_vee_size[v]);  // NO_INIT by default, all elements assigned below
         const size_t n_old = kay_vee_size[v-1];
         const auto& B_old = bee_vee[v-1];

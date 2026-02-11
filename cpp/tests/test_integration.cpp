@@ -4,6 +4,11 @@
 
 using namespace linalg;
 
+/*
+ * End-to-end smoke test:
+ * build analyzer from a tiny game matrix and verify ESS count output.
+ */
+
 TEST(IntegrationTest, SimpleGame) {
     // Test a simple 2x2 matrix.
     matrix_frc B = matrix_frc(2, 2);

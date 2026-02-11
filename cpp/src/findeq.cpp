@@ -6,6 +6,8 @@
 
 namespace {
 
+// Partition [0,dimension) into support and complement once per candidate.
+// This avoids branchy bit-membership checks inside nested accumulation loops.
 inline void extract_support_partition(
     bitset64 support,
     size_t dimension,
@@ -39,6 +41,7 @@ bool fracessa::find_candidate_dbl(const bitset64& support, size_t support_size)
     
     if (!solved) return false;
 
+    // Fixed stack buffers avoid per-support heap churn in hot paths.
     uint8_t support_indices[bs64::kMaxBitsetDimension];
     uint8_t non_support_indices[bs64::kMaxBitsetDimension];
     size_t support_count = 0;
@@ -52,7 +55,7 @@ bool fracessa::find_candidate_dbl(const bitset64& support, size_t support_size)
         full_solution[support_indices[i_pos]] = solution(i_pos, 0);
     }
 
-    // --- FLOATING POINT FILTER PATH ---
+    // --- Floating prefilter ---
     // Use a large margin (threshold) to filter out clearly invalid supports early
     // without the cost of exact arithmetic. The 1e-4 * dimension_ factor provides
     // enough buffer to avoid false negatives due to precision loss.
@@ -81,6 +84,7 @@ bool fracessa::find_candidate_frc(const bitset64& support, size_t support_size)
     
     if (!solved) return false;
 
+    // Same support partition strategy as double path, but with exact arithmetic.
     uint8_t support_indices[bs64::kMaxBitsetDimension];
     uint8_t non_support_indices[bs64::kMaxBitsetDimension];
     size_t support_count = 0;
@@ -93,6 +97,7 @@ bool fracessa::find_candidate_frc(const bitset64& support, size_t support_size)
     if (candidate_.vector.rows() != dimension_ || candidate_.vector.cols() != 1) {
         candidate_.vector = linalg::matrix_frc(dimension_, 1);
     }
+    // Build full strategy vector once; support gets solved values, complement is zero.
     for (size_t i_pos = 0; i_pos < non_support_count; ++i_pos) {
         candidate_.vector(non_support_indices[i_pos], 0) = fraction::zero();
     }
@@ -110,6 +115,7 @@ bool fracessa::find_candidate_frc(const bitset64& support, size_t support_size)
         
         if (rowsum > payoff) return false;
         
+        // Equal payoff outside support means additional best response in extended support.
         if (rowsum == payoff)
             candidate_.extended_support = bs64::set_bit_at_pos(candidate_.extended_support, i);
     }

@@ -10,13 +10,24 @@
 
 namespace linalg {
 
-/// High-performance iterative copositivity checker for symmetric matrices.
-/// Uses precomputed subset supports and early exit optimization.
-/// Implements the Hadeler/Motzkin-Straus/Kaplansky criterion for strict copositivity.
+/*
+ * Strict copositivity checker for exact rational symmetric matrices.
+ *
+ * Context in FracESSA:
+ * - Called only after cheaper ESS filters fail (pure ESS / PD checks).
+ * - Works on Bee-type reduced matrices where exact sign decisions matter.
+ *
+ * Method sketch:
+ * 1) Enumerate principal submatrices by support subsets.
+ * 2) For each subset, evaluate the Hadeler/Motzkin-Straus/Kaplansky criterion.
+ * 3) Abort early on the first violating subset.
+ */
 class CopositivityCheckerV3 {
 private:
     std::vector<std::vector<bitset64>> supports_;
 
+    // Exact adjugate. Needed when LU inverse is unavailable (singular case),
+    // but the criterion still requires checking adj(A) entry signs.
     matrix_frc adjugate(const matrix_frc& A) {
         const size_t n = A.rows();
         if (n == 0) return matrix_frc(0, 0);
@@ -93,7 +104,7 @@ private:
             return A(idx, idx) > fraction::zero();
         }
 
-        // Create submatrix in-place using reference logic as requested
+        // Build principal submatrix A[mask,mask] in compact coordinates.
         matrix_frc subMat(current_dim, current_dim);
         {
             size_t row = 0;
@@ -122,7 +133,7 @@ private:
              *  a) All proper principal submatrices are strictly copositive.
              *  b) AND EITHER det(A) > 0 OR some entry of adj(A) is <= 0.
              */
-            // Compute Adjugate to check if it's strictly positive
+            // Compute adj(A) for the second part of the criterion.
             matrix_frc adj;
             if (lu.isSingular()) {
                 // Fall back to cofactor method for singular matrices
@@ -145,7 +156,7 @@ public:
     bool is_strictly_copositive(const matrix_frc& A) {
         size_t n = A.rows();
 
-        // Initialize supports for this dimension
+        // Group all non-empty supports by cardinality once.
         supports_.resize(n);
         for (size_t i = 0; i < n; ++i) {
             supports_[i].reserve(binomial_coefficient(n, i + 1));
@@ -155,8 +166,7 @@ public:
             supports_[bs64::count_set_bits(support) - 1].push_back(support);
         }
 
-        // Process ALL principal submatrices from smallest to largest (including full matrix)
-        // Early exit: if any submatrix is not copositive, the whole matrix isn't
+        // Check from small subsets to full matrix. Any failure is conclusive.
         for (size_t subset_size = 1; subset_size <= n; ++subset_size) {
             const auto& subsets_of_size = supports_[subset_size - 1];
             for (bitset64 subset : subsets_of_size) {
@@ -166,7 +176,7 @@ public:
             }
         }
 
-        // All submatrices (including full matrix) are copositive
+        // Passed all subset checks: matrix is strictly copositive.
         return true;
     }
 };

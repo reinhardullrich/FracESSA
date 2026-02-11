@@ -9,7 +9,13 @@
 #include <linalg/matrix_fraction.hpp>
 #include <argparse/argparse.hpp>
 
-// Helper function to parse matrix string format: "n#values"
+/*
+ * Safe parser for CLI matrix payload `n#values`.
+ *
+ * Accepts two compact encodings:
+ * - circular-symmetric: floor(n/2) values
+ * - full symmetric upper triangle: n*(n+1)/2 values
+ */
 bool parse_matrix_string(const std::string& matrix_str, linalg::matrix_frc& A, bool& is_cs)
 {
     constexpr size_t kMaxSafeDimension = 63;
@@ -89,6 +95,10 @@ bool parse_matrix_string(const std::string& matrix_str, linalg::matrix_frc& A, b
     return true;
 }
 
+/*
+ * Unsafe parser variant: minimal validation, branch-light scanning.
+ * Intended for benchmark/high-throughput scenarios where input is trusted.
+ */
 void parse_matrix_string_unsafe(const std::string& matrix_str, linalg::matrix_frc& A, bool& is_cs)
 {
     size_t hash_pos = 0;
@@ -142,6 +152,7 @@ void parse_matrix_string_unsafe(const std::string& matrix_str, linalg::matrix_fr
 
 int main(int argc, char *argv[])
 {
+    // CLI surface mirrors core search toggles used in batch verification and CI.
     argparse::ArgumentParser program("fracessa", "3.0.0");
     program.add_description("FRACESSA - Fractional ESS Analyzer");
 

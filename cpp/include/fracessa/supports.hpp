@@ -7,13 +7,13 @@
 #include <numeric>
 #include <fracessa/bitset64.hpp>
 
-// Unused in production path (kept commented for reference).
-// #if defined(_MSC_VER)
-// #  define FORCE_INLINE __forceinline
-// #else
-// #  define FORCE_INLINE __attribute__((always_inline)) inline
-// #endif
-
+/*
+ * Support set container grouped by cardinality.
+ *
+ * For each k, supports_[k-1] stores all supports of size k still under consideration.
+ * During search, whenever an ESS is confirmed, supersets are removed because they
+ * cannot yield minimal new equilibria under the current pruning strategy.
+ */
 /// Compute binomial coefficient C(n,k) = n!/(k!(n-k)!)
 /// Returns uint64_t - safe since n <= 64, no overflow possible
 /// No safety checks needed per user requirement
@@ -44,7 +44,8 @@ public:
         , is_cs_(is_cs)
     {}
     
-    /// Initialize all supports - must be called after construction
+    /// Initialize all supports - must be called after construction.
+    /// In CS mode, supports with coprime cardinality are canonicalized by rotation.
     inline void initialize() {
         // Reserve space for each support size using binomial coefficients and set coprime flags
         std::vector<bool> is_coprime(dimension_);
@@ -54,7 +55,9 @@ public:
                     is_coprime[i] = (std::gcd(i+1, dimension_) == 1);
         }
         
-        // Populate supports based on is_cs_ flag
+        // Populate supports:
+        // - For circular-symmetric mode, optionally keep one canonical rotation representative.
+        // - For general symmetric mode, keep all non-empty supports.
         if (is_cs_) {
             for (uint64_t support = 1ULL; support < bs64::two_to_the_power_of(dimension_); ++support) {
                 size_t current_index = bs64::count_set_bits(support) - 1;
@@ -80,15 +83,16 @@ public:
         return supports_[support_size-1];
     }
     
-    /// Remove all supersets of the given subset, starting from from_size
+    /// Remove all supersets of `subset` from larger buckets.
+    /// This is a pruning step to cut combinatorial growth after a decision is made.
     inline void remove_supersets(const bitset64& subset, uint64_t support_size = 0) noexcept {
         if (support_size == 0) {
             support_size = bs64::count_set_bits(subset);
         }
         for (size_t i = support_size; i < dimension_; ++i) { //index support_size means erase from support_size+1 on!!!
             auto& vec = supports_[i];
-            // Binary search: find first element where x > subset (only for dimension >= 10)
-            // this is an educated guess. for small dimensions the overhead of the binary search is bigger than the time saved
+            // Heuristic: for larger dimensions, skip obvious small prefixes via upper_bound.
+            // For small dimensions, linear scan is often cheaper than extra branch/work.
             auto start_it = (dimension_ >= 10) 
                 ? std::upper_bound(vec.begin(), vec.end(), subset)
                 : vec.begin();

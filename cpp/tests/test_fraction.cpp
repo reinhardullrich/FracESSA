@@ -5,6 +5,13 @@
 
 using namespace linalg;
 
+/*
+ * Exact rational wrapper tests.
+ *
+ * Goal: guard C++ value semantics around FLINT-backed storage and verify that
+ * arithmetic/comparison operators preserve canonical rational behavior.
+ */
+
 // ============================================================================
 // Constructor Tests
 // ============================================================================
@@ -87,20 +94,6 @@ TEST(FractionTest, MoveAssignment) {
 // ============================================================================
 // Arithmetic Operator Tests
 // ============================================================================
-
-// TEST(FractionTest, Addition) {
-//     fraction f1(1, 2);
-//     fraction f2(1, 3);
-//     fraction result = f1 + f2;
-//     EXPECT_DOUBLE_EQ(result.to_dbl(), 5.0 / 6.0);
-// }
-
-// TEST(FractionTest, Subtraction) {
-//     fraction f1(1, 2);
-//     fraction f2(1, 3);
-//     fraction result = f1 - f2;
-//     EXPECT_DOUBLE_EQ(result.to_dbl(), 1.0 / 6.0);
-// }
 
 TEST(FractionTest, Multiplication) {
     fraction f1(2, 3);
@@ -225,31 +218,6 @@ TEST(FractionTest, IsZero) {
     EXPECT_TRUE(f2.is_zero());
     EXPECT_FALSE(f3.is_zero());
 }
-
-// TEST(FractionTest, Abs) {
-//     fraction f1(-3, 4);
-//     fraction f2(3, 4);
-//     fraction abs1 = f1.abs();
-//     fraction abs2 = f2.abs();
-//     EXPECT_DOUBLE_EQ(abs1.to_dbl(), 0.75);
-//     EXPECT_DOUBLE_EQ(abs2.to_dbl(), 0.75);
-//     EXPECT_EQ(abs1, abs2);
-// }
-
-// TEST(FractionTest, Inverse) {
-//     fraction f(2, 3);
-//     fraction inv = f.inverse();
-//     EXPECT_DOUBLE_EQ(inv.to_dbl(), 1.5);
-    
-//     // Inverse of inverse should be original
-//     fraction inv_inv = inv.inverse();
-//     EXPECT_EQ(inv_inv, f);
-// }
-
-// TEST(FractionTest, InverseOfZeroThrows) {
-//     fraction zero_val = fraction::zero();
-//     EXPECT_THROW(zero_val.inverse(), std::domain_error);
-// }
 
 // ============================================================================
 // Conversion Tests
@@ -405,14 +373,6 @@ TEST(FractionTest, ChainedOperations) {
     // (1/2 + 1/3 - 1/6) * 2 = (3/6 + 2/6 - 1/6) * 2 = (4/6) * 2 = 8/6 = 4/3
     EXPECT_NEAR(f.to_dbl(), 4.0 / 3.0, 1e-10);
 }
-
-// TEST(FractionTest, MixedArithmetic) {
-//     fraction f1(1, 2);
-//     fraction f2(1, 3);
-//     fraction f3(1, 4);
-//     fraction result = (f1 + f2) * f3;
-//     EXPECT_DOUBLE_EQ(result.to_dbl(), 5.0 / 24.0);
-// }
 
 TEST(FractionTest, ComparisonChain) {
     fraction f1(1, 4);

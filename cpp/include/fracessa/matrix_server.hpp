@@ -29,6 +29,11 @@ public:
     }
 
     linalg::matrix_frc& get_linear_system_frc(const bitset64& support, size_t support_size) {
+        // Build bordered linear system for support-restricted equilibrium solve:
+        // [ A_S  -1 ] [x] = [0]
+        // [ 1^T   0 ] [u]   [1]
+        // where x are support probabilities and u is equilibrium payoff.
+        // Reuse scratch matrix across supports; resize only on shape change.
         if (sub_bordered_frc_.rows() != support_size + 1) {
             sub_bordered_frc_ = linalg::matrix_frc(support_size + 1, support_size + 2);
         }
@@ -56,6 +61,8 @@ public:
     }
 
     linalg::matrix_dbl& get_linear_system_dbl(const bitset64& support, size_t support_size) {
+        // Same bordered system as above, but in double precision for fast rejection.
+        // Double scratch mirror for fast candidate prefilter stage.
         if (sub_bordered_dbl_.rows() != support_size + 1) {
             sub_bordered_dbl_ = linalg::matrix_dbl(support_size + 1, support_size + 2);
         }
@@ -83,8 +90,12 @@ public:
     }
 
     linalg::matrix_frc& get_bee_matrix_frc(const bitset64& extended_support_reduced, size_t m) {
+        // Construct the exact Bee matrix used by ESS stability tests.
+        // The formula corresponds to the quadratic form restricted to
+        // perturbation directions around the candidate support.
         uint8_t reduced_indices[bs64::kMaxBitsetDimension];
         size_t size = bs64::extract_set_indices(extended_support_reduced, dimensions_, reduced_indices);
+        // Bee matrix is square with size |extended_support|-1.
         if (bee_frc_.rows() != size) {
             bee_frc_ = linalg::matrix_frc(size, size);
         }
@@ -114,6 +125,8 @@ public:
     }
 
     linalg::matrix_dbl& get_bee_matrix_dbl(const bitset64& extended_support_reduced, size_t m) {
+        // Double mirror of Bee construction: used as a quick positive-definite filter
+        // before paying the cost of exact arithmetic.
         uint8_t reduced_indices[bs64::kMaxBitsetDimension];
         size_t size = bs64::extract_set_indices(extended_support_reduced, dimensions_, reduced_indices);
         if (bee_dbl_.rows() != size) {

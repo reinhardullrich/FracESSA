@@ -11,9 +11,16 @@
 
 namespace linalg {
 
+/*
+ * Lightweight dense double matrix used in fast filter stages.
+ *
+ * This class intentionally provides only operations needed by FracESSA:
+ * indexing, row swaps, norm estimate, and a Cholesky-style PD check.
+ */
 class matrix_dbl {
 public:
     matrix_dbl() : rows_(0), cols_(0) {}
+    // Zero-initialized dense storage keeps behavior predictable for filter-stage kernels.
     matrix_dbl(size_t rows, size_t cols) 
         : rows_(rows), cols_(cols), data_(rows * cols, 0.0) {}
 
@@ -51,12 +58,11 @@ public:
         return max_norm;
     }
 
-    /**
-     * is_positive_definite - Cholesky decomposition for double matrices.
-     * 
-     * Stability / Accuracy:
-     *   - Uses machine epsilon scaled by infinity norm as a tolerance for 
-     *     better numerical stability in edge cases.
+    /*
+     * Positive-definiteness test via Cholesky.
+     *
+     * In the double filter stage we accept a small tolerance scaled by ||A||_inf
+     * to avoid rejecting borderline matrices due only to floating-point noise.
      */
     bool is_positive_definite() const {
         const size_t n = rows_;

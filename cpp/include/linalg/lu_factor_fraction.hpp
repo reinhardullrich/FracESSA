@@ -6,6 +6,12 @@
 
 namespace linalg {
 
+/*
+ * Exact LU factorization (with partial pivoting) for rational matrices.
+ *
+ * This module is used by copositivity checks for determinant, inverse and
+ * solve operations on principal submatrices, where exact signs are critical.
+ */
 /**
  * LU_Factorization (Standard LU factorization with partial pivoting)
  *
@@ -39,8 +45,9 @@ public:
 
         if (n == 0) return;
 
+        // Standard exact P*A = L*U with partial pivoting.
         for (size_t k = 0; k < n - 1; ++k) {
-            // Partial Pivoting
+            // Partial pivoting by largest absolute entry in current column.
             size_t max_row = k;
             fraction max_val = m_U(k, k);
             if (max_val < fraction::zero()) max_val = -max_val;
@@ -66,6 +73,7 @@ public:
             }
             
             const fraction pivot = m_U(k, k);
+            // Exact singularity detection (no tolerance required in rationals).
             if (pivot == fraction::zero()) {
                 m_is_singular = true;
                 return;
@@ -84,6 +92,7 @@ public:
     }
 
     fraction determinant() const {
+        // det(P*A) = det(L)*det(U), with det(L)=1 for unit-lower-triangular L.
         if (m_is_singular) return fraction::zero();
         fraction det = fraction::one();
         if (m_swap_count % 2 == 1) det = fraction::neg_one();
@@ -107,7 +116,7 @@ public:
     }
 
     matrix_frc solve(const matrix_frc& b) const {
-        
+        // Apply permutation P first, then forward/back substitution.
         matrix_frc bp(m_n, 1);
         for (size_t i = 0; i < m_n; ++i) {
             fraction sum = fraction::zero();

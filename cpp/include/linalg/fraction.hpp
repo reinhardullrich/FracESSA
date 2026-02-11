@@ -9,21 +9,19 @@
 
 namespace linalg {
 
-// ============================================================================
-// fraction - OPTIMIZED FLINT Rational Number Wrapper
-// ============================================================================
-// Thin C++17 wrapper around FLINT's fmpq_t for arbitrary-precision rationals
-// ============================================================================
-
+/*
+ * Thin RAII wrapper around FLINT's fmpq_t rational type.
+ *
+ * Why this exists:
+ * - Keep exact arithmetic semantics (no rounding) in ESS verification stages.
+ * - Expose hot operations (addmul/submul/div) in-place to limit temporary objects.
+ * - Provide C++ value semantics while preserving FLINT canonicalization behavior.
+ */
 class fraction {
 private:
     fmpq_t data_;
     
 public:
-    // ========================================================================
-    // Constructors
-    // ========================================================================
-    
     // Default constructor (zero)
     fraction() noexcept {
         fmpq_init(data_);
@@ -43,7 +41,7 @@ public:
         fmpq_canonicalise(data_);
     }
     
-    // From int (non-explicit for compatibility with T(0), T(1) patterns)
+    // From int (non-explicit so templated code can write T(0), T(1) idioms).
     fraction(int num, int den = 1) noexcept {
         fmpq_init(data_);
         fmpq_set_si(data_, static_cast<slong>(num), static_cast<slong>(den));
@@ -56,7 +54,7 @@ public:
         fmpq_set(data_, other.data_);
     }
     
-    // FIXED: Correct move constructor using swap
+    // Move transfers ownership of the FLINT payload in O(1).
     fraction(fraction&& other) noexcept {
         fmpq_init(data_);
         fmpq_swap(data_, other.data_);
@@ -67,10 +65,6 @@ public:
         fmpq_clear(data_);
     }
     
-    // ========================================================================
-    // Assignment Operators
-    // ========================================================================
-    
     // Copy assignment
     fraction& operator=(const fraction& other) noexcept {
         if (this != &other) {
@@ -79,7 +73,7 @@ public:
         return *this;
     }
     
-    // FIXED: Correct move assignment using swap
+    // Move-assignment mirrors move-ctor semantics with swap.
     fraction& operator=(fraction&& other) noexcept {
         if (this != &other) {
             fmpq_swap(data_, other.data_);
@@ -87,22 +81,11 @@ public:
         return *this;
     }
     
-    // ========================================================================
-    // Direct Access to Underlying FLINT Type (Zero Overhead)
-    // ========================================================================
-    
+    // Direct FLINT access for low-level kernels (no wrapper overhead).
     fmpq_t& data() noexcept { return data_; }
     const fmpq_t& data() const noexcept { return data_; }
     
-    // Unused in production path (kept commented for reference).
-    // fmpq* ptr() noexcept { return data_; }
-    // const fmpq* ptr() const noexcept { return data_; }
-    // const fmpq* raw_ptr() const noexcept { return data_; }
-    
-    // ========================================================================
-    // In-Place Operations (FAST - No Temporaries)
-    // ========================================================================
-    
+    // In-place arithmetic used in elimination/factorization loops.
     void add_inplace(const fraction& other) noexcept {
         fmpq_add(data_, data_, other.data_);
     }
@@ -122,16 +105,7 @@ public:
         fmpq_div(data_, data_, other.data_);
     }
     
-    // Unused in production path (kept commented for reference).
-    // void negate_inplace() noexcept {
-    //     fmpq_neg(data_, data_);
-    // }
-    
-    // void abs_inplace() noexcept {
-    //     fmpq_abs(data_, data_);
-    // }
-    
-    // Combined operations (EXTREMELY FAST - No Temporaries)
+    // Combined operations used heavily in matrix kernels: data_ += a*b, data_ -= a*b.
     void addmul(const fraction& a, const fraction& b) noexcept {
         fmpq_addmul(data_, a.data_, b.data_);
     }
@@ -140,7 +114,7 @@ public:
         fmpq_submul(data_, a.data_, b.data_);
     }
 
-    // Static helpers for direct result manipulation
+    // Destination-first helpers avoid returning temporary fraction objects.
     static void mul(fraction& res, const fraction& a, const fraction& b) noexcept {
         fmpq_mul(res.data_, a.data_, b.data_);
     }
@@ -160,27 +134,11 @@ public:
         fmpq_sub(res.data_, a.data_, b.data_);
     }
 
-    // static void set(fraction& res, const fraction& a) noexcept {
-    //     fmpq_set(res.data_, a.data_);
-    // }
-
-    // void set_zero() noexcept {
-    //     fmpq_zero(data_);
-    // }
-
     int sgn() const noexcept {
         return fmpq_sgn(data_);
     }
     
-    // ========================================================================
-    // Arithmetic Operators (RVO-Friendly)
-    // ========================================================================
-    
-    // fraction operator+(const fraction& other) const {
-    //     fraction result;
-    //     fmpq_add(result.data_, data_, other.data_);
-    //     return result;
-    // }
+    // Arithmetic operators stay available for readability in non-critical code paths.
     
     fraction operator-(const fraction& other) const {
         fraction result;
@@ -209,10 +167,7 @@ public:
         return result;
     }
     
-    // ========================================================================
-    // Compound Assignment Operators (Use In-Place Operations)
-    // ========================================================================
-    
+    // Compound assignment forwards to in-place FLINT operations.
     fraction& operator+=(const fraction& other) noexcept {
         add_inplace(other);
         return *this;
@@ -233,10 +188,7 @@ public:
         return *this;
     }
     
-    // ========================================================================
-    // Comparison Operators (noexcept)
-    // ========================================================================
-    
+    // Exact comparisons on canonicalized rationals.
     bool operator==(const fraction& other) const noexcept {
         return fmpq_equal(data_, other.data_);
     }
@@ -261,39 +213,11 @@ public:
         return fmpq_cmp(data_, other.data_) >= 0;
     }
     
-    // ========================================================================
-    // Utility Functions
-    // ========================================================================
-    
     bool is_zero() const noexcept {
         return fmpq_is_zero(data_);
     }
-    
-    // Unused in production path (kept commented for reference).
-    // bool is_one() const noexcept {
-    //     return fmpq_is_one(data_);
-    // }
-    
-    // fraction abs() const noexcept {
-    //     fraction result;
-    //     fmpq_abs(result.data_, data_);
-    //     return result;
-    // }
-    
-    // fraction inverse() const {
-    //     if (fmpq_is_zero(data_)) {
-    //         throw std::domain_error("Cannot invert zero");
-    //     }
-    //     fraction result;
-    //     fmpq_inv(result.data_, data_);
-    //     return result;
-    // }
-    
-    // ========================================================================
-    // Conversions
-    // ========================================================================
-    
-    // Convert to double (ONLY conversion implemented)
+
+    // Lossy conversion, used only for reporting and fast prefilters.
     double to_dbl() const noexcept {
         return fmpq_get_d(data_);
     }
@@ -309,7 +233,7 @@ public:
         return result;
     }
     
-    // Stream output - optimized to write directly without string allocation
+    // Stream output writes FLINT string directly and frees FLINT-allocated memory.
     friend std::ostream& operator<<(std::ostream& os, const fraction& r) {
         char* str = fmpq_get_str(nullptr, 10, r.data_);
         if (str == nullptr) {
@@ -320,10 +244,7 @@ public:
         }
         return os;
     }
-    // ========================================================================
-    // Static Constants (C++17 inline static for performance/convenience)
-    // ========================================================================
-    
+    // Shared immutable constants avoid repeated tiny object construction.
     static const fraction& zero() noexcept {
         static const fraction z(0);
         return z;

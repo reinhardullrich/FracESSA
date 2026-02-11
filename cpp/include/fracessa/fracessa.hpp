@@ -14,6 +14,16 @@
 #include <fracessa/supports.hpp>
 #include <fracessa/matrix_server.hpp>
 
+/*
+ * fracessa: high-level orchestrator for the ESS search pipeline.
+ *
+ * Execution stages per support:
+ * 1) fast double filter (necessary inequalities),
+ * 2) exact rational solve/check,
+ * 3) stability classification (positive definiteness / copositivity criteria).
+ *
+ * The class also owns candidate logging/output state and support-pruning state.
+ */
 class fracessa
 {
 public:
@@ -27,8 +37,6 @@ private:
 
     size_t dimension_;
     bool is_cs_;
-    // Unused in production path (kept commented for reference).
-    // int matrix_id_;
 
     bool conf_with_candidates_;
     bool conf_exact_;
@@ -37,8 +45,6 @@ private:
 
     candidate candidate_;
     Supports supports_;
-    // Unused in production path (kept commented for reference).
-    // std::vector<bitset64> supports_to_remove_;
 
     std::shared_ptr<spdlog::logger> logger_;
 

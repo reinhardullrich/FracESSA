@@ -3,6 +3,11 @@
 
 using namespace linalg;
 
+/*
+ * Linear solver unit tests for the bordered systems used in candidate search.
+ * Both exact and double paths should recover the same known solution.
+ */
+
 TEST(LinearSolverFractionTest, SimpleSystem) {
     matrix_frc Ab(2, 3);
     Ab(0, 0) = fraction::two(); Ab(0, 1) = fraction::one(); Ab(0, 2) = fraction(5);

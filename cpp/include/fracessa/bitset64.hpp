@@ -5,6 +5,19 @@
 #include <string>
 #include <cstddef>
 
+/*
+ * Bitset primitives for support sets in the ESS search.
+ *
+ * Mathematical view:
+ * - A support S subseteq {0,...,n-1} is represented as a 64-bit indicator vector.
+ * - Core operations (subset test, rotation, set difference) are the set-theoretic
+ *   operations used by support enumeration and cyclic-symmetry reductions.
+ *
+ * Design note:
+ * - This file is intentionally branch-light and inline-heavy because these helpers
+ *   sit on hot loops executed extremely often in the combinatorial search.
+ */
+
 // Platform-specific intrinsics
 #ifdef _MSC_VER
   #include <intrin.h>
@@ -53,11 +66,6 @@ inline bitset64 two_to_the_power_of(size_t n) noexcept {
 inline bitset64 set_bit_at_pos(bitset64 bits, size_t pos) noexcept {
   return bits | (1ULL << pos);
 }
-
-// Unused in production path (kept commented for reference).
-// inline bitset64 clear_bit_at_pos(bitset64 bits, size_t pos) noexcept {
-//   return bits & ~(1ULL << pos);
-// }
 
 inline bitset64 set_all_n_bits(size_t n) noexcept {
   return (1ULL << n) - 1ULL; //careful with n == 0
@@ -118,15 +126,9 @@ inline bitset64 bits_before_pos(bitset64 bits, size_t pos) noexcept {
   return bits & ((1ULL << pos) - 1);
 }
 
-// Unused in production path (kept commented for reference).
-// inline bitset64 next_bitset_with_same_popcount(bitset64 bits) noexcept {
-//   uint64_t t = bits | (bits - 1);
-//   return (t + 1) | (((~t & -~t) - 1) >> (ctz64(bits) + 1));
-// }
-
-// Check if this bitset is in its smallest representation (canonical form)
-// Uses early exit: returns false immediately if any rotation is smaller than original
-// Optimized version: reduces masking operations for better performance
+// Canonical representative under cyclic rotations:
+// for circular symmetry, all n rotations describe the same support orbit.
+// We keep only the lexicographically smallest bit pattern in that orbit.
 inline bool is_smallest_representation(bitset64 bits, size_t n) noexcept {
   uint64_t mask = set_all_n_bits(n);
   uint64_t original = bits & mask;
@@ -136,7 +138,7 @@ inline bool is_smallest_representation(bitset64 bits, size_t n) noexcept {
   for (size_t i = 1; i < n; i++) {
     current = ((current >> 1) | (current << shift_left)) & mask;
     if (current < original) {
-      return false; //there exists a smaller representation, ie. this one cannot be canonical!
+      return false;
     }
   }
   // All rotations are >= original, so it's canonical
@@ -164,18 +166,6 @@ inline std::string to_bitstring(bitset64 bits, size_t dimension) noexcept {
 inline std::string to_string(bitset64 bits) noexcept {
   return std::to_string(bits);
 }
-
-// Unused in production path (kept commented for reference).
-// inline std::size_t hash(bitset64 bits) noexcept {
-//   // 64-bit mix (FNV-like)
-//   uint64_t x = bits;
-//   x ^= x >> 33;
-//   x *= 0xff51afd7ed558ccdULL;
-//   x ^= x >> 33;
-//   x *= 0xc4ceb9fe1a85ec53ULL;
-//   x ^= x >> 33;
-//   return static_cast<std::size_t>(x);
-// }
 
 // Extract set-bit positions [0, dimension) into a fixed stack buffer.
 // Returns number of extracted indices.

@@ -7,6 +7,13 @@
 #include <sstream>
 #include <iomanip>
 
+/*
+ * Candidate record for one support-level equilibrium/stability evaluation.
+ *
+ * The object stores both combinatorial data (support bitsets) and numeric data
+ * (exact payoff, double payoff, strategy vector) so that downstream CSV output
+ * can reconstruct why a candidate was accepted/rejected as ESS.
+ */
 class candidate
 {
     public:

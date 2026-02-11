@@ -4,11 +4,18 @@
 #include <exception>
 #include <numeric>
 
+/*
+ * Core search orchestration.
+ *
+ * The constructor performs the full enumeration process. Supports are scanned
+ * by increasing size, and each support runs through candidate detection plus
+ * stability classification. Confirmed ESS supports trigger superset pruning.
+ */
+
 fracessa::fracessa(const linalg::matrix_frc& matrix, bool is_cs, bool with_candidates, bool exact, bool full_support, bool with_log, int matrix_id)
     : matrix_server_(matrix)
     , dimension_(matrix.rows())
     , is_cs_(is_cs)
-    // , matrix_id_(matrix_id)
     , conf_with_candidates_(with_candidates)
     , conf_exact_(exact)
     , conf_full_support_(full_support)
@@ -39,6 +46,7 @@ fracessa::fracessa(const linalg::matrix_frc& matrix, bool is_cs, bool with_candi
         logger_->info("game matrix:\n{}", matrix_server_.get_game_matrix_frc().to_log_string());
     }
         
+    // Precompute support buckets once before entering the search loops.
     supports_.initialize();
 
     if (conf_full_support_) {      
@@ -63,6 +71,7 @@ fracessa::fracessa(const linalg::matrix_frc& matrix, bool is_cs, bool with_candi
 
 void fracessa::search_one_support(const bitset64& support, size_t support_size, bool is_cs_and_coprime)
 {
+    // Optional fast filter: skip exact checks when support is obviously infeasible.
     if (!conf_exact_) 
         if (!find_candidate_dbl(support, support_size))
             return;
@@ -77,6 +86,7 @@ void fracessa::search_one_support(const bitset64& support, size_t support_size, 
     if (conf_with_log_)
         logger_->info("Found candidate! Check stability:");
 
+    // Stability assigns final ESS decision and reason code.
     check_stability();
 
     if (candidate_.is_ess)
@@ -94,9 +104,11 @@ void fracessa::search_one_support(const bitset64& support, size_t support_size, 
         logger_->info("{}", candidate::header());
         logger_->info("{}", candidate_.to_string());
     }
+    // Once a support is settled, remove supersets according to pruning policy.
     supports_.remove_supersets(candidate_.support, support_size);
 
     if (is_cs_and_coprime) {
+        // Circular-symmetric games: generate orbit by cyclic shifts and mirror metadata.
         for (size_t i = 0; i < dimension_ - 1; i++) {
             candidate_.support = bs64::rot_one_right(candidate_.support, dimension_);
             candidate_.candidate_id++;

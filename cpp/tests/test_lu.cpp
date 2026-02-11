@@ -3,6 +3,11 @@
 
 using namespace linalg;
 
+/*
+ * Exact LU tests:
+ * determinant sign/value, inverse consistency, and solve correctness.
+ */
+
 TEST(LUFactorFractionTest, Determinant) {
     matrix_frc A(2, 2);
     A(0, 0) = fraction::two(); A(0, 1) = fraction::one();

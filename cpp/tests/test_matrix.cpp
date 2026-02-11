@@ -4,6 +4,13 @@
 
 using namespace linalg;
 
+/*
+ * Matrix container and factory tests.
+ *
+ * These keep basic storage/indexing/factory invariants stable and exercise
+ * positive-definiteness routines on small, hand-checkable examples.
+ */
+
 TEST(MatrixFractionTest, BasicOperations) {
     matrix_frc A(2, 2);
     A(0, 0) = fraction::one(); A(0, 1) = fraction::two();
@@ -13,10 +20,6 @@ TEST(MatrixFractionTest, BasicOperations) {
     EXPECT_EQ(A.cols(), 2);
     EXPECT_EQ(A(0, 0), fraction::one());
     EXPECT_EQ(A(1, 1), fraction(4));
-
-    // matrix_frc AT = A.transpose();
-    // EXPECT_EQ(AT(0, 1), fraction(3));
-    // EXPECT_EQ(AT(1, 0), fraction::two());
 }
 
 TEST(MatrixDoubleTest, BasicOperations) {
