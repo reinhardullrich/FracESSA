@@ -44,6 +44,8 @@ typedef uint64_t bitset64;
 // Namespace for bitset64 operations
 namespace bs64 {
 
+constexpr size_t kMaxBitsetDimension = 64;
+
 inline bitset64 two_to_the_power_of(size_t n) noexcept {
   return 1ULL << n;
 }
@@ -52,9 +54,10 @@ inline bitset64 set_bit_at_pos(bitset64 bits, size_t pos) noexcept {
   return bits | (1ULL << pos);
 }
 
-inline bitset64 clear_bit_at_pos(bitset64 bits, size_t pos) noexcept {
-  return bits & ~(1ULL << pos);
-}
+// Unused in production path (kept commented for reference).
+// inline bitset64 clear_bit_at_pos(bitset64 bits, size_t pos) noexcept {
+//   return bits & ~(1ULL << pos);
+// }
 
 inline bitset64 set_all_n_bits(size_t n) noexcept {
   return (1ULL << n) - 1ULL; //careful with n == 0
@@ -115,11 +118,11 @@ inline bitset64 bits_before_pos(bitset64 bits, size_t pos) noexcept {
   return bits & ((1ULL << pos) - 1);
 }
 
-//careful! no check for the biggest element here! done outside!
-inline bitset64 next_bitset_with_same_popcount(bitset64 bits) noexcept {
-  uint64_t t = bits | (bits - 1);
-  return (t + 1) | (((~t & -~t) - 1) >> (ctz64(bits) + 1));
-}
+// Unused in production path (kept commented for reference).
+// inline bitset64 next_bitset_with_same_popcount(bitset64 bits) noexcept {
+//   uint64_t t = bits | (bits - 1);
+//   return (t + 1) | (((~t & -~t) - 1) >> (ctz64(bits) + 1));
+// }
 
 // Check if this bitset is in its smallest representation (canonical form)
 // Uses early exit: returns false immediately if any rotation is smaller than original
@@ -162,16 +165,31 @@ inline std::string to_string(bitset64 bits) noexcept {
   return std::to_string(bits);
 }
 
-// portable hash (fast) **MurmurHash3 finalizer**
-inline std::size_t hash(bitset64 bits) noexcept {
-  // 64-bit mix (FNV-like)
-  uint64_t x = bits;
-  x ^= x >> 33;
-  x *= 0xff51afd7ed558ccdULL;
-  x ^= x >> 33;
-  x *= 0xc4ceb9fe1a85ec53ULL;
-  x ^= x >> 33;
-  return static_cast<std::size_t>(x);
+// Unused in production path (kept commented for reference).
+// inline std::size_t hash(bitset64 bits) noexcept {
+//   // 64-bit mix (FNV-like)
+//   uint64_t x = bits;
+//   x ^= x >> 33;
+//   x *= 0xff51afd7ed558ccdULL;
+//   x ^= x >> 33;
+//   x *= 0xc4ceb9fe1a85ec53ULL;
+//   x ^= x >> 33;
+//   return static_cast<std::size_t>(x);
+// }
+
+// Extract set-bit positions [0, dimension) into a fixed stack buffer.
+// Returns number of extracted indices.
+inline size_t extract_set_indices(bitset64 bits, size_t dimension, uint8_t (&indices)[kMaxBitsetDimension]) noexcept
+{
+  size_t count = 0;
+  if (bits == 0) {
+    return 0;
+  }
+
+  for (size_t pos = find_pos_first_set_bit(bits); pos < dimension; pos = find_pos_next_set_bit(bits, pos)) {
+    indices[count++] = static_cast<uint8_t>(pos);
+  }
+  return count;
 }
 
 } // namespace bs64

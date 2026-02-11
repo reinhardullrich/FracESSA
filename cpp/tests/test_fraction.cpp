@@ -19,7 +19,6 @@ TEST(FractionTest, ConstructorFromInt) {
     fraction f(5);
     EXPECT_FALSE(f.is_zero());
     EXPECT_EQ(f.to_dbl(), 5.0);
-    EXPECT_TRUE(f.is_one() == false);
 }
 
 TEST(FractionTest, ConstructorFromIntWithDenominator) {
@@ -227,15 +226,6 @@ TEST(FractionTest, IsZero) {
     EXPECT_FALSE(f3.is_zero());
 }
 
-TEST(FractionTest, IsOne) {
-    fraction f1 = fraction::one();
-    fraction f2(2, 2);
-    fraction f3(1, 2);
-    EXPECT_TRUE(f1.is_one());
-    EXPECT_TRUE(f2.is_one());
-    EXPECT_FALSE(f3.is_one());
-}
-
 // TEST(FractionTest, Abs) {
 //     fraction f1(-3, 4);
 //     fraction f2(3, 4);
@@ -330,25 +320,6 @@ TEST(FractionTest, DivInplaceByZeroThrows) {
     EXPECT_THROW(f.div_inplace(zero_val), std::domain_error);
 }
 
-TEST(FractionTest, NegateInplace) {
-    fraction f(3, 4);
-    f.negate_inplace();
-    EXPECT_DOUBLE_EQ(f.to_dbl(), -0.75);
-    
-    f.negate_inplace();
-    EXPECT_DOUBLE_EQ(f.to_dbl(), 0.75);
-}
-
-TEST(FractionTest, AbsInplace) {
-    fraction f(-3, 4);
-    f.abs_inplace();
-    EXPECT_DOUBLE_EQ(f.to_dbl(), 0.75);
-    
-    fraction f2(3, 4);
-    f2.abs_inplace();
-    EXPECT_DOUBLE_EQ(f2.to_dbl(), 0.75);
-}
-
 // ============================================================================
 // Edge Case Tests
 // ============================================================================
@@ -402,8 +373,8 @@ TEST(FractionTest, OneHandling) {
     fraction f1(1, 1);
     fraction f2(5, 5);
     EXPECT_EQ(f1, f2);
-    EXPECT_TRUE(f1.is_one());
-    EXPECT_TRUE(f2.is_one());
+    EXPECT_EQ(f1, fraction::one());
+    EXPECT_EQ(f2, fraction::one());
 }
 
 // ============================================================================
@@ -451,4 +422,3 @@ TEST(FractionTest, ComparisonChain) {
     EXPECT_LT(f2, f3);
     EXPECT_LT(f1, f3);
 }
-

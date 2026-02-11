@@ -7,12 +7,12 @@
 #include <numeric>
 #include <fracessa/bitset64.hpp>
 
-// Force-inline hint (same as bitset64.hpp)
-#if defined(_MSC_VER)
-#  define FORCE_INLINE __forceinline
-#else
-#  define FORCE_INLINE __attribute__((always_inline)) inline
-#endif
+// Unused in production path (kept commented for reference).
+// #if defined(_MSC_VER)
+// #  define FORCE_INLINE __forceinline
+// #else
+// #  define FORCE_INLINE __attribute__((always_inline)) inline
+// #endif
 
 /// Compute binomial coefficient C(n,k) = n!/(k!(n-k)!)
 /// Returns uint64_t - safe since n <= 64, no overflow possible
@@ -30,7 +30,6 @@ inline uint64_t binomial_coefficient(uint64_t n, uint64_t k) {
 }
 
 /// High-performance Supports class for managing support sets
-/// All hot-path methods are FORCE_INLINE for maximum performance
 class Supports {
 private:
     std::vector<std::vector<bitset64>> supports_;
@@ -77,13 +76,11 @@ public:
     }
     
     /// Get const reference to supports for a given support size (1-indexed)
-    /// CRITICAL hot path - must be FORCE_INLINE
     inline const std::vector<bitset64>& get_supports(size_t support_size) const noexcept {
         return supports_[support_size-1];
     }
     
     /// Remove all supersets of the given subset, starting from from_size
-    /// Hot path - FORCE_INLINE for maximum performance
     inline void remove_supersets(const bitset64& subset, uint64_t support_size = 0) noexcept {
         if (support_size == 0) {
             support_size = bs64::count_set_bits(subset);
@@ -110,4 +107,3 @@ public:
     }
     
 };
-

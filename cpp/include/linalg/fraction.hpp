@@ -94,12 +94,10 @@ public:
     fmpq_t& data() noexcept { return data_; }
     const fmpq_t& data() const noexcept { return data_; }
     
-    // Get pointer for direct FLINT operations
-    fmpq* ptr() noexcept { return data_; }
-    const fmpq* ptr() const noexcept { return data_; }
-    
-    // Raw pointer access for direct FLINT function calls (e.g., fmpq_sgn)
-    const fmpq* raw_ptr() const noexcept { return data_; }
+    // Unused in production path (kept commented for reference).
+    // fmpq* ptr() noexcept { return data_; }
+    // const fmpq* ptr() const noexcept { return data_; }
+    // const fmpq* raw_ptr() const noexcept { return data_; }
     
     // ========================================================================
     // In-Place Operations (FAST - No Temporaries)
@@ -124,13 +122,14 @@ public:
         fmpq_div(data_, data_, other.data_);
     }
     
-    void negate_inplace() noexcept {
-        fmpq_neg(data_, data_);
-    }
+    // Unused in production path (kept commented for reference).
+    // void negate_inplace() noexcept {
+    //     fmpq_neg(data_, data_);
+    // }
     
-    void abs_inplace() noexcept {
-        fmpq_abs(data_, data_);
-    }
+    // void abs_inplace() noexcept {
+    //     fmpq_abs(data_, data_);
+    // }
     
     // Combined operations (EXTREMELY FAST - No Temporaries)
     void addmul(const fraction& a, const fraction& b) noexcept {
@@ -270,9 +269,10 @@ public:
         return fmpq_is_zero(data_);
     }
     
-    bool is_one() const noexcept {
-        return fmpq_is_one(data_);
-    }
+    // Unused in production path (kept commented for reference).
+    // bool is_one() const noexcept {
+    //     return fmpq_is_one(data_);
+    // }
     
     // fraction abs() const noexcept {
     //     fraction result;

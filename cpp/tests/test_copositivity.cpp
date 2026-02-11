@@ -104,6 +104,5 @@ TEST(CopositivityTest, AllOnes) {
     matrix_frc A(2, 2);
     A(0, 0) = fraction::one(); A(0, 1) = fraction::one();
     A(1, 0) = fraction::one(); A(1, 1) = fraction::one();
-    bool result = is_strictly_copositive(A);
-    EXPECT_TRUE(result || !result);
+    EXPECT_TRUE(is_strictly_copositive(A));
 }

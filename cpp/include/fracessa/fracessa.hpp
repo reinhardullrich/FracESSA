@@ -27,7 +27,8 @@ private:
 
     size_t dimension_;
     bool is_cs_;
-    int matrix_id_;
+    // Unused in production path (kept commented for reference).
+    // int matrix_id_;
 
     bool conf_with_candidates_;
     bool conf_exact_;
@@ -36,7 +37,8 @@ private:
 
     candidate candidate_;
     Supports supports_;
-    std::vector<bitset64> supports_to_remove_;
+    // Unused in production path (kept commented for reference).
+    // std::vector<bitset64> supports_to_remove_;
 
     std::shared_ptr<spdlog::logger> logger_;
 

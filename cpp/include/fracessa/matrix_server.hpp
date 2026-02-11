@@ -4,6 +4,7 @@
 #include <linalg/matrix_fraction.hpp>
 #include <linalg/matrix_double.hpp>
 #include <fracessa/bitset64.hpp>
+#include <cstdint>
 
 /**
  * MatrixServer - Centralized matrix storage and operations for fracessa.
@@ -32,20 +33,17 @@ public:
             sub_bordered_frc_ = linalg::matrix_frc(support_size + 1, support_size + 2);
         }
 
-        size_t ab_row = 0;
-        for (size_t i = 0; i < dimensions_; ++i) {
-            if (bs64::is_set_at_pos(support, i)) {
-                size_t ab_col = 0;
-                for (size_t j = 0; j < dimensions_; ++j) {
-                    if (bs64::is_set_at_pos(support, j)) {
-                        sub_bordered_frc_(ab_row, ab_col) = game_frc_(i, j);
-                        ab_col++;
-                    }
-                }
-                sub_bordered_frc_(ab_row, support_size) = fraction::neg_one();
-                sub_bordered_frc_(ab_row, support_size + 1) = fraction::zero();
-                ab_row++;
+        uint8_t support_indices[bs64::kMaxBitsetDimension];
+        bs64::extract_set_indices(support, dimensions_, support_indices);
+
+        for (size_t ab_row = 0; ab_row < support_size; ++ab_row) {
+            const size_t i = support_indices[ab_row];
+            for (size_t ab_col = 0; ab_col < support_size; ++ab_col) {
+                const size_t j = support_indices[ab_col];
+                sub_bordered_frc_(ab_row, ab_col) = game_frc_(i, j);
             }
+            sub_bordered_frc_(ab_row, support_size) = fraction::neg_one();
+            sub_bordered_frc_(ab_row, support_size + 1) = fraction::zero();
         }
         
         for (size_t i = 0; i < support_size; ++i) {
@@ -62,20 +60,17 @@ public:
             sub_bordered_dbl_ = linalg::matrix_dbl(support_size + 1, support_size + 2);
         }
 
-        size_t ab_row = 0;
-        for (size_t i = 0; i < dimensions_; ++i) {
-            if (bs64::is_set_at_pos(support, i)) {
-                size_t ab_col = 0;
-                for (size_t j = 0; j < dimensions_; ++j) {
-                    if (bs64::is_set_at_pos(support, j)) {
-                        sub_bordered_dbl_(ab_row, ab_col) = game_dbl_(i, j);
-                        ab_col++;
-                    }
-                }
-                sub_bordered_dbl_(ab_row, support_size) = -1.0;
-                sub_bordered_dbl_(ab_row, support_size + 1) = 0.0;
-                ab_row++;
+        uint8_t support_indices[bs64::kMaxBitsetDimension];
+        bs64::extract_set_indices(support, dimensions_, support_indices);
+
+        for (size_t ab_row = 0; ab_row < support_size; ++ab_row) {
+            const size_t i = support_indices[ab_row];
+            for (size_t ab_col = 0; ab_col < support_size; ++ab_col) {
+                const size_t j = support_indices[ab_col];
+                sub_bordered_dbl_(ab_row, ab_col) = game_dbl_(i, j);
             }
+            sub_bordered_dbl_(ab_row, support_size) = -1.0;
+            sub_bordered_dbl_(ab_row, support_size + 1) = 0.0;
         }
         
         for (size_t i = 0; i < support_size; ++i) {
@@ -88,7 +83,8 @@ public:
     }
 
     linalg::matrix_frc& get_bee_matrix_frc(const bitset64& extended_support_reduced, size_t m) {
-        size_t size = bs64::count_set_bits(extended_support_reduced);
+        uint8_t reduced_indices[bs64::kMaxBitsetDimension];
+        size_t size = bs64::extract_set_indices(extended_support_reduced, dimensions_, reduced_indices);
         if (bee_frc_.rows() != size) {
             bee_frc_ = linalg::matrix_frc(size, size);
         }
@@ -96,52 +92,41 @@ public:
         // Precompute the constant term: 2 * game_frc_(m, m)
         fraction const_term = fraction::two() * game_frc_(m, m);
 
-        size_t row = 0;
-        for (size_t i = 0; i < dimensions_; i++) {
-            if (bs64::is_set_at_pos(extended_support_reduced, i)) {
-                size_t column = 0;
-                for (size_t j = 0; j < i + 1; j++) {
-                    if (bs64::is_set_at_pos(extended_support_reduced, j)) {
-                        fraction& val = bee_frc_(row, column);                        
-                        // val = game_frc_(m, j) + game_frc_(j, m) + game_frc_(i, m) + game_frc_(m, i) - game_frc_(i, j) - game_frc_(j, i) - const_term                        
-                        fraction::add(val, game_frc_(m, j), game_frc_(j, m));
-                        val.add_inplace(game_frc_(i, m));
-                        val.add_inplace(game_frc_(m, i));
-                        val.sub_inplace(game_frc_(i, j));
-                        val.sub_inplace(game_frc_(j, i));
-                        val.sub_inplace(const_term);
+        for (size_t row = 0; row < size; ++row) {
+            const size_t i = reduced_indices[row];
+            for (size_t column = 0; column <= row; ++column) {
+                const size_t j = reduced_indices[column];
+                fraction& val = bee_frc_(row, column);
+                // val = game_frc_(m, j) + game_frc_(j, m) + game_frc_(i, m) + game_frc_(m, i) - game_frc_(i, j) - game_frc_(j, i) - const_term
+                fraction::add(val, game_frc_(m, j), game_frc_(j, m));
+                val.add_inplace(game_frc_(i, m));
+                val.add_inplace(game_frc_(m, i));
+                val.sub_inplace(game_frc_(i, j));
+                val.sub_inplace(game_frc_(j, i));
+                val.sub_inplace(const_term);
 
-                        if (row != column) {
-                            bee_frc_(column, row) = val;
-                        }
-                        column += 1;
-                    }
+                if (row != column) {
+                    bee_frc_(column, row) = val;
                 }
-                row += 1;
             }
         }
         return bee_frc_;
     }
 
     linalg::matrix_dbl& get_bee_matrix_dbl(const bitset64& extended_support_reduced, size_t m) {
-        size_t size = bs64::count_set_bits(extended_support_reduced);
+        uint8_t reduced_indices[bs64::kMaxBitsetDimension];
+        size_t size = bs64::extract_set_indices(extended_support_reduced, dimensions_, reduced_indices);
         if (bee_dbl_.rows() != size) {
             bee_dbl_ = linalg::matrix_dbl(size, size);
         }
 
-        size_t row = 0;
-        for (size_t i = 0; i < dimensions_; i++) {
-            if (bs64::is_set_at_pos(extended_support_reduced, i)) {
-                size_t column = 0;
-                for (size_t j = 0; j < i + 1; j++) {
-                    if (bs64::is_set_at_pos(extended_support_reduced, j)) {
-                        bee_dbl_(row, column) = bee_dbl_(column, row) = 
-                            game_dbl_(m, j) + game_dbl_(j, m) + game_dbl_(i, m) + game_dbl_(m, i) -
-                            game_dbl_(i, j) - game_dbl_(j, i) - 2.0 * game_dbl_(m, m);
-                        column += 1;
-                    }
-                }
-                row += 1;
+        for (size_t row = 0; row < size; ++row) {
+            const size_t i = reduced_indices[row];
+            for (size_t column = 0; column <= row; ++column) {
+                const size_t j = reduced_indices[column];
+                bee_dbl_(row, column) = bee_dbl_(column, row) =
+                    game_dbl_(m, j) + game_dbl_(j, m) + game_dbl_(i, m) + game_dbl_(m, i) -
+                    game_dbl_(i, j) - game_dbl_(j, i) - 2.0 * game_dbl_(m, m);
             }
         }
         return bee_dbl_;
@@ -163,6 +148,7 @@ private:
     linalg::matrix_frc bee_frc_;
     linalg::matrix_dbl bee_dbl_;
     size_t dimensions_;
+
 };
 
 #endif // MATRIX_SERVER_HPP

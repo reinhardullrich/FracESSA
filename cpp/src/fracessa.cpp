@@ -8,7 +8,7 @@ fracessa::fracessa(const linalg::matrix_frc& matrix, bool is_cs, bool with_candi
     : matrix_server_(matrix)
     , dimension_(matrix.rows())
     , is_cs_(is_cs)
-    , matrix_id_(matrix_id)
+    // , matrix_id_(matrix_id)
     , conf_with_candidates_(with_candidates)
     , conf_exact_(exact)
     , conf_full_support_(full_support)

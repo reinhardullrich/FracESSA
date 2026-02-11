@@ -12,6 +12,8 @@
 // Helper function to parse matrix string format: "n#values"
 bool parse_matrix_string(const std::string& matrix_str, linalg::matrix_frc& A, bool& is_cs)
 {
+    constexpr size_t kMaxSafeDimension = 63;
+
     const size_t hash_pos = matrix_str.find('#');
     if (hash_pos == std::string::npos || hash_pos == 0 || hash_pos == matrix_str.length() - 1) {
         std::cerr << "Error: String for the matrix does not include '#' as a separator between dimension and matrix!" << std::endl;
@@ -26,14 +28,20 @@ bool parse_matrix_string(const std::string& matrix_str, linalg::matrix_frc& A, b
     size_t n;
     try {
         n = std::stoull(matrix_str.substr(0, hash_pos));
-    } catch (const std::exception& e) {
+    } catch (const std::exception&) {
         std::cerr << "Error: The given dimension could not be converted into an integer number!" << std::endl;
+        return false;
+    }
+
+    if (n == 0 || n > kMaxSafeDimension) {
+        std::cerr << "Error: Safe parser supports dimensions in [1, " << kMaxSafeDimension << "], got " << n << std::endl;
+        std::cerr << "Use --unsafe to bypass this validation (not recommended)." << std::endl;
         return false;
     }
     
     const std::string& values_str = matrix_str.substr(hash_pos + 1);
     std::vector<fraction> rational_values;
-    rational_values.reserve(n / 2);
+    rational_values.reserve(n * (n + 1) / 2); //reserve for symmetric case, even if circular symmetric uses less
     
     try {
         size_t start = 0;

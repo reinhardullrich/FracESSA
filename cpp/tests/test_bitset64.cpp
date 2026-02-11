@@ -9,13 +9,6 @@ TEST(Bitset64Test, Set) {
     EXPECT_FALSE(bs64::is_set_at_pos(bits, 4));
 }
 
-TEST(Bitset64Test, Reset) {
-    bitset64 bits = 0ULL;
-    bits = bs64::set_bit_at_pos(bits, 5);
-    bits = bs64::clear_bit_at_pos(bits, 5);
-    EXPECT_FALSE(bs64::is_set_at_pos(bits, 5));
-}
-
 TEST(Bitset64Test, SetAll) {
     bitset64 bits = 0ULL;
     bits = bs64::set_all_n_bits(5);
@@ -181,19 +174,6 @@ TEST(Bitset64Test, LowestSetBitZero) {
     EXPECT_EQ(lowest, 0ULL);
 }
 
-TEST(Bitset64Test, NextBitsetWithSamePopcount) {
-    bitset64 bits = 0ULL;
-    bits = bs64::set_bit_at_pos(bits, 0);
-    bits = bs64::set_bit_at_pos(bits, 1);
-    bits = bs64::set_bit_at_pos(bits, 2);
-    // bits = 00000111
-    
-    bitset64 next = bs64::next_bitset_with_same_popcount(bits);
-    // Next should be 00001011 (bit 2 moves to bit 3)
-    EXPECT_EQ(bs64::count_set_bits(next), 3);
-    EXPECT_GT(next, bits);
-}
-
 // Test String Functions
 TEST(Bitset64Test, ToString) {
     bitset64 bits = 42ULL;
@@ -212,21 +192,6 @@ TEST(Bitset64Test, ToBitstring) {
     
     std::string s = bs64::to_bitstring(bits, 4);
     EXPECT_EQ(s, "1101");
-}
-
-// Test Hash Function
-TEST(Bitset64Test, Hash) {
-    bitset64 bits1 = 0ULL;
-    bits1 = bs64::set_bit_at_pos(bits1, 1);
-    bits1 = bs64::set_bit_at_pos(bits1, 3);
-    
-    bitset64 bits2 = 0ULL;
-    bits2 = bs64::set_bit_at_pos(bits2, 1);
-    bits2 = bs64::set_bit_at_pos(bits2, 3);
-    
-    std::size_t h1 = bs64::hash(bits1);
-    std::size_t h2 = bs64::hash(bits2);
-    EXPECT_EQ(h1, h2);
 }
 
 // Test Iterate All Supports
@@ -260,4 +225,3 @@ TEST(Bitset64Test, SetAllZero) {
     bits = bs64::set_all_n_bits(0);
     EXPECT_EQ(bs64::count_set_bits(bits), 0);
 }
-

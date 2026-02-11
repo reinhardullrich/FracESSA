@@ -20,15 +20,15 @@ public:
         data_.resize(rows * cols);
     }
 
-    // In-place initialization methods (no temporaries)
-    void set_zero(size_t rows, size_t cols) {
-        rows_ = rows;
-        cols_ = cols;
-        data_.resize(rows * cols);
-        for (size_t i = 0; i < rows * cols; ++i) {
-            data_[i] = fraction::zero();
-        }
-    }
+    // In-place initialization method kept commented (unused in production path).
+    // void set_zero(size_t rows, size_t cols) {
+    //     rows_ = rows;
+    //     cols_ = cols;
+    //     data_.resize(rows * cols);
+    //     for (size_t i = 0; i < rows * cols; ++i) {
+    //         data_[i] = fraction::zero();
+    //     }
+    // }
 
     void set_identity(size_t n) {
         rows_ = n;

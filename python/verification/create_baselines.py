@@ -24,31 +24,38 @@ from typing import List, Dict, Tuple, Optional
 
 def map_reason_ess_to_string(reason_ess_value: str) -> str:
     """
-    Map old reason_ess numeric values to new string values.
+    Normalize reason_ess values to canonical string values.
     
     Old enum values (numbers):
     1 = true_pure_ess -> "T_pure_ess"
-    2 = true_posdef_double -> "T_pd_double"
+    2 = true_posdef_double -> "T_pd_dbl"
     3 = true_posdef_rational -> "T_pd_rat"
     4 = true_copositive -> "T_copos"
     5 = false_not_posdef_and_kay_0_1 -> "F_not_pd_kay_0_1"
     6 = false_not_partial_copositive -> "F_not_part_copos"
     7 = false_not_copositive -> "F_not_copos"
     """
-    mapping = {
+    normalized = str(reason_ess_value).strip()
+
+    numeric_mapping = {
         '1': 'T_pure_ess',
-        '2': 'T_pd_double',
+        '2': 'T_pd_dbl',
         '3': 'T_pd_rat',
         '4': 'T_copos',
         '5': 'F_not_pd_kay_0_1',
         '6': 'F_not_part_copos',
         '7': 'F_not_copos'
     }
-    # If it's already a string (new format), return as-is
-    if reason_ess_value in mapping.values():
-        return reason_ess_value
-    # Otherwise, try to map the number
-    return mapping.get(reason_ess_value.strip(), reason_ess_value)
+    legacy_string_mapping = {
+        'T_pd_double': 'T_pd_dbl',
+    }
+
+    canonical_values = set(numeric_mapping.values())
+    if normalized in canonical_values:
+        return normalized
+    if normalized in legacy_string_mapping:
+        return legacy_string_mapping[normalized]
+    return numeric_mapping.get(normalized, normalized)
 
 
 def full_matrix_to_upper_triangular(matrix_str: str, dimension: int) -> str:
@@ -301,13 +308,10 @@ def main():
     
     matrices = data.get('matrices', [])
     
-    # Filter to only matrices marked as in_use
-    original_count = len(matrices)
-    matrices = [m for m in matrices if m.get('in_use', True)]
-    skipped_count = original_count - len(matrices)
-    
-    print(f"Found {original_count} matrices total, skipping {skipped_count} matrices not in use")
-    print(f"Processing {len(matrices)} matrices")
+    # Baseline regeneration always processes all matrices, including in_use=false.
+    total_count = len(matrices)
+    print(f"Found {total_count} matrices total")
+    print(f"Processing all {total_count} matrices (including in_use=false)")
     print()
     
     # Process matrices sequentially
@@ -410,4 +414,3 @@ def main():
 
 if __name__ == "__main__":
     main()
-
