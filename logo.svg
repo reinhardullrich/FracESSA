@@ -17,11 +17,11 @@
   <text x="324" y="152" fill="#F8FAFC" font-family="Segoe UI, DejaVu Sans, Arial, sans-serif" font-size="84" font-weight="700" letter-spacing="1.5">
     FracESSA
   </text>
-  <text x="328" y="206" fill="#94A3B8" font-family="Segoe UI, DejaVu Sans, Arial, sans-serif" font-size="30" font-weight="500" letter-spacing="0.8">
-    Exact ESS Analysis for Symmetric Games
+  <text x="328" y="206" fill="#94A3B8" font-family="Segoe UI, DejaVu Sans, Arial, sans-serif" font-size="34" font-weight="600" letter-spacing="0.8">
+    Fractional ESS Analyzer
   </text>
-  <text x="328" y="248" fill="#22D3EE" font-family="Consolas, Menlo, Monaco, monospace" font-size="24" font-weight="600">
-    float filter  ->  exact FLINT verification
+  <text x="328" y="248" fill="#22D3EE" font-family="Consolas, Menlo, Monaco, monospace" font-size="23" font-weight="600">
+    high-throughput supports  ->  exact FLINT checks
   </text>
 
   <defs>
