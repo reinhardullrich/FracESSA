@@ -1,5 +1,5 @@
 <p align="center">
-  <img src="logo.svg" width="900" alt="FracESSA logo" />
+  <img src="logo.jpeg" width="900" alt="FracESSA logo" />
 </p>
 
 # FracESSA
