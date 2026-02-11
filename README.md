@@ -1,95 +1,79 @@
-<p align="right">
-  <img src="logo.png" width="150" alt="FracESSA Logo">
+<p align="center">
+  <img src="logo.svg" width="900" alt="FracESSA logo" />
 </p>
 
 # FracESSA
-### Fractional Evolutionary Stable Strategy Analyzer
+Fast ESS analysis for symmetric games with exact rational verification.
 
-FracESSA is a high-performance computational engine for identifying **Evolutionary Stable Strategies (ESS)** within the framework of **Standard Quadratic Problems (SQP)**. The software provides a robust implementation of stability analysis in evolutionary game theory, utilizing exact rational arithmetic to ensure mathematical precision.
+FracESSA is a C++17 command-line tool for Evolutionary Stable Strategy (ESS) search on symmetric payoff matrices.
+It is designed for raw speed in large support-space scans while still preserving exact correctness where it matters.
 
-By employing exact algebraic methods, FracESSA eliminates numerical instabilities inherent in floating-point computations, enabling reliable analysis of complex payoff matrices where stability boundaries are extremely sensitive to precision.
+## Why FracESSA
+- Two-stage pipeline: fast floating-point filter, then exact FLINT fraction checks.
+- Bitset-based support enumeration over a `2^n` search space.
+- Optimized for many repeated operations on small/medium matrix dimensions.
+- Circular-symmetric and general symmetric matrix input support.
 
----
+## Quick Start
 
-## Technical Overview
-
-The identification of ESS represents a fundamental problem in evolutionary biology and game theory, requiring determination of local maximizers of quadratic forms over the standard simplex. FracESSA implements a combinatorial approach optimized for high-dimensional matrices, combining exact algebraic methods with modern computational techniques.
-
-### Algorithmic Foundation
-The core methodology systematically explores supports of the strategy simplex, verifying necessary and sufficient conditions for evolutionary stability through combinatorial enumeration and exact verification.
-
----
-
-## Core Features and Implementation
-
-### Exact Rational Computation
-At the heart of FracESSA lies the **Fast Library for Number Theory (FLINT)**. Every critical computation—from determinant evaluation to linear system solving—is performed using exact fractions. This approach ensures mathematical rigor essential for research applications where stability region boundaries demand absolute precision.
-
-### Performance Optimization
-To maintain computational efficiency while preserving exactness, FracESSA employs a multi-stage filtering pipeline:
-1. **Double-Precision Screening**: Potential supports are initially evaluated using standard double-precision arithmetic, rapidly eliminating non-viable candidates.
-2. **Exact Algebraic Verification**: Surviving candidates undergo full verification using exact rational arithmetic to confirm both Nash equilibrium conditions and stability properties.
-
-### Support for Complex Symmetries
-While supporting general symmetric payoff matrices, the analyzer includes optimized routines for **Circular Symmetric Matrices**. This feature significantly reduces computational complexity for large-scale periodic models prevalent in spatial ecology and evolutionary dynamics.
-
----
-
-## Usage and Integration
-
-### Command Line Interface
-The primary interface for FracESSA is a standalone CLI tool. Matrices are specified in a compact triangular format: `dimension#values`.
-
-**Standard Analysis:**
+### 1. Build
 ```bash
-# Analyze a 3-dimensional symmetric matrix
-./fracessa "3#4,13/2,1/2,5,11/2,3"
+./build.sh
 ```
 
-**Advanced Parameters:**
-The application supports several configuration flags:
-- `--candidates (-c)`: Outputs detailed reports of examined supports, including payoffs and stability status.
-- `--timing (-t)`: Provides high-resolution execution benchmarks.
-- `--exact (-e)`: Forces exclusive use of exact arithmetic, bypassing double-precision filtering.
-- `--log (-l)`: Generates comprehensive execution profiles in `fracessa.log`.
-
-### Python API
-For integration into research workflows, a native Python interface is provided via `fracessa_py`.
-
-```python
-from fracessa_py import Fracessa, Matrix
-
-# Initialize the analyzer
-analyzer = Fracessa()
-
-# Define payoff matrix structure
-matrix = Matrix("0,1,0", dimension=2)
-
-# Compute complete set of ESS
-result = analyzer.compute_ess(matrix, include_candidates=True)
-
-print(f"Total ESS Identified: {result.ess_count}")
-for candidate in result.candidates:
-    if candidate.is_ess:
-        print(f"Refined Support: {candidate.support_bits}")
-```
-
----
-
-## Building and Environment
-
-### System Dependencies
-- **Linux/macOS**: Requires development headers for `GMP` and `MPFR`. `FLINT` is integrated into the build process.
-- **Windows**: Distribution via `vcpkg` is supported using the `flint:x64-windows-static-release` triplet.
-
-### Compilation
-The project uses a standard CMake build system:
+### 2. Run Tests
 ```bash
-cd cpp
-cmake -B build -DCMAKE_BUILD_TYPE=Release
-cmake --build build --config Release -j4
+./test.sh
 ```
 
----
+### 3. Run One Matrix
+```bash
+./build/fracessa "3#4,13/2,1/2,5,11/2,3"
+```
 
-<p align="center">High-Performance Computational Tool for Evolutionary Game Theory • Developed by Reinhard Ullrich</p>
+### 4. Batch Verification
+```bash
+./python.sh
+```
+
+## Input Format
+Matrix input is:
+```text
+dimension#values
+```
+
+Supported encodings:
+- Symmetric upper-triangular: `n*(n+1)/2` values.
+- Circular-symmetric compact: `floor(n/2)` values.
+
+## CLI Flags
+- `-c, --candidates` include candidate rows in output.
+- `-l, --log` write detailed log output.
+- `-e, --exact` disable float pre-filter, use exact path only.
+- `-f, --fullsupport` evaluate full support first.
+- `-t, --timing` print wall-clock timing.
+- `-m, --matrixid` optional matrix ID for logging/verification runs.
+- `-u, --unsafe` use fast parser without full validation.
+
+Output format:
+- line 1: ESS count
+- optional line 2 (`-t`): runtime in seconds
+- optional extra lines (`-c`): candidate CSV rows
+
+## Build Dependencies
+- C++17 compiler
+- CMake >= 3.15
+- GMP, MPFR, FLINT
+
+Notes:
+- Third-party C++ dependencies (`spdlog`, `argparse`, `googletest`) are pulled by CMake `FetchContent`.
+- First configure in a fresh `build/` directory requires internet access unless dependencies are cached.
+
+## Repository Layout
+- `cpp/`: core engine and tests
+- `python/`: automation, verification scripts, baseline generation
+- `.github/workflows/`: release/build automation
+
+## Project Focus
+FracESSA is explicitly tuned for high-throughput ESS workflows where millions of support-level operations are common.
+Micro-overheads in hot paths matter and are optimized aggressively by design.
