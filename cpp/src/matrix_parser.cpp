@@ -3,9 +3,22 @@
 #include <cstdint>
 #include <exception>
 #include <iostream>
+#include <stdexcept>
 #include <vector>
 
 namespace matrix_parser {
+
+namespace {
+
+linalg::fraction parse_fraction_token(const std::string& values, size_t start, size_t end)
+{
+    if (start >= end) {
+        throw std::invalid_argument("empty fraction token");
+    }
+    return linalg::fraction(values.substr(start, end - start));
+}
+
+} // namespace
 
 bool parse_matrix_string(const std::string& matrix_str, linalg::matrix_frc& A, bool& is_cs)
 {
@@ -50,15 +63,7 @@ bool parse_matrix_string(const std::string& matrix_str, linalg::matrix_frc& A, b
                 comma_pos = values_str.length();
             }
 
-            const size_t slash_pos = values_str.find('/', start);
-            if (slash_pos != std::string::npos && slash_pos < comma_pos) {
-                int64_t num = std::stoll(values_str.substr(start, slash_pos - start));
-                int64_t den = std::stoll(values_str.substr(slash_pos + 1, comma_pos - slash_pos - 1));
-                rational_values.push_back(linalg::fraction(static_cast<long>(num), static_cast<long>(den)));
-            } else {
-                int64_t num = std::stoll(values_str.substr(start, comma_pos - start));
-                rational_values.push_back(linalg::fraction(static_cast<long>(num), 1L));
-            }
+            rational_values.push_back(parse_fraction_token(values_str, start, comma_pos));
 
             start = comma_pos + 1;
         }
@@ -132,11 +137,11 @@ void parse_matrix_string_unsafe(const std::string& matrix_str, linalg::matrix_fr
                 ++pos;
             }
             if (den_negative) {
-                den = -den;
+                num = -num;
             }
-            rational_values.push_back(linalg::fraction(static_cast<long>(num), static_cast<long>(den)));
+            rational_values.push_back(linalg::fraction(static_cast<long long>(num), static_cast<long long>(den)));
         } else {
-            rational_values.push_back(linalg::fraction(static_cast<long>(num), 1L));
+            rational_values.push_back(linalg::fraction(static_cast<long long>(num), 1LL));
         }
         if (pos < len && matrix_str[pos] == ',') {
             ++pos;
@@ -154,4 +159,3 @@ void parse_matrix_string_unsafe(const std::string& matrix_str, linalg::matrix_fr
 }
 
 } // namespace matrix_parser
-

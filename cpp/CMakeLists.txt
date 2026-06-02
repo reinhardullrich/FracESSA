@@ -12,6 +12,8 @@ project(fracessa
 set(CMAKE_CXX_STANDARD 17)
 set(CMAKE_CXX_STANDARD_REQUIRED ON)
 set(CMAKE_CXX_EXTENSIONS OFF)
+set(CMAKE_POSITION_INDEPENDENT_CODE ON)
+option(FRACESSA_NATIVE_ARCH "Enable local CPU-specific optimizations with -march=native" ON)
 
 if(MSVC)
     set(CMAKE_MSVC_RUNTIME_LIBRARY "MultiThreaded$<$<CONFIG:Debug>:Debug>")
@@ -22,7 +24,10 @@ if(MSVC)
     # Ensure the linker finds all static dependencies correctly
     add_link_options(/NODEFAULTLIB:MSVCRT /NODEFAULTLIB:MSVCRTD)
 else()
-    add_compile_options(-O3 -march=native -flto -funroll-loops -DNDEBUG)
+    add_compile_options(-O3 -flto -funroll-loops -DNDEBUG)
+    if(FRACESSA_NATIVE_ARCH)
+        add_compile_options(-march=native)
+    endif()
 
     include(CheckIPOSupported)
     check_ipo_supported(RESULT IPO_SUPPORTED)
@@ -48,12 +53,16 @@ FetchContent_Declare(googletest
     GIT_REPOSITORY https://github.com/google/googletest.git
     GIT_TAG v1.14.0
 )
+FetchContent_Declare(pybind11
+    GIT_REPOSITORY https://github.com/pybind/pybind11.git
+    GIT_TAG v2.13.6
+)
 # MSVC-specific settings for FetchContent
 if(MSVC)
     set(gtest_force_shared_crt OFF CACHE BOOL "" FORCE)
 endif()
 
-FetchContent_MakeAvailable(spdlog argparse googletest)
+FetchContent_MakeAvailable(spdlog argparse googletest pybind11)
 
 enable_testing()
 
@@ -62,11 +71,15 @@ enable_testing()
 # ==============================================================================
 
 # --- GMP & MPFR (Generic search for all platforms) ---
-if(NOT WIN32)
-    # Force static suffixes for Linux/Mac
-    set(_ORIG_CMAKE_FIND_LIBRARY_SUFFIXES ${CMAKE_FIND_LIBRARY_SUFFIXES})
-    set(CMAKE_FIND_LIBRARY_SUFFIXES ".a")
+if(UNIX AND NOT APPLE)
+    # Shared libs are required for linking the pybind module.
+    set(CMAKE_FIND_LIBRARY_SUFFIXES ".so" ".a")
+elseif(APPLE)
+    set(CMAKE_FIND_LIBRARY_SUFFIXES ".dylib" ".a")
 endif()
+
+unset(GMP_LIB CACHE)
+unset(MPFR_LIB CACHE)
 
 # Search for GMP (Common names: gmp, libgmp, or mpir on Windows)
 find_path(GMP_INCLUDE_DIR NAMES gmp.h)
@@ -75,10 +88,6 @@ find_library(GMP_LIB NAMES gmp libgmp mpir libmpir)
 # Search for MPFR
 find_path(MPFR_INCLUDE_DIR NAMES mpfr.h)
 find_library(MPFR_LIB NAMES mpfr libmpfr)
-
-if(NOT WIN32)
-    set(CMAKE_FIND_LIBRARY_SUFFIXES ${_ORIG_CMAKE_FIND_LIBRARY_SUFFIXES})
-endif()
 
 if(NOT (GMP_LIB AND GMP_INCLUDE_DIR))
     message(FATAL_ERROR "GMP not found.")
@@ -132,6 +141,7 @@ add_library(fracessa_lib
     src/checkstab.cpp
     src/matrix_parser.cpp
 )
+set_target_properties(fracessa_lib PROPERTIES POSITION_INDEPENDENT_CODE ON)
 
 # Set common include directories
 target_include_directories(fracessa_lib PUBLIC
@@ -157,6 +167,9 @@ target_link_libraries(fracessa PRIVATE
     fracessa_lib
     argparse::argparse
 )
+
+pybind11_add_module(fracessa_core MODULE src/pybind_module.cpp)
+target_link_libraries(fracessa_core PRIVATE fracessa_lib)
 
 install(TARGETS fracessa RUNTIME DESTINATION bin)
 

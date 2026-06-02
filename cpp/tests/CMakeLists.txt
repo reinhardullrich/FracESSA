@@ -23,9 +23,6 @@ foreach(test_name ${TEST_LIST})
     target_include_directories(${test_name} PRIVATE ${CMAKE_CURRENT_SOURCE_DIR}/../include)
 endforeach()
 
-# Copy test data to build directory
-file(COPY ${CMAKE_CURRENT_SOURCE_DIR}/test_data DESTINATION ${CMAKE_CURRENT_BINARY_DIR})
-
 # Register tests with CTest
 add_test(NAME MatrixTests COMMAND test_matrix)
 add_test(NAME MatrixParserTests COMMAND test_matrix_parser)

@@ -20,6 +20,11 @@ jobs:
     steps:
     - uses: actions/checkout@v3
 
+    - name: Set up Python
+      uses: actions/setup-python@v5
+      with:
+        python-version: '3.12'
+
     # --- CACHE VCPKG (Windows Only) ---
     - name: Restore vcpkg cache
       if: runner.os == 'Windows'
@@ -75,11 +80,29 @@ jobs:
       run: >
         cmake -B build -S cpp
         -DCMAKE_BUILD_TYPE=Release
+        -DFRACESSA_NATIVE_ARCH=OFF
         ${{ runner.os == 'Windows' && '-DCMAKE_TOOLCHAIN_FILE=C:/vcpkg/scripts/buildsystems/vcpkg.cmake -DVCPKG_TARGET_TRIPLET=x64-windows-static-release -DVCPKG_OVERLAY_TRIPLETS=triplets' || '' }}
 
     # --- BUILD ---
     - name: Build
       run: cmake --build build --config Release -j 4
+
+    # --- TEST ---
+    - name: Test core, wrapper, and fast verification suite
+      shell: bash
+      run: |
+        ctest --test-dir build --build-config Release --output-on-failure -j 4 -E "^VerificationMatrix_"
+        PYTHONPATH=python python -m unittest discover -s python/wrapper_v1/tests -p "test_*.py"
+
+        FAST_IDS_RAW="$(python python/verification/matrix_selection.py --fast-ids --verification-dir python/verification)"
+        if [[ -z "${FAST_IDS_RAW// }" ]]; then
+          echo "No fast verification matrices selected." >&2
+          exit 1
+        fi
+
+        read -r -a FAST_IDS <<< "${FAST_IDS_RAW}"
+        FAST_REGEX="$(IFS='|'; echo "${FAST_IDS[*]}")"
+        ctest --test-dir build --build-config Release --output-on-failure -j 4 -R "^VerificationMatrix_(${FAST_REGEX})$"
 
     # --- STRIP BINARIES ---
     - name: Strip Binary (Linux/Mac)

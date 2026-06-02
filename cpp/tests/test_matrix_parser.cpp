@@ -51,6 +51,17 @@ TEST(MatrixParserSafeTest, ParsesCircularSymmetricInput) {
     EXPECT_EQ(A(0, 4), fraction::one());
 }
 
+TEST(MatrixParserSafeTest, ParsesValuesBeyondWindowsLongRange) {
+    matrix_frc A;
+    bool is_cs = true;
+
+    ASSERT_TRUE(matrix_parser::parse_matrix_string("2#2147483648/2147483649,0,1", A, is_cs));
+    EXPECT_FALSE(is_cs);
+    EXPECT_EQ(A(0, 0).to_string(), "2147483648/2147483649");
+    EXPECT_EQ(A(0, 1), fraction::zero());
+    EXPECT_EQ(A(1, 1), fraction::one());
+}
+
 TEST(MatrixParserSafeTest, RejectsMissingHash) {
     matrix_frc A;
     bool is_cs = false;
@@ -103,3 +114,14 @@ TEST(MatrixParserUnsafeTest, FallsBackToSymmetricWhenCountNotCs) {
     EXPECT_EQ(A(1, 0), fraction::two());
 }
 
+TEST(MatrixParserUnsafeTest, ParsesValuesBeyondWindowsLongRange) {
+    matrix_frc A;
+    bool is_cs = true;
+
+    matrix_parser::parse_matrix_string_unsafe("2#2147483648/2147483649,0,1", A, is_cs);
+
+    EXPECT_FALSE(is_cs);
+    EXPECT_EQ(A(0, 0).to_string(), "2147483648/2147483649");
+    EXPECT_EQ(A(0, 1), fraction::zero());
+    EXPECT_EQ(A(1, 1), fraction::one());
+}

@@ -12,8 +12,8 @@ for arg in "$@"; do
             ;;
         -h|--help)
             echo "Usage: $0 [--full]"
-            echo "  default: build + CTest core suite + FAST correctness verification matrices"
-            echo "  --full : build + CTest core suite + ALL correctness verification matrices"
+            echo "  default: build + CTest core suite + wrapper Python tests + FAST correctness verification matrices"
+            echo "  --full : build + CTest core suite + wrapper Python tests + ALL correctness verification matrices"
             exit 0
             ;;
         *)
@@ -28,6 +28,7 @@ done
 
 CTEST_JOBS="$(nproc)"
 ctest --test-dir build --output-on-failure -j "${CTEST_JOBS}" -E "^VerificationMatrix_"
+PYTHONPATH=python python3 -m unittest discover -s python/wrapper_v1/tests -p "test_*.py"
 
 if [[ "$FULL_MODE" -eq 1 ]]; then
     ctest --test-dir build --output-on-failure -j "${CTEST_JOBS}" -R "^VerificationMatrix_"

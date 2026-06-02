@@ -105,7 +105,7 @@ def find_old_executable(script_dir: Path) -> Path:
     raise FileNotFoundError(f"Modified executable not found. Tried: {old_exe_path}")
 
 
-def run_old_executable(exe_path: Path, matrix_cli_string: str, matrix_id: int = -1, timeout: float = 1800.0) -> Tuple[bool, int, List[Dict], float, Optional[str]]:
+def run_old_executable(exe_path: Path, matrix_cli_string: str, matrix_id: int = -1) -> Tuple[bool, int, List[Dict], float, Optional[str]]:
     """
     Run the modified executable and parse output.
     The modified executable supports -t flag for C++ timing output.
@@ -115,7 +115,6 @@ def run_old_executable(exe_path: Path, matrix_cli_string: str, matrix_id: int = 
         exe_path: Path to the executable
         matrix_cli_string: Matrix in CLI format (e.g., "2#0,1,1,0")
         matrix_id: Matrix ID (kept for tracking, not passed to executable)
-        timeout: Maximum computation time in seconds
     
     Returns:
         (success, ess_count, candidates, timing, error_message)
@@ -127,8 +126,7 @@ def run_old_executable(exe_path: Path, matrix_cli_string: str, matrix_id: int = 
         result = subprocess.run(
             cmd,
             capture_output=True,
-            text=True,
-            timeout=timeout
+            text=True
         )
         
         if result.returncode != 0:
@@ -193,8 +191,6 @@ def run_old_executable(exe_path: Path, matrix_cli_string: str, matrix_id: int = 
         
         return (True, ess_count, candidates, timing, None)
         
-    except subprocess.TimeoutExpired:
-        return (False, 0, [], 0.0, f"Computation timed out after {timeout} seconds")
     except Exception as e:
         return (False, 0, [], 0.0, f"Exception: {str(e)}")
 
@@ -372,7 +368,6 @@ def main():
                     "enable_logging": False,
                     "exact_arithmetic": False,
                     "full_support_search": False,
-                    "timeout": 1800.0,
                     "use_cpp_timing": True
                 }
             },

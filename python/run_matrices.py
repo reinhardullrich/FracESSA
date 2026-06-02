@@ -53,7 +53,6 @@ def process_matrix(matrix_data):
                 matrix=matrix,
                 include_candidates=True,
                 enable_logging=False,
-                timeout=1800.0,
                 matrix_id=matrix_id,
             )
 

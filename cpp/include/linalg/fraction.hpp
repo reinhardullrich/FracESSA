@@ -20,6 +20,15 @@ namespace linalg {
 class fraction {
 private:
     fmpq_t data_;
+
+    static void set_signed_ratio(fmpq_t target, slong num, slong den) noexcept {
+        if (den < 0) {
+            num = -num;
+            den = -den;
+        }
+        fmpq_set_si(target, num, static_cast<ulong>(den));
+        fmpq_canonicalise(target);
+    }
     
 public:
     // Default constructor (zero)
@@ -30,22 +39,29 @@ public:
     // From long
     explicit fraction(long num, long den = 1) noexcept {
         fmpq_init(data_);
-        fmpq_set_si(data_, num, den);
-        fmpq_canonicalise(data_);
+        set_signed_ratio(data_, static_cast<slong>(num), static_cast<slong>(den));
     }
     
     // From long long
     explicit fraction(long long num, long long den = 1) noexcept {
         fmpq_init(data_);
-        fmpq_set_si(data_, static_cast<slong>(num), static_cast<slong>(den));
+        set_signed_ratio(data_, static_cast<slong>(num), static_cast<slong>(den));
+    }
+
+    // From FLINT-compatible base-10 rational text (`num` or `num/den`).
+    explicit fraction(const std::string& value) {
+        fmpq_init(data_);
+        if (fmpq_set_str(data_, value.c_str(), 10) != 0) {
+            fmpq_clear(data_);
+            throw std::invalid_argument("Invalid rational value: " + value);
+        }
         fmpq_canonicalise(data_);
     }
     
     // From int (non-explicit so templated code can write T(0), T(1) idioms).
     fraction(int num, int den = 1) noexcept {
         fmpq_init(data_);
-        fmpq_set_si(data_, static_cast<slong>(num), static_cast<slong>(den));
-        fmpq_canonicalise(data_);
+        set_signed_ratio(data_, static_cast<slong>(num), static_cast<slong>(den));
     }
     
     // Copy constructor

@@ -185,7 +185,6 @@ class Fracessa:
                    exact_arithmetic: bool = False,
                    full_support_search: bool = False,
                    enable_logging: bool = False,
-                   timeout: float = 0.0,
                    matrix_id: int = -1) -> ESSResult:
         """
         Compute evolutionary stable strategies for a given payoff matrix.
@@ -196,7 +195,6 @@ class Fracessa:
             exact_arithmetic: Use exact rational arithmetic (slower but precise)
             full_support_search: Search full support directly after size 1
             enable_logging: Enable detailed logging to fracessa.log
-            timeout: Maximum computation time in seconds (0.0 means no timeout)
             matrix_id: Optional matrix ID to write in the log file (default: -1, not logged)
 
         Returns:
@@ -232,13 +230,10 @@ class Fracessa:
         cmd.append(cli_string)
 
         try:
-            # Run command with timeout (0.0 means no timeout)
-            subprocess_timeout = None if timeout == 0.0 else timeout
             result = subprocess.run(
                 cmd,
                 capture_output=True,
-                text=True,
-                timeout=subprocess_timeout
+                text=True
             )
 
             if result.returncode != 0:
@@ -310,12 +305,6 @@ class Fracessa:
                 success=True
             )
 
-        except subprocess.TimeoutExpired:
-            return ESSResult(
-                success=False,
-                error=f"Computation timed out after {timeout} seconds",
-                computation_time=timeout
-            )
         except Exception as e:
             return ESSResult(
                 success=False,

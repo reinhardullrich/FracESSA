@@ -105,9 +105,9 @@ def parse_cli_candidates(output_lines):
     return candidates
 
 
-def run_fracessa(fracessa_exe: Path, matrix_cli: str, timeout_seconds: float):
+def run_fracessa(fracessa_exe: Path, matrix_cli: str):
     cmd = [str(fracessa_exe), "-c", "-t", matrix_cli]
-    result = subprocess.run(cmd, capture_output=True, text=True, timeout=timeout_seconds)
+    result = subprocess.run(cmd, capture_output=True, text=True)
     if result.returncode != 0:
         raise RuntimeError(f"fracessa failed ({result.returncode}): {result.stderr.strip()}")
 
@@ -158,7 +158,6 @@ def main():
     parser.add_argument("--matrix-id", type=int, required=True, help="Matrix ID from verification dataset.")
     parser.add_argument("--verification-dir", type=Path, required=True, help="Path to python/verification.")
     parser.add_argument("--fracessa-exe", type=Path, required=True, help="Path to fracessa executable.")
-    parser.add_argument("--timeout", type=float, default=1800.0, help="Per-matrix timeout in seconds.")
     args = parser.parse_args()
 
     matrices = load_matrices(args.verification_dir)
@@ -171,7 +170,7 @@ def main():
     expected_ess = int(matrix["number_ess"])
 
     try:
-        ess_count, produced_candidates = run_fracessa(args.fracessa_exe, matrix_cli, args.timeout)
+        ess_count, produced_candidates = run_fracessa(args.fracessa_exe, matrix_cli)
     except Exception as exc:
         print(f"[ERROR] matrix {args.matrix_id}: execution failed: {exc}")
         return 1

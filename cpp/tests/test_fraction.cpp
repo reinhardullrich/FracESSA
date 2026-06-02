@@ -50,6 +50,12 @@ TEST(FractionTest, ConstructorSimplifies) {
     EXPECT_EQ(f, expected);
 }
 
+TEST(FractionTest, ConstructorNormalizesNegativeDenominator) {
+    EXPECT_EQ(fraction(1, -2).to_string(), "-1/2");
+    EXPECT_EQ(fraction(-1, -2).to_string(), "1/2");
+    EXPECT_EQ(fraction(1LL, -2LL).to_string(), "-1/2");
+}
+
 TEST(FractionTest, CopyConstructor) {
     fraction original(3, 7);
     fraction copy(original);
