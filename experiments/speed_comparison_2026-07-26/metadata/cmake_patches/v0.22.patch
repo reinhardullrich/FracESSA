@@ -1,0 +1,49 @@
+--- /home/reinhard/projects/fracessa/experiments/speed_comparison_2026-07-26/sources/v0.22/cpp/CMakeLists.txt.original	2026-07-26 01:12:22.438596215 +0300
++++ /home/reinhard/projects/fracessa/experiments/speed_comparison_2026-07-26/sources/v0.22/cpp/CMakeLists.txt	2026-07-26 01:12:22.454177158 +0300
+@@ -100,28 +100,15 @@
+         message(FATAL_ERROR "FLINT static library not found.")
+     endif()
+ else()
+-    # LINUX / MACOS: Build FLINT 3.0.1 from source
+-    include(ExternalProject)
+-    get_filename_component(GMP_LIB_DIR ${GMP_LIB} DIRECTORY)
+-    get_filename_component(MPFR_LIB_DIR ${MPFR_LIB} DIRECTORY)
+-
+-    ExternalProject_Add(flint_build
+-        URL https://github.com/flintlib/flint/releases/download/v3.0.1/flint-3.0.1.tar.gz
+-        PREFIX ${CMAKE_BINARY_DIR}/third_party/flint
+-        BUILD_IN_SOURCE 1
+-        CONFIGURE_COMMAND ./configure 
+-            --prefix=<INSTALL_DIR> 
+-            --with-gmp=${GMP_LIB_DIR}/.. 
+-            --with-mpfr=${MPFR_LIB_DIR}/..
+-            --disable-shared 
+-            --enable-static
+-        BUILD_COMMAND make -j4
+-        INSTALL_COMMAND make install
+-    )
+-
+-    ExternalProject_Get_Property(flint_build INSTALL_DIR)
+-    set(FLINT_INCLUDE_DIRS ${INSTALL_DIR}/include)
+-    set(FLINT_LIBRARIES ${INSTALL_DIR}/lib/libflint.a)
++    # Experiment-only build adaptation: use one common native FLINT installation.
++    find_path(FLINT_INCLUDE_DIR NAMES flint/flint.h)
++    find_library(FLINT_LIB NAMES flint)
++    if(FLINT_LIB AND FLINT_INCLUDE_DIR)
++        set(FLINT_INCLUDE_DIRS ${FLINT_INCLUDE_DIR})
++        set(FLINT_LIBRARIES ${FLINT_LIB})
++    else()
++        message(FATAL_ERROR "Native FLINT not found for historical benchmark")
++    endif()
+ endif()
+ 
+ # ==============================================================================
+@@ -152,7 +139,7 @@
+ )
+ 
+ if(NOT WIN32)
+-    add_dependencies(fracessa_lib flint_build)
++
+     find_package(Threads REQUIRED)
+     target_link_libraries(fracessa_lib PUBLIC Threads::Threads)
+ endif()

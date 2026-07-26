@@ -1,4 +1,4 @@
-cmake_minimum_required(VERSION 3.15)
+cmake_minimum_required(VERSION 3.18)
 
 project(fracessa
     VERSION 1.0.0
@@ -24,7 +24,7 @@ if(MSVC)
     # Ensure the linker finds all static dependencies correctly
     add_link_options(/NODEFAULTLIB:MSVCRT /NODEFAULTLIB:MSVCRTD)
 else()
-    add_compile_options(-O3 -flto -funroll-loops -DNDEBUG)
+    add_compile_options(-O3 -funroll-loops -DNDEBUG)
     if(FRACESSA_NATIVE_ARCH)
         add_compile_options(-march=native)
     endif()
@@ -57,6 +57,14 @@ FetchContent_Declare(pybind11
     GIT_REPOSITORY https://github.com/pybind/pybind11.git
     GIT_TAG v2.13.6
 )
+
+# Use the same `python3` selected by project scripts unless explicitly overridden.
+if(NOT Python3_EXECUTABLE)
+    find_program(Python3_EXECUTABLE NAMES python3 python REQUIRED)
+endif()
+find_package(Python3 COMPONENTS Interpreter Development.Module REQUIRED)
+set(PYBIND11_FINDPYTHON ON CACHE BOOL "Use CMake FindPython for pybind11" FORCE)
+
 # MSVC-specific settings for FetchContent
 if(MSVC)
     set(gtest_force_shared_crt OFF CACHE BOOL "" FORCE)
@@ -77,9 +85,6 @@ if(UNIX AND NOT APPLE)
 elseif(APPLE)
     set(CMAKE_FIND_LIBRARY_SUFFIXES ".dylib" ".a")
 endif()
-
-unset(GMP_LIB CACHE)
-unset(MPFR_LIB CACHE)
 
 # Search for GMP (Common names: gmp, libgmp, or mpir on Windows)
 find_path(GMP_INCLUDE_DIR NAMES gmp.h)
@@ -104,11 +109,11 @@ if(WIN32)
     # WINDOWS (vcpkg): Search for pre-installed static FLINT
     find_path(FLINT_INCLUDE_DIR NAMES flint/flint.h)
     find_library(FLINT_LIB NAMES flint libflint)
-    
+
     if(FLINT_LIB AND FLINT_INCLUDE_DIR)
         set(FLINT_LIBRARIES ${FLINT_LIB})
         set(FLINT_INCLUDE_DIRS ${FLINT_INCLUDE_DIR})
-        
+
         # Static FLINT on Windows often needs pthreads
         find_library(PTHREADS_LIB NAMES pthreadVC3 pthreadVC2 pthread pthreads)
         if(PTHREADS_LIB)

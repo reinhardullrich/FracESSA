@@ -1,0 +1,69 @@
+2026-07-26T01:08:50+03:00
+Linux superior 7.0.13-400.asahi.fc44.aarch64+16k #1 SMP PREEMPT_DYNAMIC Wed Jun 24 05:44:57 UTC 2026 aarch64 GNU/Linux
+Architecture:                            aarch64
+CPU op-mode(s):                          64-bit
+Byte Order:                              Little Endian
+CPU(s):                                  10
+On-line CPU(s) list:                     0-9
+Vendor ID:                               Apple
+Model name:                              Icestorm-M1-Max
+Model:                                   0
+Thread(s) per core:                      1
+Core(s) per socket:                      2
+Socket(s):                               1
+Stepping:                                0x2
+Frequency boost:                         disabled
+CPU(s) scaling MHz:                      100%
+CPU max MHz:                             2064.0000
+CPU min MHz:                             600.0000
+BogoMIPS:                                48.00
+Flags:                                   fp asimd evtstrm aes pmull sha1 sha2 crc32 atomics fphp asimdhp cpuid asimdrdm jscvt fcma lrcpc dcpop sha3 asimddp sha512 asimdfhm dit uscat ilrcpc flagm ssbs sb paca pacg dcpodp flagm2 frint
+Model name:                              Firestorm-M1-Max
+Model:                                   0
+Thread(s) per core:                      1
+Core(s) per socket:                      8
+Socket(s):                               1
+Stepping:                                0x2
+CPU(s) scaling MHz:                      86%
+CPU max MHz:                             3036.0000
+CPU min MHz:                             600.0000
+BogoMIPS:                                48.00
+Flags:                                   fp asimd evtstrm aes pmull sha1 sha2 crc32 atomics fphp asimdhp cpuid asimdrdm jscvt fcma lrcpc dcpop sha3 asimddp sha512 asimdfhm dit uscat ilrcpc flagm ssbs sb paca pacg dcpodp flagm2 frint
+L1d cache:                               1.1 MiB (10 instances)
+L1i cache:                               1.8 MiB (10 instances)
+L2 cache:                                28 MiB (3 instances)
+NUMA node(s):                            1
+NUMA node0 CPU(s):                       0-9
+Vulnerability Gather data sampling:      Not affected
+Vulnerability Ghostwrite:                Not affected
+Vulnerability Indirect target selection: Not affected
+Vulnerability Itlb multihit:             Not affected
+Vulnerability L1tf:                      Not affected
+Vulnerability Mds:                       Not affected
+Vulnerability Meltdown:                  Not affected
+Vulnerability Mmio stale data:           Not affected
+Vulnerability Old microcode:             Not affected
+Vulnerability Reg file data sampling:    Not affected
+Vulnerability Retbleed:                  Not affected
+Vulnerability Spec rstack overflow:      Not affected
+Vulnerability Spec store bypass:         Mitigation; Speculative Store Bypass disabled via prctl
+Vulnerability Spectre v1:                Mitigation; __user pointer sanitization
+Vulnerability Spectre v2:                Mitigation; CSV2, but not BHB
+Vulnerability Srbds:                     Not affected
+Vulnerability Tsa:                       Not affected
+Vulnerability Tsx async abort:           Not affected
+Vulnerability Vmscape:                   Not affected
+c++ (GCC) 16.1.1 20260515 (Red Hat 16.1.1-2)
+Copyright (C) 2026 Free Software Foundation, Inc.
+This is free software; see the source for copying conditions.  There is NO
+warranty; not even for MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.
+
+cmake version 4.3.0
+
+CMake suite maintained and supported by Kitware (kitware.com/cmake).
+
+CPU affinity target: 2
+/sys/devices/system/cpu/cpu2/cpufreq/scaling_driver: apple-cpufreq
+/sys/devices/system/cpu/cpu2/cpufreq/scaling_governor: schedutil
+/sys/devices/system/cpu/cpu2/cpufreq/scaling_cur_freq: 3036000
+/sys/devices/system/cpu/cpu2/cpufreq/cpuinfo_max_freq: 3036000

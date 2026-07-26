@@ -1,0 +1,384 @@
+diff --git a/REPO_REVIEW_2026-06-02.md b/REPO_REVIEW_2026-06-02.md
+index ecdf773..9701261 100644
+--- a/REPO_REVIEW_2026-06-02.md
++++ b/REPO_REVIEW_2026-06-02.md
+@@ -1,82 +1,296 @@
+-# Repository Review - 2026-06-02
++# Repository Review - Updated 2026-07-25
+ 
+-Scope: full repository review of the active nested Git repo at `fracessa/`, including C++ core, CMake, CTest, Python verification, pybind wrapper v1, scripts, and release workflow.
++Scope: active nested Git repository at `fracessa/`, including the C++ core,
++CMake/CTest, parsers, verification data and scripts, pybind wrapper,
++multiprocessing, output sinks, helper scripts, and release workflow.
+ 
+-## Findings
++Review priority:
+ 
+-No open findings remain from this review. Resolved items were removed from this section as each task was completed.
++1. Correctness is absolute.
++2. Speed is second.
++3. Other concerns are intentionally deprioritized.
+ 
+-## Validation Performed
++## Open Correctness Findings
+ 
+-Default test command passed:
++### 1. Critical: floating positive-definiteness can create false ESS results
+ 
+-```text
+-./fracessa/test.sh
+-10/10 core CTests passed
+-23 wrapper unittests passed
+-33/33 fast verification matrix CTests passed
+-```
++`cpp/src/checkstab.cpp:47-56` treats a successful double Cholesky check as a
++final mathematical proof. `cpp/include/linalg/matrix_double.hpp:67-97` is not
++such a proof: rounding can turn a singular or indefinite matrix into a
++numerically positive one. `--exact` does not disable this shortcut; it only
++skips `find_candidate_dbl` in `cpp/src/fracessa.cpp:74-77`.
+ 
+-Release portability configure check passed:
++Reproducer:
+ 
+ ```text
+-cmake -B build -S cpp -DCMAKE_BUILD_TYPE=Release -DFRACESSA_NATIVE_ARCH=OFF
++4#0,0,0,0,-53,33/2,73/2,-85/2,26,-125/2
+ ```
+ 
+-Release workflow test command block passed locally:
++Both default and `-e` report two ESS candidates classified `T_pd_dbl`. For the
++pure candidate, the exact Bee matrix is:
+ 
+ ```text
+-ctest --test-dir build --build-config Release --output-on-failure -j 4 -E "^VerificationMatrix_"
+-PYTHONPATH=python python -m unittest discover -s python/wrapper_v1/tests -p "test_*.py"
+-ctest --test-dir build --build-config Release --output-on-failure -j 4 -R "^VerificationMatrix_(...)$"
++[ 106  -33  -73 ]
++[ -33   85  -52 ]
++[ -73  -52  125 ]
+ ```
+ 
+-Full test command passed:
++Its product with `(1,1,1)^T` is zero, so it is not strictly copositive. The
++project's exact `is_positive_definite` and `is_strictly_copositive` functions
++both return false, while the double PD function returns true.
+ 
+-```text
+-./fracessa/test.sh --full
+-10/10 core CTests passed
+-23 wrapper unittests passed
+-35/35 verification matrix CTests passed
+-Matrix 34 completed in 67.35s
+-```
++Required fix: a floating result must not be a final positive certificate.
++Remove this shortcut unless a rigorous one-sided error bound is implemented,
++and make `--exact` bypass every floating decision. Add this matrix as a
++regression test.
+ 
+-Latest full validation rerun:
++### 2. Critical: the double candidate filter drops valid ESS supports
+ 
+-```text
+-./fracessa/test.sh --full
+-10/10 core CTests passed
+-23 wrapper unittests passed
+-35/35 verification matrix CTests passed
+-Matrix 34 completed in 69.45s
+-```
++`cpp/include/linalg/linear_solver.hpp:47` and `:63` use a fixed absolute pivot
++cutoff of `1e-12`. `cpp/src/fracessa.cpp:74-77` interprets numerical failure as
++a conclusive rejection and never runs the exact solver.
+ 
+-Release-style no-native build check passed:
++Reproducer:
+ 
+ ```text
+-cmake -B build -S cpp -DCMAKE_BUILD_TYPE=Release -DFRACESSA_NATIVE_ARCH=OFF
+-cmake --build build -j"$(nproc)"
++2#0,1/100000000000000000000,0
+ ```
+ 
+-## Repo State At Review Time
++This is a positive scaling of the standard two-strategy anti-coordination
++game, so scaling cannot change its ESS. The current default path reports zero;
++`-e` reports the correct mixed ESS `(1/2,1/2)`.
+ 
+-Current branch:
++Required fix: numerical singularity or uncertainty must fall through to exact
++arithmetic. A double prefilter may reject only when its inequality is certified
++with a scale-aware error bound. Add scaled and near-singular regression cases.
+ 
+-```text
+-wrapper-v1-contract
+-```
++### 3. High: zero-bit sentinel behavior is undefined on GCC/Clang
+ 
+-Known uncommitted tracked changes:
++`cpp/include/fracessa/bitset64.hpp:36-45` calls `__builtin_ctzll(0)`, which is
++undefined behavior. Nevertheless, `cpp/tests/test_bitset64.cpp:44-47` requires
++`find_pos_first_set_bit(0) == 64`, and `cpp/tests/test_bitset64.cpp:208-212`
++requires `lowest_set_bit_as_bit(0) == 0`. The latter also reaches a shift by 64.
++UBSan catches this immediately.
+ 
+-```text
+-cpp/CMakeLists.txt
+-cpp/tests/CMakeLists.txt
+-test.sh
+-```
++Production call paths currently appear to maintain a nonzero invariant. To
++preserve hot-path speed, either make that unchecked precondition explicit and
++remove the contradictory zero-input API contract, or provide distinct checked
++boundary and unchecked hot-path helpers.
++
++The separate top-bit shift bug in `find_pos_next_set_bit(bits, 63)` is fixed in
++the current local working tree, but that fix is not committed to GitHub.
++
++### 4. High: `MPQueueRunner` can deadlock or wait forever
++
++The documented workflow in `python/wrapper_v1/mp.py:62-66` submits all work
++before reading results. Both queues are bounded (`:75-76`). Once the output
++queue fills, workers block at `:43`; the input queue can then fill and block the
++producer at `:101`.
++
++`python/wrapper_v1/mp.py:134-135` also waits forever if a native worker aborts
++before publishing its result. This requires worker-liveness detection, not a
++matrix computation timeout. Finally, `shutdown()` terminates workers after
++five seconds (`:137-147`), conflicting with the project's intentional
++unbounded matrix runtime.
++
++Required fix: expose one backpressure-safe streaming protocol, validate the
++number of submitted/results expected, detect dead worker exit codes while
++waiting, and do not terminate healthy long-running jobs as a normal shutdown
++policy.
++
++### 5. High: baseline regeneration can publish failed or incorrect baselines
++
++`python/verification/create_baselines.py:337-345` only prints ESS mismatches.
++It then writes both baseline files, prints "created successfully", and exits
++zero even when executions failed (`:355-408`). That can bless partial or known
++incorrect output as the correctness oracle.
++
++Required fix: write temporary files and atomically replace the baselines only
++after every matrix executes successfully and every independent expected ESS
++count agrees. Return nonzero on any mismatch or parse failure.
+ 
+-Known untracked wrapper files:
++### 6. Medium: the safe parser accepts malformed dimension syntax
++
++`cpp/src/matrix_parser.cpp:40` calls `std::stoull` without checking how many
++characters were consumed, so a prefix such as `2x#...` is accepted as dimension
++2. The token loop also ignores a trailing comma. In addition,
++`cpp/src/pybind_module.cpp:59-80` classifies any parse failure with an in-range
++dimension as `INVALID_VALUE_COUNT`, including malformed rational tokens.
++
++Required fix: validate complete dimension consumption and delimiter grammar in
++the safe parser, and have the parser return the actual structured error instead
++of re-parsing input in pybind.
++
++### 7. Medium: generated run IDs can overwrite output
++
++`python/wrapper_v1/core.py:15-16` has only one-second resolution. Two runs with
++the same prefix in one second receive identical output paths from
++`python/wrapper_v1/sinks.py:77-107`, and sink constructors truncate files.
++
++Required fix: add a monotonic/UUID component or use exclusive file creation.
++
++### 8. Medium: legacy `Matrix` dimension auto-detection is incompatible with the CLI
++
++`python/fracessa_py.py:41-53` infers a square dimension from the number of
++values, but non-circular CLI matrices use `n*(n+1)/2` upper-triangular values.
++Valid three-value 2x2 input fails auto-detection, while four values are accepted
++by Python and then rejected by C++.
++
++Required fix: migrate the active benchmark to wrapper v1 and remove this legacy
++API, or correct the triangular-number inference.
++
++### 9. Low: pybind narrows the ESS count to `int`
++
++The core count is `size_t`, but `cpp/src/pybind_module.cpp:41` stores it in an
++`int` and `:114` casts explicitly. Large combinatorial result counts can be
++truncated. Keep the count as `size_t` or `uint64_t`; Python integers do not need
++the narrowing.
++
++## Open Speed Findings
++
++### 1. Critical for batch output: Arrow and Parquet write one batch per matrix
++
++`python/wrapper_v1/sinks_arrow.py:58-66` creates one-row record batches and
++`python/wrapper_v1/sinks_parquet.py:31-50` creates one-row tables/row groups.
++A local 10,000-result benchmark measured:
+ 
+ ```text
+-cpp/src/pybind_module.cpp
+-python/wrapper_v1/
++Parquet current: 1.458 s, 14,905,502 bytes
++Parquet batched: 0.024 s,     60,110 bytes
++Arrow current:   0.429 s,  5,840,512 bytes
++Arrow batched:   0.020 s,    492,296 bytes
+ ```
++
++Buffer fixed-size row batches before writing. The measured Parquet path was
++about 60x slower and 248x larger; Arrow was about 22x slower and 12x larger.
++
++### 2. `--fullsupport` materializes all supports before checking full support
++
++`cpp/src/fracessa.cpp:49-57` calls `Supports::initialize()` before the direct
++full-support check. For dimension 24 this materialized 16,777,215 masks and
++used about 134 MB in a local benchmark, even if the first requested check could
++return immediately.
++
++Check the full mask before support initialization. Initialize the remaining
++support buckets only if fallback search is necessary.
++
++### 3. Support indices are extracted repeatedly, not once per support
++
++For a support reaching exact validation, indices are extracted in
++`MatrixServer::get_linear_system_dbl`, `find_candidate_dbl`,
++`MatrixServer::get_linear_system_frc`, and `find_candidate_frc`. This contradicts
++the intended "extract once per support" hot-path policy.
++
++Extract support/complement indices in `search_one_support` and pass the fixed
++stack buffers through both matrix construction and candidate checks. Also,
++`cpp/src/findeq.cpp:50-56` builds `full_solution`, but the subsequent loop reads
++only support entries; use `solution(j_pos,0)` directly.
++
++### 4. Exact candidate vectors are built before they are known to be candidates
++
++`cpp/src/findeq.cpp:97-106` fills the full rational vector before outside-row
++validation at `:108-121`, and does so even when candidates and logging are both
++disabled. Stability does not read the vector.
++
++Validate outside rows first. Materialize the full vector only after success and
++only when candidate output or logging needs it.
++
++### 5. Partial copositivity retains an entire reduction history
++
++`cpp/src/checkstab.cpp:94-102` allocates four `r+1` vectors, including every
++intermediate rational matrix. Each iteration only needs the previous matrix,
++the new matrix, and current scalar bitsets/sizes.
++
++Use scalar state plus two rolling matrix buffers. This removes avoidable exact
++matrix copies and heap/object lifetime work.
++
++### 6. LU represents a permutation as a dense rational matrix
++
++`cpp/include/linalg/lu_factor_fraction.hpp:40-43` allocates `m_P` as `n*n`
++fractions. Every solve applies it with an `n*n` rational `addmul` loop
++(`:118-127`), and inverse calls solve once per column. Almost all operations
++multiply by zero.
++
++Store a permutation index array and apply it with `bp[i] = b[perm[i]]`. This
++removes an exact matrix allocation and O(n^3) zero/one rational operations from
++inverse construction.
++
++### 7. Copositivity builds every subset before it can fail early
++
++`cpp/include/linalg/copositive_fraction.hpp:159-167` materializes all nonempty
++subsets grouped by size before checking the first one. Each subset then builds
++a rational submatrix which `LU_Factorization` deep-copies (`:107-124`).
++
++Generate fixed-cardinality masks on demand so a failing small principal
++submatrix stops immediately. Benchmark a move/destructive LU path to avoid the
++second submatrix copy on the common nonsingular path.
++
++### 8. Python `chunk_size` does not batch IPC
++
++`python/wrapper_v1/mp.py:46-55` uses `chunk_size` only to calculate a submission
++window. Every matrix and result is still one queue/pickle operation. For
++millions of short matrices, submit and return actual chunks while each worker
++continues to process one matrix at a time.
++
++Ordered mode also refills based on yielded order (`:188-207`), so an early
++long-running matrix can leave workers idle while later completed results wait
++behind it. Track received work separately from ordered delivery.
++
++### 9. The speed benchmark reports optimistic noise and times candidate work
++
++`python/run_matrices.py:37-45` runs short matrices up to 20 times and reports the
++minimum. It also enables candidate collection for every timed run (`:51-57`),
++although the script is documented as speed-only. Minimum timing systematically
++selects lucky noise, and candidate creation measures optional output work.
++
++Use warmups plus a median (and dispersion), with candidates disabled for core
++speed measurements. If candidate performance matters, benchmark it separately.
++
++### 10. The active speed script still uses the subprocess wrapper
++
++`python/run_matrices.py:22` imports the 316-line legacy `fracessa_py.py` even
++though wrapper v1 provides in-process pybind execution. Migrating removes one
++process launch and text-output parse per matrix invocation and eliminates the
++duplicated, incorrect `Matrix` parser.
++
++## CI And Test Reality
++
++1. Fresh native ARM release build: C++ core and CLI compiled successfully.
++2. Core/CLI CTest suite: 10/10 passed.
++3. Verification CTests: 35/35 passed (33 fast plus IDs 32 and 34).
++4. Native wrapper unittests: 23/23 passed, including multiprocessing tests.
++5. UBSan/warning build compiled; nine non-bitset core tests passed. Bitset tests
++   exposed the zero-input `ctz` undefined behavior described above.
++6. Existing verification data does not contain either critical numerical
++   reproducer, so all baseline tests pass while both real correctness bugs
++   remain.
++7. `.github/workflows/release.yml:3-6` runs only for release tags, not pushes or
++   pull requests to `main`. Broken code can therefore reach `main` before CI.
++8. GitHub is reachable. `main`, `origin/main`, and tag `v0.33` point to
++   `81a6849`. The v0.33 release run built successfully on Linux/macOS but failed
++   `Bitset64Test.FindNextSetBitAtTopBit`; Windows and publication were cancelled.
++   The local top-bit fix is still uncommitted, so GitHub remains red.
++
++Recommended test additions, in order:
++
++1. The two critical numerical matrices above, asserting default and exact
++   mathematical equality.
++2. Scale-invariance property tests over several positive rational factors.
++3. A policy test that `--exact` never emits a `*_dbl` stability decision.
++4. UBSan CI for bitset and parser boundary tests.
++5. Saturated-queue, dead-worker, and long-running-worker multiprocessing tests.
++6. CI on every push/pull request; keep release publication tag-only.
++
++## Ponytail Audit
++
++`delete:` `cpp/src/checkstab.cpp:47-56` and the double Bee PD machinery unless it becomes a rigorous certificate; unsound code is negative value.
++
++`native:` migrate `python/run_matrices.py` to `fracessa_core`, then delete `python/fracessa_py.py` and its subprocess/CSV parser duplication.
++
++`shrink:` replace dense rational `m_P` in `lu_factor_fraction.hpp` with an index permutation.
++
++`shrink:` generate copositivity subsets on demand instead of storing the full powerset.
++
++`delete:` remove unused `RunStats` and `iter_jobs` after confirming they are not part of a promised external API.
++
++net: -330 lines, -0 deps possible.
+diff --git a/cpp/include/fracessa/bitset64.hpp b/cpp/include/fracessa/bitset64.hpp
+index c0dce7c..dffb2b6 100644
+--- a/cpp/include/fracessa/bitset64.hpp
++++ b/cpp/include/fracessa/bitset64.hpp
+@@ -95,6 +95,7 @@ inline size_t find_pos_first_set_bit(bitset64 bits) noexcept {
+ // find next bit after pos
+ inline size_t find_pos_next_set_bit(bitset64 bits, size_t pos) noexcept {
+   size_t p = pos + 1;
++  if (p >= 64) return static_cast<size_t>(64);
+   uint64_t w = bits & (~0ULL << p);  // zero below p
+   if (w) return ctz64(w);
+   return static_cast<size_t>(64);  // no more bits found
+@@ -171,13 +172,15 @@ inline std::string to_string(bitset64 bits) noexcept {
+ // Returns number of extracted indices.
+ inline size_t extract_set_indices(bitset64 bits, size_t dimension, uint8_t (&indices)[kMaxBitsetDimension]) noexcept
+ {
+-  size_t count = 0;
+-  if (bits == 0) {
+-    return 0;
++  if (dimension < kMaxBitsetDimension) {
++    bits &= (1ULL << dimension) - 1ULL;
+   }
+ 
+-  for (size_t pos = find_pos_first_set_bit(bits); pos < dimension; pos = find_pos_next_set_bit(bits, pos)) {
++  size_t count = 0;
++  while (bits) {
++    const size_t pos = ctz64(bits);
+     indices[count++] = static_cast<uint8_t>(pos);
++    bits &= bits - 1;
+   }
+   return count;
+ }

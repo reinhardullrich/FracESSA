@@ -23,7 +23,7 @@ def _repo_root() -> Path:
 
 def _native_search_paths() -> list[Path]:
     root = _repo_root()
-    build = root / "build"
+    build = root / "cpp" / "build"
     return [
         build,
         build / "Release",
@@ -62,7 +62,7 @@ def load_native_module():
                 continue
 
         raise ModuleNotFoundError(
-            "Could not import native module 'fracessa_core'. Build it first with ./fracessa/build.sh"
+            "Could not import native module 'fracessa_core'. Build it first with ./build.sh"
         )
 
 

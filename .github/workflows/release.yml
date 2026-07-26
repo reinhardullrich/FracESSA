@@ -18,17 +18,17 @@ jobs:
         os: [ubuntu-22.04, macos-latest, windows-latest]
 
     steps:
-    - uses: actions/checkout@v3
+    - uses: actions/checkout@v6
 
     - name: Set up Python
-      uses: actions/setup-python@v5
+      uses: actions/setup-python@v6
       with:
         python-version: '3.12'
 
     # --- CACHE VCPKG (Windows Only) ---
     - name: Restore vcpkg cache
       if: runner.os == 'Windows'
-      uses: actions/cache@v3
+      uses: actions/cache@v5
       with:
         path: C:/vcpkg/installed
         # Updated key to v2 to ensure we start fresh with the Release-only build
@@ -56,16 +56,16 @@ jobs:
       run: |
         # 1. Create the custom triplet file using PowerShell (more reliable on Windows runners)
         New-Item -ItemType Directory -Force -Path triplets
-        
+
         $content = @"
         set(VCPKG_TARGET_ARCHITECTURE x64)
         set(VCPKG_CRT_LINKAGE static)
         set(VCPKG_LIBRARY_LINKAGE static)
         set(VCPKG_BUILD_TYPE release)
         "@
-        
+
         Set-Content -Path triplets\x64-windows-static-release.cmake -Value $content
-        
+
         # Verify file creation (for debugging log)
         Get-Content triplets\x64-windows-static-release.cmake
 
@@ -78,20 +78,20 @@ jobs:
     - name: Configure CMake
       shell: bash
       run: >
-        cmake -B build -S cpp
+        cmake -B cpp/build -S cpp
         -DCMAKE_BUILD_TYPE=Release
         -DFRACESSA_NATIVE_ARCH=OFF
         ${{ runner.os == 'Windows' && '-DCMAKE_TOOLCHAIN_FILE=C:/vcpkg/scripts/buildsystems/vcpkg.cmake -DVCPKG_TARGET_TRIPLET=x64-windows-static-release -DVCPKG_OVERLAY_TRIPLETS=triplets' || '' }}
 
     # --- BUILD ---
     - name: Build
-      run: cmake --build build --config Release -j 4
+      run: cmake --build cpp/build --config Release -j 4
 
     # --- TEST ---
     - name: Test core, wrapper, and fast verification suite
       shell: bash
       run: |
-        ctest --test-dir build --build-config Release --output-on-failure -j 4 -E "^VerificationMatrix_"
+        ctest --test-dir cpp/build --build-config Release --output-on-failure -j 4 -E "^VerificationMatrix_"
         PYTHONPATH=python python -m unittest discover -s python/wrapper_v1/tests -p "test_*.py"
 
         FAST_IDS_RAW="$(python python/verification/matrix_selection.py --fast-ids --verification-dir python/verification)"
@@ -102,29 +102,29 @@ jobs:
 
         read -r -a FAST_IDS <<< "${FAST_IDS_RAW}"
         FAST_REGEX="$(IFS='|'; echo "${FAST_IDS[*]}")"
-        ctest --test-dir build --build-config Release --output-on-failure -j 4 -R "^VerificationMatrix_(${FAST_REGEX})$"
+        ctest --test-dir cpp/build --build-config Release --output-on-failure -j 4 -R "^VerificationMatrix_(${FAST_REGEX})$"
 
     # --- STRIP BINARIES ---
     - name: Strip Binary (Linux/Mac)
       if: runner.os != 'Windows'
-      run: strip build/fracessa
+      run: strip cpp/build/fracessa
 
     # --- PREPARE ARTIFACTS ---
     - name: Rename Binary (Linux)
       if: runner.os == 'Linux'
-      run: mv build/fracessa fracessa-linux
+      run: mv cpp/build/fracessa fracessa-linux
 
     - name: Rename Binary (macOS)
       if: runner.os == 'macOS'
-      run: mv build/fracessa fracessa-macos
+      run: mv cpp/build/fracessa fracessa-macos
 
     - name: Rename Binary (Windows)
       if: runner.os == 'Windows'
-      run: mv build/Release/fracessa.exe fracessa-windows.exe
+      run: mv cpp/build/Release/fracessa.exe fracessa-windows.exe
 
     # --- UPLOAD TO STAGING ---
     - name: Upload Artifact
-      uses: actions/upload-artifact@v4
+      uses: actions/upload-artifact@v7
       with:
         name: binary-${{ matrix.os }}
         path: fracessa-*
@@ -134,16 +134,16 @@ jobs:
   publish:
     needs: build
     runs-on: ubuntu-latest
-    
+
     steps:
     - name: Download All Artifacts
-      uses: actions/download-artifact@v4
+      uses: actions/download-artifact@v8
       with:
         pattern: binary-*
         merge-multiple: true
 
     - name: Create GitHub Release
-      uses: softprops/action-gh-release@v1
+      uses: softprops/action-gh-release@v3
       with:
         files: |
           fracessa-linux

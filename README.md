@@ -28,7 +28,7 @@ It is designed for raw speed in large support-space scans while still preserving
 
 ### 3. Run One Matrix
 ```bash
-./build/fracessa "3#4,13/2,1/2,5,11/2,3"
+./cpp/build/fracessa "3#4,13/2,1/2,5,11/2,3"
 ```
 
 ### 4. Batch Verification
@@ -62,16 +62,20 @@ Output format:
 
 ## Build Dependencies
 - C++17 compiler
-- CMake >= 3.15
+- CMake >= 3.18
 - GMP, MPFR, FLINT
+- Python 3 with development headers (for the pybind module)
 
 Notes:
-- Third-party C++ dependencies (`spdlog`, `argparse`, `googletest`) are pulled by CMake `FetchContent`.
-- First configure in a fresh `build/` directory requires internet access unless dependencies are cached.
+- Third-party C++ dependencies (`spdlog`, `argparse`, `googletest`, `pybind11`) are pulled by CMake `FetchContent`.
+- First configure in a fresh `cpp/build/` directory requires internet access unless dependencies are cached.
+- Current Linux and macOS release binaries dynamically link GMP/MPFR/FLINT; they are not universal standalone binaries.
 
 ## Repository Layout
-- `cpp/`: core engine and tests
+- `cpp/`: core engine, tests, local build, and profiling tools
 - `python/`: automation, verification scripts, baseline generation
+- `aidocs/`: current project knowledge, open issues, wrapper docs, benchmark reports, and references
+- `experiments/`: reproducible benchmark code, metadata, and results
 - `.github/workflows/`: release/build automation
 
 ## Project Focus

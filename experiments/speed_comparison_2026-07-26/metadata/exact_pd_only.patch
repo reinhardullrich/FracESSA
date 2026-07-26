@@ -1,0 +1,44 @@
+--- fracessa/cpp/src/checkstab.cpp	2026-02-11 19:18:46.363285070 +0200
++++ experiments/speed_comparison_2026-07-26/sources/exact_pd_only/cpp/src/checkstab.cpp	2026-07-26 01:46:32.542828794 +0300
+@@ -2,7 +2,6 @@
+ #include <fracessa/bitset64.hpp>
+ #include <linalg/copositive_fraction.hpp>
+ #include <linalg/matrix_fraction.hpp>
+-#include <linalg/matrix_double.hpp>
+ #include <iostream>
+ #include <cassert>
+ #include <stdexcept>
+@@ -12,10 +11,9 @@
+  *
+  * Decision ladder (cheap -> expensive):
+  * 1) pure ESS shortcut,
+- * 2) positive-definite Bee in double,
+- * 3) positive-definite Bee in exact rationals,
+- * 4) partial copositivity reductions (Bomze-style rank-1 updates),
+- * 5) final strict copositivity test on reduced Bee matrix.
++ * 2) positive-definite Bee in exact rationals,
++ * 3) partial copositivity reductions (Bomze-style rank-1 updates),
++ * 4) final strict copositivity test on reduced Bee matrix.
+  */
+ 
+ void fracessa::check_stability()
+@@ -44,18 +42,7 @@
+         return;
+     }
+     
+-    // Fast numerical filter before exact arithmetic.
+-    auto& Bee_dbl = matrix_server_.get_bee_matrix_dbl(extended_support_reduced, m);
+-
+-    if (Bee_dbl.is_positive_definite()) {
+-        if (conf_with_log_)
+-            logger_->info("Reason: true_posdef_dbl");
+-        candidate_.stability = "T_pd_dbl";
+-        candidate_.is_ess = true;
+-        return;
+-    }
+-    
+-    // Exact Bee matrix is used for all remaining mathematically strict checks.
++    // Experiment variant: exact rational PD is the only positive-definiteness decision.
+     auto& Bee = matrix_server_.get_bee_matrix_frc(extended_support_reduced, m);
+ 
+     if (conf_with_log_) {

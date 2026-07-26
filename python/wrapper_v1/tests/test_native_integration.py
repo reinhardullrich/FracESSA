@@ -22,7 +22,7 @@ class NativeIntegrationTests(unittest.TestCase):
 
     def setUp(self):
         if not self.native_available:
-            self.skipTest("fracessa_core not available; run ./fracessa/build.sh first")
+            self.skipTest("fracessa_core not available; run ./build.sh first")
 
     def test_run_one_native(self):
         result = run_one(

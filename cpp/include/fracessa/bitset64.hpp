@@ -95,6 +95,7 @@ inline size_t find_pos_first_set_bit(bitset64 bits) noexcept {
 // find next bit after pos
 inline size_t find_pos_next_set_bit(bitset64 bits, size_t pos) noexcept {
   size_t p = pos + 1;
+  if (p >= 64) return static_cast<size_t>(64);
   uint64_t w = bits & (~0ULL << p);  // zero below p
   if (w) return ctz64(w);
   return static_cast<size_t>(64);  // no more bits found
@@ -171,13 +172,15 @@ inline std::string to_string(bitset64 bits) noexcept {
 // Returns number of extracted indices.
 inline size_t extract_set_indices(bitset64 bits, size_t dimension, uint8_t (&indices)[kMaxBitsetDimension]) noexcept
 {
-  size_t count = 0;
-  if (bits == 0) {
-    return 0;
+  if (dimension < kMaxBitsetDimension) {
+    bits &= (1ULL << dimension) - 1ULL;
   }
 
-  for (size_t pos = find_pos_first_set_bit(bits); pos < dimension; pos = find_pos_next_set_bit(bits, pos)) {
+  size_t count = 0;
+  while (bits) {
+    const size_t pos = ctz64(bits);
     indices[count++] = static_cast<uint8_t>(pos);
+    bits &= bits - 1;
   }
   return count;
 }

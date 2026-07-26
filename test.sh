@@ -27,11 +27,11 @@ done
 ./build.sh
 
 CTEST_JOBS="$(nproc)"
-ctest --test-dir build --output-on-failure -j "${CTEST_JOBS}" -E "^VerificationMatrix_"
+ctest --test-dir cpp/build --output-on-failure -j "${CTEST_JOBS}" -E "^VerificationMatrix_"
 PYTHONPATH=python python3 -m unittest discover -s python/wrapper_v1/tests -p "test_*.py"
 
 if [[ "$FULL_MODE" -eq 1 ]]; then
-    ctest --test-dir build --output-on-failure -j "${CTEST_JOBS}" -R "^VerificationMatrix_"
+    ctest --test-dir cpp/build --output-on-failure -j "${CTEST_JOBS}" -R "^VerificationMatrix_"
 else
     FAST_IDS_RAW="$(python3 python/verification/matrix_selection.py --fast-ids --verification-dir python/verification)"
     if [[ -z "${FAST_IDS_RAW// }" ]]; then
@@ -41,5 +41,5 @@ else
 
     read -r -a FAST_IDS <<< "${FAST_IDS_RAW}"
     FAST_REGEX="$(IFS='|'; echo "${FAST_IDS[*]}")"
-    ctest --test-dir build --output-on-failure -j "${CTEST_JOBS}" -R "^VerificationMatrix_(${FAST_REGEX})$"
+    ctest --test-dir cpp/build --output-on-failure -j "${CTEST_JOBS}" -R "^VerificationMatrix_(${FAST_REGEX})$"
 fi

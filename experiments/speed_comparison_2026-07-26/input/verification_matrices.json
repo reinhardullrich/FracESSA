@@ -34,15 +34,6 @@
     {"id":32,"dimension":22,"number_ess":5632,"is_cs":true,"matrix":"2,2,4,4,5,5,4,4,2,2,-1","matrix_old":"2,2,4,4,5,5,4,4,2,2,-1"},
     {"id":33,"dimension":23,"number_ess":2507,"is_cs":true,"matrix":"27478,22664,10976,25676,18552,18552,25676,10976,22664,27478,17939","matrix_old":"27478,22664,10976,25676,18552,18552,25676,10976,22664,27478,17939"},
     {"id":34,"dimension":24,"number_ess":15120,"is_cs":true,"matrix":"15,15,7,15,15,7,15,7,7,15,15,7","matrix_old":"15,15,7,15,15,7,15,7,7,15,15,7"},
-    {"id":35,"dimension":18,"number_ess":258,"is_cs":true,"matrix":"581,294,539,448,702,431,676,568,431","matrix_old":"581,294,539,448,702,431,676,568,431"},
-    {"id":36,"dimension":4,"number_ess":0,"is_cs":false,"matrix":"0,0,0,0,-53,33/2,73/2,-85/2,26,-125/2","matrix_old":"0,0,0,0,0,-53,33/2,73/2,0,33/2,-85/2,26,0,73/2,26,-125/2"},
-    {"id":37,"dimension":4,"number_ess":0,"is_cs":false,"matrix":"0,0,0,0,-7/2,2,3/2,-9/2,5/2,-4","matrix_old":"0,0,0,0,0,-7/2,2,3/2,0,2,-9/2,5/2,0,3/2,5/2,-4"},
-    {"id":38,"dimension":2,"number_ess":1,"is_cs":false,"matrix":"0,1/100000000000000000000,0","matrix_old":"0,1/100000000000000000000,1/100000000000000000000,0"},
-    {"id":39,"dimension":2,"number_ess":1,"is_cs":false,"matrix":"100000000000000000000,100000000000000000001,100000000000000000000","matrix_old":"100000000000000000000,100000000000000000001,100000000000000000001,100000000000000000000"},
-    {"id":40,"dimension":1,"number_ess":1,"is_cs":false,"matrix":"0","matrix_old":"0"},
-    {"id":41,"dimension":2,"number_ess":1,"is_cs":false,"matrix":"-1,0,-1","matrix_old":"-1,0,0,-1"},
-    {"id":42,"dimension":2,"number_ess":1,"is_cs":false,"matrix":"1,1,0","matrix_old":"1,1,1,0"},
-    {"id":43,"dimension":2,"number_ess":0,"is_cs":false,"matrix":"0,0,0","matrix_old":"0,0,0,0"},
-    {"id":44,"dimension":2,"number_ess":1,"is_cs":false,"matrix":"-1,1,-1","matrix_old":"-1,1,1,-1"}
+    {"id":35,"dimension":18,"number_ess":258,"is_cs":true,"matrix":"581,294,539,448,702,431,676,568,431","matrix_old":"581,294,539,448,702,431,676,568,431"}
   ]
 }

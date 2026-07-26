@@ -1,96 +1,71 @@
-# Build directories
-build/
-cmake-build-*/
+# Local agent and editor state
+/.agents/
+/.codex/
+/.cursor/
+/.vscode/
+/.idea/
+*.swp
+*.swo
+*~
+
+# C++ build products and fetched dependencies
+/cpp/build*/
+/cpp/cmake-build-*/
+/cpp/third_party/
 CMakeFiles/
-cmake_install.cmake
 CMakeCache.txt
+cmake_install.cmake
+CTestTestfile.cmake
+CPackConfig.cmake
+CPackSourceConfig.cmake
 Makefile
 *.cbp
-*.cmake
-
-# Compiled binaries
-fracessa.exe
-REF_linux64.exe
-REF_win64.exe
-REF.exe
 *.o
+*.a
 *.so
 *.dylib
 *.dll
 *.lib
 
-# IDE files
-.vscode/
-.idea/
-*.swp
-*.swo
-*~
+# Python environments, caches, and generated benchmark output
+__pycache__/
+*.py[cod]
+*.pyd
+/.venv/
+/env/
+/venv/
+.tox/
+.coverage
+.coverage.*
+.mypy_cache/
+.pytest_cache/
+.hypothesis/
+/python/results/
+
+# Logs and profiling output
+*.log
+/cpp/log/
+/cpp/callgrind/callgrind.out.*
+/cpp/callgrind/callgrind_reports/
+/cpp/callgrind/gprof_reports/
+
+# Generated experiment copies; keep scripts, reports, metadata, and results
+/experiments/**/builds/
+/experiments/**/sources/
+/experiments/**/logs/
+/experiments/**/microbench/build/
+
+# Local backups and archives
+*.bak
+*.backup
+*.tmp
+*.temp
+*.tar.gz
+*.zip
+zzz_altes_zeug.tar.gz
+old_code_backup.tar.gz
+zzz_old/
 
 # OS files
 .DS_Store
 Thumbs.db
-
-# Logs
-*.log
-fracessa.log
-logs/
-
-# Temporary files
-*.tmp
-*.temp
-
-# Python
-__pycache__/
-*.pyc
-*.pyo
-*.pyd
-.Python
-env/
-venv/
-.venv/
-pip-log.txt
-pip-delete-this-directory.txt
-.tox/
-.coverage
-.coverage.*
-.cache
-nosetests.xml
-coverage.xml
-*.cover
-*.log
-.git
-.mypy_cache
-.pytest_cache
-.hypothesis
-
-# Python results
-python/results/
-
-
-# Backup files
-*.bak
-*.backup
-*~
-zzz_altes_zeug.tar.gz
-old_code_backup.tar.gz
-
-# CMake FetchContent downloads (now in third_party/)
-third_party/
-
-# Third-party archives
-*.tar.gz
-*.zip
-
-# Profiling reports
-callgrind_reports/
-gprof_reports/
-
-# Cursor IDE files
-.cursor/
-.cursorignore
-
-# Old/backup code
-zzz_old/
-
-# Papers/documentation
-papers/analysis/

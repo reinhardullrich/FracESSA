@@ -37,8 +37,6 @@ add_test(NAME FractionTests COMMAND test_fraction)
 # ------------------------------------------------------------------------------
 # Verification correctness tests (one CTest per matrix for parallel execution)
 # ------------------------------------------------------------------------------
-find_package(Python3 COMPONENTS Interpreter REQUIRED)
-
 set(CLI_PARSER_BLACKBOX_SCRIPT "${CMAKE_CURRENT_SOURCE_DIR}/cli_parser_blackbox.py")
 add_test(
     NAME CliParserBlackBoxTests
