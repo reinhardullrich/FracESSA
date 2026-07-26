@@ -1,10 +1,11 @@
 # Python Review
 
-Last verified: 2026-07-26
+Last verified: 2026-07-27
 
 Scope: maintained Python wrapper, multiprocessing, sinks, verification scripts,
-speed benchmark, and wrapper tests. The archived reference executables are
-treated as data, not reviewed as source.
+speed benchmark, and wrapper tests. The native `fracessa_core` extension is
+reviewed separately in `PYBIND_REVIEW.md`. The archived reference executables
+are treated as data, not reviewed as source.
 
 Correctness is ranked before speed. This file contains unresolved findings only;
 remove a finding after its fix and regression coverage are complete.
@@ -168,19 +169,6 @@ against historical files that may come from another machine or build.
 Required outcome: record enough provenance to identify a computer-plus-build
 run and refuse or visibly qualify comparisons across incompatible provenance.
 
-### P3: Disabling timing does not remove native clock overhead
-
-`RunConfig.include_timing=False` only replaces the returned value with zero at
-`python/wrapper_v1/core.py:139`. The pybind implementation always calls the
-clock before and after every matrix at `cpp/src/pybind_module.cpp:109` and
-`cpp/src/pybind_module.cpp:111` because the option is not passed across the
-binding.
-
-Required outcome: benchmark the complete pybind call with and without the two
-clock reads before extending the native API. The current public documentation
-only promises to suppress the returned value, so this is an optimization
-opportunity rather than a behavior bug.
-
 ## Documentation
 
 ### P3: The public README labels the speed script as verification
@@ -201,5 +189,5 @@ CTest.
   collision, verifier coercion, and suppressed stream flush failures.
 - Pyarrow 23.0.1 probes reconfirmed missing empty Parquet datasets and one batch
   or row group per result.
-- Python correctness tests do not override the four C++ matrix regressions; the
-  full CTest state is recorded in `CPP_REVIEW.md`.
+- Python correctness tests do not override C++ verification regressions; the
+  current full CTest state is recorded in `CPP_REVIEW.md`.

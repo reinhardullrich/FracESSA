@@ -46,6 +46,10 @@ Supported encodings:
 - Symmetric upper-triangular: `n*(n+1)/2` values.
 - Circular-symmetric compact: `floor(n/2)` values.
 
+The safe parser accepts dimensions 1 through 63. `--unsafe` skips this check,
+but the analyzer still requires `1 <= n < 64`; the 64-bit mask is storage, not
+support for a dimension-64 search.
+
 ## CLI Flags
 - `-c, --candidates` include candidate rows in output.
 - `-l, --log` write detailed log output.

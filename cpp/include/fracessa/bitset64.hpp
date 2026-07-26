@@ -32,20 +32,20 @@ inline size_t popcount64(uint64_t x) noexcept {
   #endif
 }
 
-// Portable count trailing zeros wrapper
+// Caller precondition: x != 0. Deliberately unchecked in this hot primitive.
 inline size_t ctz64(uint64_t x) noexcept {
   #ifdef _MSC_VER
     unsigned long index;
-    if (_BitScanForward64(&index, x)) {
-      return static_cast<size_t>(index);
-    }
-    return 64; // undefined behavior case, but we check for 0 before calling
+    _BitScanForward64(&index, x);
+    return static_cast<size_t>(index);
   #else
     return static_cast<size_t>(__builtin_ctzll(x));
   #endif
 }
 
-/// Ultra-optimized bitset for n <= 64.
+/// Ultra-optimized 64-bit support storage.
+/// Complete support enumeration requires 1 <= n < 64 because 2^n is the
+/// exclusive uint64_t loop bound. Bit positions themselves remain 0 through 63.
 /// - stores only uint64_t bits (8 bytes, same as uint64_t)
 /// - nbits must be provided by caller when needed for masking
 /// - all operations are inlined and branch-light
@@ -59,6 +59,7 @@ namespace bs64 {
 
 constexpr size_t kMaxBitsetDimension = 64;
 
+// Caller precondition: n < 64 for complete support enumeration.
 inline bitset64 two_to_the_power_of(size_t n) noexcept {
   return 1ULL << n;
 }
@@ -116,10 +117,9 @@ inline bitset64 single_bit_at_pos(size_t pos) noexcept {
   return 1ULL << pos;
 }
 
-// Get the lowest set bit as a bitset64 (only that bit is set, all other bits are 0)
 inline bitset64 lowest_set_bit_as_bit(bitset64 bits) noexcept {
-  size_t pos = find_pos_first_set_bit(bits);
-  return single_bit_at_pos(pos);
+  // Unsigned subtraction wraps: x & -x isolates the lowest 1 bit and maps 0 to 0.
+  return bits & (0ULL - bits);
 }
 
 // Get all set bits in bits that are before position pos

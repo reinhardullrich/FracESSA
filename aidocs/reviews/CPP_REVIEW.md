@@ -1,41 +1,16 @@
 # C++ Review
 
-Last verified: 2026-07-26
+Last verified: 2026-07-27
 
-Scope: active C++ production code, pybind boundary, CMake, C++/CTest
-coverage, and the release workflow. Frozen experiment source copies are excluded
-except where a dated result is cited as evidence.
+Scope: active C++ analyzer core, CLI, shared parser, CMake, C++/CTest coverage,
+and the release workflow. The native Python binding is reviewed separately in
+`PYBIND_REVIEW.md`. Frozen experiment source copies are excluded except where a
+dated result is cited as evidence.
 
 Correctness is ranked before speed. This file contains unresolved findings only;
 remove a finding after its fix and regression coverage are complete.
 
 ## Correctness
-
-### P0: Double positive-definiteness creates false ESS results
-
-`fracessa::check_stability()` accepts a successful double Cholesky test as a
-final mathematical certificate at `cpp/src/checkstab.cpp:50`. Rounding can make
-an exactly singular or indefinite Bee matrix appear positive definite. The
-`--exact` flag still executes this floating stability decision, despite the CLI
-describing the mode as exact-only.
-
-The same path can accept non-finite arithmetic: sufficiently large exact input
-can convert to infinity, Bee construction can produce NaN through operations
-such as `inf - inf`, and the current `diagonal_value <= tolerance` comparison
-does not reject NaN.
-
-Verification IDs 36 and 37 reproduce the defect. Both default and `--exact`
-currently return two ESS, while exact positive-definiteness and copositivity
-return zero.
-
-The smallest correct fix is to delete the double Bee/PD decision and enter the
-exact rational PD check directly. The existing exact-PD experiment measured
-about 10% overhead for repeated small matrices and about 1% across the 35
-historical benchmark matrices; see
-`../experiments/speed_comparison_2026-07-26/MICROBENCHMARK_COMPARISON.md`.
-
-Required outcome: no floating-point result may be a final positive certificate,
-and `--exact` must not execute a floating stability decision.
 
 ### P0: The double candidate filter drops valid ESS supports
 
@@ -45,6 +20,10 @@ and `--exact` must not execute a floating stability decision.
 such numerical rejection as conclusive at `cpp/src/findeq.cpp:42`, so exact
 arithmetic never sees the support.
 
+The double solver can also reject a rounded support probability below `-1e-10`
+at `cpp/include/linalg/linear_solver.hpp:77`. This is another conclusive
+floating sign decision on the exact candidate path.
+
 The outside-support test is also conclusive and uses the fixed absolute margin
 `1e-4 * dimension` at `cpp/src/findeq.cpp:63`, with rejection at
 `cpp/src/findeq.cpp:72`. It therefore has the same scale-dependence problem even
@@ -52,7 +31,11 @@ when the linear solve succeeds.
 
 Verification IDs 38 and 39 both have the mixed ESS `(1/2,1/2)`. The default
 path returns zero ESS, while `--exact` returns one. Scaling or translating the
-same game therefore changes the program's answer.
+same game therefore changes the program's answer. Both cases exercise the
+double solve: ID 38 falls below the absolute pivot threshold, while ID 39 loses
+the exact `10^20` versus `10^20+1` distinction during conversion to double.
+They do not exercise the outside-support loop because their valid candidate has
+full support; that unsafe comparison does not yet have a dedicated regression.
 
 Required outcome: remove the double candidate filter from the decision path and
 benchmark the exact-only path. Falling through to exact arithmetic after every
@@ -60,94 +43,8 @@ double rejection saves no exact work, so keeping the current filter would only
 add work. Reintroduce a numerical filter only if a rigorously one-sided method
 can reject supports without false negatives.
 
-### P1: A zero denominator crashes the safe parser
-
-The safe path passes a token directly from `parse_fraction_token()` at
-`cpp/src/matrix_parser.cpp:13` to the string constructor at
-`cpp/include/linalg/fraction.hpp:52`. FLINT/GMP accepts the textual shape
-`1/0`, leaving an invalid rational that later crashes during numeric use.
-
-Reproduced against the current Release build:
-
-```text
-./cpp/build/fracessa '2#1/0,0,1'
-Segmentation fault (exit 139)
-```
-
-Required outcome: reject a zero denominator in the shared safe string
-constructor before canonicalization or conversion, return a normal parse error,
-and add both fraction-level and CLI black-box regressions. This validation is at
-the input boundary and does not add a hot-path branch.
-
-### P2: FLINT-allocated strings are freed with the wrong API
-
-`fraction::to_string()` and `operator<<` call `free()` at
-`cpp/include/linalg/fraction.hpp:248` and
-`cpp/include/linalg/fraction.hpp:259`. FLINT's `fmpq_get_str(nullptr, ...)`
-allocates through `flint_malloc`, so its matching deallocator is `flint_free`.
-Plain `free` happens to work with the current default allocator but is not the
-FLINT contract and can fail with another FLINT memory manager or CRT boundary.
-
-Required outcome: use `flint_free` at both sites and remove the incorrect
-`<cstdlib>`/`free()` comments.
-
-### P2: The supported dimension contract is inconsistent at 64
-
-The bitset header advertises `n <= 64`, and the unsafe parser test explicitly
-accepts dimension 64. The search uses `1ULL << dimension` in
-`two_to_the_power_of()` at `cpp/include/fracessa/bitset64.hpp:62`; shifting by
-64 is undefined, and enumerating all 64-bit masks cannot use a one-past-end
-`uint64_t` sentinel.
-
-Required outcome: distinguish 64 storage bits from the supported search range
-of dimensions 1 through 63. The user-required unsafe path need not add a runtime
-check. Keep the parser-only 64-dimensional storage test, but document that an
-analyzer call requires `dimension < 64`.
-
-### P2: The safe parser accepts partial dimensions and pybind guesses errors
-
-The safe parser does not check complete `std::stoull` consumption at
-`cpp/src/matrix_parser.cpp:40`, so input such as `2x#0,1,0` currently succeeds.
-Pybind then reparses failed input in
-`infer_safe_parse_status()` at `cpp/src/pybind_module.cpp:59`, which can report
-an invalid rational as `INVALID_VALUE_COUNT`.
-
-Required outcome: require `std::stoull` to consume the complete dimension. The
-distinct status codes are part of the public wrapper API, so return one parser
-status to both CLI and pybind callers instead of maintaining a second parser to
-classify the same failed input.
-
-### P3: Pybind narrows the ESS count
-
-The analyzer stores `ess_count_` as `size_t`, but `NativeResult::ess_count` is
-`int` at `cpp/src/pybind_module.cpp:41` and receives an explicit narrowing cast
-at `cpp/src/pybind_module.cpp:114`. The search space can exceed `INT_MAX`, while
-Python integers do not require this truncation.
-
-Required outcome: preserve `size_t` or `uint64_t` through the native result.
-
-### P3: The CLI candidate header has an extra empty column
-
-`candidate::header()` ends with a semicolon at
-`cpp/include/fracessa/candidate.hpp:56`, while candidate rows do not. A standard
-CSV reader therefore sees one unnamed header column with a missing row value.
-
-Required outcome: remove the trailing delimiter and add a black-box assertion
-that header and row field counts match.
-
-### P3: Zero-input bit scanning has an invalid test contract
-
-On GCC/Clang, `ctz64(0)` reaches `__builtin_ctzll(0)` at
-`cpp/include/fracessa/bitset64.hpp:44`, which is undefined. Tests nevertheless
-assert a sentinel result for `find_pos_first_set_bit(0)` and a zero result for
-`lowest_set_bit_as_bit(0)`. Current production callers provide nonzero masks,
-so this is a helper-contract and test defect rather than a reproduced
-production failure.
-
-Required outcome: keep count-trailing-zeros explicitly unchecked for nonzero
-input and remove the test that demands a sentinel from it. Implement
-`lowest_set_bit_as_bit()` with the direct unsigned lowest-bit expression, which
-naturally returns zero for zero without a branch.
+Design note: `../correctness/CERTIFIED_CANDIDATE_FILTER.md` records exact affine
+normalization and a possible rigorous one-sided interval/error-bound filter.
 
 ## Speed
 
@@ -277,14 +174,20 @@ artifacts as portable standalone executables.
 
 - Current local Release build: successful.
 - Core/CLI CTests: 10/10 passed.
-- Full matrix CTests: 40/44 passed; only IDs 36-39 failed, as described above.
-- Wrapper unittests that exercise the native module: 23/23 passed.
-- Direct CLI probes reconfirmed the safe-parser `1/0` segmentation fault and
-  the default/exact result split for IDs 36-39.
-- UBSan reconfirmed both `ctz64(0)` and `1ULL << 64` as undefined behavior.
+- Full matrix CTests: 42/44 passed; only IDs 38-39 fail, as described above.
+- Direct default and `--exact` CLI checks return zero ESS for IDs 36-37 after
+  removal of the floating positive-definiteness certificate.
+- Safe input `2#1/0,0,1` now exits normally with a zero-denominator parse error;
+  safe-parser and CLI black-box regressions pass.
+- The safe parser accepts 63 and rejects 0/64; the unchecked parser has no new
+  branch and its boundary test now uses the maximum search dimension 63.
+- All 40 expected-green fast verification matrices pass; long-run IDs 32/34
+  and the separate known candidate-filter regressions 38/39 were excluded.
+- Bit-position scanning now has an explicit nonzero precondition; lowest-bit
+  mask extraction remains branch-free and defined for zero.
 - GitHub access: working; local `HEAD` and `origin/main` both point to
-  `81a6849` (`v0.33`) before the current uncommitted review/fix work.
+  `78042fd` before the current uncommitted exact-PD fix.
 - Latest `v0.33` Actions run: Linux and macOS built successfully but failed the
   old top-bit test; Windows and publication were then cancelled.
-- The current worktree fixes that top-bit shift, but a new release remains
-  blocked by verification IDs 36-39.
+- The top-bit fix is committed; a new release remains blocked by verification
+  IDs 38-39.

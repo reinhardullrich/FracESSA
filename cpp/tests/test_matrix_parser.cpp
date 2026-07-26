@@ -62,6 +62,17 @@ TEST(MatrixParserSafeTest, ParsesValuesBeyondWindowsLongRange) {
     EXPECT_EQ(A(1, 1), fraction::one());
 }
 
+TEST(MatrixParserSafeTest, RejectsZeroDenominator) {
+    matrix_frc A;
+    bool is_cs = false;
+
+    EXPECT_FALSE(matrix_parser::parse_matrix_string("2#1/0,0,1", A, is_cs));
+    EXPECT_FALSE(matrix_parser::parse_matrix_string("2#1/-0,0,1", A, is_cs));
+    EXPECT_FALSE(matrix_parser::parse_matrix_string("2#1/00,0,1", A, is_cs));
+    EXPECT_FALSE(matrix_parser::parse_matrix_string("2#1/0 ,0,1", A, is_cs));
+    EXPECT_FALSE(matrix_parser::parse_matrix_string("2#1/ 0,0,1", A, is_cs));
+}
+
 TEST(MatrixParserSafeTest, RejectsMissingHash) {
     matrix_frc A;
     bool is_cs = false;
@@ -81,23 +92,45 @@ TEST(MatrixParserSafeTest, RejectsInvalidDimensionRange) {
     EXPECT_FALSE(matrix_parser::parse_matrix_string("64#1", A, is_cs));
 }
 
+TEST(MatrixParserSafeTest, RejectsNonDecimalDimensionText) {
+    matrix_frc A;
+    bool is_cs = false;
+
+    EXPECT_FALSE(matrix_parser::parse_matrix_string("2x#0,1,0", A, is_cs));
+    EXPECT_FALSE(matrix_parser::parse_matrix_string("x2#0,1,0", A, is_cs));
+    EXPECT_FALSE(matrix_parser::parse_matrix_string(" 2#0,1,0", A, is_cs));
+    EXPECT_FALSE(matrix_parser::parse_matrix_string("+2#0,1,0", A, is_cs));
+    EXPECT_FALSE(matrix_parser::parse_matrix_string("2 #0,1,0", A, is_cs));
+}
+
+TEST(MatrixParserSafeTest, AcceptsMaximumSearchDimension) {
+    matrix_frc A;
+    bool is_cs = false;
+
+    const std::string payload = "63#" + join_ones(31);
+    ASSERT_TRUE(matrix_parser::parse_matrix_string(payload, A, is_cs));
+
+    EXPECT_TRUE(is_cs);
+    EXPECT_EQ(A.rows(), 63);
+    EXPECT_EQ(A.cols(), 63);
+}
+
 TEST(MatrixParserSafeTest, RejectsUnexpectedValueCount) {
     matrix_frc A;
     bool is_cs = false;
     EXPECT_FALSE(matrix_parser::parse_matrix_string("4#1,2,3", A, is_cs));
 }
 
-TEST(MatrixParserUnsafeTest, BypassesSafeDimensionGuard) {
+TEST(MatrixParserUnsafeTest, ParsesMaximumSearchDimensionWithoutValidation) {
     matrix_frc A;
     bool is_cs = false;
 
-    // n=64 would be rejected by safe parser; unsafe parser accepts and builds CS matrix.
-    const std::string payload = "64#" + join_ones(32);
+    const std::string payload = "63#" + join_ones(31);
     matrix_parser::parse_matrix_string_unsafe(payload, A, is_cs);
 
     EXPECT_TRUE(is_cs);
-    EXPECT_EQ(A.rows(), 64);
-    EXPECT_EQ(A.cols(), 64);
+    EXPECT_EQ(A.rows(), 63);
+    EXPECT_EQ(A.cols(), 63);
     EXPECT_EQ(A(0, 0), fraction::zero());
     EXPECT_EQ(A(0, 1), fraction::one());
 }

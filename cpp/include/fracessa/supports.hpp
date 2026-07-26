@@ -15,7 +15,7 @@
  * cannot yield minimal new equilibria under the current pruning strategy.
  */
 /// Compute binomial coefficient C(n,k) = n!/(k!(n-k)!)
-/// Returns uint64_t - safe since n <= 64, no overflow possible
+/// Returns uint64_t - safe for the analyzer contract n < 64
 /// No safety checks needed per user requirement
 inline uint64_t binomial_coefficient(uint64_t n, uint64_t k) {
     if (k > n) return 0;

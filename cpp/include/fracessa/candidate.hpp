@@ -53,7 +53,7 @@ class candidate
 
         static std::string header()
         {
-            return "candidate_id;vector;support;support_size;extended_support;extended_support_size;shift_reference;is_ess;stability;payoff;payoff_dbl;";
+            return "candidate_id;vector;support;support_size;extended_support;extended_support_size;shift_reference;is_ess;stability;payoff;payoff_dbl";
         }
 };
 

@@ -1,6 +1,6 @@
 # Project Knowledge
 
-Last verified: 2026-07-26
+Last verified: 2026-07-27
 
 ## Source-Code Approval Gate
 
@@ -58,9 +58,12 @@ CLI matrix format is `dimension#values`. Values are either the upper triangle
 of a symmetric matrix (`n*(n+1)/2` entries) or the compact circular-symmetric
 form (`floor(n/2)` entries).
 
-The safe parser accepts dimensions 1 through 63 and validates the input. The
-`--unsafe` parser deliberately bypasses safe validation and assumes trusted,
-well-formed input.
+The safe parser accepts dimensions 1 through 63, rejects textual fractions with
+a zero denominator, and validates the remaining input. Support masks have 64
+storage bits, but complete enumeration requires the exclusive `2^n` bound, so
+dimension 64 is not supported. The `--unsafe` parser deliberately adds no
+dimension or denominator checks and assumes trusted, well-formed input that
+still satisfies `1 <= n < 64`.
 
 ## Computation Flow
 
@@ -82,12 +85,14 @@ Important implementation points:
   iteration avoids bit-test branches in inner matrix loops.
 - `MatrixServer` owns reusable double and rational matrix buffers.
 - Exact arithmetic uses FLINT `fmpq_t` through `linalg::fraction`.
-- Stability currently permits a double positive-definite result to finish the
-  decision. This and the double candidate rejection path are known correctness
-  bugs; see `reviews/CPP_REVIEW.md`.
-- `--exact` currently skips the double candidate solver but does not bypass the
-  double stability shortcut. Do not describe it as fully exact until that open
-  issue is fixed.
+- Stability uses exact rational positive-definiteness; a binary64 result is not
+  accepted as a final mathematical certificate.
+- `correctness/DOUBLE_PD_FALSE_POSITIVES.md` documents the concrete failures and
+  proves why tolerance tuning cannot recover an exact PD certificate.
+- `--exact` skips the double candidate solver, and all final stability decisions
+  use exact rational arithmetic.
+- The default path still has a known double candidate-filter correctness bug;
+  see `reviews/CPP_REVIEW.md`.
 
 Key files:
 
@@ -153,16 +158,13 @@ is one CTest per matrix so CTest can run matrices in parallel.
 Fast mode is a static policy: all verification matrices except IDs 32 and 34.
 The speed script records timings; correctness belongs to CTest.
 
-Current expected red tests are verification IDs 36-39:
-
-- IDs 36-37 expose false positive-definite results in binary64 and expect zero
-  ESS, while the current default path returns two.
-- IDs 38-39 expose scale/translation failures in the double candidate filter
-  and expect one mixed ESS, while the current default path returns zero.
+Current expected red tests are verification IDs 38-39. They expose
+scale/translation failures in the double candidate filter
+and expect one mixed ESS, while the current default path returns zero.
 
 These are real open regressions, not flaky tests. Consequently `./test.sh` and
-release publication currently fail until the first two correctness findings in
-`reviews/CPP_REVIEW.md` are fixed.
+release publication currently fail until the candidate-filter finding in
+`reviews/CPP_REVIEW.md` is fixed.
 
 ## Verification Data
 
@@ -185,6 +187,14 @@ not.
 The archived baseline executable is x86-64. Do not run it on this ARM64 Linux
 machine: it invokes the system `binfmt` dispatcher without a configured x86-64
 emulator. Use native CTest correctness checks for current development.
+
+## Pybind Boundary
+
+`cpp/src/pybind_module.cpp` exposes the C++ analyzer as the native
+`fracessa_core` module. It owns Python/native argument and result conversion,
+native status codes, GIL release, and native timing. Binding-specific open
+findings are tracked in `reviews/PYBIND_REVIEW.md`, separately from both the
+analyzer core and Python orchestration.
 
 ## Python Wrapper
 
@@ -227,8 +237,9 @@ libraries, but the current release configuration uses system FLINT.
 - `CHANGES.md` is the append-only human-readable history. Update it when a
   meaningful project change benefits from a concise historical record; read it
   only when history or drift matters.
-- `reviews/CPP_REVIEW.md` and `reviews/PYTHON_REVIEW.md` contain only unresolved
-  findings for their respective implementation areas.
+- `reviews/CPP_REVIEW.md`, `reviews/PYBIND_REVIEW.md`, and
+  `reviews/PYTHON_REVIEW.md` contain only unresolved findings for their
+  respective implementation areas.
 - Dated experiment reports are immutable snapshots and must state their scope.
 - Git remains authoritative for exact diffs and commit history.
 - Do not store generated source concatenations, session transcripts, or stale

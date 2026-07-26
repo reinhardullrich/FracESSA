@@ -65,6 +65,26 @@ def assert_failure_with_stderr(
         )
 
 
+def assert_candidate_header_matches_rows(fracessa_exe: Path) -> None:
+    result = run_case(fracessa_exe, ["--candidates", "2#0,1,0"])
+    if result.returncode != 0:
+        raise AssertionError(
+            f"candidate_columns: expected success, got rc={result.returncode}, stderr={result.stderr.strip()}"
+        )
+
+    lines = [line.strip() for line in result.stdout.splitlines() if line.strip()]
+    if len(lines) < 3:
+        raise AssertionError(f"candidate_columns: expected count, header, and candidate row; got {lines}")
+
+    header_count = len(lines[1].split(";"))
+    for row in lines[2:]:
+        row_count = len(row.split(";"))
+        if row_count != header_count:
+            raise AssertionError(
+                f"candidate_columns: header has {header_count} fields, candidate row has {row_count}"
+            )
+
+
 def main() -> int:
     parser = argparse.ArgumentParser(description="Black-box parser checks for fracessa CLI.")
     parser.add_argument("--fracessa-exe", type=Path, required=True, help="Path to built fracessa executable.")
@@ -79,6 +99,7 @@ def main() -> int:
     assert_success_with_ess_output(fracessa_exe, ["2#0,1,0"], "safe_symmetric_success")
     assert_success_with_ess_output(fracessa_exe, ["5#1,3"], "safe_circular_success")
     assert_success_with_ess_output(fracessa_exe, ["--unsafe", "2#0,1,0"], "unsafe_route_success")
+    assert_candidate_header_matches_rows(fracessa_exe)
 
     # Failure paths in safe parser
     assert_failure_with_stderr(
@@ -99,6 +120,12 @@ def main() -> int:
         "supports dimensions in [1, 63]",
         "safe_dimension_guard_rejected",
     )
+    assert_failure_with_stderr(
+        fracessa_exe,
+        ["2#1/0,0,1"],
+        "denominator cannot be zero",
+        "safe_zero_denominator_rejected",
+    )
 
     print("[OK] parser black-box checks passed")
     return 0
@@ -106,4 +133,3 @@ def main() -> int:
 
 if __name__ == "__main__":
     sys.exit(main())
-

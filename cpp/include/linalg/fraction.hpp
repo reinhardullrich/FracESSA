@@ -5,7 +5,6 @@
 #include <stdexcept>
 #include <string>
 #include <ostream>
-#include <cstdlib>  // For free()
 
 namespace linalg {
 
@@ -245,7 +244,7 @@ public:
             return "0";
         }
         std::string result(str);
-        free(str);  // FLINT's fmpq_get_str uses malloc, so use free()
+        flint_free(str);
         return result;
     }
     
@@ -256,7 +255,7 @@ public:
             os << "0";
         } else {
             os << str;  // Write directly to stream, no string allocation
-            free(str);
+            flint_free(str);
         }
         return os;
     }

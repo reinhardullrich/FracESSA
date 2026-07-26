@@ -6,11 +6,14 @@
 2. Read `KNOWLEDGE.md`.
 3. Read `reviews/CPP_REVIEW.md` before reviewing or changing C++ correctness,
    hot paths, parsing, CMake, CTest, or release behavior.
-4. Read `reviews/PYTHON_REVIEW.md` before reviewing or changing the Python API,
+4. Read `reviews/PYBIND_REVIEW.md` before reviewing or changing the native
+   `fracessa_core` boundary, result/status conversion, GIL behavior, or native
+   timing.
+5. Read `reviews/PYTHON_REVIEW.md` before reviewing or changing the Python API,
    multiprocessing, sinks, verification, or benchmarks.
-5. Read `CHANGES.md` only when history matters, when diagnosing drift, or when
+6. Read `CHANGES.md` only when history matters, when diagnosing drift, or when
    the user asks what changed.
-6. Read only the task-specific references below.
+7. Read only the task-specific references below.
 
 ## Maintained Documents
 
@@ -19,8 +22,16 @@
 - `CHANGES.md`: append-only human-readable history of meaningful project work.
 - `reviews/CPP_REVIEW.md`: unresolved C++ correctness, speed, build, and release
   findings.
+- `reviews/PYBIND_REVIEW.md`: unresolved native Python binding and boundary
+  findings.
 - `reviews/PYTHON_REVIEW.md`: unresolved Python correctness, speed, API, and
   verification findings.
+- `correctness/DOUBLE_PD_FALSE_POSITIVES.md`: exact derivation of the removed
+  double-PD certificate bug, its regression games, and arbitrary-small-
+  perturbation counterexamples.
+- `correctness/CERTIFIED_CANDIDATE_FILTER.md`: unimplemented design for exact
+  affine normalization, rigorous numerical rejection certificates, and exact
+  fallback in candidate enumeration.
 - `python-wrapper/README.md`: public Python and multiprocessing API.
 - `reference/FIND_POS_FIRST_SET_BIT_CALL_CHAIN.md`: compact production-only
   bit-scanning call chain requested for hot-path work.

@@ -1,23 +1,23 @@
 # `find_pos_first_set_bit` Production Call Chain
 
-Last verified: 2026-07-26
+Last verified: 2026-07-27
 
 Scope: production C++ under `cpp/include/` and `cpp/src/`; tests are excluded.
 
 ## Contract
 
 `bs64::find_pos_first_set_bit(bits)` returns the zero-based position of the
-lowest set bit. The GCC/Clang implementation delegates to `ctz64()` and assumes
-`bits != 0`; zero input is an open API-contract issue documented in
-`../reviews/CPP_REVIEW.md`.
+lowest set bit. It delegates to the branch-free `ctz64()` primitive and requires
+`bits != 0`. Every production caller below establishes that precondition.
+`lowest_set_bit_as_bit()` is separate: it directly isolates the lowest bit and
+is defined for zero.
 
 ## Direct Calls
 
 | Location | Caller | Purpose |
 |---|---|---|
-| `cpp/include/fracessa/bitset64.hpp:121` | `lowest_set_bit_as_bit` | Convert the lowest position back to a one-bit mask. |
-| `cpp/src/checkstab.cpp:26` | `fracessa::check_stability` | Select the Bee pivot index `m`. |
-| `cpp/src/checkstab.cpp:116` | `fracessa::check_stability` | Select the next reduction coordinate. |
+| `cpp/src/checkstab.cpp:24` | `fracessa::check_stability` | Select the Bee pivot index `m`. |
+| `cpp/src/checkstab.cpp:103` | `fracessa::check_stability` | Select the next reduction coordinate. |
 | `cpp/include/linalg/copositive_fraction.hpp:103` | `CopositivityCheckerV3::is_copositive_hadeler` | Handle a one-dimensional subset. |
 | `cpp/include/linalg/copositive_fraction.hpp:111` | same | Start principal-submatrix row iteration. |
 | `cpp/include/linalg/copositive_fraction.hpp:113` | same | Start principal-submatrix column iteration. |
@@ -31,7 +31,6 @@ main / fracessa_core.compute_matrix
         -> fracessa::check_stability
            -> find_pos_first_set_bit
            -> lowest_set_bit_as_bit
-              -> find_pos_first_set_bit
            -> linalg::is_strictly_copositive
               -> CopositivityCheckerV3::is_strictly_copositive
                  -> CopositivityCheckerV3::is_copositive_hadeler

@@ -41,11 +41,6 @@ TEST(Bitset64Test, FindFirst) {
     EXPECT_EQ(bs64::find_pos_first_set_bit(bits), 3);
 }
 
-TEST(Bitset64Test, FindFirstZero) {
-    bitset64 bits = 0ULL;
-    EXPECT_EQ(bs64::find_pos_first_set_bit(bits), 64); // No bits set
-}
-
 TEST(Bitset64Test, FindNext) {
     bitset64 bits = 0ULL;
     bits = bs64::set_bit_at_pos(bits, 2);
@@ -293,7 +288,6 @@ TEST(Bitset64Test, IterateAllSupports) {
 TEST(Bitset64Test, EmptyBitset) {
     bitset64 bits = 0ULL;
     EXPECT_EQ(bs64::count_set_bits(bits), 0);
-    EXPECT_EQ(bs64::find_pos_first_set_bit(bits), 64);
 }
 
 TEST(Bitset64Test, FullBitset) {
