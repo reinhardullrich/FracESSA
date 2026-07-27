@@ -83,6 +83,8 @@ Important implementation points:
 - Supports are represented by `uint64_t` masks.
 - Fixed stack buffers hold extracted support indices; clear-lowest-set-bit
   iteration avoids bit-test branches in inner matrix loops.
+- `--fullsupport` constructs and checks the full mask directly; all support
+  buckets are initialized only if normal or fallback enumeration is needed.
 - `MatrixServer` owns reusable double and rational matrix buffers.
 - Exact arithmetic uses FLINT `fmpq_t` through `linalg::fraction`.
 - Stability uses exact rational positive-definiteness; a binary64 result is not

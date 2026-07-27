@@ -48,15 +48,6 @@ normalization and a possible rigorous one-sided interval/error-bound filter.
 
 ## Speed
 
-### P1: `--fullsupport` builds all supports before checking one
-
-`fracessa` calls `supports_.initialize()` at `cpp/src/fracessa.cpp:50` before
-the full-support branch. At dimension 24 this generates 16,777,215 masks before
-checking the single requested full support.
-
-Required outcome: construct and check the full-support mask first; initialize
-fallback supports only if that check fails.
-
 ### P1: Candidate paths materialize full vectors before they are needed
 
 The double path fills `full_solution[64]` at `cpp/src/findeq.cpp:50`, then reads

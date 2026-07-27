@@ -1,0 +1,332 @@
+{
+  "metadata": {
+    "date": "2026-07-27",
+    "dataset_role": "primary retained first pass",
+    "target_seconds": 3.0,
+    "cpu_affinity": 2,
+    "hostname": "superior",
+    "machine": "aarch64",
+    "cpu": "Apple M1 Max performance core (CPU 2)",
+    "matrix_count": 34,
+    "excluded_matrix_ids": [
+      34
+    ],
+    "timing_unit": "milliseconds per analyzer construction",
+    "compiler": "c++ (GCC) 16.1.1 20260515 (Red Hat 16.1.1-2)",
+    "compile_flags": "-O3 -DNDEBUG -flto -funroll-loops -march=native -mcpu=native",
+    "git_head": "c1a230d35fbd048b357c10af7c3ab9fc6d4312c2",
+    "benchmark_binary_sha256": "ba4d3885de86f691f69bf36128935b173fc346121c6246807788eebee166022b",
+    "protocol": "Current optimized worktree; matrix parsed once per mode; candidates enabled; analyzer constructed and destroyed repeatedly; default and exact modes paired; 50 ms warmup for fast matrices; up to seven adaptive batches targeting about three measured seconds; a single run is never interrupted when it exceeds the target; mode order alternated by matrix ID.",
+    "retention_note": "IDs 1-33 retain the original completed pass. ID 35 is the targeted completion. Matrix 34 is intentionally excluded.",
+    "correctness": "Default and exact ESS counts matched each other and the expected count for every included matrix. Candidate-level equality is independently confirmed by the preserved second pass.",
+    "source_patch_sha256": "65adcb8fce0be4376e02f99953269453d686c1d82dfcf48dd638615e647ef00c"
+  },
+  "results": [
+    {
+      "matrix_id": 1,
+      "dimension": 2,
+      "expected_ess": 1,
+      "default_median_ms": 0.001322000,
+      "exact_median_ms": 0.001544000,
+      "exact_over_default": 1.167927383,
+      "change_percent": 16.793
+    },
+    {
+      "matrix_id": 2,
+      "dimension": 2,
+      "expected_ess": 2,
+      "default_median_ms": 0.001382000,
+      "exact_median_ms": 0.001280000,
+      "exact_over_default": 0.926193922,
+      "change_percent": -7.381
+    },
+    {
+      "matrix_id": 3,
+      "dimension": 3,
+      "expected_ess": 1,
+      "default_median_ms": 0.002098000,
+      "exact_median_ms": 0.003779000,
+      "exact_over_default": 1.801239276,
+      "change_percent": 80.124
+    },
+    {
+      "matrix_id": 4,
+      "dimension": 3,
+      "expected_ess": 1,
+      "default_median_ms": 0.002879000,
+      "exact_median_ms": 0.003156000,
+      "exact_over_default": 1.096213963,
+      "change_percent": 9.621
+    },
+    {
+      "matrix_id": 5,
+      "dimension": 3,
+      "expected_ess": 0,
+      "default_median_ms": 0.002908000,
+      "exact_median_ms": 0.003376000,
+      "exact_over_default": 1.160935351,
+      "change_percent": 16.094
+    },
+    {
+      "matrix_id": 6,
+      "dimension": 3,
+      "expected_ess": 1,
+      "default_median_ms": 0.003048000,
+      "exact_median_ms": 0.003892000,
+      "exact_over_default": 1.276902887,
+      "change_percent": 27.690
+    },
+    {
+      "matrix_id": 7,
+      "dimension": 4,
+      "expected_ess": 0,
+      "default_median_ms": 0.005845000,
+      "exact_median_ms": 0.006039000,
+      "exact_over_default": 1.033190761,
+      "change_percent": 3.319
+    },
+    {
+      "matrix_id": 8,
+      "dimension": 5,
+      "expected_ess": 5,
+      "default_median_ms": 0.004026000,
+      "exact_median_ms": 0.005549000,
+      "exact_over_default": 1.378291108,
+      "change_percent": 37.829
+    },
+    {
+      "matrix_id": 9,
+      "dimension": 5,
+      "expected_ess": 6,
+      "default_median_ms": 0.008954000,
+      "exact_median_ms": 0.011837000,
+      "exact_over_default": 1.321979004,
+      "change_percent": 32.198
+    },
+    {
+      "matrix_id": 10,
+      "dimension": 6,
+      "expected_ess": 9,
+      "default_median_ms": 0.013323000,
+      "exact_median_ms": 0.016854000,
+      "exact_over_default": 1.265030399,
+      "change_percent": 26.503
+    },
+    {
+      "matrix_id": 11,
+      "dimension": 7,
+      "expected_ess": 14,
+      "default_median_ms": 0.009456000,
+      "exact_median_ms": 0.013609000,
+      "exact_over_default": 1.439192047,
+      "change_percent": 43.919
+    },
+    {
+      "matrix_id": 12,
+      "dimension": 7,
+      "expected_ess": 14,
+      "default_median_ms": 0.009160000,
+      "exact_median_ms": 0.013502000,
+      "exact_over_default": 1.474017467,
+      "change_percent": 47.402
+    },
+    {
+      "matrix_id": 13,
+      "dimension": 8,
+      "expected_ess": 20,
+      "default_median_ms": 0.084019000,
+      "exact_median_ms": 0.170576000,
+      "exact_over_default": 2.030207453,
+      "change_percent": 103.021
+    },
+    {
+      "matrix_id": 14,
+      "dimension": 9,
+      "expected_ess": 30,
+      "default_median_ms": 0.078442000,
+      "exact_median_ms": 0.118621000,
+      "exact_over_default": 1.512212845,
+      "change_percent": 51.221
+    },
+    {
+      "matrix_id": 15,
+      "dimension": 10,
+      "expected_ess": 50,
+      "default_median_ms": 0.252864000,
+      "exact_median_ms": 1.046686000,
+      "exact_over_default": 4.139323905,
+      "change_percent": 313.932
+    },
+    {
+      "matrix_id": 16,
+      "dimension": 11,
+      "expected_ess": 66,
+      "default_median_ms": 0.071254000,
+      "exact_median_ms": 0.330102000,
+      "exact_over_default": 4.632750442,
+      "change_percent": 363.275
+    },
+    {
+      "matrix_id": 17,
+      "dimension": 11,
+      "expected_ess": 55,
+      "default_median_ms": 0.040453000,
+      "exact_median_ms": 0.083941000,
+      "exact_over_default": 2.075025338,
+      "change_percent": 107.503
+    },
+    {
+      "matrix_id": 18,
+      "dimension": 12,
+      "expected_ess": 105,
+      "default_median_ms": 0.751408000,
+      "exact_median_ms": 3.429127000,
+      "exact_over_default": 4.563601931,
+      "change_percent": 356.360
+    },
+    {
+      "matrix_id": 19,
+      "dimension": 12,
+      "expected_ess": 12,
+      "default_median_ms": 0.650215000,
+      "exact_median_ms": 3.556940000,
+      "exact_over_default": 5.470405943,
+      "change_percent": 447.041
+    },
+    {
+      "matrix_id": 20,
+      "dimension": 12,
+      "expected_ess": 24,
+      "default_median_ms": 0.163210000,
+      "exact_median_ms": 0.259677000,
+      "exact_over_default": 1.591060597,
+      "change_percent": 59.106
+    },
+    {
+      "matrix_id": 21,
+      "dimension": 12,
+      "expected_ess": 105,
+      "default_median_ms": 1.660420000,
+      "exact_median_ms": 8.452854000,
+      "exact_over_default": 5.090792691,
+      "change_percent": 409.079
+    },
+    {
+      "matrix_id": 22,
+      "dimension": 13,
+      "expected_ess": 143,
+      "default_median_ms": 0.188481000,
+      "exact_median_ms": 1.521428000,
+      "exact_over_default": 8.072049703,
+      "change_percent": 707.205
+    },
+    {
+      "matrix_id": 23,
+      "dimension": 14,
+      "expected_ess": 224,
+      "default_median_ms": 1.601033000,
+      "exact_median_ms": 26.874260000,
+      "exact_over_default": 16.785575313,
+      "change_percent": 1578.558
+    },
+    {
+      "matrix_id": 24,
+      "dimension": 15,
+      "expected_ess": 360,
+      "default_median_ms": 3.919407000,
+      "exact_median_ms": 102.980248000,
+      "exact_over_default": 26.274446109,
+      "change_percent": 2527.445
+    },
+    {
+      "matrix_id": 25,
+      "dimension": 16,
+      "expected_ess": 512,
+      "default_median_ms": 12.270484000,
+      "exact_median_ms": 177.212994000,
+      "exact_over_default": 14.442217112,
+      "change_percent": 1344.222
+    },
+    {
+      "matrix_id": 26,
+      "dimension": 17,
+      "expected_ess": 493,
+      "default_median_ms": 6.623400000,
+      "exact_median_ms": 274.112113000,
+      "exact_over_default": 41.385408250,
+      "change_percent": 4038.541
+    },
+    {
+      "matrix_id": 27,
+      "dimension": 18,
+      "expected_ess": 1152,
+      "default_median_ms": 62.139109000,
+      "exact_median_ms": 1776.944466000,
+      "exact_over_default": 28.596233428,
+      "change_percent": 2759.623
+    },
+    {
+      "matrix_id": 28,
+      "dimension": 19,
+      "expected_ess": 1444,
+      "default_median_ms": 10.638315000,
+      "exact_median_ms": 289.801149000,
+      "exact_over_default": 27.241264148,
+      "change_percent": 2624.126
+    },
+    {
+      "matrix_id": 29,
+      "dimension": 19,
+      "expected_ess": 19,
+      "default_median_ms": 11.059092000,
+      "exact_median_ms": 245.926186000,
+      "exact_over_default": 22.237466331,
+      "change_percent": 2123.747
+    },
+    {
+      "matrix_id": 30,
+      "dimension": 20,
+      "expected_ess": 2560,
+      "default_median_ms": 339.141882000,
+      "exact_median_ms": 8021.194004000,
+      "exact_over_default": 23.651440384,
+      "change_percent": 2265.144
+    },
+    {
+      "matrix_id": 31,
+      "dimension": 21,
+      "expected_ess": 4410,
+      "default_median_ms": 728.249164000,
+      "exact_median_ms": 18890.924061000,
+      "exact_over_default": 25.940193267,
+      "change_percent": 2494.019
+    },
+    {
+      "matrix_id": 32,
+      "dimension": 22,
+      "expected_ess": 5632,
+      "default_median_ms": 3510.814947000,
+      "exact_median_ms": 53725.951373000,
+      "exact_over_default": 15.302985826,
+      "change_percent": 1430.299
+    },
+    {
+      "matrix_id": 33,
+      "dimension": 23,
+      "expected_ess": 2507,
+      "default_median_ms": 313.475683000,
+      "exact_median_ms": 73177.706448000,
+      "exact_over_default": 233.439818195,
+      "change_percent": 23243.982
+    },
+    {
+      "matrix_id": 35,
+      "dimension": 18,
+      "expected_ess": 258,
+      "default_median_ms": 124.640873500,
+      "exact_median_ms": 14594.692096000,
+      "exact_over_default": 117.093949089,
+      "change_percent": 11609.395
+    }
+  ]
+}

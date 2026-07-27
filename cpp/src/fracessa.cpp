@@ -46,18 +46,18 @@ fracessa::fracessa(const linalg::matrix_frc& matrix, bool is_cs, bool with_candi
         logger_->info("game matrix:\n{}", matrix_server_.get_game_matrix_frc().to_log_string());
     }
         
-    // Precompute support buckets once before entering the search loops.
-    supports_.initialize();
-
-    if (conf_full_support_) {      
-        for (const auto& support : supports_.get_supports(dimension_)) {
-            search_one_support(support, dimension_);
-        }
-        if (ess_count_ > 0) 
-            return;                
+    if (conf_full_support_) {
+        const bitset64 full_support_mask = bs64::set_all_n_bits(dimension_);
+        search_one_support(full_support_mask, dimension_);
+        if (ess_count_ > 0)
+            return;
     }
 
-    for (size_t i = 1; i <= (conf_full_support_ ? dimension_-1: dimension_) ; i++) {
+    // Build all support buckets only when the normal or fallback search needs them.
+    supports_.initialize();
+
+    const size_t max_support_size = conf_full_support_ ? dimension_ - 1 : dimension_;
+    for (size_t i = 1; i <= max_support_size; i++) {
         if (conf_with_log_)
             logger_->info("Searching support size {}:", i);
 
