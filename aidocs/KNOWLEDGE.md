@@ -1,6 +1,6 @@
 # Project Knowledge
 
-Last verified: 2026-07-27
+Last verified: 2026-07-29
 
 ## Source-Code Approval Gate
 
@@ -26,8 +26,10 @@ Last verified: 2026-07-27
 3. Keep validation at input boundaries. Do not add checks, allocations,
    abstractions, or branches to proven hot paths without a demonstrated
    correctness need and a benchmark.
-4. The intentionally unchecked bitset and `--unsafe` parser paths exist for raw
-   speed. Their caller preconditions are part of the design.
+4. Intentionally unchecked bitset operations exist for raw speed. Matrix input
+   instead has one validating parser at the input boundary; values up to 18
+   digits use direct integer construction and larger values use exact FLINT text
+   conversion.
 5. Use the Ponytail skill for code work: understand the complete path, then use
    the smallest correct implementation.
 
@@ -58,12 +60,15 @@ CLI matrix format is `dimension#values`. Values are either the upper triangle
 of a symmetric matrix (`n*(n+1)/2` entries) or the compact circular-symmetric
 form (`floor(n/2)` entries).
 
-The safe parser accepts dimensions 1 through 63, rejects textual fractions with
-a zero denominator, and validates the remaining input. Support masks have 64
-storage bits, but complete enumeration requires the exclusive `2^n` bound, so
-dimension 64 is not supported. The `--unsafe` parser deliberately adds no
-dimension or denominator checks and assumes trusted, well-formed input that
-still satisfies `1 <= n < 64`.
+The parser accepts dimensions 1 through 63, rejects textual fractions with a
+zero denominator, and validates value syntax during the same scan that builds
+the exact fractions. Support masks have 64 storage bits, but complete
+enumeration requires the exclusive `2^n` bound, so dimension 64 is not
+supported.
+
+The temporary numerical modes are unsafe filtering and exact solving. No flag
+and `--unsafe` select the same uncertified filter; `--exact` bypasses it.
+`--exact` and `--unsafe` are mutually exclusive.
 
 ## Computation Flow
 
@@ -85,16 +90,19 @@ Important implementation points:
   iteration avoids bit-test branches in inner matrix loops.
 - `--fullsupport` constructs and checks the full mask directly; all support
   buckets are initialized only if normal or fallback enumeration is needed.
-- `MatrixServer` owns reusable double and rational matrix buffers.
+- In non-exact mode, `MatrixServer` exactly translates and scales the game into
+  `[-1,1]`, converts it once to binary64, and reuses one bordered scratch matrix.
+  Constant games and unusable zero/subnormal conversions permanently fall back
+  to exact candidate solving before enumeration.
 - Exact arithmetic uses FLINT `fmpq_t` through `linalg::fraction`.
 - Stability uses exact rational positive-definiteness; a binary64 result is not
   accepted as a final mathematical certificate.
 - `correctness/DOUBLE_PD_FALSE_POSITIVES.md` documents the concrete failures and
   proves why tolerance tuning cannot recover an exact PD certificate.
-- `--exact` skips the double candidate solver, and all final stability decisions
-  use exact rational arithmetic.
-- The default path still has a known double candidate-filter correctness bug;
-  see `reviews/CPP_REVIEW.md`.
+- `--exact` does not initialize or allocate the double candidate-filter state,
+  and all final stability decisions use exact rational arithmetic.
+- The default unsafe filter uses a cheap pivot/margin danger veto, not a proof.
+  It can still reject valid exact candidates; see `reviews/CPP_REVIEW.md`.
 
 Key files:
 
@@ -102,7 +110,7 @@ Key files:
 - `cpp/include/fracessa/supports.hpp`: support generation and pruning.
 - `cpp/include/fracessa/matrix_server.hpp`: reusable matrix construction.
 - `cpp/include/linalg/fraction.hpp`: FLINT rational wrapper.
-- `cpp/include/linalg/linear_solver.hpp`: double and exact solvers.
+- `cpp/include/linalg/linear_solver.hpp`: exact bordered-system solver.
 - `cpp/include/linalg/copositive_fraction.hpp`: exact copositivity checks.
 - `cpp/src/findeq.cpp`: candidate construction.
 - `cpp/src/checkstab.cpp`: stability classification.
@@ -160,13 +168,11 @@ is one CTest per matrix so CTest can run matrices in parallel.
 Fast mode is a static policy: all verification matrices except IDs 32 and 34.
 The speed script records timings; correctness belongs to CTest.
 
-Current expected red tests are verification IDs 38-39. They expose
-scale/translation failures in the double candidate filter
-and expect one mixed ESS, while the current default path returns zero.
-
-These are real open regressions, not flaky tests. Consequently `./test.sh` and
-release publication currently fail until the candidate-filter finding in
-`reviews/CPP_REVIEW.md` is fixed.
+All active verification IDs 1-44 pass in the temporary default unsafe mode;
+IDs 38-39 specifically cover the corrected scale and translation behavior.
+Preserved reference IDs 45-47 are intentionally not active yet: they prove the
+unsafe heuristic can still miss an exact ESS and belong to the later certified
+Choice 1 phase.
 
 ## Verification Data
 

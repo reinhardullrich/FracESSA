@@ -125,7 +125,6 @@ def compute_job(job: MatrixJob, config: RunConfig, run_id: str) -> MatrixResult:
         exact=config.exact,
         full_support=config.full_support,
         enable_logging=config.enable_logging,
-        unsafe=config.unsafe,
         matrix_id=int(job.matrix_id),
     )
 

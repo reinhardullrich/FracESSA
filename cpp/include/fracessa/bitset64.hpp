@@ -6,16 +6,13 @@
 #include <cstddef>
 
 /*
- * Bitset primitives for support sets in the ESS search.
+ * A support is the set of pure strategies played with positive probability.
+ * Bit i is one exactly when strategy i belongs to that support. This makes set
+ * difference, subset tests, and cyclic shifts ordinary integer operations.
  *
- * Mathematical view:
- * - A support S subseteq {0,...,n-1} is represented as a 64-bit indicator vector.
- * - Core operations (subset test, rotation, set difference) are the set-theoretic
- *   operations used by support enumeration and cyclic-symmetry reductions.
- *
- * Design note:
- * - This file is intentionally branch-light and inline-heavy because these helpers
- *   sit on hot loops executed extremely often in the combinatorial search.
+ * The complete search may visit 2^n supports, so these small helpers are called
+ * millions or billions of times. They are deliberately inline and mostly
+ * unchecked; callers must respect the stated dimension and nonzero preconditions.
  */
 
 // Platform-specific intrinsics
@@ -43,15 +40,8 @@ inline size_t ctz64(uint64_t x) noexcept {
   #endif
 }
 
-/// Ultra-optimized 64-bit support storage.
-/// Complete support enumeration requires 1 <= n < 64 because 2^n is the
-/// exclusive uint64_t loop bound. Bit positions themselves remain 0 through 63.
-/// - stores only uint64_t bits (8 bytes, same as uint64_t)
-/// - nbits must be provided by caller when needed for masking
-/// - all operations are inlined and branch-light
-/// - NO bounds checks for maximum performance
-
-// Type alias: bitset64 is just uint64_t
+// Storage has 64 bits, but complete enumeration requires 1 <= n < 64:
+// the loop needs 2^n as an exclusive uint64_t upper bound.
 typedef uint64_t bitset64;
 
 // Namespace for bitset64 operations
@@ -69,10 +59,11 @@ inline bitset64 set_bit_at_pos(bitset64 bits, size_t pos) noexcept {
 }
 
 inline bitset64 set_all_n_bits(size_t n) noexcept {
-  return (1ULL << n) - 1ULL; //careful with n == 0
+  return (1ULL << n) - 1ULL; // Caller guarantees n < 64; n == 0 yields the empty set.
 }
 
-// circular rotate right by exactly 1 bit for a bitmask of size nbits
+// Shift every strategy index down by one modulo n. Circular-symmetric games
+// use this to obtain the other supports in the same rotational orbit.
 inline bitset64 rot_one_right(bitset64 bits, size_t n) noexcept {
   bitset64 mask = set_all_n_bits(n);
   bitset64 low = bits & mask;
@@ -93,7 +84,7 @@ inline size_t find_pos_first_set_bit(bitset64 bits) noexcept {
   return ctz64(bits);
 }
 
-// find next bit after pos
+// Return the next set position strictly after pos, or 64 if none remains.
 inline size_t find_pos_next_set_bit(bitset64 bits, size_t pos) noexcept {
   size_t p = pos + 1;
   if (p >= 64) return static_cast<size_t>(64);
@@ -102,7 +93,7 @@ inline size_t find_pos_next_set_bit(bitset64 bits, size_t pos) noexcept {
   return static_cast<size_t>(64);  // no more bits found
 }
 
-// this ⊆ o <=> (this & ~o) == 0
+// Set inclusion: bits is a subset of o exactly when it has no bit outside o.
 inline bool is_subset_of(bitset64 bits, bitset64 o) noexcept {
   return (bits & ~o) == 0ULL;
 }
@@ -122,7 +113,8 @@ inline bitset64 lowest_set_bit_as_bit(bitset64 bits) noexcept {
   return bits & (0ULL - bits);
 }
 
-// Get all set bits in bits that are before position pos
+// Keep members whose original strategy index is below pos. Counting them maps
+// an original strategy index to its row in a compact support-indexed matrix.
 inline bitset64 bits_before_pos(bitset64 bits, size_t pos) noexcept {
   return bits & ((1ULL << pos) - 1);
 }
@@ -148,7 +140,7 @@ inline bool is_smallest_representation(bitset64 bits, size_t n) noexcept {
 
 // Convert to bitstring representation (MSB first, like std::bitset::to_string())
 // Only outputs bits 0 to dimension-1 (rightmost dimension bits)
-// Example: dimension=5, bits 0,3,4 set -> "10011"
+// Example: dimension=5, bits 0,3,4 set -> "11001"
 inline std::string to_bitstring(bitset64 bits, size_t dimension) noexcept {
   if (dimension == 0) return "";
   
@@ -168,8 +160,9 @@ inline std::string to_string(bitset64 bits) noexcept {
   return std::to_string(bits);
 }
 
-// Extract set-bit positions [0, dimension) into a fixed stack buffer.
-// Returns number of extracted indices.
+// Write the set positions in increasing order to caller-owned stack storage.
+// ctz finds the current lowest bit; bits &= bits - 1 removes that bit without
+// scanning the other 64 positions. The returned count is the support size.
 inline size_t extract_set_indices(bitset64 bits, size_t dimension, uint8_t (&indices)[kMaxBitsetDimension]) noexcept
 {
   if (dimension < kMaxBitsetDimension) {

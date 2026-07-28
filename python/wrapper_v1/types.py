@@ -27,7 +27,6 @@ class RunConfig:
     full_support: bool = False
     include_candidates: bool = False
     include_timing: bool = True
-    unsafe: bool = False
     enable_logging: bool = False
 
 

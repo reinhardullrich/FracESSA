@@ -2,7 +2,6 @@
 #define FRACESSA_HPP
 
 #include <vector>
-#include <string>
 #include <memory>
 
 #include <spdlog/spdlog.h>
@@ -15,14 +14,17 @@
 #include <fracessa/matrix_server.hpp>
 
 /*
- * fracessa: high-level orchestrator for the ESS search pipeline.
+ * Runs the complete ESS search for one payoff matrix.
  *
- * Execution stages per support:
- * 1) fast double filter (necessary inequalities),
- * 2) exact rational solve/check,
- * 3) stability classification (positive definiteness / copositivity criteria).
+ * For each support S, the analyzer performs up to three stages:
+ * 1) the optional double filter may reject an apparently invalid support;
+ * 2) exact rational arithmetic constructs and verifies a symmetric Nash
+ *    candidate on S, including its extended support;
+ * 3) exact positive-definiteness and copositivity tests decide ESS stability.
  *
- * The class also owns candidate logging/output state and support-pruning state.
+ * Stage 1 is an unsafe speed heuristic, not a mathematical certificate. A
+ * positive answer from it means only "continue with the exact test." The
+ * constructor runs the search synchronously and leaves the results below.
  */
 class fracessa
 {
@@ -30,6 +32,7 @@ public:
     fracessa(const linalg::matrix_frc& matrix, bool is_cs, bool with_candidates = false, bool exact = false, bool full_support = false, bool with_log = false, int matrix_id = -1);
 
     size_t ess_count_ = 0;
+    // Populated only when with_candidates is true.
     std::vector<candidate> candidates_;
 
 private:
@@ -48,12 +51,16 @@ private:
 
     std::shared_ptr<spdlog::logger> logger_;
 
+    // Test one support through the selected numerical mode and exact stability.
+    // The coprime flag permits reconstruction of a full circular-symmetry orbit.
     void search_one_support(const bitset64& support, size_t support_size, bool is_cs_and_coprime = false);
-    
-    // No more templates
+
+    // The double routine is only an unsafe rejection filter. The rational
+    // routine is the authoritative equilibrium test and fills candidate_.
     bool find_candidate_dbl(const bitset64& support, size_t support_size);
     bool find_candidate_frc(const bitset64& support, size_t support_size);
     
+    // Classify the exact candidate already stored in candidate_.
     void check_stability();
 };
 

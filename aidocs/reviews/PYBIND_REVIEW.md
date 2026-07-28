@@ -15,8 +15,8 @@ remove a finding after its fix and regression coverage are complete.
 
 ### P2: Pybind reparses parser failures and can misclassify them
 
-The shared safe parser returns only `bool`. When it fails, pybind reparses the
-same input in `infer_safe_parse_status()` at `cpp/src/pybind_module.cpp:59`.
+The shared parser returns only `bool`. When it fails, pybind reparses the
+same input in `infer_parse_status()` at `cpp/src/pybind_module.cpp:59`.
 That second parser covers only structural and dimension errors and otherwise
 returns `INVALID_VALUE_COUNT`, so an invalid rational can receive the wrong
 public status at `cpp/src/pybind_module.cpp:102`.

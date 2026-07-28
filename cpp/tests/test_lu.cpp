@@ -31,7 +31,7 @@ TEST(LUFactorFractionTest, Inverse) {
         for (size_t j = 0; j < 2; ++j) {
             fraction sum = fraction::zero();
             for (size_t k = 0; k < 2; ++k) {
-                sum += A(i, k) * inv(k, j);
+                sum.addmul(A(i, k), inv(k, j));
             }
             if (i == j) EXPECT_EQ(sum, fraction::one());
             else EXPECT_EQ(sum, fraction::zero());

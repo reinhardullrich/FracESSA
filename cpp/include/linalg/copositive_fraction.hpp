@@ -11,23 +11,21 @@
 namespace linalg {
 
 /*
- * Strict copositivity checker for exact rational symmetric matrices.
+ * Exact strict-copositivity test for a symmetric rational matrix A:
  *
- * Context in FracESSA:
- * - Called only after cheaper ESS filters fail (pure ESS / PD checks).
- * - Works on Bee-type reduced matrices where exact sign decisions matter.
+ *     z^T A z > 0 for every nonzero z >= 0.
  *
- * Method sketch:
- * 1) Enumerate principal submatrices by support subsets.
- * 2) For each subset, evaluate the Hadeler/Motzkin-Straus/Kaplansky criterion.
- * 3) Abort early on the first violating subset.
+ * FracESSA reaches this code only after the simpler pure-ESS and exact
+ * positive-definiteness cases have failed. It checks principal submatrices in
+ * increasing order. Therefore, when a matrix of size k is reached, all of its
+ * proper principal submatrices have already passed. Hadeler (1983), Theorem 3,
+ * then decides the remaining case from the determinant and adjugate signs.
  */
 class CopositivityCheckerV3 {
 private:
     std::vector<std::vector<bitset64>> supports_;
 
-    // Exact adjugate. Needed when LU inverse is unavailable (singular case),
-    // but the criterion still requires checking adj(A) entry signs.
+    // Compute adj(A) from cofactors when A is singular and A^-1 is unavailable.
     matrix_frc adjugate(const matrix_frc& A) {
         const size_t n = A.rows();
         if (n == 0) return matrix_frc(0, 0);
@@ -36,7 +34,7 @@ private:
             result(0, 0) = fraction::one();
             return result;
         }
-        // Hardcoded 2x2 adjugate for symmetric matrices (Bee matrices are symmetric, bee_vee matrices as well!)
+        // The common 2-by-2 case is clearer and cheaper without general minors.
         if (n == 2) {
             matrix_frc result(2, 2);
             result(0, 0) = A(1, 1);
@@ -49,31 +47,29 @@ private:
         matrix_frc adj(n, n);
         matrix_frc minor(n - 1, n - 1);
 
-        // Optimization: For symmetric A, we only need to compute cofactors for upper triangle
-        // since C(i,j) = C(j,i) for symmetric matrices (det(minor(i,j)) = det(minor(j,i)))
+        // A symmetric matrix has a symmetric adjugate, so calculate one triangle.
         for (size_t i = 0; i < n; ++i) {
             for (size_t j = i; j < n; ++j) {
-                // Extract minor(i,j) - matrix with row i and column j removed
+                // Extract the minor obtained by deleting row i and column j.
                 size_t minor_row = 0;
                 for (size_t row = 0; row < n; ++row) {
                     if (row == i) continue;
                     size_t minor_col = 0;
                     for (size_t col = 0; col < n; ++col) {
                         if (col == j) continue;
-                        // Use symmetry: A(row, col) = A(col, row) when extracting
                         minor(minor_row, minor_col) = A(row, col);
                         ++minor_col;
                     }
                     ++minor_row;
                 }
 
-                // Compute determinant once - for symmetric A, det(minor(i,j)) = det(minor(j,i))
+                // Its signed determinant is cofactor C_ij.
                 LU_Factorization lu(minor);
                 fraction det_minor = lu.determinant();
                 fraction cofactor = ((i + j) & 1) == 0 ? det_minor : -det_minor;
 
-                // Adjugate is the transpose of the cofactor matrix
-                // For symmetric A: adj(j,i) = C(i,j) and adj(i,j) = C(j,i) = C(i,j)
+                // adj(A) is the transposed cofactor matrix; symmetry makes both
+                // mirrored entries equal.
                 adj(j, i) = cofactor;
                 if (i != j) {
                     adj(i, j) = cofactor;  // Symmetry: same cofactor value
@@ -87,8 +83,7 @@ private:
         const size_t n = A.rows();
         for (size_t i = 0; i < n; ++i) {
             for (size_t j = i; j < n; ++j) {
-                // Use fraction's sgn() method which internally uses fmpq_sgn
-                // This avoids creating temporary fraction objects for comparison
+                // Only one triangle is needed because every input here is symmetric.
                 if (A(i, j).sgn() <= 0) {
                     return false;
                 }
@@ -104,15 +99,13 @@ private:
             return A(idx, idx) > fraction::zero();
         }
 
-        // Build principal submatrix A[mask,mask] in compact coordinates.
+        // Copy the principal submatrix A[mask,mask] into compact row/column order.
         matrix_frc subMat(current_dim, current_dim);
         {
             size_t row = 0;
             for (size_t i = bs64::find_pos_first_set_bit(mask); i < 64; i = bs64::find_pos_next_set_bit(mask, i)) {
                 size_t col = 0;
                 for (size_t j = bs64::find_pos_first_set_bit(mask); j < 64; j = bs64::find_pos_next_set_bit(mask, j)) {
-                    // Using direct assignment. Since LU_Factorization copies anyway,
-                    // we avoid double initialization by using default constructor (no init).
                     subMat(row, col) = A(i, j);
                     ++col;
                 }
@@ -124,23 +117,19 @@ private:
         fraction det = lu.determinant();
 
         if (det <= fraction::zero()) {
-            /**
-             * 4. Hadeler / Motzkin-Straus / Kaplansky Criterion:
-             * If all proper principal submatrices are strictly copositive,
-             * A is strictly copositive UNLESS (det(A) <= 0 AND adj(A) has any non-positive entry).
-             *
-             * More precisely: A is strictly copositive if and only if:
-             *  a) All proper principal submatrices are strictly copositive.
-             *  b) AND EITHER det(A) > 0 OR some entry of adj(A) is <= 0.
+            /*
+             * With all proper principal submatrices already passed, Hadeler's
+             * rejecting pattern is det(A) < 0 and adj(A) > 0 entrywise. The code
+             * enters for det(A) == 0 as well because a singular matrix has no
+             * inverse; under the theorem's precondition its adjugate cannot
+             * match the rejecting pattern.
              */
-            // Compute adj(A) for the second part of the criterion.
             matrix_frc adj;
             if (lu.isSingular()) {
-                // Fall back to cofactor method for singular matrices
-                // Since submatrix of symmetric A is symmetric, adjugate remains optimized.
+                // No inverse exists, so use the cofactor definition.
                 adj = adjugate(subMat);
             } else {
-                // For det < 0, we can use the inverse formula: adj(A) = det(A) * A^(-1)
+                // For nonsingular A, adj(A) = det(A) * A^-1.
                 adj = lu.inverse() * det;
             }
 
@@ -156,7 +145,8 @@ public:
     bool is_strictly_copositive(const matrix_frc& A) {
         size_t n = A.rows();
 
-        // Group all non-empty supports by cardinality once.
+        // Each nonempty mask selects one principal submatrix. Grouping by size
+        // establishes the proper-submatrix precondition used by the criterion.
         supports_.resize(n);
         for (size_t i = 0; i < n; ++i) {
             supports_[i].reserve(binomial_coefficient(n, i + 1));
@@ -166,17 +156,17 @@ public:
             supports_[bs64::count_set_bits(support) - 1].push_back(support);
         }
 
-        // Check from small subsets to full matrix. Any failure is conclusive.
+        // Stop at the first principal submatrix that is not strictly copositive.
         for (size_t subset_size = 1; subset_size <= n; ++subset_size) {
             const auto& subsets_of_size = supports_[subset_size - 1];
             for (bitset64 subset : subsets_of_size) {
                 if (!is_copositive_hadeler(A, subset, subset_size)) {
-                    return false;  // Early exit - found non-copositive submatrix
+                    return false;
                 }
             }
         }
 
-        // Passed all subset checks: matrix is strictly copositive.
+        // In particular, the final full-size subset passed.
         return true;
     }
 };

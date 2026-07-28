@@ -13,6 +13,7 @@ namespace py = pybind11;
 
 namespace {
 
+// These integer values are part of the Python wrapper's public status contract.
 constexpr int kStatusOk = 0;
 constexpr int kStatusParseError = 1;
 constexpr int kStatusDimensionOutOfRange = 2;
@@ -20,6 +21,11 @@ constexpr int kStatusInvalidValueCount = 3;
 constexpr int kStatusExecError = 4;
 constexpr int kStatusInternalError = 255;
 
+/*
+ * Python-free transport objects let parsing, analysis, and candidate copying
+ * run while the GIL is released. Python dictionaries are created only after
+ * native work has finished.
+ */
 struct NativeCandidate {
     size_t candidate_id = 0;
     std::string vector;
@@ -45,6 +51,7 @@ struct NativeResult {
 
 std::string strategy_vector_to_string(const linalg::matrix_frc& vec)
 {
+    // Keep exact rational probabilities as text instead of rounding to double.
     std::ostringstream out;
     const size_t n = vec.rows();
     for (size_t i = 0; i < n; ++i) {
@@ -56,8 +63,13 @@ std::string strategy_vector_to_string(const linalg::matrix_frc& vec)
     return out.str();
 }
 
-int infer_safe_parse_status(const std::string& matrix_str)
+int infer_parse_status(const std::string& matrix_str)
 {
+    /*
+     * The shared parser currently returns only bool. This best-effort
+     * second pass recognizes some structural and dimension failures; every
+     * other parse failure is reported as an invalid value count.
+     */
     constexpr size_t kMaxSafeDimension = 63;
 
     const size_t hash_pos = matrix_str.find('#');
@@ -86,7 +98,6 @@ NativeResult compute_matrix_impl(
     bool exact,
     bool full_support,
     bool enable_logging,
-    bool unsafe,
     int matrix_id)
 {
     NativeResult result;
@@ -95,17 +106,14 @@ NativeResult compute_matrix_impl(
         linalg::matrix_frc parsed_matrix;
         bool is_cs = false;
 
-        if (unsafe) {
-            matrix_parser::parse_matrix_string_unsafe(matrix, parsed_matrix, is_cs);
-        } else {
-            if (!matrix_parser::parse_matrix_string(matrix, parsed_matrix, is_cs)) {
-                result.status = infer_safe_parse_status(matrix);
-                result.success = false;
-                result.error_message = "Failed to parse matrix input";
-                return result;
-            }
+        if (!matrix_parser::parse_matrix_string(matrix, parsed_matrix, is_cs)) {
+            result.status = infer_parse_status(matrix);
+            result.success = false;
+            result.error_message = "Failed to parse matrix input";
+            return result;
         }
 
+        // Match CLI timing: measure only analyzer construction and search.
         const auto start = std::chrono::high_resolution_clock::now();
         ::fracessa analyzer(parsed_matrix, is_cs, include_candidates, exact, full_support, enable_logging, matrix_id);
         const auto end = std::chrono::high_resolution_clock::now();
@@ -116,6 +124,7 @@ NativeResult compute_matrix_impl(
         result.success = true;
 
         if (include_candidates) {
+            // Copy all C++ data before the GIL is reacquired below.
             result.candidates.reserve(analyzer.candidates_.size());
             for (const auto& c : analyzer.candidates_) {
                 NativeCandidate row;
@@ -154,15 +163,18 @@ py::dict compute_matrix(
     bool exact,
     bool full_support,
     bool enable_logging,
-    bool unsafe,
     int matrix_id)
 {
     NativeResult native;
     {
+        // compute_matrix_impl touches no Python objects and may run for hours.
         py::gil_scoped_release release;
-        native = compute_matrix_impl(matrix, include_candidates, exact, full_support, enable_logging, unsafe, matrix_id);
+        native = compute_matrix_impl(
+            matrix, include_candidates, exact, full_support,
+            enable_logging, matrix_id);
     }
 
+    // The release object above has restored the GIL; Python allocation is safe.
     py::dict out;
     out["status"] = native.status;
     out["success"] = native.success;
@@ -211,7 +223,6 @@ PYBIND11_MODULE(fracessa_core, m)
         py::arg("exact") = false,
         py::arg("full_support") = false,
         py::arg("enable_logging") = false,
-        py::arg("unsafe") = false,
         py::arg("matrix_id") = -1,
         R"doc(
 Compute one matrix with native C++ core and return structured results.
