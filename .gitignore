@@ -54,6 +54,9 @@ __pycache__/
 /experiments/**/sources/
 /experiments/**/logs/
 /experiments/**/microbench/build/
+/experiments/**/checks/test_supports_*
+/experiments/**/checks/*_sanitize
+/experiments/**/checks/gosper_jump_check
 
 # Local backups and archives
 *.bak

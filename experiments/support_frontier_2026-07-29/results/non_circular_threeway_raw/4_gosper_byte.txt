@@ -1,0 +1,15 @@
+repetitions=857130
+batches=7
+warmup_repetitions=1688
+calibration_repetitions=5218
+pilot_ns=29625
+post_warm_pilot_ns=3833
+calibrated_ns=3500.055001916443
+median_ns=3022.0488619566017
+mean_ns=3021.8502607539112
+min_ns=3020.9129990934853
+max_ns=3022.825393843867
+measured_seconds=2.5901185139999998
+ess_count=1
+candidate_count=2
+checksum=12385862437932682472

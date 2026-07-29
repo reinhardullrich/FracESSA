@@ -168,23 +168,39 @@ is one CTest per matrix so CTest can run matrices in parallel.
 Fast mode is a static policy: all verification matrices except IDs 32 and 34.
 The speed script records timings; correctness belongs to CTest.
 
-All active verification IDs 1-44 pass in the temporary default unsafe mode;
-IDs 38-39 specifically cover the corrected scale and translation behavior.
-Preserved reference IDs 45-47 are intentionally not active yet: they prove the
-unsafe heuristic can still miss an exact ESS and belong to the later certified
-Choice 1 phase.
+All 52 active verification matrices (IDs 1-44 and 48-55) pass in the temporary
+default unsafe mode; IDs 38-39 specifically cover the corrected scale and
+translation behavior. Preserved reference IDs 45-47 are intentionally not
+active yet: they prove the unsafe heuristic can still miss an exact ESS and
+belong to the later certified Choice 1 phase. IDs 48-55 add non-circular
+dimensions 15-24 through Hilbert, Hadamard, Paley conference, MINIJ, Fiedler,
+deterministic random matrix families, and a dense weighted-Laplacian game with
+one full-support ESS.
 
 ## Verification Data
 
 `python/verification/` is the only active verification-data source. There is no
 second fixture copy under `cpp/tests/`.
 
-- `verification_matrices.json`: 44 matrices, IDs 1-44, maximum dimension 24.
-- `baseline_candidates.csv`: candidate rows for all 44 matrices.
+- `verification_matrices.json`: 52 matrices, active IDs 1-44 and 48-55,
+  maximum dimension 24.
+- `baseline_candidates.csv`: candidate rows for all 52 active matrices.
 - `baseline_result.json`: historical timing results for IDs 1-35.
 - `ctest_verify_matrix.py`: matrix correctness comparison.
 - `matrix_selection.py`: fast/full static selection.
 - `create_baselines.py`: baseline regeneration using the archived executable.
+
+`testdata/fracessa_testdata.sqlite3` is a staged SQLite migration snapshot, not
+an active test input yet. It currently contains 63 matrices, 65,962 complete
+candidate rows, and 63,369 ESS rows. Its `matrices` rows use stable IDs rather
+than names and include dimension, size class, circular symmetry, exact input,
+candidate/ESS counts, support-size structures, and required provenance/purpose
+text in `origin`. Qualitative categories live in the `tags` JSON array;
+quantitative facts are not duplicated as tags. IDs 56-66 are staged non-circular
+complete-multipartite matrices with many ESS for support-frontier benchmarks.
+The schema is in `testdata/schema.sql`; benchmark-run storage remains deferred.
+Do not switch Python or CTest consumers from the existing JSON/CSV files without
+separate approval.
 
 There is no `in_use` field. Candidate IDs are deterministic in this program
 version and are part of correctness equality. `T_pd_dbl` and `T_pd_frc` are

@@ -48,10 +48,30 @@ about 69 MiB maximum RSS. The circular path stores fewer coprime-cardinality
 representatives, but still scans every mask and tests up to `n` rotations at
 `cpp/include/fracessa/supports.hpp:72`.
 
+The isolated experiment in `../experiments/SUPPORT_FRONTIER_2026-07-29.md`
+preserved byte-identical output on 44 official and 35 generated games. A
+byte-indexed fixed-cardinality Gosper generator improved strongly pruned cases
+by approximately 30-74% and cut matrix-34 peak RSS roughly in half, at the cost
+of approximately 2% median slowdown on weak random games. Recursive DFS was not
+predictable from dimension and the larger adaptive implementation was rejected
+as unnecessary complexity.
+
+A follow-up on the initially omitted prime circular dimension-19 games found a
+52.07% regression on ID 28. Its 1,843 rotated size-7/8 candidates repeatedly
+mark approximately 6.73 million supersets, although circular reduction stores
+only one representative per 19-mask orbit. ID 29 regressed only 2.30%, proving
+that neither dimension nor primality alone is a sufficient gate.
+
+The complete 44-matrix pass found all five major 30-73% wins at composite
+circular dimensions 18, 20, 21, 22, and 24. Prime circular IDs 22, 26, 28, and
+33 instead regressed by 2.8-52.4%. Candidate output remained byte-identical in
+every case.
+
 Required outcome: generate supports by cardinality on demand while preserving
-the existing numeric order and exact-equilibrium superset pruning. Do not trade
-memory for repeated full `2^n` scans; use fixed-cardinality generation and
-benchmark it against the current matrix set.
+the existing numeric order and exact-equilibrium superset pruning. Use the
+byte-indexed Gosper experiment only as a starting point, eliminate its repeated
+direct marking for circular representatives without adding a large framework,
+and rebenchmark every official dimension 18-24 matrix before retention.
 
 ### P1: The exact candidate path materializes its full vector too early
 
@@ -62,17 +82,6 @@ not consume the vector.
 
 Required outcome: validate first and materialize a full vector only for a
 successful candidate that will be output or logged.
-
-### P2: The exact solver allocates output for every nonsingular back-substitution
-
-`solve_linear_frc()` assigns a freshly constructed output matrix at
-`cpp/include/linalg/linear_solver.hpp:71`. This happens after elimination, so
-early singular rejections do not allocate, but every exact solve that reaches
-back substitution constructs a vector of FLINT objects.
-
-The solved values are copied before the next support and do not escape by
-reference. Required outcome: benchmark pre-sized scratch output, then overwrite
-it only if the allocation cost is measurable.
 
 ### P2: Set indices are rescanned at multiple exact stages
 

@@ -1,0 +1,58 @@
+{
+  "metadata": {
+    "cpu": 2,
+    "tool": "/usr/bin/time",
+    "one_process_run": true,
+    "elapsed_seconds": 47.894349575042725
+  },
+  "results": [
+    {
+      "name": "identity_n22",
+      "current": {
+        "max_rss_kib": 44800,
+        "elapsed_seconds": 0.01
+      },
+      "on_demand": {
+        "max_rss_kib": 17712,
+        "elapsed_seconds": 0.02
+      },
+      "rss_change_percent": -60.464285714285715
+    },
+    {
+      "name": "identity_n24",
+      "current": {
+        "max_rss_kib": 143120,
+        "elapsed_seconds": 0.05
+      },
+      "on_demand": {
+        "max_rss_kib": 33744,
+        "elapsed_seconds": 0.06
+      },
+      "rss_change_percent": -76.42258244829515
+    },
+    {
+      "name": "full_enumeration_n22",
+      "current": {
+        "max_rss_kib": 44816,
+        "elapsed_seconds": 1.97
+      },
+      "on_demand": {
+        "max_rss_kib": 18304,
+        "elapsed_seconds": 2.02
+      },
+      "rss_change_percent": -59.15744377008212
+    },
+    {
+      "name": "verification_34",
+      "current": {
+        "max_rss_kib": 100112,
+        "elapsed_seconds": 21.91
+      },
+      "on_demand": {
+        "max_rss_kib": 33840,
+        "elapsed_seconds": 21.8
+      },
+      "rss_change_percent": -66.19785839859358
+    }
+  ]
+}
