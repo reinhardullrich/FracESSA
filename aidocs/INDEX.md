@@ -39,6 +39,9 @@
   for adding certified Choice 1 after the unsafe phase is accepted; its source
   scope must be re-audited against that accepted implementation.
 - `python-wrapper/README.md`: public Python and multiprocessing API.
+- `plans/STREAMING_SUPPORT_GENERATION.md`: complete deferred DFS/FKM design for
+  one-at-a-time support generation, circular bracelet reduction, orbit-aware
+  exact-candidate pruning, correctness proofs, and benchmark gates.
 - `reference/FIND_POS_FIRST_SET_BIT_CALL_CHAIN.md`: compact production-only
   bit-scanning call chain requested for hot-path work.
 

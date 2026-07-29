@@ -315,3 +315,7 @@ matched IDs 1-35 against archived REF/EFR regression suites, documentation examp
 recorded the 2013 note identifying ID 4's original nonsymmetric game with Bomze's 1986 classification paper and matched ID 9 exactly to Example 2.1 of Bomze's 1992 ESS paper. In-house REF/EFR matrices retain only their project provenance rather than references to Reinhard Ullrich's own publications. No scientific data or production source changed.
 152. Excluded generated experiment check executables from version control:
 kept the reproducible check source and benchmark results while ignoring local architecture-specific test binaries under experiment `checks/` directories.
+
+## 2026-07-30
+153. Recorded the deferred DFS/FKM support-generation architecture:
+documented the current eager frontier, fixed-cardinality DFS branch-pruning proof, Gosper tradeoffs, FKM-style necklace and bracelet generation, circular orbit reconstruction, the failure of canonical-only subset tests with explicit counterexamples, correct orbit-storage alternatives, all retained timing and memory evidence, literature boundary, staged implementation experiment, and correctness/performance acceptance gates. Clarified that enumeration metadata may change only after order-insensitive mathematical equivalence is proven. No production source changed.

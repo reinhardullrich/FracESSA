@@ -1,6 +1,6 @@
 # Project Knowledge
 
-Last verified: 2026-07-29
+Last verified: 2026-07-30
 
 ## Source-Code Approval Gate
 
@@ -90,6 +90,11 @@ Important implementation points:
   iteration avoids bit-test branches in inner matrix loops.
 - `--fullsupport` constructs and checks the full mask directly; all support
   buckets are initialized only if normal or fallback enumeration is needed.
+- Production normal search still materializes support buckets. The deferred
+  replacement in `plans/STREAMING_SUPPORT_GENERATION.md` uses fixed-cardinality
+  DFS for non-circular games and FKM-style necklace/bracelet recursion for
+  circular games, integrating exact-candidate pruning into generation; it is
+  not implemented on this branch.
 - In non-exact mode, `MatrixServer` exactly translates and scales the game into
   `[-1,1]`, converts it once to binary64, and reuses one bordered scratch matrix.
   Constant games and unusable zero/subnormal conversions permanently fall back
@@ -202,11 +207,15 @@ The schema is in `testdata/schema.sql`; benchmark-run storage remains deferred.
 Do not switch Python or CTest consumers from the existing JSON/CSV files without
 separate approval.
 
-There is no `in_use` field. Candidate IDs are deterministic in this program
-version and are part of correctness equality. `T_pd_dbl` and `T_pd_frc` are
-normalized as the same `T_pd_*` classification for baseline comparison because
-floating-point branch selection can change while the mathematical result does
-not.
+There is no `in_use` field. Candidate IDs, row order, and `shift_reference` are
+deterministic and remain useful correctness checks while enumeration is
+unchanged. They are not mathematical contracts across an intentional generator
+redesign: a new deterministic order may replace them only after an independent
+order-insensitive comparison proves that the complete candidate set, vectors,
+exact payoffs, stability results, and ESS classifications are unchanged.
+`T_pd_dbl` and `T_pd_frc` are normalized as the same `T_pd_*` classification for
+baseline comparison because floating-point branch selection can change while
+the mathematical result does not.
 
 The archived baseline executable is x86-64. Do not run it on this ARM64 Linux
 machine: it invokes the system `binfmt` dispatcher without a configured x86-64
