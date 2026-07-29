@@ -1,6 +1,6 @@
 # Project Knowledge
 
-Last verified: 2026-07-27
+Last verified: 2026-07-30
 
 ## Source-Code Approval Gate
 
@@ -85,6 +85,11 @@ Important implementation points:
   iteration avoids bit-test branches in inner matrix loops.
 - `--fullsupport` constructs and checks the full mask directly; all support
   buckets are initialized only if normal or fallback enumeration is needed.
+- Production normal search still materializes support buckets. The deferred
+  replacement in `plans/STREAMING_SUPPORT_GENERATION.md` uses fixed-cardinality
+  DFS for non-circular games and FKM-style necklace/bracelet recursion for
+  circular games, integrating exact-candidate pruning into generation; it is
+  not implemented on this branch.
 - `MatrixServer` owns reusable double and rational matrix buffers.
 - Exact arithmetic uses FLINT `fmpq_t` through `linalg::fraction`.
 - Stability uses exact rational positive-definiteness; a binary64 result is not
@@ -180,11 +185,14 @@ second fixture copy under `cpp/tests/`.
 - `matrix_selection.py`: fast/full static selection.
 - `create_baselines.py`: baseline regeneration using the archived executable.
 
-There is no `in_use` field. Candidate IDs are deterministic in this program
-version and are part of correctness equality. `T_pd_dbl` and `T_pd_frc` are
-normalized as the same `T_pd_*` classification for baseline comparison because
-floating-point branch selection can change while the mathematical result does
-not.
+There is no `in_use` field. Candidate IDs are deterministic in the current
+enumeration and remain useful for detecting accidental changes. They, candidate
+row order, and `shift_reference` are not mathematical correctness contracts: an
+intentional generator change may replace them and regenerate the baseline after
+an independent order-insensitive comparison confirms the complete candidate
+set and all ESS results. `T_pd_dbl` and `T_pd_frc` are normalized as the same
+`T_pd_*` classification for baseline comparison because floating-point branch
+selection can change while the mathematical result does not.
 
 The archived baseline executable is x86-64. Do not run it on this ARM64 Linux
 machine: it invokes the system `binfmt` dispatcher without a configured x86-64

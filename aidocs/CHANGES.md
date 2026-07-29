@@ -233,3 +233,11 @@ constructed the full-support mask directly and delayed `Supports::initialize()` 
 ## 2026-07-27
 113. Benchmarked default candidate filtering against full `--exact` execution:
 used the persistent-process three-second protocol on verification IDs 1-33 and 35, excluding matrix 34 by request; the summed primary medians increased from 5.129 seconds to 171.323 seconds (`33.41x`), while a second pass measured `32.50x`; all ESS and candidate counts agreed in the detailed pass, and the per-matrix results and single-sample limits are preserved in the dated experiment report and raw CSV/JSON files.
+
+## 2026-07-29
+114. Recorded the deferred streaming-support design and output policy:
+documented one-at-a-time circular and non-circular support generation, exact-candidate subset pruning without materialized support layers, the required retained state, and the archived benchmark evidence; clarified that candidate row order, `candidate_id`, and `shift_reference` may change with an intentional enumeration redesign and regenerated baseline, while the complete mathematical candidate set and every ESS result must remain unchanged.
+
+## 2026-07-30
+115. Expanded the deferred DFS/FKM support-generation architecture:
+recorded the current eager frontier, fixed-cardinality DFS branch-pruning proof, Gosper tradeoffs, FKM-style necklace and bracelet generation, circular orbit reconstruction, the failure of canonical-only subset tests with explicit counterexamples, correct orbit-storage alternatives, experimental timing and memory evidence, literature boundary, staged implementation experiment, and correctness/performance acceptance gates. No production source changed.
