@@ -142,6 +142,7 @@ def compute_matrix(matrix: Matrix, config: RunConfig, run_id: str) -> dict:
         full_support=config.full_support,
         enable_logging=config.enable_logging,
         matrix_id=matrix_id,
+        unsafe=config.unsafe,
     )
 
     candidates = [

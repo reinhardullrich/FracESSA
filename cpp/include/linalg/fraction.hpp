@@ -198,7 +198,7 @@ public:
         return fmpq_is_zero(data_);
     }
 
-    // Lossy conversion for reporting and the unsafe filter, never an exact certificate.
+    // Lossy conversion for reporting and unsafe candidate search, never an exact certificate.
     double to_dbl() const noexcept {
         return fmpq_get_d(data_);
     }

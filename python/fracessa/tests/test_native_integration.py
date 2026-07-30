@@ -1,6 +1,8 @@
 from concurrent.futures import ThreadPoolExecutor
+from contextlib import closing
 import os
 from pathlib import Path
+import sqlite3
 import tempfile
 import unittest
 
@@ -33,6 +35,40 @@ class NativeIntegrationTests(unittest.TestCase):
         self.assertEqual(result["matrix_id"], matrix_id)
         self.assertEqual(result["candidates"][0]["matrix_id"], matrix_id)
         self.assertIsNone(result["candidates"][0]["multiplier"])
+
+    def test_verified_and_unsafe_routes_native(self):
+        database = Path(__file__).resolve().parents[3] / "testdata/fracessa_testdata.sqlite3"
+        with closing(sqlite3.connect(database)) as connection:
+            dimension, values = connection.execute(
+                "SELECT dimension, matrix FROM matrices WHERE matrix_id = 46"
+            ).fetchone()
+        matrix = Matrix(matrix_id=46, matrix=f"{dimension}#{values}")
+
+        verified = run(
+            matrix,
+            RunConfig(include_candidates=True),
+            run_id="native_verified",
+        )
+        unsafe = run(
+            matrix,
+            RunConfig(include_candidates=True, unsafe=True),
+            run_id="native_unsafe",
+        )
+
+        self.assertTrue(verified["success"])
+        self.assertTrue(unsafe["success"])
+        self.assertEqual(verified["ess_count"], 1)
+        self.assertEqual(unsafe["ess_count"], 0)
+
+    def test_exact_and_unsafe_are_rejected(self):
+        result = run(
+            Matrix(matrix_id=1, matrix="2#0,1,0"),
+            RunConfig(exact=True, unsafe=True),
+            run_id="native_mode_conflict",
+        )
+
+        self.assertFalse(result["success"])
+        self.assertEqual(result["status"], 4)
 
     def test_native_candidate_contract(self):
         native = load_native_module()

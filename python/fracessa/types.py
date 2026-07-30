@@ -53,12 +53,14 @@ class RunConfig:
         full_support: Request full-support analysis from the native engine.
         include_candidates: Include candidate dictionaries in each result.
         enable_logging: Enable native logging for sequential execution only.
+        unsafe: Use heuristic candidate rejection instead of verified search.
     """
 
     exact: bool = False
     full_support: bool = False
     include_candidates: bool = False
     enable_logging: bool = False
+    unsafe: bool = False
 
 
 @dataclass(slots=True)

@@ -51,7 +51,32 @@ void fracessa::check_stability()
     
     // Positive definiteness is stronger than the required cone condition and is
     // therefore a sufficient shortcut. Rational LDL^T makes it an exact certificate.
-    auto& Bee = matrix_server_.get_bee_matrix_frc(extended_support_reduced, m);
+    uint8_t reduced_indices[bs64::kMaxBitsetDimension];
+    const size_t bee_size = bs64::extract_set_indices(
+        extended_support_reduced, dimension_, reduced_indices);
+    if (bee_matrix_.rows() != bee_size) {
+        bee_matrix_ = linalg::matrix_frc(bee_size, bee_size);
+    }
+
+    const fraction const_term = fraction::two() * game_matrix_(m, m);
+    for (size_t row = 0; row < bee_size; ++row) {
+        const size_t i = reduced_indices[row];
+        for (size_t column = 0; column <= row; ++column) {
+            const size_t j = reduced_indices[column];
+            fraction& value = bee_matrix_(row, column);
+            fraction::add(value, game_matrix_(m, j), game_matrix_(j, m));
+            value += game_matrix_(i, m);
+            value += game_matrix_(m, i);
+            value -= game_matrix_(i, j);
+            value -= game_matrix_(j, i);
+            value -= const_term;
+
+            if (row != column) {
+                bee_matrix_(column, row) = value;
+            }
+        }
+    }
+    auto& Bee = bee_matrix_;
 
     if (conf_with_log_) {
         logger_->info("matrix bee:\n{}", Bee.to_log_string());

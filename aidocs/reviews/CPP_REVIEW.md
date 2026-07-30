@@ -10,59 +10,33 @@ dated result is cited as evidence.
 Correctness is ranked before speed. This file contains unresolved findings only;
 remove a finding after its fix and regression coverage are complete.
 
-## Correctness
-
-### P0: The double candidate filter drops valid ESS supports
-
-The temporary default filter exactly normalizes the game and sends small-pivot,
-non-finite, and danger-veto cases to exact arithmetic. However,
-`is_suspicious()` still uses `minimum_pivot * margin` only as a heuristic proxy
-for forward solution error at `cpp/src/findeq.cpp:153`. The negative-probability
-and outside-gain decisions at `cpp/src/findeq.cpp:163` and
-`cpp/src/findeq.cpp:183` can therefore reject a valid support before exact
-arithmetic sees it.
-
-Preserved verification IDs 45-47 at reference commit `2be0207` each have one
-exact full-support ESS, while this unsafe filter returns zero candidates and
-zero ESS. ID 45 is especially important: its entries are approximately
-`-139.66` to `80.15` and its exact minimum support probability is `1e-6`, yet
-the normalized bordered system has condition number about `5.34e11`; the
-minimum-pivot danger test accepts the wrong negative probability as decisive.
-
-Required outcome: make the later rigorously one-sided Choice 1 filter the
-default and retain this heuristic only as explicit `--unsafe` behavior. The
-implementation plan is in `../architecture/CHOICE_ONE_CANDIDATE_FILTER.md`.
-
 ## Speed
 
 ### P1: The exact candidate path materializes its full vector too early
 
-The exact path fills `candidate_.vector` at `cpp/src/findeq.cpp:211` before the
-outside-support validation beginning at `cpp/src/findeq.cpp:222`. It also does
+The exact path fills `result.vector` at `cpp/src/find_candidate_exact.cpp:65`
+before outside-support validation beginning at
+`cpp/src/find_candidate_exact.cpp:75`. It also does
 this when candidate output and logging are both disabled; stability itself does
 not consume the vector.
 
 Required outcome: validate first and materialize a full vector only for a
 successful candidate that will be output or logged.
 
-### P2: Set indices are rescanned at multiple exact stages
+### P2: Copositivity rescans set indices for every row
 
-The unsafe filter extracts support and complement once. When exact arithmetic is
-required, the support is extracted again at
-`cpp/include/fracessa/matrix_server.hpp:91` while building the bordered system
-and both support and complement are rebuilt at `cpp/src/findeq.cpp:206`.
-
-Bee construction uses the later `extended_support_reduced`, so it cannot share
-the initial extraction. Within `is_copositive_hadeler()`, however, the same
-subset mask is rescanned from its first bit for every row at
+Candidate search now extracts each stage's support partition once and reuses it
+for matrix construction and validation. Bee construction uses the later
+`extended_support_reduced`, so it cannot share those earlier partitions. Within
+`is_copositive_hadeler()`, however, the same subset mask is rescanned from its
+first bit for every row at
 `cpp/include/linalg/copositive_fraction.hpp:106` and
 `cpp/include/linalg/copositive_fraction.hpp:108`. One fixed index array removes
 those nested scans. The direct bit-scanning locations are listed in
 `../reference/FIND_POS_FIRST_SET_BIT_CALL_CHAIN.md`.
 
-Required outcome: keep logically different sets as separate extraction stages,
-but pass one exact-stage partition through bordered-system construction and
-candidate validation. Benchmark the interface change before retaining it.
+Required outcome: extract the current subset once before its nested matrix
+loops and reuse the fixed index array. Benchmark before retaining the change.
 
 ### P2: Partial copositivity retains every reduction matrix
 
@@ -117,8 +91,8 @@ cover the branches directly.
 
 ### P2: C++ tests cannot be disabled
 
-`cpp/CMakeLists.txt:44` declares all four FetchContent projects unconditionally,
-`cpp/CMakeLists.txt:73` fetches them together, and `cpp/CMakeLists.txt:181` always
+`cpp/CMakeLists.txt:45` declares all four FetchContent projects unconditionally,
+`cpp/CMakeLists.txt:74` fetches them together, and `cpp/CMakeLists.txt:212` always
 adds tests. `BUILD_TESTING=OFF` is not wired, so every build fetches and builds
 GoogleTest and the test targets.
 
@@ -128,8 +102,8 @@ only if a CLI-only build becomes an actual supported workflow.
 
 ### P2: Debug configurations are forcibly optimized with assertions disabled
 
-Global compile options at `cpp/CMakeLists.txt:20` and
-`cpp/CMakeLists.txt:27` apply `/O2` or `-O3` and `NDEBUG` regardless of the
+Global compile options at `cpp/CMakeLists.txt:21` and
+`cpp/CMakeLists.txt:28` apply `/O2` or `-O3` and `NDEBUG` regardless of the
 selected configuration. A nominal Debug build therefore still disables
 assertions and compiles production optimization flags.
 
@@ -138,9 +112,9 @@ and `NDEBUG`; scope only FracESSA-specific throughput flags to Release builds.
 
 ### P2: Linux and macOS release executables are not self-contained
 
-CMake prefers `.so`/`.dylib` over static archives at `cpp/CMakeLists.txt:82` and
-`cpp/CMakeLists.txt:85`, and the workflow uploads only the executable at
-`.github/workflows/release.yml:125`. The runner installs FLINT, MPFR, and GMP,
+CMake prefers `.so`/`.dylib` over static archives at `cpp/CMakeLists.txt:85` and
+`cpp/CMakeLists.txt:87`, and the workflow uploads only the executable at
+`.github/workflows/release.yml:130`. The runner installs FLINT, MPFR, and GMP,
 but an end user still needs ABI-compatible libraries; the macOS binary also
 records a Homebrew library path.
 
@@ -150,8 +124,8 @@ Linux and macOS artifacts as portable standalone executables.
 
 ## Current Validation State
 
-- Current local Release build: successful.
-- Core/CLI CTests: 10/10 passed.
+- The combined Release build passed all 11 C++/CLI tests, and a complete
+  verified-mode sweep matched the stored ESS count for all 88 SQLite matrices.
 - Wrapper tests: see `PYBIND_REVIEW.md` and `PYTHON_REVIEW.md`.
 - The single parser preserves 18-digit direct values and arbitrary-precision
   values, rejects dimensions outside 1-63, and reports failures through
@@ -160,11 +134,13 @@ Linux and macOS artifacts as portable standalone executables.
   cardinality layer. An independent order-insensitive comparison matched all
   mathematical candidate rows and ESS results across the former 52-matrix
   verification corpus.
-- The canonical SQLite snapshot stores 49,155 candidate representatives whose
-  multipliers recover 86,150 candidates and 83,375 ESS across 85 matrices.
+- The canonical SQLite snapshot stores 49,158 candidate representatives whose
+  multipliers recover 86,153 candidates and 83,378 ESS across 88 matrices.
 - A fixed-seed audit generated 20,000 exact 4-by-4 integer matrices; all 19,890
   nonsingular cases satisfied `A * inverse(A) == I` exactly.
-- The most recent full sanitizer suite passed its existing tests.
+- ASan/UBSan passed all 11 C++/CLI tests on the combined tree.
 - Ordinary pushes and pull requests run the same three-platform build and fast
   test matrix as tags; artifact packaging and publication remain tag-only.
-- No SQLite matrix-verification runner is currently wired into CTest or CI.
+- One wrapper integration regression exercises database ID 46 through verified
+  and unsafe modes; no complete SQLite matrix-verification runner is wired into
+  CTest or CI.

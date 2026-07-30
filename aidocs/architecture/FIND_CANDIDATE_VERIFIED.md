@@ -1,47 +1,36 @@
-# Choice 1 Candidate Filter Reimplementation Plan
+# Find Candidate Verified
 
-Status: future-phase planning only; do not implement until the temporary
-unsafe-default phase is complete, reviewed, and accepted.
+Status: implemented and locally verified on 2026-07-30. The body retains the
+mathematical design; the source ownership and completion record are current.
 
-Branch: `choice-one-candidate-filter`
-
-Base: `main` at `32f61679da64beb30f36870e190538f9d80e5970`
-
-Read-only reference: committed Choice 1 implementation at
-`9a33dab8b06865571ef4ec6ca7f0b2aa6a6af6b2`. The implementation will be
-re-created manually from `main`; it will not merge or cherry-pick that branch.
-
-Preceding phase: `UNSAFE_CANDIDATE_FILTER.md` specifies the temporary
-unsafe-default heuristic and the single validating matrix parser. Implement
-that phase first. This document must then be re-audited against the accepted
-source before its file list is treated as implementation scope.
-
-When Choice 1 later lands, it becomes the no-flag numerical mode. Explicit
+Explicit
 `--unsafe` continues to select the already-implemented heuristic, and `--exact`
-continues to bypass both numerical filters. Unsafe code must not enter or weaken
-the strict proof kernel described here.
+continues to bypass both numerical rejection procedures. Unsafe code must not
+enter or weaken the strict proof kernel described here.
 
 ## Objective
 
-Add a rigorous one-sided Choice 1 certificate as the future no-flag filter while
-preserving the explicit unsafe heuristic, existing exact solver, and search
-flow.
+Provide a rigorous one-sided bounded-error proof as the no-flag rejection
+procedure while preserving the explicit unsafe heuristic, existing exact
+solver, and search flow.
 
-The numerical filter has exactly two outcomes:
+The procedure has exactly two outcomes:
 
 ```text
-CERTIFIED_REJECT -> skip the exact candidate solve
+PROVEN_REJECT    -> skip the exact candidate solve
 EXACT_REQUIRED   -> run the unchanged exact rational candidate solve
 ```
 
-It never accepts a candidate numerically. Singular systems, unsupported
-floating-point behavior, overflow, non-finite values, failed bounds, and every
-interval touching a decision boundary must return `EXACT_REQUIRED`.
+It never accepts a candidate numerically. Singular systems, overflow,
+non-finite values, failed bounds, and every interval touching a decision
+boundary must return `EXACT_REQUIRED`. Unsupported build or runtime
+floating-point behavior disables default mode before support enumeration and
+requires an explicit exact or unsafe selection.
 
 Priorities remain:
 
 1. Correctness: no exact candidate may be rejected numerically.
-2. Speed: the filter runs millions or billions of times on small systems.
+2. Speed: the procedure runs millions or billions of times on small systems.
 3. Readability: implementation names and formulas should correspond directly.
 
 ## Mathematical Contract
@@ -65,8 +54,8 @@ x_j > 0                                         for every j in S
 sum(j in S) A(i,j)*x_j - u <= 0                 for every i outside S.
 ```
 
-An outside gain equal to zero is not a rejection. The filter may return
-`CERTIFIED_REJECT` only after proving either
+An outside gain equal to zero is not a rejection. The rejector may return
+`PROVEN_REJECT` only after proving either
 
 ```text
 x_j <= 0
@@ -95,10 +84,10 @@ A'(i,j) = (A(i,j)-c)/s.
 
 Translation by `c` and positive scaling by `s` preserve candidate supports,
 extended supports, payoff comparisons, and ESS decisions. If `s == 0`, disable
-the filter for that analyzer and use exact arithmetic.
+`find_candidate_verified` for that analyzer and use exact arithmetic.
 
-Initialization is lazy so `--exact` never allocates or prepares binary64 filter
-state.
+Initialization is lazy so `--exact` never allocates or prepares binary64
+candidate-rejection state.
 
 ### 2. Rigorous rational enclosures
 
@@ -183,11 +172,11 @@ bool round_up(double value, double& result) noexcept
 }
 ```
 
-Check the binary64 format, round-to-nearest mode, and subnormal preservation once
-per analyzer during lazy initialization. Do not put environment checks in the
-per-support arithmetic loops. On an unrecognized compiler, build a conservative
-stub that always requires the exact solver instead of compiling an unverified
-floating-point proof.
+Check compiler support, binary64 format, round-to-nearest mode, and subnormal
+preservation in one availability function before support enumeration. Do not
+put environment checks in the per-support arithmetic loops. Default mode must
+stop with a clear error when unavailable; explicit exact and unsafe modes remain
+available.
 
 The analyzer executes synchronously on one thread. After successful lazy
 initialization, its caller must not change that thread's rounding or subnormal
@@ -271,9 +260,10 @@ d        = upward(d_lu+d_input)
          >= |P*C-L*U|*1.
 ```
 
-The mathematical source is Oishi and Rump, *Fast Verification of Solutions of
-Matrix Equations* (2002), Theorem 4.1. The existing
-`../correctness/CERTIFIED_CANDIDATE_FILTER.md` contains the broader certificate
+The implemented factorization-defect expression above matches Theorem 4.1 in
+Oishi and Rump, [*Fast Verification of Solutions of Matrix
+Equations*](https://www.tuhh.de/ti3/paper/rump/OiRu02.pdf) (2002). The existing
+`../correctness/FIND_CANDIDATE_VERIFIED.md` contains the broader error-bound
 derivation and references.
 
 Apply upward absolute triangular recurrences to bound
@@ -306,7 +296,7 @@ error    = upward(beta/denom)
 
 Any failed operation or `q >= 1` means `EXACT_REQUIRED`.
 
-### 8. Certified rejection
+### 8. Proven rejection
 
 For midpoint support-probability proposals, reject only when
 
@@ -327,72 +317,52 @@ gain_lo = downward(g0_lo-gain_radius).
 The final `+error` covers the payoff component. Reject only when `gain_lo > 0`.
 Equality and overlap with zero require the exact solver.
 
-## Future Production Source Scope
+## Production Source Ownership
 
-The strict mathematics and proof-kernel boundaries below are complete, but this
-source list was reviewed against the stated `main` base. The preceding unsafe
-phase changes several of the same files. Re-run caller and dead-code searches
-before requesting source approval; do not mechanically apply the old removals.
+`fracessa` owns the exact game once and coordinates four stages. The three
+candidate procedures are concrete classes. Each stores a reference to that
+exact game and owns only its own reusable matrices; no matrix is copied between
+the classes.
 
-The expected C++ production delta is:
-
-| File | Minimal change |
+| File | Responsibility |
 | --- | --- |
-| `cpp/CMakeLists.txt` | Add one strict proof object and one test-only exact-rejection oracle option. |
-| `cpp/include/fracessa/fracessa.hpp` | Add only the numerical mode state and certified-filter declaration needed beside the existing unsafe and exact paths. |
-| `cpp/include/fracessa/matrix_server.hpp` | Add lazy Choice 1 state while preserving the accepted unsafe matrix and scratch state. Remove no symbol merely because it was unused on the old `main` base. |
-| `cpp/src/findeq.cpp` | Preserve the unsafe filter and add the certified-rejection call plus compile-time exact oracle. |
-| `cpp/src/fracessa.cpp` | Select Choice 1 by default, unsafe only when explicitly requested, and exact when requested, with one predictable branch per support. |
-| `cpp/src/certified_candidate_filter.cpp` | Add the isolated Choice 1 implementation. |
-| `cpp/src/certified_candidate_filter_detail.hpp` | Declare only the private helper contracts needed by focused production-helper tests. |
+| `cpp/include/fracessa/fracessa.hpp`, `cpp/src/fracessa.cpp` | Own the game, mode objects, candidate lifecycle, search, and final output. |
+| `cpp/include/fracessa/find_candidate_verified.hpp`, `cpp/src/find_candidate_verified.cpp` | Own lazy rigorous bounds and strict proof scratch; return false only for a proven non-candidate. |
+| `cpp/include/fracessa/find_candidate_unsafe.hpp`, `cpp/src/find_candidate_unsafe.cpp` | Own unsafe normalization and heuristic solve scratch. |
+| `cpp/include/fracessa/find_candidate_exact.hpp`, `cpp/src/find_candidate_exact.cpp` | Own exact bordered scratch and construct the exact candidate. |
+| `cpp/src/checkstab.cpp` | Build and reuse the exact Bee matrix stored by `fracessa`, then classify stability. |
 
-The matching C++ test scope is:
-
-| File | Minimal change |
-| --- | --- |
-| `cpp/tests/CMakeLists.txt` | Register one focused certificate test executable. |
-| `cpp/tests/test_certified_candidate_filter.cpp` | Test the actual strict production helpers and MatrixServer integration. |
-
-The future public-mode handoff is expected to require the existing CLI, pybind,
-and wrapper boundary files as well: pass explicit unsafe selection into the
-core and add a numerical `unsafe` Python argument only when Choice 1 creates
-that distinction. Matrix parsing remains one validated path. Re-audit and list
-those exact files before seeking implementation approval.
-
-No Choice 1 change is expected in `cpp/include/linalg/linear_solver.hpp`; the
-temporary unsafe phase owns removal of the obsolete generic double solver, and
-the exact solver remains unchanged.
-
-If another `.cpp`, `.hpp`, or `.py` file becomes necessary after the required
-re-audit, implementation must stop and request renewed approval before changing
-it.
+The former `MatrixServer` and mixed `findeq.cpp` no longer exist. Stability
+remains a `fracessa` method; a separate stability class is a later decision,
+not part of this ownership change.
 
 ## Explicitly Excluded
 
-The reimplementation will not include:
+The implementation does not include:
 
 - Choice 2 or a compile-time Choice 1/Choice 2 selector;
 - unsafe heuristics or parser routing inside the strict proof kernel; the
   separate public mode is specified in `UNSAFE_CANDIDATE_FILTER.md`;
-- certificate diagnostics, counters, or destructor output;
+- proof diagnostics, counters, or destructor output;
 - multiprocessing, sink, or output-schema changes;
 - GitHub workflow or release changes;
 - copied benchmark dumps, generated sources, or experimental search programs;
 - a generic interval type, inverse matrix, virtual dispatch, or public
-  certificate API.
+  proof API.
 
-The temporary phase retains `find_candidate_dbl()` for the unsafe heuristic.
-Choice 1 should add one narrowly named certified-filter entry instead of
-renaming or duplicating the existing unsafe implementation. Both numerical
-filters keep the same control-flow shape:
+All three candidate classes use the same Boolean viewpoint:
 
 ```text
-false -> the selected filter rejects the support
-true  -> exact candidate solving is required
+find_candidate_verified::find()  false -> proven no candidate
+find_candidate_verified::find()  true  -> exact candidate solving is required
+find_candidate_unsafe::find()    false -> heuristic no candidate
+find_candidate_unsafe::find()    true  -> exact candidate solving is required
+find_candidate_exact::find()     false -> exact no candidate
+find_candidate_exact::find()     true  -> exact candidate constructed
 ```
 
-Only Choice 1 may describe its `false` result as certified. Unsafe retains the
-same boolean shape but not the proof guarantee.
+Only the false result from verified and both results from exact have a proof
+guarantee. Unsafe remains explicitly heuristic.
 
 ## Comment Requirements
 
@@ -415,12 +385,6 @@ the same.
 
 ## Verification Gates
 
-### Baseline
-
-Before source edits, record the accepted temporary unsafe-default build and test
-state. Verification IDs 1-44 should already pass there; IDs 38 and 39 are no
-longer expected failures after unsafe normalization.
-
 ### Focused correctness
 
 The focused test must call the actual strict production helpers and cover:
@@ -434,26 +398,22 @@ The focused test must call the actual strict production helpers and cover:
 - strict and boundary support-probability decisions;
 - strict and boundary outside-gain decisions;
 - exact affine transformations and constant-matrix fallback;
-- deterministic exact-oracle cases that must never be falsely rejected.
+- deterministic regression cases that must never be falsely rejected.
 
 ### End-to-end correctness
-
-Build with `FRACESSA_CERTIFICATE_ORACLE=ON`. Every certified rejection is then
-cross-checked with the exact candidate solver and must fail immediately on any
-disagreement. The option must compile completely out of normal builds.
 
 Run:
 
 ```text
-focused certificate and exact-solver CTests
+focused `find_candidate_verified` and exact-solver CTests
 complete core/CLI CTests
 complete wrapper tests
 all verification-matrix correctness tests
 ASan/UBSan core and CLI checks
 ```
 
-Do not run verification matrix 33 or 34 with `--exact` or the exact-rejection
-oracle without Reinhard's separate approval for that run.
+Do not run verification matrix 33 or 34 with `--exact` without Reinhard's
+separate approval for that run.
 
 ### Strict-build inspection
 
@@ -475,36 +435,49 @@ instrumentation requires a separate measured reason and separate approval.
 
 The implementation is acceptable only when:
 
-1. No exact candidate is ever rejected by the oracle build.
-2. All included verification matrices match their exact candidate baselines.
-3. `--exact` does not initialize or allocate certificate state.
-4. The normal support path performs no per-support heap allocation except the
+1. All included verification matrices match their exact candidate baselines.
+2. `--exact` does not initialize or allocate `find_candidate_verified` state.
+3. The normal support path performs no per-support heap allocation except the
    existing scratch resize when support size changes.
-5. No-flag behavior becomes Choice 1, explicit unsafe remains available, and
+4. No-flag behavior becomes Choice 1, explicit unsafe remains available, and
    exact, parser, result, and output-schema behavior otherwise remain unchanged.
-6. The strict proof source remains isolated from fast-math, contraction, and IPO.
-7. The final source diff contains only the approved files and documented code.
+5. The strict proof source remains isolated from fast-math, contraction, and IPO.
+6. The final source diff contains only the approved files and documented code.
 
-## Required Regression Data
+## Regression Data
 
-`main` contains verification IDs 1-44. Commit
-`2be0207242d585aaa14f9c87bbaed1b068c40de0` on `certified-filter` contains the
-validated data for IDs 45-47:
+The active verification data includes IDs 45-47:
 
 - ID 45 is the preserved dimension-20 heuristic counterexample;
 - ID 46 reaches the Choice 1 LU error proof and requires boundary fallback;
 - ID 47 reaches residual construction but fails the Choice 1 LU proof and
   requires exact fallback.
 
-Transfer only their committed rows during the future Choice 1 implementation
-into
-`python/verification/verification_matrices.json`,
-`python/verification/baseline_candidates.csv`, and
-`python/verification/baseline_result.json`. Do not activate them while unsafe is
-still the temporary default. The candidate CSV must retain the
-mathematically correct exact candidates; the result JSON intentionally remains
-the historical wrong-filter speed baseline. Do not copy their experimental
-builds, logs, source snapshots, or Choice 2/unsafe code.
+Their matrices, expected counts, and exact candidate rows live in the
+`matrices` and `candidates` tables of
+`testdata/fracessa_testdata.sqlite3`.
 
-This is required test-data scope, not an expansion of the approved C++ source
-scope.
+## Implementation Record
+
+The current worktree implements only Choice 1. No Choice 2, diagnostics, exact
+solver rewrite, support-generator change, or parser change was added.
+
+- No flag selects verified search; `--unsafe` selects the preserved
+  heuristic; `--exact` bypasses both. The same selector is exposed by pybind and
+  `RunConfig`, and exact plus unsafe is rejected.
+- Verified, unsafe, and exact candidate search are concrete state-owning classes
+  with matching HPP/CPP files. `fracessa` owns one exact game and each class
+  stores a reference to it; the former `MatrixServer` and `findeq.cpp` are gone.
+- The verified proof source is a separate object target compiled without fast-math,
+  floating-point contraction, or IPO/LTO. One centralized build/runtime check
+  refuses unavailable default mode before enumeration; exact and unsafe remain
+  explicit alternatives.
+- Verification IDs 45-47 are active in the maintained SQLite database.
+- Release passed 11/11 core/CLI tests and 53/53 wrapper tests. A complete
+  verified-mode sweep matched all 88 stored ESS counts, and ASan/UBSan passed
+  all 11 core/CLI tests.
+- On the historical pinned-CPU persistent-process set (IDs 1-33 and 35), summed
+  bounded-error medians were 2,108.563 ms. This is 10.03x faster than the saved
+  pre-generator Choice 1 run and 81.25x faster than the saved full-exact run;
+  the improvement primarily comes from the support generators now present on
+  `main`.

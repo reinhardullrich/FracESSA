@@ -37,7 +37,7 @@ must be part of a larger authored manual.
 ```text
 Matrix(matrix_id: int, matrix: str, metadata: dict | None = None)
 RunConfig(exact=False, full_support=False, include_candidates=False,
-          enable_logging=False)
+          enable_logging=False, unsafe=False)
 MPConfig(workers=<available CPUs>, prefetch_per_worker=128, queue_maxsize=4096,
          start_method="spawn")
 ```
@@ -59,10 +59,12 @@ the weighted mathematical total.
 A matrix may use full CLI form (`"3#4,13/2,..."`) or values only when
 `metadata["dimension"]` is present.
 
-`exact=False` uses the temporary uncertified numerical filter. It can miss
-exact candidates and ESS results, although suspicious or unusable floating
-cases fall back to exact arithmetic. Use `exact=True` when that risk is not
-acceptable. Matrix input always uses the validating native parser.
+The default uses verified candidate search, which rejects a support only after
+a rigorous one-sided proof and otherwise falls back to exact arithmetic.
+`unsafe=True` selects the faster heuristic that can miss candidates and ESS
+results; `exact=True` bypasses both numerical procedures. Exact and unsafe
+together return `EXEC_ERROR`. Matrix input always uses the validating native
+parser.
 
 `elapsed_ns` is always the native analyzer duration measured with a monotonic
 clock. There is deliberately no computation timeout.
@@ -81,7 +83,7 @@ build without loading two `fracessa_core` modules into one interpreter:
 PYTHONPATH=python python3 -m fracessa.timing run \
   --backend pybind --module-dir cpp/build \
   --build-label main --source-ref main --revision "$(git rev-parse HEAD)" \
-  --mode unsafe --mode exact --cpu 2 --comment "before candidate change"
+  --mode safe --mode unsafe --mode exact --cpu 2 --comment "before candidate change"
 
 PYTHONPATH=python python3 -m fracessa.timing report latest --baseline main
 ```

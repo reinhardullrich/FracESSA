@@ -91,9 +91,14 @@ the exact fractions. Support masks have 64 storage bits, but complete
 enumeration requires the exclusive `2^n` bound, so dimension 64 is not
 supported.
 
-The temporary numerical modes are unsafe filtering and exact solving. No flag
-and `--unsafe` select the same uncertified filter; `--exact` bypasses it.
-`--exact` and `--unsafe` are mutually exclusive.
+The numerical modes are verified candidate search, unsafe candidate search, and
+exact candidate search. No flag selects the rigorously one-sided verified
+procedure; `--unsafe` selects the faster heuristic; `--exact` bypasses both.
+`--exact` and `--unsafe` are mutually exclusive. If build-time or runtime
+floating-point requirements are unavailable, default mode stops before support
+enumeration and requires an explicit `--exact` or `--unsafe` choice. An
+inconclusive proof for an individual support still falls back to exact
+arithmetic normally.
 
 ## Computation Flow
 
@@ -102,8 +107,8 @@ CLI or pybind input
   -> matrix_parser
   -> fracessa constructor
   -> support generation and pruning
-  -> find_candidate_dbl
-  -> find_candidate_frc
+  -> find_candidate_verified, find_candidate_unsafe, or exact bypass
+  -> find_candidate_exact
   -> check_stability
   -> ESS/candidate output
 ```
@@ -128,29 +133,46 @@ Important implementation points:
 - Newly found exact candidates are pending until the next cardinality, keeping
   each generator layer's pruning rules stable. Stability is irrelevant to this
   pruning rule: every exact equilibrium support forbids later strict supersets.
-- In non-exact mode, `MatrixServer` exactly translates and scales the game into
-  `[-1,1]`, converts it once to binary64, and reuses one bordered scratch matrix.
-  Constant games and unusable zero/subnormal conversions permanently fall back
-  to exact candidate solving before enumeration.
+- `find_candidate_verified` lazily translates and positively scales the exact
+  game into `[-1,1]`, encloses every entry in binary64, and reuses one bordered
+  LU scratch matrix. It rejects only after a rigorous solution-error bound
+  proves a nonpositive support probability or a profitable outside strategy.
+- `find_candidate_unsafe` owns its normalized binary64 matrix and bordered
+  scratch, then applies the existing danger veto. Constant games and unusable
+  conversions select exact candidate solving.
+- `find_candidate_exact` owns the reusable exact bordered system and constructs
+  the authoritative candidate in `candidate_`.
+- `fracessa` owns one exact game. All three concrete candidate classes store a
+  reference to it, so no game matrix is copied between procedures.
 - Exact arithmetic uses FLINT `fmpq_t` through `linalg::fraction`.
 - Stability uses exact rational positive-definiteness; a binary64 result is not
   accepted as a final mathematical certificate.
 - `correctness/DOUBLE_PD_FALSE_POSITIVES.md` documents the concrete failures and
   proves why tolerance tuning cannot recover an exact PD certificate.
-- `--exact` does not initialize or allocate the double candidate-filter state,
-  and all final stability decisions use exact rational arithmetic.
-- The default unsafe filter uses a cheap pivot/margin danger veto, not a proof.
-  It can still reject valid exact candidates; see `reviews/CPP_REVIEW.md`.
+- `--exact` does not initialize or allocate either double candidate-search
+  state, and all final stability decisions use exact rational arithmetic.
+- `--unsafe` uses a cheap pivot/margin danger veto, not a proof. IDs 45-47 are
+  active regressions for verified search and remain counterexamples
+  to the unsafe heuristic.
 
 Key files:
 
 - `cpp/include/fracessa/bitset64.hpp`: support-mask primitives.
 - `cpp/include/fracessa/supports.hpp`: support generation and pruning.
-- `cpp/include/fracessa/matrix_server.hpp`: reusable matrix construction.
 - `cpp/include/linalg/fraction.hpp`: FLINT rational wrapper.
 - `cpp/include/linalg/linear_solver.hpp`: exact bordered-system solver.
 - `cpp/include/linalg/copositive_fraction.hpp`: exact copositivity checks.
-- `cpp/src/findeq.cpp`: candidate construction.
+- `cpp/include/fracessa/find_candidate_verified.hpp` and
+  `cpp/src/find_candidate_verified.cpp`: verified class, strict one-sided proof,
+  availability check, and focused proof-helper contracts.
+- `cpp/include/fracessa/find_candidate_unsafe.hpp` and
+  `cpp/src/find_candidate_unsafe.cpp`: unsafe class, normalized game, heuristic
+  solve, and reusable scratch.
+- `cpp/include/fracessa/find_candidate_exact.hpp` and
+  `cpp/src/find_candidate_exact.cpp`: exact class, bordered system, and candidate
+  construction.
+- `cpp/include/fracessa/fracessa.hpp` and `cpp/src/fracessa.cpp`: exact game
+  ownership, mode coordination, support search, and candidate lifecycle.
 - `cpp/src/checkstab.cpp`: stability classification.
 
 ## Build And Dependencies
@@ -174,7 +196,7 @@ FetchContent downloads:
 
 - `spdlog`: optional rotating diagnostic logs.
 - `argparse`: the cross-platform CLI parser.
-- `googletest`: nine C++ unit-test executables only; it is not linked into the
+- `googletest`: ten C++ unit-test executables only; it is not linked into the
   production executable.
 - `pybind11` v3.0.4: the native Python module.
 
@@ -185,6 +207,13 @@ up yet.
 
 Local non-MSVC builds default to `FRACESSA_NATIVE_ARCH=ON` (`-march=native`).
 Release CI sets it to `OFF`. IPO/LTO is enabled only when CMake confirms support.
+The `find_candidate_verified` object target overrides normal throughput flags with
+strict floating-point semantics, contraction disabled, and IPO/LTO disabled.
+One centralized availability function combines compiler support with the
+runtime binary64, round-to-nearest, and subnormal checks. An unsupported build
+still provides exact and unsafe modes, but refuses verified search.
+Do not run verification IDs 33 or 34 with `--exact` without Reinhard's
+separate approval.
 When sandboxing blocks the normal ccache directory, rerun the build with
 escalated filesystem access rather than disabling or redirecting ccache.
 
@@ -197,13 +226,14 @@ GMP, MPFR, or FLINT.
 ./test.sh # build, core/CLI tests, and wrapper tests
 ```
 
-CTest consists of nine GoogleTest executables plus one CLI black-box parser
-test. Wrapper tests use Python `unittest`.
+The non-matrix CTest suite consists of ten GoogleTest executables plus one CLI
+black-box parser test. Wrapper tests use Python `unittest`. Matrix correctness
+is no longer wired as one CTest per matrix.
 
 `testdata/fracessa_testdata.sqlite3` is the canonical matrix, expected-result,
 and timing store. Its strict schema is in `testdata/schema.sql`; the current
-snapshot has 85 matrices and 49,155 stored candidate representatives. Nullable
-multipliers recover weighted totals of 86,150 candidates and 83,375 ESS:
+snapshot has 88 matrices and 49,158 stored candidate representatives. Nullable
+multipliers recover weighted totals of 86,153 candidates and 83,378 ESS:
 circular rows store one smallest dihedral representative and its orbit count,
 while non-circular rows store null. Candidate IDs and row order remain
 reproducibility checks; complete weighted candidate sets and ESS
@@ -214,6 +244,12 @@ non-circular matrix. IDs 67-79 fill the previously missing combinations with
 deterministic random integers; exact and unsafe runs agreed on their complete
 rational candidate contracts before insertion.
 
+IDs 45-47 preserve the verified-search regressions: the dimension-20 unsafe
+heuristic counterexample, the LU-boundary fallback case, and the failed-proof
+exact-fallback case. IDs 48-55 cover non-circular dimensions 15-24 through
+Hilbert, Hadamard, Paley conference, MINIJ, Fiedler, deterministic random
+families, and a dense weighted-Laplacian game with one full-support ESS.
+
 Every distinct matrix in Tables 1 and 2 of the Bomze-Schachinger-Ullrich
 ESS-growth paper is present exactly once. IDs 18 and 26 are the exact published
 Table 1 matrices for dimensions 12 and 17. IDs 80-81 are the two previously
@@ -222,11 +258,12 @@ non-circular matrices. Same-property alternatives formerly stored at IDs 12
 and 21 were removed; the former contents of IDs 18 and 26 were replaced by the
 published vectors.
 
-The current timing snapshot has one complete current-build Pybind session on
-pinned CPU 2: 85 unsafe and 85 exact measurements, all matching the stored ESS
-counts. Fast cases target one measured second; calls already at or above that
-target use one iteration. Timing reports include matrix dimension, circularity,
-and the derived paper-style lower bound
+The current timing snapshot has one complete current-build Pybind session for
+the 85 matrices present before IDs 45-47 were restored: 85 unsafe and 85 exact
+measurements, all matching the stored ESS counts. The restored regressions have
+no samples in that historical session. Fast cases target one measured second;
+calls already at or above that target use one iteration. Timing reports include
+matrix dimension, circularity, and the derived paper-style lower bound
 `gamma_lower_bound = expected_ess ** (1 / dimension)` without storing it in
 SQLite.
 
@@ -245,8 +282,9 @@ material under `experiments/` and `aidocs/experiments/` remains immutable
 historical evidence.
 
 Database IDs 45-47 preserve the known unsafe-filter correctness regressions
-tracked in `reviews/CPP_REVIEW.md`; no SQLite matrix suite is currently wired
-into `./test.sh` or release CI.
+tracked in `reviews/CPP_REVIEW.md`. The wrapper integration suite checks ID 46
+through both verified and unsafe routes, but no complete SQLite matrix suite is
+currently wired into `./test.sh` or release CI.
 
 ## Pybind Boundary
 
@@ -304,6 +342,11 @@ representatives, while `ess_count` remains the weighted mathematical total.
 No production wrapper or matrix workflow imposes a per-matrix computation
 timeout. A matrix may legitimately run for hours. Worker-liveness handling must
 not be implemented as a computation timeout.
+
+`RunConfig()` selects verified candidate search by default. `unsafe=True`
+selects the heuristic that can miss candidates and ESS results, while
+`exact=True` bypasses both numerical procedures. Exact and unsafe together are
+rejected by the native boundary.
 
 `run` and `run_multiprocessing` are the only public execution functions. Both
 accept one `Matrix` or an iterable and accept an optional sink. One matrix

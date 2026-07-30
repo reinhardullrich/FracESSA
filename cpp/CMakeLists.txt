@@ -140,11 +140,41 @@ endif()
 # 4. Build Targets
 # ==============================================================================
 
+add_library(fracessa_find_candidate_verified OBJECT
+    src/find_candidate_verified.cpp
+)
+set_target_properties(fracessa_find_candidate_verified PROPERTIES
+    INTERPROCEDURAL_OPTIMIZATION FALSE
+    POSITION_INDEPENDENT_CODE ON
+)
+target_include_directories(fracessa_find_candidate_verified PRIVATE
+    ${CMAKE_CURRENT_SOURCE_DIR}/include
+    ${CMAKE_CURRENT_SOURCE_DIR}/include/fracessa
+    ${FLINT_INCLUDE_DIRS}
+    ${GMP_INCLUDE_DIR}
+    ${MPFR_INCLUDE_DIR}
+)
+
+if(MSVC)
+    target_compile_options(fracessa_find_candidate_verified PRIVATE /fp:strict /GL-)
+    set(FRACESSA_FIND_CANDIDATE_VERIFIED_SUPPORTED 1)
+elseif(CMAKE_CXX_COMPILER_ID MATCHES "^(GNU|Clang|AppleClang)$")
+    target_compile_options(fracessa_find_candidate_verified PRIVATE -fno-fast-math -ffp-contract=off)
+    set(FRACESSA_FIND_CANDIDATE_VERIFIED_SUPPORTED 1)
+else()
+    set(FRACESSA_FIND_CANDIDATE_VERIFIED_SUPPORTED 0)
+endif()
+target_compile_definitions(fracessa_find_candidate_verified PRIVATE
+    FRACESSA_FIND_CANDIDATE_VERIFIED_SUPPORTED=${FRACESSA_FIND_CANDIDATE_VERIFIED_SUPPORTED}
+)
+
 add_library(fracessa_lib
     src/fracessa.cpp
-    src/findeq.cpp
+    src/find_candidate_unsafe.cpp
+    src/find_candidate_exact.cpp
     src/checkstab.cpp
     src/matrix_parser.cpp
+    $<TARGET_OBJECTS:fracessa_find_candidate_verified>
 )
 set_target_properties(fracessa_lib PROPERTIES POSITION_INDEPENDENT_CODE ON)
 

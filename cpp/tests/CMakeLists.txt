@@ -9,6 +9,7 @@ set(TEST_LIST
     test_bitset64
     test_integration
     test_fraction
+    test_find_candidate_verified
 )
 
 foreach(test_name ${TEST_LIST})
@@ -33,6 +34,7 @@ add_test(NAME CopositivityTests COMMAND test_copositivity)
 add_test(NAME Bitset64Tests COMMAND test_bitset64)
 add_test(NAME IntegrationTests COMMAND test_integration)
 add_test(NAME FractionTests COMMAND test_fraction)
+add_test(NAME FindCandidateVerifiedTests COMMAND test_find_candidate_verified)
 
 # CLI parser black-box test
 set(CLI_PARSER_BLACKBOX_SCRIPT "${CMAKE_CURRENT_SOURCE_DIR}/cli_parser_blackbox.py")

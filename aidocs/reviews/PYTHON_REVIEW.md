@@ -12,6 +12,8 @@ remove a finding after its fix and regression coverage are complete.
 
 ## Current Validation State
 
+- All 53 PyFracESSA tests passed against the combined Release native module
+  with PyArrow available.
 - The former JSON/CSV verification, baseline-generation, subprocess benchmark,
   and JSON-fed Callgrind paths have been removed. Their small replacement timing
   tool measures one build and matrix at a time on a pinned CPU, calibrates fast
@@ -25,12 +27,13 @@ remove a finding after its fix and regression coverage are complete.
 - The unused input pass-through iterator and its collection imports have been
   deleted.
 - `testdata/fracessa_testdata.sqlite3` passes SQLite integrity and foreign-key
-  checks and contains 85 matrices and 49,155 representatives whose multipliers
-  recover 86,150 candidates and 83,375 ESS. Dimensions 2-25 each have at least
+  checks and contains 88 matrices and 49,158 representatives whose multipliers
+  recover 86,153 candidates and 83,378 ESS. Dimensions 2-25 each have at least
   one circular and one non-circular matrix, and every distinct matrix from the
   two published Bomze-Schachinger-Ullrich result tables is present once.
-- Its current timing session covers every matrix in unsafe and exact mode with
-  170 adaptive measurements and no ESS-count mismatch. Report rows include
+- Its current timing session covers the 85 pre-existing matrices in unsafe and
+  exact mode with 170 adaptive measurements and no ESS-count mismatch. Restored
+  regression IDs 45-47 have no samples in that historical session. Report rows include
   dimension, circularity, and the derived lower bound
   `gamma_lower_bound = expected_ess ** (1 / dimension)`.
 - Sequential and multiprocessing paths use one flat result dictionary;
@@ -41,6 +44,8 @@ remove a finding after its fix and regression coverage are complete.
 - `run_multiprocessing` keeps the same parameter order as `run` and adds only a
   final optional `MPConfig`; `MPConfig()` defaults to the CPUs available to the
   Python process.
+- `RunConfig()` selects verified search by default; `unsafe=True` selects the
+  heuristic and `exact=True` selects exact search.
 - Multiprocessing serializes results inside workers before queueing them, so a
   return-trip serialization failure exits the worker instead of hanging.
 - Multiprocessing uses one shared matrix queue and one shared result queue, yields
@@ -71,8 +76,6 @@ remove a finding after its fix and regression coverage are complete.
   they no longer report the binding boundary as a successful skip.
 - Sink finalization attempts every close and propagates the first failure;
   cleanup errors never replace an active computation or write error.
-- All 51 wrapper tests pass on the local Python 3.14 build with native and
-  PyArrow coverage.
 - A 64-matrix spawn-mode run completed, early iterator closure left no workers,
   input serialization failed synchronously, and the return-serialization
   regression passed without hanging.

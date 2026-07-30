@@ -23,7 +23,7 @@ int main(int argc, char *argv[])
     program.add_argument("-f", "--fullsupport").help("search full support directly").implicit_value(true).default_value(false);
     program.add_argument("-t", "--timing").help("output computation time in nanoseconds").implicit_value(true).default_value(false);
     program.add_argument("-m", "--matrixid").help("optional matrix ID").scan<'i', std::int64_t>().default_value(std::int64_t{-1});
-    program.add_argument("-u", "--unsafe").help("use uncertified numerical filtering").implicit_value(true).default_value(false);
+    program.add_argument("-u", "--unsafe").help("use heuristic candidate search").implicit_value(true).default_value(false);
     program.add_argument("matrix").help("the matrix to compute");
 
     try { program.parse_args(argc, argv); }
@@ -51,27 +51,30 @@ int main(int argc, char *argv[])
         return EXIT_FAILURE;
     }
 
-    if (!exact) {
+    if (unsafe) {
         std::cerr
-            << "Warning: unsafe numerical mode can miss exact candidates and ESS results; "
-            << "suspicious or unusable floating-point cases fall back to exact arithmetic "
-            << "and can be much slower." << std::endl;
+            << "Warning: --unsafe uses heuristic candidate search and can miss "
+            << "exact candidates and ESS results." << std::endl;
     }
+    try {
+        auto start_time = std::chrono::steady_clock::now();
+        ::fracessa x(A, is_cs, candidates, exact, fullsupport, logger, matrix_id, unsafe);
+        auto end_time = std::chrono::steady_clock::now();
 
-    auto start_time = std::chrono::steady_clock::now();
-    ::fracessa x(A, is_cs, candidates, exact, fullsupport, logger, matrix_id);
-    auto end_time = std::chrono::steady_clock::now();
-    
-    // Consumers expect ESS count first, optional timing second, then candidate CSV.
-    std::cout << x.ess_count_ << std::endl;
-    if (timing) {
-        auto duration = std::chrono::duration_cast<std::chrono::nanoseconds>(end_time - start_time);
-        std::cout << duration.count() << std::endl;
-    }
+        // Consumers expect ESS count first, optional timing second, then candidate CSV.
+        std::cout << x.ess_count_ << std::endl;
+        if (timing) {
+            auto duration = std::chrono::duration_cast<std::chrono::nanoseconds>(end_time - start_time);
+            std::cout << duration.count() << std::endl;
+        }
 
-    if (candidates) {
-        std::cout << candidate::header() << std::endl;
-        for (auto& c : x.candidates_) std::cout << c.to_string() << std::endl;
+        if (candidates) {
+            std::cout << candidate::header() << std::endl;
+            for (auto& c : x.candidates_) std::cout << c.to_string() << std::endl;
+        }
+    } catch (const std::exception& err) {
+        std::cerr << "Error: " << err.what() << std::endl;
+        return EXIT_FAILURE;
     }
 
     return EXIT_SUCCESS;

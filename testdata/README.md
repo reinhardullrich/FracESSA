@@ -3,8 +3,8 @@
 `fracessa_testdata.sqlite3` is the canonical store for test matrices and their
 complete expected candidate results.
 
-The current snapshot contains 85 matrices and 49,155 stored candidate
-representatives. Their multipliers represent 86,150 candidates and 83,375 ESS.
+The current snapshot contains 88 matrices and 49,158 stored candidate
+representatives. Their multipliers represent 86,153 candidates and 83,378 ESS.
 It contains each distinct matrix from Tables 1 and 2 of the
 Bomze-Schachinger-Ullrich ESS-growth paper exactly once. IDs 18 and 26 hold the
 exact published Table 1 matrices that replaced same-property alternatives;
@@ -13,11 +13,14 @@ Redundant alternatives formerly at IDs 12 and 21 were removed. IDs 56-66 are
 staged complete-multipartite many-ESS benchmark matrices. IDs 67-79 are
 deterministic random-integer coverage matrices; together with the existing rows,
 every dimension from 2 through 25 has at least one circular and one non-circular
-matrix. No SQLite matrix suite is currently wired into CTest.
+matrix. IDs 45-47 preserve the unsafe-filter, LU-boundary, and failed-proof
+verified-search regressions. No complete SQLite matrix suite is currently wired
+into CTest.
 
-The timing table contains one complete current-build Pybind session: all 85
-matrices in both unsafe and exact modes, for 170 adaptive measurements with no
-ESS-count mismatch.
+The timing table contains one complete current-build Pybind session for the 85
+matrices present before IDs 45-47 were restored: both unsafe and exact modes,
+for 170 adaptive measurements with no ESS-count mismatch. The three restored
+regressions have no observations in that historical session.
 
 ## Tables
 

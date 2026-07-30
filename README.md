@@ -7,11 +7,11 @@ Fast ESS analysis for symmetric games with exact rational verification.
 
 FracESSA is a C++17 command-line tool for Evolutionary Stable Strategy (ESS) search on symmetric payoff matrices.
 It is designed for raw speed in large support-space scans, with an exact-only
-mode when correctness must not depend on floating-point filtering.
+mode and a rigorously one-sided default rejection procedure.
 
 ## Why FracESSA
-- Default two-stage pipeline: an uncertified floating-point rejection filter,
-  then exact FLINT fraction checks for surviving or suspicious supports.
+- Default two-stage pipeline: verified candidate search, then exact FLINT
+  fraction checks for every support not safely rejected.
 - Bitset-based support enumeration over a `2^n` search space.
 - Optimized for many repeated operations on small/medium matrix dimensions.
 - Circular-symmetric and general symmetric matrix input support.
@@ -50,15 +50,18 @@ syntax. The 64-bit mask is storage, not support for a dimension-64 search.
 - `-c, --candidates` include candidate rows in output.
 - `-l, --log` write detailed log output.
 - `-e, --exact` disable floating-point candidate rejection and use exact solving.
-- `-u, --unsafe` explicitly select the default uncertified numerical filter.
+- `-u, --unsafe` select the faster heuristic rejection procedure.
 - `-f, --fullsupport` evaluate full support first.
 - `-t, --timing` print analyzer timing in nanoseconds.
 - `-m, --matrixid` optional signed 64-bit matrix ID for logging/verification runs.
 
 `--exact` and `--unsafe` are mutually exclusive. With no numerical flag,
-FracESSA temporarily uses unsafe numerical filtering. It can miss exact
-candidates and ESS results; suspicious or unusable floating cases fall back to
-exact arithmetic and may therefore run as slowly as exact mode.
+FracESSA uses verified candidate search: it rejects a support only after proving a
+violated candidate condition and otherwise falls back to exact arithmetic.
+`--unsafe` can miss exact candidates and ESS results. `--exact` bypasses both
+numerical rejection procedures. If the compiler or runtime floating-point
+environment cannot support the required error bounds, default mode stops before
+the search and asks for an explicit `--exact` or `--unsafe` choice.
 
 Output format:
 - line 1: ESS count
