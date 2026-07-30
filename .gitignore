@@ -44,6 +44,7 @@ __pycache__/
 # Logs
 *.log
 /cpp/log/
+/cpp/callgrind/callgrind.out.*
 
 # Generated experiment copies; keep scripts, reports, metadata, and results
 /experiments/**/builds/
