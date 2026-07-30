@@ -4,14 +4,14 @@ from pathlib import Path
 import tempfile
 import unittest
 
-from wrapper_v1 import (
+from fracessa import (
     MPConfig,
     Matrix,
     RunConfig,
     run,
     run_multiprocessing,
 )
-from wrapper_v1.core import load_native_module
+from fracessa.core import load_native_module
 
 
 class NativeIntegrationTests(unittest.TestCase):

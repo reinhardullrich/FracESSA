@@ -1,3 +1,5 @@
+"""Write batched PyFracESSA Parquet output with JSON metadata."""
+
 from __future__ import annotations
 
 from pathlib import Path
@@ -14,9 +16,10 @@ from .sinks import (
 
 
 class ParquetSink:
-    """
-    Writes batched Parquet datasets plus a per-matrix metadata JSON file.
-    Requires `pyarrow`.
+    """Write batched summary and candidate Parquet files plus metadata JSON.
+
+    Rows are buffered in fixed-size batches before being passed to PyArrow.
+    Files are opened exclusively and removed by :meth:`abort` after any failure.
     """
 
     def __init__(
@@ -25,6 +28,19 @@ class ParquetSink:
         candidates_path: str | Path,
         metadata_path: str | Path | None = None,
     ):
+        """Open a new transactional Parquet output triplet.
+
+        Args:
+            summary_path: Destination for the summary Parquet table.
+            candidates_path: Destination for the candidate Parquet table.
+            metadata_path: Optional JSON sidecar path. By default it is derived
+                from ``summary_path``.
+
+        Raises:
+            RuntimeError: If PyArrow is unavailable.
+            FileExistsError: If any destination already exists.
+        """
+
         try:
             import pyarrow as pa
             import pyarrow.parquet as pq
@@ -85,14 +101,20 @@ class ParquetSink:
             self._candidate_buffer = _RowBuffer(self._write_candidate_rows)
 
     def _write_summary_rows(self, rows) -> None:
+        """Convert and append one batch of summary dictionaries."""
+
         table = self._pa.Table.from_pylist(rows, schema=self._summary_schema)
         self._summary_writer.write_table(table)
 
     def _write_candidate_rows(self, rows) -> None:
+        """Convert and append one batch of candidate dictionaries."""
+
         table = self._pa.Table.from_pylist(rows, schema=self._candidate_schema)
         self._candidate_writer.write_table(table)
 
     def write_result(self, result: dict) -> None:
+        """Buffer one canonical result and its candidate and metadata rows."""
+
         if self._state != "active":
             raise RuntimeError("Cannot write to a closed or aborted Parquet sink")
         with _abort_on_error(self):
@@ -101,6 +123,8 @@ class ParquetSink:
             self._metadata_writer.write_result(result)
 
     def close(self) -> None:
+        """Flush, finalize, and preserve outputs; repeated calls do nothing."""
+
         if self._state != "active":
             return
         with _abort_on_error(self):
@@ -117,6 +141,8 @@ class ParquetSink:
         self._rollback.pop_all()
 
     def abort(self) -> None:
+        """Close and remove incomplete outputs; repeated calls are safe."""
+
         if self._state == "closed":
             return
         self._state = "aborted"

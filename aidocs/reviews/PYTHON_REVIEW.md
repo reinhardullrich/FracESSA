@@ -1,11 +1,11 @@
 # Python Review
 
-Last verified: 2026-07-30
+Last verified: 2026-07-31
 
 Scope: maintained Python wrapper, multiprocessing, sinks, generic JSON input,
 and wrapper tests. The native `fracessa_core` extension is reviewed separately
-in `PYBIND_REVIEW.md`. No active matrix-verification or benchmark runner exists;
-future tooling must use the canonical SQLite database under `testdata/`.
+in `PYBIND_REVIEW.md`. No active matrix-verification runner exists. Sequential
+timing uses the canonical SQLite database under `testdata/`.
 
 Correctness is ranked before speed. This file contains unresolved findings only;
 remove a finding after its fix and regression coverage are complete.
@@ -13,7 +13,10 @@ remove a finding after its fix and regression coverage are complete.
 ## Current Validation State
 
 - The former JSON/CSV verification, baseline-generation, subprocess benchmark,
-  and JSON-fed Callgrind paths have been removed.
+  and JSON-fed Callgrind paths have been removed. Their small replacement timing
+  tool measures one build and matrix at a time on a pinned CPU, calibrates fast
+  cases to about one second, and stores average native nanoseconds in the
+  canonical SQLite database.
 - Generic JSON input requires its configured key, a row list, and object rows;
   malformed schemas fail instead of silently producing no work.
 - `Matrix` validates built-in string/dictionary fields and signed 64-bit
@@ -22,8 +25,14 @@ remove a finding after its fix and regression coverage are complete.
 - The unused input pass-through iterator and its collection imports have been
   deleted.
 - `testdata/fracessa_testdata.sqlite3` passes SQLite integrity and foreign-key
-  checks and contains 63 matrices and 29,114 representatives whose multipliers
-  recover 65,962 candidates and 63,369 ESS.
+  checks and contains 85 matrices and 49,155 representatives whose multipliers
+  recover 86,150 candidates and 83,375 ESS. Dimensions 2-25 each have at least
+  one circular and one non-circular matrix, and every distinct matrix from the
+  two published Bomze-Schachinger-Ullrich result tables is present once.
+- Its current timing session covers every matrix in unsafe and exact mode with
+  170 adaptive measurements and no ESS-count mismatch. Report rows include
+  dimension, circularity, and the derived lower bound
+  `gamma_lower_bound = expected_ess ** (1 / dimension)`.
 - Sequential and multiprocessing paths use one flat result dictionary;
   CSV, JSON, and Parquet are the only output sinks.
 - `run` and `run_multiprocessing` are the only public execution functions;
@@ -62,7 +71,7 @@ remove a finding after its fix and regression coverage are complete.
   they no longer report the binding boundary as a successful skip.
 - Sink finalization attempts every close and propagates the first failure;
   cleanup errors never replace an active computation or write error.
-- All 47 wrapper tests pass on the local Python 3.14 build with native and
+- All 51 wrapper tests pass on the local Python 3.14 build with native and
   PyArrow coverage.
 - A 64-matrix spawn-mode run completed, early iterator closure left no workers,
   input serialization failed synchronously, and the return-serialization

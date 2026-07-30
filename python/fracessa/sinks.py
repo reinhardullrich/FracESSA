@@ -1,3 +1,5 @@
+"""Provide shared PyFracESSA sink schemas and lifecycle helpers."""
+
 from __future__ import annotations
 
 from contextlib import ExitStack, contextmanager
@@ -38,6 +40,8 @@ _ROW_BATCH_SIZE = 1024
 
 
 def _json_value(value):
+    """Return a JSON-safe copy with every non-finite float replaced by ``None``."""
+
     if isinstance(value, float) and not math.isfinite(value):
         return None
     if isinstance(value, dict):
@@ -48,6 +52,8 @@ def _json_value(value):
 
 
 def _call_all(*actions) -> None:
+    """Call every action and re-raise the first failure after all have run."""
+
     first_error = None
     for action in actions:
         try:
@@ -60,10 +66,14 @@ def _call_all(*actions) -> None:
 
 
 def _close_all(*resources) -> None:
+    """Close every resource and re-raise the first close failure."""
+
     _call_all(*(resource.close for resource in resources))
 
 
 def _rollback_call(action) -> None:
+    """Run one best-effort rollback action and suppress any failure."""
+
     try:
         action()
     except BaseException:
@@ -72,6 +82,8 @@ def _rollback_call(action) -> None:
 
 @contextmanager
 def _abort_on_error(sink):
+    """Abort ``sink`` if an exception escapes the managed operation."""
+
     try:
         yield
     except BaseException:
@@ -80,6 +92,19 @@ def _abort_on_error(sink):
 
 
 def _consume_to_sink(results, sink) -> int:
+    """Write an entire result iterable and finalize its sink.
+
+    On failure, a closable result iterator is closed before the sink is aborted.
+    If the sink has no ``abort`` method, ``close`` is used as cleanup instead.
+
+    Args:
+        results: Iterable of canonical result dictionaries.
+        sink: Destination implementing ``write_result`` and ``close``.
+
+    Returns:
+        Number of results successfully written before finalization.
+    """
+
     results = iter(results)
     count = 0
     try:
@@ -105,6 +130,13 @@ def _open_output_triplet(
     mode: str,
     **kwargs,
 ):
+    """Open exclusive summary, candidate, and metadata outputs transactionally.
+
+    The context yields ``((summary, candidates, metadata), rollback_stack)``.
+    Unless the caller detaches the rollback stack after successful finalization,
+    all opened files are closed and removed.
+    """
+
     summary_path = Path(summary_path)
     candidates_path = Path(candidates_path)
     metadata_path = (
@@ -132,12 +164,18 @@ def _open_output_triplet(
 
 
 class _JsonArrayWriter:
+    """Stream dictionaries into one valid JSON array without retaining them."""
+
     def __init__(self, output_file):
+        """Start a JSON array in an already-open text file."""
+
         self._file = output_file
         self._written = 0
         self._file.write("[\n")
 
     def write(self, row: dict) -> None:
+        """Append one JSON-safe dictionary to the array."""
+
         payload = json.dumps(_json_value(row), ensure_ascii=True, allow_nan=False)
         if self._written:
             self._file.write(",\n")
@@ -145,14 +183,22 @@ class _JsonArrayWriter:
         self._written += 1
 
     def close(self) -> None:
+        """Finish the JSON array and close its file."""
+
         _call_all(lambda: self._file.write("\n]\n"), self._file.close)
 
 
 class _MetadataWriter:
+    """Write non-null per-matrix metadata rows to a JSON array."""
+
     def __init__(self, output_file):
+        """Wrap an already-open metadata text file."""
+
         self._writer = _JsonArrayWriter(output_file)
 
     def write_result(self, result: dict) -> None:
+        """Write metadata from one result when metadata is present."""
+
         if result["metadata"] is not None:
             self._writer.write(
                 {
@@ -163,20 +209,30 @@ class _MetadataWriter:
             )
 
     def close(self) -> None:
+        """Finish and close the metadata array."""
+
         self._writer.close()
 
 
 class _RowBuffer:
+    """Flush rows to a callback in fixed-size batches."""
+
     def __init__(self, write_rows):
+        """Create a buffer whose batches are passed to ``write_rows``."""
+
         self._write_rows = write_rows
         self._rows = []
 
     def append(self, row: dict) -> None:
+        """Append one row and flush when the batch is full."""
+
         self._rows.append(row)
         if len(self._rows) >= _ROW_BATCH_SIZE:
             self.flush()
 
     def extend(self, rows) -> None:
+        """Append an iterable of rows while preserving the batch-size limit."""
+
         rows = iter(rows)
         while chunk := list(islice(rows, _ROW_BATCH_SIZE - len(self._rows))):
             self._rows.extend(chunk)
@@ -184,20 +240,32 @@ class _RowBuffer:
                 self.flush()
 
     def flush(self) -> None:
+        """Write and clear the current partial batch, if any."""
+
         if self._rows:
             self._write_rows(self._rows)
             self._rows.clear()
 
 
 def create_sink(kind: str, output_dir: str | Path, run_id: str):
-    """
-    Build a sink backend by name.
+    """Create a CSV, JSON, or Parquet sink with run-specific file names.
 
-    Supported kinds:
-    - csv
-    - json
-    - parquet
+    The output directory is created when needed. Each sink writes separate
+    summary, candidate, and metadata files and refuses to overwrite any of them.
+
+    Args:
+        kind: Case-insensitive ``"csv"``, ``"json"``, or ``"parquet"``.
+        output_dir: Directory that will contain the output triplet.
+        run_id: Identifier used in all three file names.
+
+    Returns:
+        A new :class:`CsvSink`, :class:`JsonSink`, or :class:`ParquetSink`.
+
+    Raises:
+        ValueError: If ``kind`` is unsupported.
+        FileExistsError: If any target output already exists.
     """
+
     sink_kind = kind.lower()
     out_dir = Path(output_dir)
     out_dir.mkdir(parents=True, exist_ok=True)

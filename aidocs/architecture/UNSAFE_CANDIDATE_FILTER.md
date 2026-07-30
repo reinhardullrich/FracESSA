@@ -267,18 +267,18 @@ The implementation is limited to these source files.
 | `cpp/tests/test_linear_solver.cpp` | Remove only tests for the deleted double solver. |
 | `cpp/tests/cli_parser_blackbox.py` | Verify parser routing, numerical routing, warning text, normalization cases, and incompatible CLI options. |
 
-### Python Wrapper
+### PyFracESSA
 
 | File | Minimal change |
 | --- | --- |
-| `python/wrapper_v1/types.py` | Expose no parser selector in `RunConfig`. |
-| `python/wrapper_v1/core.py` | Call pybind without a parser selector. |
-| `python/wrapper_v1/tests/test_core_unit.py` | Assert no parser selector reaches pybind. |
+| `python/fracessa/types.py` | Expose no parser selector in `RunConfig`. |
+| `python/fracessa/core.py` | Call pybind without a parser selector. |
+| `python/fracessa/tests/test_core_unit.py` | Assert no parser selector reaches pybind. |
 
 ### Documentation
 
 Update `README.md`, `aidocs/KNOWLEDGE.md`, `aidocs/INDEX.md`, this architecture
-document, `aidocs/python-wrapper/README.md`, `aidocs/reviews/CPP_REVIEW.md`, and
+document, `aidocs/pyfracessa/README.md`, `aidocs/reviews/CPP_REVIEW.md`, and
 `aidocs/CHANGES.md` in the implementation task. Keep the P0 review finding open
 but replace its obsolete IDs 38-39 evidence with the preserved unsafe
 counterexamples; this phase improves an explicitly unsafe mode and does not

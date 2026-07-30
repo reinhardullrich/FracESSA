@@ -1,3 +1,5 @@
+"""Run PyFracESSA matrices in processes with bounded shared queues."""
+
 from __future__ import annotations
 
 from collections.abc import Iterable, Iterator
@@ -15,6 +17,8 @@ _SENTINEL = None
 
 
 def _safe_compute(matrix: Matrix, config: RunConfig, run_id: str) -> dict:
+    """Compute a matrix or convert an unexpected worker error to a result row."""
+
     try:
         return compute_matrix(matrix=matrix, config=config, run_id=run_id)
     except Exception as exc:  # defensive: worker must never crash the pool protocol
@@ -38,6 +42,8 @@ def _queue_worker(
     config: RunConfig,
     run_id: str,
 ):
+    """Consume serialized matrices and publish serialized result dictionaries."""
+
     while True:
         payload = input_queue.get()
         if payload is _SENTINEL:
@@ -49,8 +55,7 @@ def _queue_worker(
 
 
 def _max_pending_matrices(mp_config: MPConfig) -> int:
-    """
-    Bound submitted-but-not-yielded matrices.
+    """Return the bound for submitted-but-not-yielded matrices.
 
     The batch API may process millions of matrices. Submitting all matrices before
     draining results can deadlock bounded queues, so keep only a small window
@@ -61,7 +66,11 @@ def _max_pending_matrices(mp_config: MPConfig) -> int:
 
 
 class _QueueRunner:
+    """Own the shared queues and worker processes for one wrapper run."""
+
     def __init__(self, run_config: RunConfig, mp_config: MPConfig, run_id: str | None = None):
+        """Start configured workers and create their shared queues."""
+
         self.run_config = run_config
         self.mp_config = mp_config
         self.run_id = run_id or new_run_id("mp")
@@ -88,6 +97,13 @@ class _QueueRunner:
             raise
 
     def submit(self, matrix: Matrix) -> None:
+        """Serialize and enqueue one matrix.
+
+        Raises:
+            RuntimeError: If the input queue has already been closed.
+            Exception: If the matrix or its metadata cannot be serialized.
+        """
+
         if self._input_closed:
             raise RuntimeError("Cannot submit after close_input()")
 
@@ -95,6 +111,8 @@ class _QueueRunner:
         self._input_queue.put(payload)
 
     def close_input(self) -> None:
+        """Send one stop sentinel per worker; repeated calls do nothing."""
+
         if self._input_closed:
             return
 
@@ -103,6 +121,12 @@ class _QueueRunner:
         self._input_closed = True
 
     def get_result(self):
+        """Wait for and deserialize the next completed result.
+
+        Raises:
+            RuntimeError: If workers exit before producing the expected result.
+        """
+
         while True:
             try:
                 return pickle.loads(self._output_queue.get(timeout=0.1))
@@ -115,6 +139,13 @@ class _QueueRunner:
                     raise RuntimeError("All FracESSA workers exited before producing the expected result")
 
     def shutdown(self, *, cancel: bool, join_timeout_s: float = 5.0) -> None:
+        """Stop and join workers, then close both queues.
+
+        Args:
+            cancel: Terminate live workers instead of finishing queued input.
+            join_timeout_s: Total graceful join budget before termination.
+        """
+
         if cancel:
             self._input_queue.cancel_join_thread()
             for proc in self._workers:
@@ -141,6 +172,15 @@ def _run_matrices_multiprocessing(
     mp_config: MPConfig,
     run_id: str,
 ) -> Iterator[dict]:
+    """Yield multiprocessing results in completion order.
+
+    Submission remains bounded by :func:`_max_pending_matrices`. Closing the
+    iterator before completion terminates its workers.
+
+    Raises:
+        ValueError: If native logging is enabled for multiprocessing.
+    """
+
     if config.enable_logging:
         raise ValueError("RunConfig.enable_logging is not supported with multiprocessing")
 
@@ -155,6 +195,8 @@ def _run_matrices_multiprocessing(
         input_exhausted = False
 
         def submit_until_window() -> None:
+            """Fill the bounded pending-work window or close exhausted input."""
+
             nonlocal submitted, input_exhausted
             while not input_exhausted and submitted - yielded < max_pending:
                 try:
@@ -191,6 +233,28 @@ def run_multiprocessing(
     sink=None,
     mp_config: MPConfig | None = None,
 ) -> dict | Iterator[dict] | int:
+    """Run matrix analysis across worker processes.
+
+    A single :class:`Matrix` blocks and returns one result dictionary. An
+    iterable returns a lazy completion-order iterator unless ``sink`` is
+    provided; with a sink, all results are written eagerly and the number
+    written is returned.
+
+    Args:
+        matrices: One matrix or an iterable of matrices.
+        config: Analysis options; defaults to :class:`RunConfig`.
+        run_id: Output identifier; a timestamp-based ID is generated when omitted.
+        sink: Optional object providing ``write_result()``, ``close()``, and
+            optionally ``abort()``.
+        mp_config: Process scheduling options; defaults to :class:`MPConfig`.
+
+    Returns:
+        One result dictionary, a lazy result iterator, or a written-result count.
+
+    Raises:
+        ValueError: If ``config.enable_logging`` is true.
+    """
+
     cfg = config if config is not None else RunConfig()
     mp_cfg = mp_config if mp_config is not None else MPConfig()
     rid = run_id or new_run_id("mp")

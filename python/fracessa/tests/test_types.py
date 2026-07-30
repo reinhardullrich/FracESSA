@@ -1,8 +1,8 @@
 import inspect
 import unittest
 
-import wrapper_v1
-from wrapper_v1.types import MPConfig, Matrix, RunConfig, StatusCode
+import fracessa
+from fracessa.types import MPConfig, Matrix, RunConfig, StatusCode
 
 
 class TypesTests(unittest.TestCase):
@@ -46,18 +46,18 @@ class TypesTests(unittest.TestCase):
 
     def test_public_execution_api(self):
         self.assertEqual(
-            list(inspect.signature(wrapper_v1.run).parameters),
+            list(inspect.signature(fracessa.run).parameters),
             ["matrices", "config", "run_id", "sink"],
         )
         self.assertEqual(
-            list(inspect.signature(wrapper_v1.run_multiprocessing).parameters),
+            list(inspect.signature(fracessa.run_multiprocessing).parameters),
             ["matrices", "config", "run_id", "sink", "mp_config"],
         )
         self.assertIsNone(
-            inspect.signature(wrapper_v1.run_multiprocessing).parameters["mp_config"].default
+            inspect.signature(fracessa.run_multiprocessing).parameters["mp_config"].default
         )
         self.assertEqual(
-            wrapper_v1.__all__,
+            fracessa.__all__,
             [
                 "StatusCode",
                 "Matrix",

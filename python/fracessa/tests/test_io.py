@@ -3,7 +3,7 @@ import tempfile
 import unittest
 from pathlib import Path
 
-from wrapper_v1.io import load_matrices_from_json
+from fracessa.io import load_matrices_from_json
 
 
 class IoTests(unittest.TestCase):

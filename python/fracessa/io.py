@@ -1,3 +1,5 @@
+"""Load PyFracESSA matrix inputs from JSON files."""
+
 from __future__ import annotations
 
 import json
@@ -13,15 +15,31 @@ def load_matrices_from_json(
     matrix_key: str = "matrix",
     dimension_key: str = "dimension",
 ) -> list[Matrix]:
-    """
-    Generic JSON loader.
+    """Load, validate, normalize, and sort matrices from a JSON file.
 
     Supported input shapes:
-    - {"matrices": [ ... ]}
-    - [ ... ]
 
-    If a matrix string has no `dimension#` prefix, `dimension` must be present.
+    - ``{"matrices": [...]}``
+    - ``[...]``
+
+    Field names can be remapped with the key arguments. Extra row fields are
+    preserved as metadata. Values-only matrix strings require an integer
+    dimension field and are normalized to ``dimension#values``.
+
+    Args:
+        path: JSON file to read.
+        matrices_key: Top-level key containing rows when the document is an object.
+        id_key: Row key containing the signed 64-bit matrix identifier.
+        matrix_key: Row key containing the matrix string.
+        dimension_key: Row key used to prefix values-only matrix strings.
+
+    Returns:
+        Validated matrices sorted by ``matrix_id``.
+
+    Raises:
+        ValueError: If the JSON shape or any matrix row is invalid.
     """
+
     p = Path(path)
     with p.open("r", encoding="utf-8") as fh:
         raw = json.load(fh)

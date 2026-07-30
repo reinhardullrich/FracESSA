@@ -1,6 +1,6 @@
 # C++ Review
 
-Last verified: 2026-07-30
+Last verified: 2026-07-31
 
 Scope: active C++ analyzer core, CLI, shared parser, CMake, C++/CTest coverage,
 and the release workflow. The native Python binding is reviewed separately in
@@ -160,8 +160,8 @@ Linux and macOS artifacts as portable standalone executables.
   cardinality layer. An independent order-insensitive comparison matched all
   mathematical candidate rows and ESS results across the former 52-matrix
   verification corpus.
-- The canonical SQLite snapshot stores 29,114 candidate representatives whose
-  multipliers recover 65,962 candidates and 63,369 ESS.
+- The canonical SQLite snapshot stores 49,155 candidate representatives whose
+  multipliers recover 86,150 candidates and 83,375 ESS across 85 matrices.
 - A fixed-seed audit generated 20,000 exact 4-by-4 integer matrices; all 19,890
   nonsingular cases satisfied `A * inverse(A) == I` exactly.
 - The most recent full sanitizer suite passed its existing tests.

@@ -41,8 +41,8 @@
 - `architecture/SUPPORT_GENERATOR_HANDOVER.md`: durable handover of the agreed
   generator API, callback rationale, candidate lifecycle, circular multiplier,
   experimental V2 status, and deferred decisions.
-- `python-wrapper/README.md`: public Python and multiprocessing API.
-- `../testdata/README.md`: canonical SQLite test-data schema and scope.
+- `pyfracessa/README.md`: public PyFracESSA and multiprocessing API.
+- `../testdata/README.md`: canonical SQLite test-data and timing schema.
 - `plans/SUPPORT_GENERATORS.md`: implemented DFS/FKM support-generator design,
   circular bracelet reduction, orbit-aware exact-candidate pruning, correctness
   proofs, experimental evidence, and future benchmark gates.

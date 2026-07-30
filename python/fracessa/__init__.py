@@ -1,3 +1,5 @@
+"""Public PyFracESSA interface for matrix analysis and file output."""
+
 from .core import compute_matrix, new_run_id
 from .io import load_matrices_from_json
 from .mp import run_multiprocessing

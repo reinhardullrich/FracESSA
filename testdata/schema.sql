@@ -49,3 +49,25 @@ CREATE TABLE candidates (
 
 CREATE INDEX candidates_by_matrix_and_ess
     ON candidates(matrix_id, is_ess, support_size);
+
+CREATE TABLE timings (
+    session TEXT NOT NULL CHECK (length(session) > 0),
+    recorded_at TEXT NOT NULL CHECK (length(recorded_at) > 0),
+    machine TEXT NOT NULL CHECK (length(machine) > 0),
+    cpu_id INTEGER NOT NULL CHECK (cpu_id >= 0),
+    comment TEXT NOT NULL DEFAULT '',
+    build_label TEXT NOT NULL CHECK (length(build_label) > 0),
+    source_ref TEXT NOT NULL CHECK (length(source_ref) > 0),
+    revision TEXT NOT NULL CHECK (length(revision) > 0),
+    binary_sha256 TEXT NOT NULL CHECK (length(binary_sha256) = 64),
+    backend TEXT NOT NULL CHECK (backend IN ('pybind', 'cli')),
+    mode TEXT NOT NULL CHECK (mode IN ('safe', 'unsafe', 'exact')),
+    matrix_id INTEGER NOT NULL,
+    target_ns INTEGER NOT NULL CHECK (target_ns > 0),
+    iterations INTEGER NOT NULL CHECK (iterations > 0),
+    measured_wall_ns INTEGER NOT NULL CHECK (measured_wall_ns > 0),
+    elapsed_ns INTEGER NOT NULL CHECK (elapsed_ns >= 0),
+    ess_count INTEGER NOT NULL CHECK (ess_count >= 0),
+    PRIMARY KEY (session, build_label, mode, matrix_id),
+    FOREIGN KEY (matrix_id) REFERENCES matrices(matrix_id) ON DELETE CASCADE
+) STRICT;

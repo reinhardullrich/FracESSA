@@ -99,7 +99,7 @@ jobs:
       shell: bash
       run: |
         ctest --test-dir cpp/build --build-config Release --output-on-failure -j 4
-        PYTHONPATH=python python -m unittest discover -s python/wrapper_v1/tests -p "test_*.py"
+        PYTHONPATH=python python -m unittest discover -s python/fracessa/tests -p "test_*.py"
 
     # --- STRIP BINARIES ---
     - name: Strip Binary (Linux/Mac)

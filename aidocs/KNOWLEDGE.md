@@ -1,6 +1,6 @@
 # Project Knowledge
 
-Last verified: 2026-07-30
+Last verified: 2026-07-31
 
 ## Source-Code Approval Gate
 
@@ -78,8 +78,8 @@ FracESSA is a C++17 ESS (evolutionarily stable strategy) analyzer for symmetric
 payoff matrices. It has two entry surfaces:
 
 - CLI: `cpp/src/main.cpp`, built as `cpp/build/fracessa`.
-- Native Python module: `cpp/src/pybind_module.cpp`, exposed through
-  `python/wrapper_v1/` as `fracessa_core`.
+- PyFracESSA package: `python/fracessa/`, backed by the native extension in
+  `cpp/src/pybind_module.cpp` named `fracessa_core`.
 
 CLI matrix format is `dimension#values`. Values are either the upper triangle
 of a symmetric matrix (`n*(n+1)/2` entries) or the compact circular-symmetric
@@ -200,20 +200,49 @@ GMP, MPFR, or FLINT.
 CTest consists of nine GoogleTest executables plus one CLI black-box parser
 test. Wrapper tests use Python `unittest`.
 
-`testdata/fracessa_testdata.sqlite3` is the canonical matrix and expected-result
-store. Its strict schema is in `testdata/schema.sql`; the current snapshot has
-63 matrices and 29,114 stored candidate representatives. Nullable multipliers
-recover weighted totals of 65,962 candidates and 63,369 ESS: circular rows store
-one smallest dihedral representative and its orbit count, while non-circular
-rows store null. Candidate IDs and row order remain reproducibility checks;
-complete weighted candidate sets and ESS classifications are the mathematical
-contracts.
+`testdata/fracessa_testdata.sqlite3` is the canonical matrix, expected-result,
+and timing store. Its strict schema is in `testdata/schema.sql`; the current
+snapshot has 85 matrices and 49,155 stored candidate representatives. Nullable
+multipliers recover weighted totals of 86,150 candidates and 83,375 ESS:
+circular rows store one smallest dihedral representative and its orbit count,
+while non-circular rows store null. Candidate IDs and row order remain
+reproducibility checks; complete weighted candidate sets and ESS
+classifications are the mathematical contracts.
+
+Every dimension from 2 through 25 has at least one circular and one
+non-circular matrix. IDs 67-79 fill the previously missing combinations with
+deterministic random integers; exact and unsafe runs agreed on their complete
+rational candidate contracts before insertion.
+
+Every distinct matrix in Tables 1 and 2 of the Bomze-Schachinger-Ullrich
+ESS-growth paper is present exactly once. IDs 18 and 26 are the exact published
+Table 1 matrices for dimensions 12 and 17. IDs 80-81 are the two previously
+missing Table 2 circular base matrices, and IDs 82-90 are its nine constructed
+non-circular matrices. Same-property alternatives formerly stored at IDs 12
+and 21 were removed; the former contents of IDs 18 and 26 were replaced by the
+published vectors.
+
+The current timing snapshot has one complete current-build Pybind session on
+pinned CPU 2: 85 unsafe and 85 exact measurements, all matching the stored ESS
+counts. Fast cases target one measured second; calls already at or above that
+target use one iteration. Timing reports include matrix dimension, circularity,
+and the derived paper-style lower bound
+`gamma_lower_bound = expected_ess ** (1 / dimension)` without storing it in
+SQLite.
 
 The former JSON/CSV verification, baseline-generation, speed-benchmark, and
-Callgrind runners were removed. No replacement matrix-verification or benchmark
-runner exists yet. Future tooling must read matrix inputs and expected results
-from SQLite. Dated material under `experiments/` and `aidocs/experiments/`
-remains immutable historical evidence.
+Callgrind runners were removed. There is no replacement matrix-verification
+runner yet. The small `python -m fracessa.timing` tool reads matrices from
+SQLite, measures one build and one matrix at a time on a user-selected Linux
+CPU, and writes normalized nanosecond samples to the same database. Reusing a
+session name groups separately invoked builds. Each row records `source_ref`
+(for a moving name such as `main`), its immutable `revision`, the binary hash,
+backend, mode, CPU, comment, observed ESS count, target and measured wall time,
+iteration count, and average native elapsed time. A pilot taking at least the
+target is stored as one iteration; faster cases use the pilot as warmup and run
+an adaptively sized measured batch targeting one second by default. Dated
+material under `experiments/` and `aidocs/experiments/` remains immutable
+historical evidence.
 
 Database IDs 45-47 preserve the known unsafe-filter correctness regressions
 tracked in `reviews/CPP_REVIEW.md`; no SQLite matrix suite is currently wired
@@ -247,9 +276,9 @@ The binding releases the GIL during native execution. Logging-enabled calls are
 serialized by one process-wide native mutex because each analyzer writes and
 rotates the same log file; non-logging calls remain concurrent.
 
-## Python Wrapper
+## PyFracESSA
 
-`python/wrapper_v1/` calls `fracessa_core` in-process and is the maintained API.
+`python/fracessa/` calls `fracessa_core` in-process and is the maintained API.
 It supports sequential execution, process-based parallelism across matrices,
 and CSV/JSON/Parquet disk sinks. One matrix is always computed by one worker
 process; parallelism is across matrices. File sinks create output paths
@@ -291,7 +320,11 @@ when iteration stops early. It does not batch multiple matrices into one queue
 item. Native logging is rejected before multiprocessing workers are created;
 it remains available in sequential wrapper execution.
 
-New API work belongs in `python/wrapper_v1/` and `fracessa_core`.
+New API work belongs in `python/fracessa/` and `fracessa_core`.
+
+Every production Python module, class, function, and method has a standard
+docstring consumable by `pydoc`, `pdoc`, or Sphinx `autodoc`. Tests are excluded
+because they are verification code rather than generated API documentation.
 
 The generic JSON loader accepts a top-level row list or an object containing
 the configured matrix key. It requires a list of object rows and rejects a

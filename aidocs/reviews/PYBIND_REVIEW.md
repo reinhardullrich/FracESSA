@@ -36,7 +36,7 @@ status when needed.
 - Native candidate conversion has an exact 11-field value-and-type contract
   regression. Ordinary rows use `multiplier=None`; one circular regression
   returns a representative with `multiplier=5` and a weighted ESS count of 5.
-- All 45 wrapper tests pass on Python 3.14 with native and PyArrow coverage.
+- All 50 wrapper tests pass on Python 3.14 with native and PyArrow coverage.
 - Native single-process and multiprocessing integration tests pass.
 - One process-wide native mutex serializes logging-enabled analyzer calls from
   Python threads while non-logging calls remain concurrent.
