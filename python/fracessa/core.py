@@ -1,3 +1,5 @@
+"""Adapt PyFracESSA objects to the native Pybind module."""
+
 from __future__ import annotations
 
 from datetime import datetime, timezone
@@ -5,22 +7,27 @@ from importlib import import_module
 from pathlib import Path
 import threading
 
-from .types import MatrixJob, RunConfig
+from .types import Matrix, RunConfig
 
 _native_module = None
 _native_lock = threading.Lock()
 
 
 def new_run_id(prefix: str = "run") -> str:
+    """Return a UTC timestamp-based identifier using ``prefix``."""
+
     return f"{prefix}_{datetime.now(tz=timezone.utc).strftime('%Y%m%dT%H%M%SZ')}"
 
 
 def _repo_root() -> Path:
-    # python/wrapper_v1/core.py -> repo root is two levels up.
+    """Return the repository root containing the Python and C++ sources."""
+
     return Path(__file__).resolve().parents[2]
 
 
 def _native_search_paths() -> list[Path]:
+    """Return local CMake build directories that may contain ``fracessa_core``."""
+
     root = _repo_root()
     build = root / "cpp" / "build"
     return [
@@ -32,6 +39,18 @@ def _native_search_paths() -> list[Path]:
 
 
 def load_native_module():
+    """Load and cache the ``fracessa_core`` extension module.
+
+    The normal Python import path is tried first, followed by the repository's
+    common CMake build directories.
+
+    Returns:
+        The imported native extension module.
+
+    Raises:
+        ModuleNotFoundError: If ``fracessa_core`` cannot be found.
+    """
+
     global _native_module
     if _native_module is not None:
         return _native_module
@@ -65,41 +84,56 @@ def load_native_module():
         )
 
 
-def native_status_map() -> dict[str, int]:
-    native = load_native_module()
-    return {
-        "OK": int(native.STATUS_OK),
-        "PARSE_ERROR": int(native.STATUS_PARSE_ERROR),
-        "EXEC_ERROR": int(native.STATUS_EXEC_ERROR),
-        "INTERNAL_ERROR": int(native.STATUS_INTERNAL_ERROR),
-    }
+def _matrix_cli_string(matrix: Matrix) -> str:
+    """Return ``matrix`` in the native ``dimension#values`` text format.
 
+    A matrix that already contains ``#`` is returned after trimming surrounding
+    whitespace. Otherwise its dimension is read from ``matrix.metadata``.
 
-def _matrix_cli_string(job: MatrixJob) -> str:
-    text = job.matrix.strip()
+    Raises:
+        ValueError: If a values-only matrix has no dimension metadata.
+        TypeError: If the metadata dimension is not a built-in integer.
+    """
+
+    text = matrix.matrix.strip()
     if "#" in text:
         return text
 
-    if not job.metadata:
+    if not matrix.metadata:
         raise ValueError(
-            "MatrixJob.matrix must be in CLI format 'dimension#values' when metadata is absent"
+            "Matrix.matrix must be in CLI format 'dimension#values' when metadata is absent"
         )
 
-    dimension = job.metadata.get("dimension")
+    dimension = matrix.metadata.get("dimension")
     if dimension is None:
         raise ValueError(
-            "MatrixJob.metadata['dimension'] is required when MatrixJob.matrix has no 'dimension#' prefix"
+            "Matrix.metadata['dimension'] is required when Matrix.matrix has no 'dimension#' prefix"
         )
     if type(dimension) is not int:
-        raise TypeError("MatrixJob.metadata['dimension'] must be an int")
+        raise TypeError("Matrix.metadata['dimension'] must be an int")
 
     return f"{dimension}#{text}"
 
 
-def compute_job(job: MatrixJob, config: RunConfig, run_id: str) -> dict:
+def compute_matrix(matrix: Matrix, config: RunConfig, run_id: str) -> dict:
+    """Compute one matrix with the native extension and normalize its result.
+
+    Candidate rows are augmented with ``run_id`` and ``matrix_id``. The returned
+    dictionary is the canonical result shape consumed by every file sink.
+
+    Args:
+        matrix: Validated matrix input.
+        config: Native analysis options.
+        run_id: Identifier attached to the result and candidate rows.
+
+    Returns:
+        A flat result dictionary containing status, timing, counts, candidates,
+        and the input metadata.
+    """
+
     native = load_native_module()
-    matrix_cli = _matrix_cli_string(job)
-    matrix_id = job.matrix_id
+    matrix_cli = _matrix_cli_string(matrix)
+    matrix_id = matrix.matrix_id
 
     native_out = native.compute_matrix(
         matrix=matrix_cli,
@@ -124,5 +158,5 @@ def compute_job(job: MatrixJob, config: RunConfig, run_id: str) -> dict:
         "candidate_count": len(candidates),
         "error_message": native_out["error_message"],
         "candidates": candidates,
-        "metadata": job.metadata,
+        "metadata": matrix.metadata,
     }

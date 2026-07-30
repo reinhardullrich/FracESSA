@@ -5,10 +5,10 @@ import unittest
 from pathlib import Path
 from unittest import mock
 
-from wrapper_v1 import MatrixJob, run_many_to_sink
-from wrapper_v1.sinks import _JsonArrayWriter, _RowBuffer, create_sink
-from wrapper_v1.sinks_csv import CsvSink
-from wrapper_v1.sinks_json import JsonSink
+from fracessa import Matrix, run
+from fracessa.sinks import _JsonArrayWriter, _RowBuffer, create_sink
+from fracessa.sinks_csv import CsvSink
+from fracessa.sinks_json import JsonSink
 
 
 def _sample_result(matrix_id: int = 3) -> dict:
@@ -93,7 +93,7 @@ class SinkTests(unittest.TestCase):
     def test_parquet_multiplier_stays_nullable_across_batches(self):
         try:
             import pyarrow.parquet as pq
-            from wrapper_v1.sinks_parquet import ParquetSink
+            from fracessa.sinks_parquet import ParquetSink
         except ImportError:
             self.skipTest("pyarrow not installed")
 
@@ -153,7 +153,7 @@ class SinkTests(unittest.TestCase):
                 Path(tmpdir) / "metadata.json",
             ]
             with mock.patch(
-                "wrapper_v1.sinks_json._JsonArrayWriter",
+                "fracessa.sinks_json._JsonArrayWriter",
                 side_effect=fail_second_writer,
             ):
                 with self.assertRaisesRegex(RuntimeError, "forced initialization failure"):
@@ -200,13 +200,13 @@ class SinkTests(unittest.TestCase):
                     sink = create_sink(kind, tmpdir, run_id)
 
                     with mock.patch(
-                        "wrapper_v1.single.compute_job",
+                        "fracessa.single.compute_matrix",
                         side_effect=RuntimeError("forced computation failure"),
                     ):
                         with self.assertRaisesRegex(RuntimeError, "forced computation failure"):
-                            run_many_to_sink(
-                                [MatrixJob(1, "2#0,1,0")],
-                                sink,
+                            run(
+                                [Matrix(1, "2#0,1,0")],
+                                sink=sink,
                                 run_id=run_id,
                             )
 

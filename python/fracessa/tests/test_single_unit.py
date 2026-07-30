@@ -1,8 +1,8 @@
 import unittest
 from unittest import mock
 
-from wrapper_v1 import single
-from wrapper_v1.types import MatrixJob
+from fracessa import single
+from fracessa.types import Matrix
 
 
 class _TestSink:
@@ -45,38 +45,42 @@ def _fake_result(matrix_id: int) -> dict:
 
 
 class SingleUnitTests(unittest.TestCase):
-    def test_run_one(self):
-        job = MatrixJob(matrix_id=5, matrix="2#0,1,0")
-        with mock.patch("wrapper_v1.single.compute_job", return_value=_fake_result(5)):
-            result = single.run_one(job)
+    def test_run_accepts_one_matrix(self):
+        matrix = Matrix(matrix_id=5, matrix="2#0,1,0")
+        with mock.patch("fracessa.single.compute_matrix", return_value=_fake_result(5)):
+            result = single.run(matrix)
 
         self.assertEqual(result["matrix_id"], 5)
 
-    def test_run_many_and_run_many_to_sink(self):
-        jobs = [MatrixJob(matrix_id=1, matrix="2#0,1,0"), MatrixJob(matrix_id=2, matrix="2#3,3/2,4")]
+    def test_run_accepts_many_matrices_and_a_sink(self):
+        matrices = [Matrix(matrix_id=1, matrix="2#0,1,0"), Matrix(matrix_id=2, matrix="2#3,3/2,4")]
+        run_ids = []
 
-        def _compute(job, config, run_id):
-            return _fake_result(job.matrix_id)
+        def _compute(matrix, config, run_id):
+            run_ids.append(run_id)
+            return _fake_result(matrix.matrix_id)
 
-        with mock.patch("wrapper_v1.single.compute_job", side_effect=_compute):
-            results = list(single.run_many(jobs))
+        with mock.patch("fracessa.single.compute_matrix", side_effect=_compute):
+            results = list(single.run(matrices, run_id="shared"))
 
         self.assertEqual([result["matrix_id"] for result in results], [1, 2])
+        self.assertEqual(run_ids, ["shared", "shared"])
 
         sink = _TestSink()
-        with mock.patch("wrapper_v1.single.compute_job", side_effect=_compute):
-            written = single.run_many_to_sink(jobs, sink)
+        run_ids.clear()
+        with mock.patch("fracessa.single.compute_matrix", side_effect=_compute):
+            written = single.run(matrices, sink=sink)
 
         self.assertEqual(written, 2)
         self.assertEqual(sink.written, 2)
         self.assertTrue(sink.closed)
 
-    def test_run_many_to_sink_preserves_write_error_when_cleanup_fails(self):
+    def test_run_with_sink_preserves_write_error_when_cleanup_fails(self):
         sink = _FailingSink()
-        job = MatrixJob(matrix_id=1, matrix="2#0,1,0")
+        matrix = Matrix(matrix_id=1, matrix="2#0,1,0")
 
-        with mock.patch("wrapper_v1.single.compute_job", return_value=_fake_result(1)):
+        with mock.patch("fracessa.single.compute_matrix", return_value=_fake_result(1)):
             with self.assertRaisesRegex(RuntimeError, "write failure"):
-                single.run_many_to_sink([job], sink)
+                single.run(matrix, sink=sink)
 
         self.assertTrue(sink.close_called)

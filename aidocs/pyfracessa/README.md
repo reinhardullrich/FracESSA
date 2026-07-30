@@ -1,4 +1,4 @@
-# Python Wrapper
+# PyFracESSA
 
 The maintained Python API calls the native `fracessa_core` pybind module
 in-process.
@@ -15,20 +15,34 @@ From repository root:
 PYTHONPATH=python python3 your_script.py
 ```
 
-`load_native_module()` searches the normal Python import path and
+The internal native loader searches the normal Python import path and
 `cpp/build/{,Release,RelWithDebInfo,Debug}`.
+
+## Generated API Documentation
+
+Every production module, class, function, and method has a standard Python
+docstring. The built-in `pydoc`, the lightweight `pdoc` generator, and Sphinx
+`autodoc` can all read them. To inspect the installed public API without adding
+a documentation dependency:
+
+```bash
+PYTHONPATH=python python3 -m pydoc fracessa
+```
+
+Use `pdoc` for a small standalone HTML API site or Sphinx when the API reference
+must be part of a larger authored manual.
 
 ## Core Types
 
 ```text
-MatrixJob(matrix_id: int, matrix: str, metadata: dict | None = None)
+Matrix(matrix_id: int, matrix: str, metadata: dict | None = None)
 RunConfig(exact=False, full_support=False, include_candidates=False,
           enable_logging=False)
-MPConfig(workers: int, prefetch_per_worker=128, queue_maxsize=4096,
+MPConfig(workers=<available CPUs>, prefetch_per_worker=128, queue_maxsize=4096,
          start_method="spawn")
 ```
 
-`MatrixJob` validates its public contract immediately: `matrix_id` must be a
+`Matrix` validates its public contract immediately: `matrix_id` must be a
 built-in Python integer in the signed 64-bit range (booleans are rejected),
 `matrix` must be a string, and `metadata` must be a dictionary or `None`.
 
@@ -53,6 +67,46 @@ acceptable. Matrix input always uses the validating native parser.
 `elapsed_ns` is always the native analyzer duration measured with a monotonic
 clock. There is deliberately no computation timeout.
 
+## Timing Database
+
+The repository timing tool runs sequentially on one selected Linux CPU and
+stores native analyzer durations in the existing test-data database. It does
+not call `run_multiprocessing`.
+
+One invocation measures one build. The generated session is printed; pass that
+same session to later invocations to group a moving baseline and temporary
+build without loading two `fracessa_core` modules into one interpreter:
+
+```bash
+PYTHONPATH=python python3 -m fracessa.timing run \
+  --backend pybind --module-dir cpp/build \
+  --build-label main --source-ref main --revision "$(git rev-parse HEAD)" \
+  --mode unsafe --mode exact --cpu 2 --comment "before candidate change"
+
+PYTHONPATH=python python3 -m fracessa.timing report latest --baseline main
+```
+
+`source_ref` records a moving name such as `main`; `revision` records the exact
+commit measured, and the module or executable SHA-256 is captured automatically.
+The default selection is the `small` matrix class. Each matrix/mode starts with
+one pilot. A pilot taking at least the one-second target is stored directly;
+faster cases use it as warmup, divide the target by one measured call's wall
+time, and store the average native duration across that measured batch. Use
+repeated `--matrix-id`, `--size-class`, and `--target-seconds` to change the
+selection or calibration duration.
+
+Current Pybind builds supply nanoseconds directly. For a legacy CLI whose
+no-flag mode is unsafe and whose second output line is seconds, use
+`--unsafe-default --cli-unit s`. A safe-by-default CLI instead uses
+`--safe-default`. Old builds have only `unsafe` and `exact` rows. Pybind safe
+mode is accepted only when that extension exposes the native `unsafe` argument.
+Reports include the iteration count and actual measured wall duration, compare
+observed ESS counts with the expected database count, and retain mismatching
+unsafe timings visibly. Each result row also includes the matrix dimension,
+circular-symmetry flag, and the paper-style lower bound
+`gamma_lower_bound = expected_ess ** (1 / dimension)`. The bound is derived from
+the canonical expected count and is not stored redundantly in SQLite.
+
 Status codes:
 
 | Code | Name |
@@ -66,27 +120,28 @@ Every rejected safe-parser input returns `PARSE_ERROR` with the parser's
 detailed diagnostic in `error_message`. The parser throws
 `std::invalid_argument`; Pybind catches it and does not write to `stderr`.
 
-## Sequential API
+## Execution API
 
 ```python
-from wrapper_v1 import MatrixJob, RunConfig, run_one
+from fracessa import Matrix, RunConfig, run
 
-job = MatrixJob(3, "3#4,13/2,1/2,5,11/2,3")
-result = run_one(job, RunConfig(include_candidates=True), run_id="example")
+matrix = Matrix(3, "3#4,13/2,1/2,5,11/2,3")
+result = run(matrix, RunConfig(include_candidates=True), run_id="example")
 print(result["ess_count"])
 ```
 
-Native and adapter helpers:
+`compute_matrix(matrix, config, run_id) -> dict` is the sole public low-level
+wrapper call into the native module. Native-module loading is internal.
 
-- `load_native_module()` loads `fracessa_core`.
-- `compute_job(job, config, run_id) -> dict` calls the native module.
-- `native_status_map()` returns native status constants.
+There are two public execution functions:
 
-Public sequential functions:
+- `run(matrices, config=None, run_id=None, sink=None)`
+- `run_multiprocessing(matrices, config=None, run_id=None, sink=None,
+  mp_config=None)`
 
-- `run_one(job, config=None, run_id=None) -> dict`
-- `run_many(jobs, config=None, run_id=None) -> Iterator[dict]`
-- `run_many_to_sink(jobs, sink, config=None, run_id=None) -> int`
+Both accept either one `Matrix` or an iterable of matrices. Without a sink,
+one matrix returns one dictionary and an iterable returns an iterator. With a
+sink, execution is eager and returns the number of matrices written.
 
 ## Multiprocessing Batch API
 
@@ -94,53 +149,53 @@ Use the batch iterator for lists, generators, and large streams. One worker
 computes one matrix at a time; parallelism is across matrices.
 
 ```python
-from wrapper_v1 import (
+from fracessa import (
     MPConfig,
-    MatrixJob,
+    Matrix,
     RunConfig,
-    run_jobs_mp,
+    run_multiprocessing,
 )
 
-jobs = [
-    MatrixJob(1, "2#0,1,0"),
-    MatrixJob(2, "3#4,13/2,1/2,5,11/2,3"),
+matrices = [
+    Matrix(1, "2#0,1,0"),
+    Matrix(2, "3#4,13/2,1/2,5,11/2,3"),
 ]
 
 if __name__ == "__main__":
-    for result in run_jobs_mp(
-        jobs,
-        RunConfig(include_candidates=False),
-        MPConfig(workers=8),
+    for result in run_multiprocessing(
+        matrices,
+        config=RunConfig(include_candidates=False),
+        mp_config=MPConfig(workers=8),
     ):
         print(result["matrix_id"], result["ess_count"])
 ```
 
-Public batch functions:
-
-- `run_jobs_mp(jobs, run_config, mp_config, run_id=None)`
-- `run_jobs_mp_to_sink(jobs, sink, run_config, mp_config, run_id=None)`
+When omitted, `mp_config` uses all CPUs available to the Python process. Its
+other fields control the pending-matrix window, result-queue capacity, and
+process start method. `RunConfig` controls matrix analysis; `MPConfig` controls
+only process scheduling.
 
 Submission is bounded to
-`min(queue_maxsize, workers * prefetch_per_worker)` outstanding jobs. The
-parent puts one matrix at a time onto one shared job queue, every worker takes
+`min(queue_maxsize, workers * prefetch_per_worker)` outstanding matrices. The
+parent puts one matrix at a time onto one shared matrix queue, every worker takes
 from that queue, and all workers return dictionaries through one shared result
 queue. Results are yielded as workers finish; there is no ordered mode or IPC
-batching. Jobs are serialized before submission, worker exits are detected
+batching. Matrices are serialized before submission, worker exits are detected
 while waiting, and closing the iterator early cancels its workers. The queue
-runner is internal; `run_jobs_mp()` is the public generated-input API.
+runner is internal.
 
 Native logging is sequential-only. Passing `RunConfig(enable_logging=True)` to
-`run_jobs_mp()` or `run_jobs_mp_to_sink()` raises `ValueError` before any worker
-is created because independent processes cannot safely rotate the shared native
-log file. Direct logging-enabled calls from Python threads are serialized by the
-native binding; non-logging calls remain concurrent.
+`run_multiprocessing()` raises `ValueError` before any worker is created because
+independent processes cannot safely rotate the shared native log file. Direct
+logging-enabled calls from Python threads are serialized by the native binding;
+non-logging calls remain concurrent.
 
 The `if __name__ == "__main__":` guard is required in scripts when using the
 default `spawn` start method.
 
 ## Input Loader
 
-- `load_jobs_from_json(path, ...)` accepts either a top-level list or
+- `load_matrices_from_json(path, ...)` accepts either a top-level list or
   `{"matrices": [...]}`.
 
 Top-level objects must contain the configured matrix key, its value must be a
@@ -183,20 +238,21 @@ result or candidate rows before writing a row group and flushes the final
 partial group during `close()`. Closing a sink attempts every underlying
 finalization and propagates the first failure.
 
-For large runs, consume the result iterator continuously or use a sink so
-results do not accumulate in memory. Disable candidates when they are not
-needed; candidate payloads can dominate output volume.
+For large runs, consume the result iterator continuously or pass `sink=` to one
+of the two execution functions so results do not accumulate in memory. Disable
+candidates when they are not needed; candidate payloads can dominate output
+volume.
 
 ## Tests
 
 ```bash
 PYTHONPATH=python python3 -m unittest discover \
-  -s python/wrapper_v1/tests -p 'test_*.py'
+  -s python/fracessa/tests -p 'test_*.py'
 ```
 
 The suite includes unit tests plus mandatory native single-process,
 multithreaded-logging, and multiprocessing integration tests. Build
 `fracessa_core` first with `./build.sh`; a missing module is a test failure.
-GitHub runs the build and suite on ordinary pushes, pull requests, and release
-tags. It installs PyArrow first, making the Parquet sink tests mandatory on
-Ubuntu, macOS, and Windows; only release tags package and publish binaries.
+GitHub runs Linux and macOS builds on pull requests and `main`. Windows is
+temporarily restricted to release tags until its dependency installation is
+fast enough for normal CI. Release tags package and publish binaries.

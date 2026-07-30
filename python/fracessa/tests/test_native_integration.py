@@ -1,18 +1,17 @@
 from concurrent.futures import ThreadPoolExecutor
-import multiprocessing as mp
 import os
 from pathlib import Path
 import tempfile
 import unittest
 
-from wrapper_v1 import (
+from fracessa import (
     MPConfig,
-    MatrixJob,
+    Matrix,
     RunConfig,
-    load_native_module,
-    run_jobs_mp,
-    run_one,
+    run,
+    run_multiprocessing,
 )
+from fracessa.core import load_native_module
 
 
 class NativeIntegrationTests(unittest.TestCase):
@@ -20,10 +19,10 @@ class NativeIntegrationTests(unittest.TestCase):
     def setUpClass(cls):
         load_native_module()
 
-    def test_run_one_native(self):
+    def test_run_native(self):
         matrix_id = (1 << 63) - 1
-        result = run_one(
-            MatrixJob(matrix_id=matrix_id, matrix="2#0,1,0"),
+        result = run(
+            Matrix(matrix_id=matrix_id, matrix="2#0,1,0"),
             RunConfig(include_candidates=True),
             run_id="native_single",
         )
@@ -74,8 +73,8 @@ class NativeIntegrationTests(unittest.TestCase):
         )
 
     def test_circular_native_returns_one_weighted_representative(self):
-        result = run_one(
-            MatrixJob(matrix_id=2, matrix="5#1,3"),
+        result = run(
+            Matrix(matrix_id=2, matrix="5#1,3"),
             RunConfig(include_candidates=True, exact=True),
             run_id="native_circular",
         )
@@ -95,24 +94,23 @@ class NativeIntegrationTests(unittest.TestCase):
 
         for matrix, error_message in invalid_matrices.items():
             with self.subTest(matrix=matrix):
-                result = run_one(MatrixJob(matrix_id=1, matrix=matrix), run_id="invalid")
+                result = run(Matrix(matrix_id=1, matrix=matrix), run_id="invalid")
                 self.assertFalse(result["success"])
                 self.assertEqual(result["status"], 1)
                 self.assertEqual(result["error_message"], error_message)
 
-    def test_run_jobs_mp_native(self):
-        start_method = "fork" if "fork" in mp.get_all_start_methods() else "spawn"
-        jobs = [
-            MatrixJob(matrix_id=1, matrix="2#0,1,0"),
-            MatrixJob(matrix_id=2, matrix="2#3,3/2,4"),
-            MatrixJob(matrix_id=3, matrix="3#4,13/2,1/2,5,11/2,3"),
+    def test_run_multiprocessing_native(self):
+        matrices = [
+            Matrix(matrix_id=1, matrix="2#0,1,0"),
+            Matrix(matrix_id=2, matrix="2#3,3/2,4"),
+            Matrix(matrix_id=3, matrix="3#4,13/2,1/2,5,11/2,3"),
         ]
 
         results = list(
-            run_jobs_mp(
-                jobs,
-                run_config=RunConfig(include_candidates=False),
-                mp_config=MPConfig(workers=2, start_method=start_method),
+            run_multiprocessing(
+                matrices,
+                config=RunConfig(include_candidates=False),
+                mp_config=MPConfig(workers=2),
                 run_id="native_mp",
             )
         )

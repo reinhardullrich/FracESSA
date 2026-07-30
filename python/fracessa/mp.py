@@ -1,3 +1,5 @@
+"""Run PyFracESSA matrices in processes with bounded shared queues."""
+
 from __future__ import annotations
 
 from collections.abc import Iterable, Iterator
@@ -7,20 +9,22 @@ import pickle
 from queue import Empty
 import time
 
-from .core import compute_job, new_run_id
+from .core import compute_matrix, new_run_id
 from .sinks import _consume_to_sink
-from .types import MPConfig, MatrixJob, RunConfig, StatusCode
+from .types import MPConfig, Matrix, RunConfig, StatusCode
 
 _SENTINEL = None
 
 
-def _safe_compute(job: MatrixJob, config: RunConfig, run_id: str) -> dict:
+def _safe_compute(matrix: Matrix, config: RunConfig, run_id: str) -> dict:
+    """Compute a matrix or convert an unexpected worker error to a result row."""
+
     try:
-        return compute_job(job=job, config=config, run_id=run_id)
+        return compute_matrix(matrix=matrix, config=config, run_id=run_id)
     except Exception as exc:  # defensive: worker must never crash the pool protocol
         return {
             "run_id": run_id,
-            "matrix_id": job.matrix_id if type(job.matrix_id) is int else -1,
+            "matrix_id": matrix.matrix_id if type(matrix.matrix_id) is int else -1,
             "status": int(StatusCode.INTERNAL_ERROR),
             "success": False,
             "ess_count": 0,
@@ -28,7 +32,7 @@ def _safe_compute(job: MatrixJob, config: RunConfig, run_id: str) -> dict:
             "candidate_count": 0,
             "error_message": f"Worker exception: {exc}",
             "candidates": [],
-            "metadata": job.metadata,
+            "metadata": matrix.metadata,
         }
 
 
@@ -38,21 +42,22 @@ def _queue_worker(
     config: RunConfig,
     run_id: str,
 ):
+    """Consume serialized matrices and publish serialized result dictionaries."""
+
     while True:
         payload = input_queue.get()
         if payload is _SENTINEL:
             return
 
-        job = pickle.loads(payload)
-        result = _safe_compute(job=job, config=config, run_id=run_id)
+        matrix = pickle.loads(payload)
+        result = _safe_compute(matrix=matrix, config=config, run_id=run_id)
         output_queue.put(bytes(ForkingPickler.dumps(result)))
 
 
-def _max_pending_jobs(mp_config: MPConfig) -> int:
-    """
-    Bound submitted-but-not-yielded jobs.
+def _max_pending_matrices(mp_config: MPConfig) -> int:
+    """Return the bound for submitted-but-not-yielded matrices.
 
-    The batch API may process millions of matrices. Submitting all jobs before
+    The batch API may process millions of matrices. Submitting all matrices before
     draining results can deadlock bounded queues, so keep only a small window
     ahead of the consumer.
     """
@@ -61,7 +66,11 @@ def _max_pending_jobs(mp_config: MPConfig) -> int:
 
 
 class _QueueRunner:
+    """Own the shared queues and worker processes for one wrapper run."""
+
     def __init__(self, run_config: RunConfig, mp_config: MPConfig, run_id: str | None = None):
+        """Start configured workers and create their shared queues."""
+
         self.run_config = run_config
         self.mp_config = mp_config
         self.run_id = run_id or new_run_id("mp")
@@ -87,14 +96,23 @@ class _QueueRunner:
             self.shutdown(cancel=True)
             raise
 
-    def submit(self, job: MatrixJob) -> None:
+    def submit(self, matrix: Matrix) -> None:
+        """Serialize and enqueue one matrix.
+
+        Raises:
+            RuntimeError: If the input queue has already been closed.
+            Exception: If the matrix or its metadata cannot be serialized.
+        """
+
         if self._input_closed:
             raise RuntimeError("Cannot submit after close_input()")
 
-        payload = bytes(ForkingPickler.dumps(job))
+        payload = bytes(ForkingPickler.dumps(matrix))
         self._input_queue.put(payload)
 
     def close_input(self) -> None:
+        """Send one stop sentinel per worker; repeated calls do nothing."""
+
         if self._input_closed:
             return
 
@@ -103,6 +121,12 @@ class _QueueRunner:
         self._input_closed = True
 
     def get_result(self):
+        """Wait for and deserialize the next completed result.
+
+        Raises:
+            RuntimeError: If workers exit before producing the expected result.
+        """
+
         while True:
             try:
                 return pickle.loads(self._output_queue.get(timeout=0.1))
@@ -115,6 +139,13 @@ class _QueueRunner:
                     raise RuntimeError("All FracESSA workers exited before producing the expected result")
 
     def shutdown(self, *, cancel: bool, join_timeout_s: float = 5.0) -> None:
+        """Stop and join workers, then close both queues.
+
+        Args:
+            cancel: Terminate live workers instead of finishing queued input.
+            join_timeout_s: Total graceful join budget before termination.
+        """
+
         if cancel:
             self._input_queue.cancel_join_thread()
             for proc in self._workers:
@@ -135,36 +166,47 @@ class _QueueRunner:
         self._output_queue.close()
 
 
-def run_jobs_mp(
-    jobs: Iterable[MatrixJob],
-    run_config: RunConfig,
+def _run_matrices_multiprocessing(
+    matrices: Iterable[Matrix],
+    config: RunConfig,
     mp_config: MPConfig,
-    run_id: str | None = None,
+    run_id: str,
 ) -> Iterator[dict]:
-    if run_config.enable_logging:
+    """Yield multiprocessing results in completion order.
+
+    Submission remains bounded by :func:`_max_pending_matrices`. Closing the
+    iterator before completion terminates its workers.
+
+    Raises:
+        ValueError: If native logging is enabled for multiprocessing.
+    """
+
+    if config.enable_logging:
         raise ValueError("RunConfig.enable_logging is not supported with multiprocessing")
 
-    runner = _QueueRunner(run_config=run_config, mp_config=mp_config, run_id=run_id)
+    runner = _QueueRunner(run_config=config, mp_config=mp_config, run_id=run_id)
     completed = False
     try:
-        jobs_iter = iter(jobs)
-        max_pending = _max_pending_jobs(mp_config)
+        matrices_iter = iter(matrices)
+        max_pending = _max_pending_matrices(mp_config)
 
         submitted = 0
         yielded = 0
         input_exhausted = False
 
         def submit_until_window() -> None:
+            """Fill the bounded pending-work window or close exhausted input."""
+
             nonlocal submitted, input_exhausted
             while not input_exhausted and submitted - yielded < max_pending:
                 try:
-                    job = next(jobs_iter)
+                    matrix = next(matrices_iter)
                 except StopIteration:
                     input_exhausted = True
                     runner.close_input()
                     return
 
-                runner.submit(job)
+                runner.submit(matrix)
                 submitted += 1
 
         submit_until_window()
@@ -184,19 +226,49 @@ def run_jobs_mp(
         runner.shutdown(cancel=not completed)
 
 
-def run_jobs_mp_to_sink(
-    jobs: Iterable[MatrixJob],
-    sink,
-    run_config: RunConfig,
-    mp_config: MPConfig,
+def run_multiprocessing(
+    matrices: Matrix | Iterable[Matrix],
+    config: RunConfig | None = None,
     run_id: str | None = None,
-) -> int:
-    return _consume_to_sink(
-        run_jobs_mp(
-            jobs=jobs,
-            run_config=run_config,
-            mp_config=mp_config,
-            run_id=run_id,
-        ),
-        sink,
+    sink=None,
+    mp_config: MPConfig | None = None,
+) -> dict | Iterator[dict] | int:
+    """Run matrix analysis across worker processes.
+
+    A single :class:`Matrix` blocks and returns one result dictionary. An
+    iterable returns a lazy completion-order iterator unless ``sink`` is
+    provided; with a sink, all results are written eagerly and the number
+    written is returned.
+
+    Args:
+        matrices: One matrix or an iterable of matrices.
+        config: Analysis options; defaults to :class:`RunConfig`.
+        run_id: Output identifier; a timestamp-based ID is generated when omitted.
+        sink: Optional object providing ``write_result()``, ``close()``, and
+            optionally ``abort()``.
+        mp_config: Process scheduling options; defaults to :class:`MPConfig`.
+
+    Returns:
+        One result dictionary, a lazy result iterator, or a written-result count.
+
+    Raises:
+        ValueError: If ``config.enable_logging`` is true.
+    """
+
+    cfg = config if config is not None else RunConfig()
+    mp_cfg = mp_config if mp_config is not None else MPConfig()
+    rid = run_id or new_run_id("mp")
+    is_single = isinstance(matrices, Matrix)
+    source = (matrices,) if is_single else matrices
+    results = _run_matrices_multiprocessing(
+        matrices=source,
+        config=cfg,
+        mp_config=mp_cfg,
+        run_id=rid,
     )
+
+    if sink is not None:
+        return _consume_to_sink(results, sink)
+    if is_single:
+        return list(results)[0]
+    return results

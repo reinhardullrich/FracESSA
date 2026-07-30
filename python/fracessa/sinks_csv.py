@@ -1,3 +1,5 @@
+"""Stream PyFracESSA results, candidates, and metadata to CSV."""
+
 from __future__ import annotations
 
 import csv
@@ -14,11 +16,10 @@ from .sinks import (
 
 
 class CsvSink:
-    """
-    Writes two CSV files and one metadata JSON file:
-    - summary rows
-    - candidate rows
-    - per-matrix metadata
+    """Write summary and candidate CSV files plus a metadata JSON sidecar.
+
+    Files are opened exclusively. A successful :meth:`close` preserves the
+    output triplet; :meth:`abort` closes and removes all three files.
     """
 
     def __init__(
@@ -27,6 +28,18 @@ class CsvSink:
         candidates_path: str | Path,
         metadata_path: str | Path | None = None,
     ):
+        """Open a new transactional CSV output triplet.
+
+        Args:
+            summary_path: Destination for one summary row per matrix.
+            candidates_path: Destination for zero or more candidate rows per matrix.
+            metadata_path: Optional JSON sidecar path. By default it is derived
+                from ``summary_path``.
+
+        Raises:
+            FileExistsError: If any destination already exists.
+        """
+
         with _open_output_triplet(
             summary_path,
             candidates_path,
@@ -52,6 +65,8 @@ class CsvSink:
             self._candidates_writer.writeheader()
 
     def write_result(self, result: dict) -> None:
+        """Write one canonical result and all of its candidate and metadata rows."""
+
         if self._state != "active":
             raise RuntimeError("Cannot write to a closed or aborted CSV sink")
         with _abort_on_error(self):
@@ -67,6 +82,8 @@ class CsvSink:
             self._metadata_writer.write_result(result)
 
     def close(self) -> None:
+        """Finalize and preserve every output; repeated calls do nothing."""
+
         if self._state != "active":
             return
         with _abort_on_error(self):
@@ -75,6 +92,8 @@ class CsvSink:
         self._rollback.pop_all()
 
     def abort(self) -> None:
+        """Close and remove incomplete outputs; repeated calls are safe."""
+
         if self._state == "closed":
             return
         self._state = "aborted"
