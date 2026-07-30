@@ -5,7 +5,7 @@ import unittest
 from pathlib import Path
 from unittest import mock
 
-from wrapper_v1 import MatrixJob, run_many_to_sink
+from wrapper_v1 import Matrix, run
 from wrapper_v1.sinks import _JsonArrayWriter, _RowBuffer, create_sink
 from wrapper_v1.sinks_csv import CsvSink
 from wrapper_v1.sinks_json import JsonSink
@@ -200,13 +200,13 @@ class SinkTests(unittest.TestCase):
                     sink = create_sink(kind, tmpdir, run_id)
 
                     with mock.patch(
-                        "wrapper_v1.single.compute_job",
+                        "wrapper_v1.single.compute_matrix",
                         side_effect=RuntimeError("forced computation failure"),
                     ):
                         with self.assertRaisesRegex(RuntimeError, "forced computation failure"):
-                            run_many_to_sink(
-                                [MatrixJob(1, "2#0,1,0")],
-                                sink,
+                            run(
+                                [Matrix(1, "2#0,1,0")],
+                                sink=sink,
                                 run_id=run_id,
                             )
 

@@ -7,20 +7,20 @@ import pickle
 from queue import Empty
 import time
 
-from .core import compute_job, new_run_id
+from .core import compute_matrix, new_run_id
 from .sinks import _consume_to_sink
-from .types import MPConfig, MatrixJob, RunConfig, StatusCode
+from .types import MPConfig, Matrix, RunConfig, StatusCode
 
 _SENTINEL = None
 
 
-def _safe_compute(job: MatrixJob, config: RunConfig, run_id: str) -> dict:
+def _safe_compute(matrix: Matrix, config: RunConfig, run_id: str) -> dict:
     try:
-        return compute_job(job=job, config=config, run_id=run_id)
+        return compute_matrix(matrix=matrix, config=config, run_id=run_id)
     except Exception as exc:  # defensive: worker must never crash the pool protocol
         return {
             "run_id": run_id,
-            "matrix_id": job.matrix_id if type(job.matrix_id) is int else -1,
+            "matrix_id": matrix.matrix_id if type(matrix.matrix_id) is int else -1,
             "status": int(StatusCode.INTERNAL_ERROR),
             "success": False,
             "ess_count": 0,
@@ -28,7 +28,7 @@ def _safe_compute(job: MatrixJob, config: RunConfig, run_id: str) -> dict:
             "candidate_count": 0,
             "error_message": f"Worker exception: {exc}",
             "candidates": [],
-            "metadata": job.metadata,
+            "metadata": matrix.metadata,
         }
 
 
@@ -43,16 +43,16 @@ def _queue_worker(
         if payload is _SENTINEL:
             return
 
-        job = pickle.loads(payload)
-        result = _safe_compute(job=job, config=config, run_id=run_id)
+        matrix = pickle.loads(payload)
+        result = _safe_compute(matrix=matrix, config=config, run_id=run_id)
         output_queue.put(bytes(ForkingPickler.dumps(result)))
 
 
-def _max_pending_jobs(mp_config: MPConfig) -> int:
+def _max_pending_matrices(mp_config: MPConfig) -> int:
     """
-    Bound submitted-but-not-yielded jobs.
+    Bound submitted-but-not-yielded matrices.
 
-    The batch API may process millions of matrices. Submitting all jobs before
+    The batch API may process millions of matrices. Submitting all matrices before
     draining results can deadlock bounded queues, so keep only a small window
     ahead of the consumer.
     """
@@ -87,11 +87,11 @@ class _QueueRunner:
             self.shutdown(cancel=True)
             raise
 
-    def submit(self, job: MatrixJob) -> None:
+    def submit(self, matrix: Matrix) -> None:
         if self._input_closed:
             raise RuntimeError("Cannot submit after close_input()")
 
-        payload = bytes(ForkingPickler.dumps(job))
+        payload = bytes(ForkingPickler.dumps(matrix))
         self._input_queue.put(payload)
 
     def close_input(self) -> None:
@@ -135,20 +135,20 @@ class _QueueRunner:
         self._output_queue.close()
 
 
-def run_jobs_mp(
-    jobs: Iterable[MatrixJob],
-    run_config: RunConfig,
+def _run_matrices_multiprocessing(
+    matrices: Iterable[Matrix],
+    config: RunConfig,
     mp_config: MPConfig,
-    run_id: str | None = None,
+    run_id: str,
 ) -> Iterator[dict]:
-    if run_config.enable_logging:
+    if config.enable_logging:
         raise ValueError("RunConfig.enable_logging is not supported with multiprocessing")
 
-    runner = _QueueRunner(run_config=run_config, mp_config=mp_config, run_id=run_id)
+    runner = _QueueRunner(run_config=config, mp_config=mp_config, run_id=run_id)
     completed = False
     try:
-        jobs_iter = iter(jobs)
-        max_pending = _max_pending_jobs(mp_config)
+        matrices_iter = iter(matrices)
+        max_pending = _max_pending_matrices(mp_config)
 
         submitted = 0
         yielded = 0
@@ -158,13 +158,13 @@ def run_jobs_mp(
             nonlocal submitted, input_exhausted
             while not input_exhausted and submitted - yielded < max_pending:
                 try:
-                    job = next(jobs_iter)
+                    matrix = next(matrices_iter)
                 except StopIteration:
                     input_exhausted = True
                     runner.close_input()
                     return
 
-                runner.submit(job)
+                runner.submit(matrix)
                 submitted += 1
 
         submit_until_window()
@@ -184,19 +184,27 @@ def run_jobs_mp(
         runner.shutdown(cancel=not completed)
 
 
-def run_jobs_mp_to_sink(
-    jobs: Iterable[MatrixJob],
-    sink,
-    run_config: RunConfig,
-    mp_config: MPConfig,
+def run_multiprocessing(
+    matrices: Matrix | Iterable[Matrix],
+    config: RunConfig | None = None,
     run_id: str | None = None,
-) -> int:
-    return _consume_to_sink(
-        run_jobs_mp(
-            jobs=jobs,
-            run_config=run_config,
-            mp_config=mp_config,
-            run_id=run_id,
-        ),
-        sink,
+    sink=None,
+    mp_config: MPConfig | None = None,
+) -> dict | Iterator[dict] | int:
+    cfg = config if config is not None else RunConfig()
+    mp_cfg = mp_config if mp_config is not None else MPConfig()
+    rid = run_id or new_run_id("mp")
+    is_single = isinstance(matrices, Matrix)
+    source = (matrices,) if is_single else matrices
+    results = _run_matrices_multiprocessing(
+        matrices=source,
+        config=cfg,
+        mp_config=mp_cfg,
+        run_id=rid,
     )
+
+    if sink is not None:
+        return _consume_to_sink(results, sink)
+    if is_single:
+        return list(results)[0]
+    return results

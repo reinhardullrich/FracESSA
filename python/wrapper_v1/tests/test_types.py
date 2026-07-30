@@ -1,6 +1,8 @@
+import inspect
 import unittest
 
-from wrapper_v1.types import MPConfig, MatrixJob, RunConfig, StatusCode
+import wrapper_v1
+from wrapper_v1.types import MPConfig, Matrix, RunConfig, StatusCode
 
 
 class TypesTests(unittest.TestCase):
@@ -15,6 +17,7 @@ class TypesTests(unittest.TestCase):
         self.assertEqual(int(StatusCode.INTERNAL_ERROR), 255)
 
     def test_mp_config_validates_values(self):
+        self.assertGreaterEqual(MPConfig().workers, 1)
         with self.assertRaises(ValueError):
             MPConfig(workers=0)
         with self.assertRaises(ValueError):
@@ -22,21 +25,52 @@ class TypesTests(unittest.TestCase):
         with self.assertRaises(ValueError):
             MPConfig(workers=1, queue_maxsize=0)
 
-    def test_matrix_job_validates_its_public_contract(self):
+    def test_matrix_validates_its_public_contract(self):
         for matrix_id in (-(1 << 63), (1 << 63) - 1):
-            self.assertEqual(MatrixJob(matrix_id, "1#0").matrix_id, matrix_id)
+            self.assertEqual(Matrix(matrix_id, "1#0").matrix_id, matrix_id)
 
         for matrix_id in (True, 1.0, "1"):
             with self.subTest(matrix_id=matrix_id):
                 with self.assertRaisesRegex(TypeError, "matrix_id must be an int"):
-                    MatrixJob(matrix_id, "1#0")
+                    Matrix(matrix_id, "1#0")
 
         for matrix_id in (-(1 << 63) - 1, 1 << 63):
             with self.subTest(matrix_id=matrix_id):
                 with self.assertRaisesRegex(ValueError, "signed 64-bit"):
-                    MatrixJob(matrix_id, "1#0")
+                    Matrix(matrix_id, "1#0")
 
         with self.assertRaisesRegex(TypeError, "matrix must be a str"):
-            MatrixJob(1, 0)
+            Matrix(1, 0)
         with self.assertRaisesRegex(TypeError, "metadata must be a dict or None"):
-            MatrixJob(1, "1#0", [])
+            Matrix(1, "1#0", [])
+
+    def test_public_execution_api(self):
+        self.assertEqual(
+            list(inspect.signature(wrapper_v1.run).parameters),
+            ["matrices", "config", "run_id", "sink"],
+        )
+        self.assertEqual(
+            list(inspect.signature(wrapper_v1.run_multiprocessing).parameters),
+            ["matrices", "config", "run_id", "sink", "mp_config"],
+        )
+        self.assertIsNone(
+            inspect.signature(wrapper_v1.run_multiprocessing).parameters["mp_config"].default
+        )
+        self.assertEqual(
+            wrapper_v1.__all__,
+            [
+                "StatusCode",
+                "Matrix",
+                "RunConfig",
+                "MPConfig",
+                "new_run_id",
+                "compute_matrix",
+                "run",
+                "run_multiprocessing",
+                "load_matrices_from_json",
+                "create_sink",
+                "CsvSink",
+                "JsonSink",
+                "ParquetSink",
+            ],
+        )

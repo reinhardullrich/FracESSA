@@ -240,7 +240,7 @@ as integer nanoseconds in `elapsed_ns`. The CLI `--timing` output uses the same
 clock and unit. There is no wrapper timing-suppression option.
 
 Matrix IDs are signed 64-bit values at the CLI, analyzer, Pybind, and file-sink
-boundaries. `MatrixJob` accepts only built-in Python integers in that range and
+boundaries. `Matrix` accepts only built-in Python integers in that range and
 rejects booleans and coercible float/string values before native execution.
 
 The binding releases the GIL during native execution. Logging-enabled calls are
@@ -276,27 +276,36 @@ No production wrapper or matrix workflow imposes a per-matrix computation
 timeout. A matrix may legitimately run for hours. Worker-liveness handling must
 not be implemented as a computation timeout.
 
-`run_jobs_mp` is the only public multiprocessing runner. Its private helper
-uses one shared job queue and one shared result queue, yields completion order,
-bounds pending jobs to `min(queue_maxsize, workers * prefetch_per_worker)`,
-serializes each job before counting it, detects dead workers while waiting, and
-cancels workers when iteration stops early. It does not batch multiple jobs
-into one queue item. Native logging is rejected before multiprocessing workers
-are created; it remains available in sequential wrapper execution.
+`run` and `run_multiprocessing` are the only public execution functions. Both
+accept one `Matrix` or an iterable and accept an optional sink. One matrix
+returns one dictionary, an iterable returns a result iterator, and passing a
+sink eagerly writes the results and returns the matrix count. `compute_matrix`
+is the public low-level native adapter. `run_multiprocessing` adds only a final
+optional `MPConfig`; its default uses the CPUs available to the Python process.
+
+The private multiprocessing helper uses one shared matrix queue and one shared
+result queue, yields completion order, bounds pending matrices to
+`min(queue_maxsize, workers * prefetch_per_worker)`, serializes each matrix
+before counting it, detects dead workers while waiting, and cancels workers
+when iteration stops early. It does not batch multiple matrices into one queue
+item. Native logging is rejected before multiprocessing workers are created;
+it remains available in sequential wrapper execution.
 
 New API work belongs in `python/wrapper_v1/` and `fracessa_core`.
 
 The generic JSON loader accepts a top-level row list or an object containing
 the configured matrix key. It requires a list of object rows and rejects a
-missing key or malformed row container instead of silently returning no jobs.
+missing key or malformed row container instead of silently returning no matrices.
 It validates integer/string fields without lossy coercion; values-only matrices
 require a built-in integer dimension.
 
 ## Release Workflow
 
-`.github/workflows/release.yml` builds and checks Ubuntu, macOS, and Windows
-with Python 3.14 for ordinary pushes, pull requests, and pushed `v*` tags.
-Native integration tests require the built module, and every matrix job installs
+`.github/workflows/release.yml` builds and checks Ubuntu and macOS with Python
+3.14 for pull requests and `main`; feature branches are not built a second time
+by the push trigger. Windows is temporarily restricted to pushed `v*` tags
+until its dependency installation is fast enough for normal CI. Native
+integration tests require the built module, and each platform build installs
 PyArrow before the wrapper suite, so binding and Parquet coverage cannot turn
 into successful skips. Packaging, artifact upload, write permission, and GitHub
 release publication run only for `v*` tags.

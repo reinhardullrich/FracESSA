@@ -2,35 +2,36 @@ from __future__ import annotations
 
 from collections.abc import Iterable, Iterator
 
-from .core import compute_job, new_run_id
+from .core import compute_matrix, new_run_id
 from .sinks import _consume_to_sink
-from .types import MatrixJob, RunConfig
+from .types import Matrix, RunConfig
 
 
-def run_one(job: MatrixJob, config: RunConfig | None = None, run_id: str | None = None) -> dict:
-    cfg = config if config is not None else RunConfig()
-    rid = run_id or new_run_id("single")
-    return compute_job(job=job, config=cfg, run_id=rid)
-
-
-def run_many(
-    jobs: Iterable[MatrixJob],
-    config: RunConfig | None = None,
-    run_id: str | None = None,
+def _run_matrices(
+    matrices: Iterable[Matrix],
+    config: RunConfig,
+    run_id: str,
 ) -> Iterator[dict]:
-    cfg = config if config is not None else RunConfig()
-    rid = run_id or new_run_id("single")
-    for job in jobs:
-        yield compute_job(job=job, config=cfg, run_id=rid)
+    for matrix in matrices:
+        yield compute_matrix(matrix=matrix, config=config, run_id=run_id)
 
 
-def run_many_to_sink(
-    jobs: Iterable[MatrixJob],
-    sink,
+def run(
+    matrices: Matrix | Iterable[Matrix],
     config: RunConfig | None = None,
     run_id: str | None = None,
-) -> int:
-    return _consume_to_sink(
-        run_many(jobs=jobs, config=config, run_id=run_id),
-        sink,
-    )
+    sink=None,
+) -> dict | Iterator[dict] | int:
+    cfg = config if config is not None else RunConfig()
+    rid = run_id or new_run_id("run")
+
+    if isinstance(matrices, Matrix):
+        if sink is None:
+            return compute_matrix(matrix=matrices, config=cfg, run_id=rid)
+        results = _run_matrices((matrices,), cfg, rid)
+    else:
+        results = _run_matrices(matrices, cfg, rid)
+
+    if sink is not None:
+        return _consume_to_sink(results, sink)
+    return results

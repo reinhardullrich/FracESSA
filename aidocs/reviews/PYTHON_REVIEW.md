@@ -10,36 +10,31 @@ future tooling must use the canonical SQLite database under `testdata/`.
 Correctness is ranked before speed. This file contains unresolved findings only;
 remove a finding after its fix and regression coverage are complete.
 
-## Simplicity
-
-### P3: `native_status_map()` duplicates the public status enum
-
-`python/wrapper_v1/core.py:68` has no production callers and repeats the same
-four constants already exposed by `StatusCode` and the low-level native module.
-Its only caller is its dedicated unit test.
-
-Required outcome: delete the function, export, documentation, and dedicated
-test.
-
 ## Current Validation State
 
 - The former JSON/CSV verification, baseline-generation, subprocess benchmark,
   and JSON-fed Callgrind paths have been removed.
 - Generic JSON input requires its configured key, a row list, and object rows;
   malformed schemas fail instead of silently producing no work.
-- `MatrixJob` validates built-in string/dictionary fields and signed 64-bit
+- `Matrix` validates built-in string/dictionary fields and signed 64-bit
   integer IDs at construction; the JSON loader and native adapter no longer
   coerce float, Boolean, numeric-string, or non-string matrix values.
-- The unused `iter_jobs()` pass-through and its collection imports have been
+- The unused input pass-through iterator and its collection imports have been
   deleted.
 - `testdata/fracessa_testdata.sqlite3` passes SQLite integrity and foreign-key
   checks and contains 63 matrices and 29,114 representatives whose multipliers
   recover 65,962 candidates and 63,369 ESS.
 - Sequential and multiprocessing paths use one flat result dictionary;
   CSV, JSON, and Parquet are the only output sinks.
+- `run` and `run_multiprocessing` are the only public execution functions;
+  both accept one `Matrix` or an iterable and optionally consume directly into
+  a sink. `compute_matrix` is the sole public low-level native adapter.
+- `run_multiprocessing` keeps the same parameter order as `run` and adds only a
+  final optional `MPConfig`; `MPConfig()` defaults to the CPUs available to the
+  Python process.
 - Multiprocessing serializes results inside workers before queueing them, so a
   return-trip serialization failure exits the worker instead of hanging.
-- Multiprocessing uses one shared job queue and one shared result queue, yields
+- Multiprocessing uses one shared matrix queue and one shared result queue, yields
   completion order without a reordering buffer, and bounds pending work with
   `prefetch_per_worker`.
 - Multiprocessing rejects `RunConfig.enable_logging=True` before creating any
@@ -58,18 +53,18 @@ test.
   with stable schemas.
 - Parquet buffers 1,024 rows; a 1,100-result regression produces two row groups
   rather than 1,100.
-- Release CI installs `pyarrow` on Ubuntu, macOS, and Windows before running the
-  wrapper suite, so retained Parquet tests cannot be skipped for a missing
-  dependency.
-- Ordinary pushes and pull requests run the same three-platform build and test
-  matrix; packaging, artifact upload, and publication remain release-tag only.
+- Release CI installs `pyarrow` before running the wrapper suite, so retained
+  Parquet tests cannot be skipped for a missing dependency.
+- Pull requests and `main` run Ubuntu and macOS once; Windows is temporarily
+  release-tag only until its dependency installation is fast enough for CI.
+  Packaging, artifact upload, and publication remain release-tag only.
 - Build-backed native integration tests fail when `fracessa_core` is missing;
   they no longer report the binding boundary as a successful skip.
 - Sink finalization attempts every close and propagates the first failure;
   cleanup errors never replace an active computation or write error.
-- All 45 wrapper tests pass on the local Python 3.14 build with native and
+- All 47 wrapper tests pass on the local Python 3.14 build with native and
   PyArrow coverage.
-- A 64-job spawn-mode run completed, early iterator closure left no workers,
+- A 64-matrix spawn-mode run completed, early iterator closure left no workers,
   input serialization failed synchronously, and the return-serialization
   regression passed without hanging.
 - Eight concurrent JSON sink constructors produced one intact output triplet
