@@ -7,29 +7,17 @@
 namespace linalg {
 
 /*
- * Exact LU factorization (with partial pivoting) for rational matrices.
+ * Exact factorization P*A = L*U for the small rational matrices used by the
+ * copositivity criterion. It supplies three things needed there: determinant,
+ * inverse, and exact singularity detection.
  *
- * This module is used by copositivity checks for determinant, inverse and
- * solve operations on principal submatrices, where exact signs are critical.
- */
-/**
- * LU_Factorization (Standard LU factorization with partial pivoting)
- *
- * Performance:
- *   - Complexity: O(n^3), similar to Bareiss LU.
- *   - Efficiency: In rational arithmetic, standard LU is often faster than Bareiss 
- *     because intermediate coefficients grow less rapidly when GCD-canonicalized.
- *
- * Stability / Accuracy:
- *   - Perfect for rational types; no rounding errors.
- *   - Detects singular matrices exactly (pivot = 0).
+ * Rational arithmetic introduces no rounding error and needs no pivot
+ * tolerance. This implementation retains the conventional largest-absolute-
+ * entry pivot rule, but singularity itself is still decided by exact zero.
  */
 class LU_Factorization {
 public:
-    /**
-     * Constructor performs a DEEP COPY of A into internal storage m_U.
-     * Original matrix A is NOT modified.
-     */
+    // Factorization modifies m_U, so A is copied and remains unchanged.
     explicit LU_Factorization(const matrix_frc& A) {
         compute(A);
     }
@@ -45,9 +33,9 @@ public:
 
         if (n == 0) return;
 
-        // Standard exact P*A = L*U with partial pivoting.
+        // Build unit-lower-triangular L, upper-triangular U, and permutation P.
         for (size_t k = 0; k < n - 1; ++k) {
-            // Partial pivoting by largest absolute entry in current column.
+            // Choose the largest absolute entry in the active column.
             size_t max_row = k;
             fraction max_val = m_U(k, k);
             if (max_val < fraction::zero()) max_val = -max_val;
@@ -73,7 +61,7 @@ public:
             }
             
             const fraction pivot = m_U(k, k);
-            // Exact singularity detection (no tolerance required in rationals).
+            // Zero means singular exactly; there is no numerical tolerance.
             if (pivot == fraction::zero()) {
                 m_is_singular = true;
                 return;
@@ -92,7 +80,7 @@ public:
     }
 
     fraction determinant() const {
-        // det(P*A) = det(L)*det(U), with det(L)=1 for unit-lower-triangular L.
+        // det(A) is the product of U's diagonal, with one sign change per row swap.
         if (m_is_singular) return fraction::zero();
         fraction det = fraction::one();
         if (m_swap_count % 2 == 1) det = fraction::neg_one();
@@ -104,6 +92,7 @@ public:
     matrix_frc inverse() const {
         if (m_is_singular) throw std::runtime_error("Matrix is singular");
         matrix_frc Inv(m_n, m_n);
+        // Column j of A^-1 solves A*x = e_j.
         for (size_t col = 0; col < m_n; ++col) {
             matrix_frc b(m_n, 1);
             b(col, 0) = fraction::one();
@@ -116,7 +105,7 @@ public:
     }
 
     matrix_frc solve(const matrix_frc& b) const {
-        // Apply permutation P first, then forward/back substitution.
+        // P*A=L*U gives L*U*x=P*b: permute b, then solve the two triangular systems.
         matrix_frc bp(m_n, 1);
         for (size_t i = 0; i < m_n; ++i) {
             fraction sum = fraction::zero();

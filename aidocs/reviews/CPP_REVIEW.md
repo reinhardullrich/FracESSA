@@ -1,6 +1,6 @@
 # C++ Review
 
-Last verified: 2026-07-27
+Last verified: 2026-07-30
 
 Scope: active C++ analyzer core, CLI, shared parser, CMake, C++/CTest coverage,
 and the release workflow. The native Python binding is reviewed separately in
@@ -14,109 +14,115 @@ remove a finding after its fix and regression coverage are complete.
 
 ### P0: The double candidate filter drops valid ESS supports
 
-`solve_linear_dbl()` rejects pivots using fixed absolute `1e-12` thresholds at
-`cpp/include/linalg/linear_solver.hpp:47` and
-`cpp/include/linalg/linear_solver.hpp:63`. `find_candidate_dbl()` treats every
-such numerical rejection as conclusive at `cpp/src/findeq.cpp:42`, so exact
-arithmetic never sees the support.
+The temporary default filter exactly normalizes the game and sends small-pivot,
+non-finite, and danger-veto cases to exact arithmetic. However,
+`is_suspicious()` still uses `minimum_pivot * margin` only as a heuristic proxy
+for forward solution error at `cpp/src/findeq.cpp:153`. The negative-probability
+and outside-gain decisions at `cpp/src/findeq.cpp:163` and
+`cpp/src/findeq.cpp:183` can therefore reject a valid support before exact
+arithmetic sees it.
 
-The double solver can also reject a rounded support probability below `-1e-10`
-at `cpp/include/linalg/linear_solver.hpp:77`. This is another conclusive
-floating sign decision on the exact candidate path.
+Preserved verification IDs 45-47 at reference commit `2be0207` each have one
+exact full-support ESS, while this unsafe filter returns zero candidates and
+zero ESS. ID 45 is especially important: its entries are approximately
+`-139.66` to `80.15` and its exact minimum support probability is `1e-6`, yet
+the normalized bordered system has condition number about `5.34e11`; the
+minimum-pivot danger test accepts the wrong negative probability as decisive.
 
-The outside-support test is also conclusive and uses the fixed absolute margin
-`1e-4 * dimension` at `cpp/src/findeq.cpp:63`, with rejection at
-`cpp/src/findeq.cpp:72`. It therefore has the same scale-dependence problem even
-when the linear solve succeeds.
-
-Verification IDs 38 and 39 both have the mixed ESS `(1/2,1/2)`. The default
-path returns zero ESS, while `--exact` returns one. Scaling or translating the
-same game therefore changes the program's answer. Both cases exercise the
-double solve: ID 38 falls below the absolute pivot threshold, while ID 39 loses
-the exact `10^20` versus `10^20+1` distinction during conversion to double.
-They do not exercise the outside-support loop because their valid candidate has
-full support; that unsafe comparison does not yet have a dedicated regression.
-
-Required outcome: remove the double candidate filter from the decision path and
-benchmark the exact-only path. Falling through to exact arithmetic after every
-double rejection saves no exact work, so keeping the current filter would only
-add work. Reintroduce a numerical filter only if a rigorously one-sided method
-can reject supports without false negatives.
-
-Design note: `../correctness/CERTIFIED_CANDIDATE_FILTER.md` records exact affine
-normalization and a possible rigorous one-sided interval/error-bound filter.
+Required outcome: make the later rigorously one-sided Choice 1 filter the
+default and retain this heuristic only as explicit `--unsafe` behavior. The
+implementation plan is in `../architecture/CHOICE_ONE_CANDIDATE_FILTER.md`.
 
 ## Speed
 
-### P1: Candidate paths materialize full vectors before they are needed
+### P1: The exact candidate path materializes its full vector too early
 
-The double path fills `full_solution[64]` at `cpp/src/findeq.cpp:50`, then reads
-only support entries that already exist as `solution(j_pos, 0)`. The entire
-array can be deleted.
+The exact path fills `candidate_.vector` at `cpp/src/findeq.cpp:211` before the
+outside-support validation beginning at `cpp/src/findeq.cpp:222`. It also does
+this when candidate output and logging are both disabled; stability itself does
+not consume the vector.
 
-The exact path fills `candidate_.vector` at `cpp/src/findeq.cpp:97` before
-outside-support validation and even when candidate output and logging are both
-disabled. Stability does not consume the vector.
+Required outcome: validate first and materialize a full vector only for a
+successful candidate that will be output or logged.
 
-Required outcome: use the compact double solution directly; in the exact path,
-validate first and materialize a full vector only for a successful candidate
-that will be observed.
+### P2: Set indices are rescanned at multiple exact stages
 
-### P2: Solvers allocate output for every nonsingular back-substitution
-
-`solve_linear_dbl()` and `solve_linear_frc()` assign a freshly constructed
-output matrix at `cpp/include/linalg/linear_solver.hpp:66` and
-`cpp/include/linalg/linear_solver.hpp:139`. This happens after elimination, so
-early singular rejections do not allocate, but every solve that reaches back
-substitution does. The exact allocation also constructs a vector of FLINT
-objects.
-
-The solved values are copied before the next support and do not escape by
-reference. Required outcome: benchmark pre-sized scratch outputs, then make the
-solvers overwrite them if the allocation cost is measurable.
-
-### P2: Set indices are rescanned at multiple stages
-
-The original support is extracted independently while building the double and
-exact bordered systems and again in each candidate check. Extract it and its
-complement once for that support and pass the fixed stack buffers through those
-operations.
+The unsafe filter extracts support and complement once. When exact arithmetic is
+required, the support is extracted again at
+`cpp/include/fracessa/matrix_server.hpp:91` while building the bordered system
+and both support and complement are rebuilt at `cpp/src/findeq.cpp:206`.
 
 Bee construction uses the later `extended_support_reduced`, so it cannot share
-the initial extraction. Extract that derived set only when it becomes known.
-Within `is_copositive_hadeler()`, the same subset mask is rescanned for every
-row at `cpp/include/linalg/copositive_fraction.hpp:111`; one fixed index array
-would remove the nested bit scans. The direct bit-scanning locations are listed
-in `../reference/FIND_POS_FIRST_SET_BIT_CALL_CHAIN.md`.
+the initial extraction. Within `is_copositive_hadeler()`, however, the same
+subset mask is rescanned from its first bit for every row at
+`cpp/include/linalg/copositive_fraction.hpp:106` and
+`cpp/include/linalg/copositive_fraction.hpp:108`. One fixed index array removes
+those nested scans. The direct bit-scanning locations are listed in
+`../reference/FIND_POS_FIRST_SET_BIT_CALL_CHAIN.md`.
 
-Required outcome: keep these as separate extraction stages and benchmark the
-interface changes before retaining them.
+Required outcome: keep logically different sets as separate extraction stages,
+but pass one exact-stage partition through bordered-system construction and
+candidate validation. Benchmark the interface change before retaining it.
 
 ### P2: Partial copositivity retains every reduction matrix
 
-`check_stability()` allocates `bee_vee(r + 1)` at
-`cpp/src/checkstab.cpp:97` and stores the complete reduction history. Each
-iteration needs only the previous and current matrices plus scalar mask state.
+`check_stability()` allocates full histories for masks, sizes, and matrices at
+`cpp/src/checkstab.cpp:98`. Each iteration needs only the previous and current
+matrices plus current scalar mask state.
 
-Required outcome: use two rolling matrix buffers.
+Required outcome: use two rolling matrix buffers and scalar current-state
+variables; each step can be logged before the buffers are exchanged.
 
 ### P2: Exact LU uses a dense rational permutation matrix
 
-`LU_Factorization` builds `m_P` as an `n*n` identity matrix at
-`cpp/include/linalg/lu_factor_fraction.hpp:42`. Every solve then performs dense
-rational multiply-add operations, mostly by zero, at
-`cpp/include/linalg/lu_factor_fraction.hpp:118`.
+`LU_Factorization` builds `m_P` as an `n*n` exact identity matrix at
+`cpp/include/linalg/lu_factor_fraction.hpp:30`. Every solve then applies it with
+a dense rational matrix-vector multiply at
+`cpp/include/linalg/lu_factor_fraction.hpp:109`, performing mostly zero
+multiply-adds.
 
-Required outcome: store permutation indices and apply them by direct indexing.
+Required outcome: store one permutation-index array and apply it by direct
+indexing.
 
 ### P2: Copositivity materializes all subsets before early rejection
 
 `CopositivityCheckerV3::is_strictly_copositive()` builds every nonempty subset
-at `cpp/include/linalg/copositive_fraction.hpp:159` before testing the first
-principal submatrix.
+at `cpp/include/linalg/copositive_fraction.hpp:150` before testing the first
+principal submatrix at `cpp/include/linalg/copositive_fraction.hpp:160`.
 
 Required outcome: generate fixed-cardinality masks on demand and stop at the
-first failure. Benchmark any destructive/move LU variant separately.
+first failure. Benchmark any destructive or move-based LU variant separately.
+
+### P2: CLI elapsed time uses a non-monotonic clock
+
+The CLI measures analyzer duration with `std::chrono::high_resolution_clock` at
+`cpp/src/main.cpp:63` and `cpp/src/main.cpp:65`. The C++ standard does not require
+that clock to be steady; on the current libstdc++ build it aliases a clock with
+`is_steady == false`. A wall-clock correction can therefore distort or even
+reverse an elapsed interval used for speed baselines.
+
+Required outcome: use `std::chrono::steady_clock` for elapsed CLI timing. This is
+a direct standard-library replacement with no new mechanism.
+
+## Test Coverage
+
+### P2: Two proof-critical exact branches lack focused regressions
+
+All durable LU tests in `cpp/tests/test_lu.cpp` use 2-by-2 matrices. None forces
+a row swap after an earlier elimination step, which is the only case that must
+swap already-computed columns of `L` at
+`cpp/include/linalg/lu_factor_fraction.hpp:55`. An independent randomized exact
+audit passed, but it is not a repository regression.
+
+The copositivity suite exercises singular acceptance with the all-ones matrix,
+but not the singular Hadeler rejection at
+`cpp/include/linalg/copositive_fraction.hpp:127` where `det(A) == 0` and
+`adj(A) > 0` entrywise.
+
+Required outcome: add the nonsingular matrix `[[1,1,0],[1,1,1],[0,1,1]]` as a
+3-by-3 LU solve/inverse case; it pivots after column zero. Add the exact matrix
+`[[1,-1],[-1,1]]` as a strict-copositivity rejection. These two small tests
+cover the branches directly.
 
 ## Build And Release
 
@@ -132,8 +138,9 @@ artifact publication restricted to release tags.
 ### P2: C++ tests cannot be disabled
 
 `cpp/CMakeLists.txt:44` declares all four FetchContent projects unconditionally,
-and `cpp/CMakeLists.txt:181` always adds tests. `BUILD_TESTING=OFF` is not wired,
-so every build fetches and builds GoogleTest and the test targets.
+`cpp/CMakeLists.txt:73` fetches them together, and `cpp/CMakeLists.txt:181` always
+adds tests. `BUILD_TESTING=OFF` is not wired, so every build fetches and builds
+GoogleTest and the test targets.
 
 Required outcome: use standard `include(CTest)`/`BUILD_TESTING` and gate
 GoogleTest plus `add_subdirectory(tests)`. Add a separate Python-module option
@@ -151,34 +158,33 @@ and `NDEBUG`; scope only FracESSA-specific throughput flags to Release builds.
 
 ### P2: Linux and macOS release executables are not self-contained
 
-CMake prefers `.so`/`.dylib` over static archives, and the local executable
-currently resolves FLINT, MPFR, and GMP dynamically. The release workflow
-installs those libraries on the runner but publishes only the executable, so an
-end user still needs ABI-compatible libraries; the macOS binary also records a
-Homebrew library path.
+CMake prefers `.so`/`.dylib` over static archives at `cpp/CMakeLists.txt:82` and
+`cpp/CMakeLists.txt:85`, and the workflow uploads only the executable at
+`.github/workflows/release.yml:125`. The runner installs FLINT, MPFR, and GMP,
+but an end user still needs ABI-compatible libraries; the macOS binary also
+records a Homebrew library path.
 
 Required outcome: either publish a documented system-dependency package or
 bundle/link the mathematical runtime consistently. Do not describe the current
-artifacts as portable standalone executables.
+Linux and macOS artifacts as portable standalone executables.
 
 ## Current Validation State
 
 - Current local Release build: successful.
 - Core/CLI CTests: 10/10 passed.
-- Full matrix CTests: 42/44 passed; only IDs 38-39 fail, as described above.
-- Direct default and `--exact` CLI checks return zero ESS for IDs 36-37 after
-  removal of the floating positive-definiteness certificate.
-- Safe input `2#1/0,0,1` now exits normally with a zero-denominator parse error;
-  safe-parser and CLI black-box regressions pass.
-- The safe parser accepts 63 and rejects 0/64; the unchecked parser has no new
-  branch and its boundary test now uses the maximum search dimension 63.
-- All 40 expected-green fast verification matrices pass; long-run IDs 32/34
-  and the separate known candidate-filter regressions 38/39 were excluded.
-- Bit-position scanning now has an explicit nonzero precondition; lowest-bit
-  mask extraction remains branch-free and defined for zero.
-- GitHub access: working; local `HEAD` and `origin/main` both point to
-  `78042fd` before the current uncommitted exact-PD fix.
-- Latest `v0.33` Actions run: Linux and macOS built successfully but failed the
-  old top-bit test; Windows and publication were then cancelled.
-- The top-bit fix is committed; a new release remains blocked by verification
-  IDs 38-39.
+- Wrapper tests: 23/23 passed.
+- Full matrix CTests: 52/52 passed, including normalization IDs 38-39.
+- The single parser preserves 18-digit direct values and arbitrary-precision
+  values, and the former signed-overflow input passes ASan/UBSan exactly.
+- All active fast and full verification matrices pass. Reference IDs 45-47
+  remain outside active fixtures because unsafe mode is known to fail them.
+- The current standard library reports `high_resolution_clock::is_steady ==
+  false` and `steady_clock::is_steady == true`.
+- Production DFS/FKM generators retain no complete support frontier or
+  cardinality layer. An independent order-insensitive comparison matched all
+  mathematical candidate rows and ESS results across the 52 active matrices.
+- A fixed-seed audit generated 20,000 exact 4-by-4 integer matrices; all 19,890
+  nonsingular cases satisfied `A * inverse(A) == I` exactly.
+- The most recent full sanitizer suite passed its existing tests.
+- The current implementation is uncommitted on `choice-one-candidate-filter`;
+  no GitHub Actions run exists for this diff.

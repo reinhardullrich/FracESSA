@@ -6,10 +6,12 @@
 Fast ESS analysis for symmetric games with exact rational verification.
 
 FracESSA is a C++17 command-line tool for Evolutionary Stable Strategy (ESS) search on symmetric payoff matrices.
-It is designed for raw speed in large support-space scans while still preserving exact correctness where it matters.
+It is designed for raw speed in large support-space scans, with an exact-only
+mode when correctness must not depend on floating-point filtering.
 
 ## Why FracESSA
-- Two-stage pipeline: fast floating-point filter, then exact FLINT fraction checks.
+- Default two-stage pipeline: an uncertified floating-point rejection filter,
+  then exact FLINT fraction checks for surviving or suspicious supports.
 - Bitset-based support enumeration over a `2^n` search space.
 - Optimized for many repeated operations on small/medium matrix dimensions.
 - Circular-symmetric and general symmetric matrix input support.
@@ -46,18 +48,22 @@ Supported encodings:
 - Symmetric upper-triangular: `n*(n+1)/2` values.
 - Circular-symmetric compact: `floor(n/2)` values.
 
-The safe parser accepts dimensions 1 through 63. `--unsafe` skips this check,
-but the analyzer still requires `1 <= n < 64`; the 64-bit mask is storage, not
-support for a dimension-64 search.
+The parser accepts dimensions 1 through 63 and validates the complete matrix
+syntax. The 64-bit mask is storage, not support for a dimension-64 search.
 
 ## CLI Flags
 - `-c, --candidates` include candidate rows in output.
 - `-l, --log` write detailed log output.
-- `-e, --exact` disable float pre-filter, use exact path only.
+- `-e, --exact` disable floating-point candidate rejection and use exact solving.
+- `-u, --unsafe` explicitly select the default uncertified numerical filter.
 - `-f, --fullsupport` evaluate full support first.
 - `-t, --timing` print wall-clock timing.
 - `-m, --matrixid` optional matrix ID for logging/verification runs.
-- `-u, --unsafe` use fast parser without full validation.
+
+`--exact` and `--unsafe` are mutually exclusive. With no numerical flag,
+FracESSA temporarily uses unsafe numerical filtering. It can miss exact
+candidates and ESS results; suspicious or unusable floating cases fall back to
+exact arithmetic and may therefore run as slowly as exact mode.
 
 Output format:
 - line 1: ESS count

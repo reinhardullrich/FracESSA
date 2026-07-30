@@ -1,75 +1,121 @@
 #include <gtest/gtest.h>
 
+#include <array>
+#include <utility>
+#include <vector>
+
 #include <fracessa/supports.hpp>
 
-TEST(SupportsTest, InitializeNonCircularCountsByCardinality) {
-    Supports supports(4, false);
-    supports.initialize();
+TEST(SupportGeneratorTest, NonCircularMatchesNumericFixedCardinalityOrder) {
+    NonCircularSupportGenerator generator(5);
+    std::vector<std::pair<bitset64, size_t>> generated;
+    std::vector<std::pair<bitset64, size_t>> expected;
 
-    EXPECT_EQ(supports.get_supports(1).size(), 4u);
-    EXPECT_EQ(supports.get_supports(2).size(), 6u);
-    EXPECT_EQ(supports.get_supports(3).size(), 4u);
-    EXPECT_EQ(supports.get_supports(4).size(), 1u);
+    generator.generate([&](bitset64 support, size_t cardinality) {
+        generated.emplace_back(support, cardinality);
+    });
+
+    for (size_t cardinality = 1; cardinality <= 5; ++cardinality) {
+        for (bitset64 support = 1; support < (1ULL << 5); ++support) {
+            if (bs64::count_set_bits(support) == cardinality)
+                expected.emplace_back(support, cardinality);
+        }
+    }
+    EXPECT_EQ(generated, expected);
 }
 
-TEST(SupportsTest, InitializeCircularPrimeDimensionCanonicalCounts) {
-    // n=5 is prime. For k=1..4, gcd(k,5)=1 so rotational canonicalization applies.
-    Supports supports(5, true);
-    supports.initialize();
+TEST(SupportGeneratorTest, NonCircularPrunesForbiddenSubsetsDuringLaterLayers) {
+    NonCircularSupportGenerator generator(5);
+    const bitset64 forbidden = 0b00101;
 
-    EXPECT_EQ(supports.get_supports(1).size(), 1u); // C(5,1)/5
-    EXPECT_EQ(supports.get_supports(2).size(), 2u); // C(5,2)/5
-    EXPECT_EQ(supports.get_supports(3).size(), 2u); // C(5,3)/5
-    EXPECT_EQ(supports.get_supports(4).size(), 1u); // C(5,4)/5
-    EXPECT_EQ(supports.get_supports(5).size(), 1u); // not coprime, unchanged
+    std::vector<bitset64> generated;
+    generator.generate([&](bitset64 support, size_t cardinality) {
+        if (cardinality == 2 && support == forbidden)
+            generator.add_forbidden(support);
+        if (cardinality == 3)
+            generated.push_back(support);
+    });
 
-    for (size_t k = 1; k <= 4; ++k) {
-        for (const auto support : supports.get_supports(k)) {
-            EXPECT_TRUE(bs64::is_smallest_representation(support, 5));
+    ASSERT_FALSE(generated.empty());
+    for (const bitset64 support : generated)
+        EXPECT_FALSE(bs64::is_subset_of(forbidden, support));
+}
+
+TEST(SupportGeneratorTest, CircularGeneratesEveryNonemptyBraceletOnce) {
+    constexpr size_t dimension = 8;
+    CircularSupportGenerator generator(dimension);
+    std::array<bool, 1ULL << dimension> seen{};
+    size_t representative_count = 0;
+    size_t previous_cardinality = 0;
+    bitset64 previous_representative = 0;
+
+    generator.generate([&](bitset64 representative, size_t cardinality) {
+        ++representative_count;
+        EXPECT_EQ(bs64::count_set_bits(representative), cardinality);
+        if (cardinality == previous_cardinality) {
+            EXPECT_GT(representative, previous_representative);
+        } else {
+            EXPECT_EQ(cardinality, previous_cardinality + 1);
+            previous_cardinality = cardinality;
+        }
+        previous_representative = representative;
+
+        std::array<bool, 1ULL << dimension> orbit{};
+        bitset64 current = representative;
+        for (size_t i = 0; i < dimension; ++i) {
+            orbit[current] = true;
+            current = bs64::rot_one_right(current, dimension);
+        }
+        current = bs64::reflect(representative, dimension);
+        for (size_t i = 0; i < dimension; ++i) {
+            orbit[current] = true;
+            current = bs64::rot_one_right(current, dimension);
+        }
+
+        for (bitset64 support = 1; support < orbit.size(); ++support) {
+            if (!orbit[support])
+                continue;
+            EXPECT_FALSE(seen[support]);
+            seen[support] = true;
+        }
+    });
+
+    EXPECT_EQ(representative_count, 29u);
+    for (bitset64 support = 1; support < seen.size(); ++support)
+        EXPECT_TRUE(seen[support]);
+}
+
+TEST(SupportGeneratorTest, CircularReturnsAndPrunesTheCompleteDihedralOrbit) {
+    CircularSupportGenerator generator(6);
+    const bitset64 forbidden = 0b001011;
+    const size_t multiplier = generator.add_forbidden(forbidden);
+
+    EXPECT_EQ(multiplier, 12u);
+
+    std::vector<bitset64> generated;
+    generator.generate([&](bitset64 support, size_t cardinality) {
+        if (cardinality == 3)
+            generated.push_back(support);
+    });
+    ASSERT_FALSE(generated.empty());
+    for (const bitset64 support : generated) {
+        bitset64 current = forbidden;
+        for (size_t i = 0; i < 6; ++i) {
+            EXPECT_FALSE(bs64::is_subset_of(current, support));
+            current = bs64::rot_one_right(current, 6);
+        }
+        current = bs64::reflect(forbidden, 6);
+        for (size_t i = 0; i < 6; ++i) {
+            EXPECT_FALSE(bs64::is_subset_of(current, support));
+            current = bs64::rot_one_right(current, 6);
         }
     }
 }
 
-TEST(SupportsTest, RemoveSupersetsPrunesOnlyLargerBuckets) {
-    Supports supports(4, false);
-    supports.initialize();
+TEST(SupportGeneratorTest, CircularMultiplierCountsDistinctMasksOnly) {
+    CircularSupportGenerator singleton_generator(5);
+    EXPECT_EQ(singleton_generator.add_forbidden(0b00001), 5u);
 
-    bitset64 subset = 0ULL;
-    subset = bs64::set_bit_at_pos(subset, 0);
-    subset = bs64::set_bit_at_pos(subset, 1);
-
-    const size_t before_size_2 = supports.get_supports(2).size();
-
-    supports.remove_supersets(subset, 2);
-
-    // Same-size bucket must not be touched.
-    EXPECT_EQ(supports.get_supports(2).size(), before_size_2);
-
-    // Supersets in larger buckets must be removed.
-    EXPECT_EQ(supports.get_supports(3).size(), 2u);
-    EXPECT_EQ(supports.get_supports(4).size(), 0u);
-
-    for (const auto support : supports.get_supports(3)) {
-        EXPECT_FALSE(bs64::is_subset_of(subset, support));
-    }
+    CircularSupportGenerator full_generator(6);
+    EXPECT_EQ(full_generator.add_forbidden(0b111111), 1u);
 }
-
-TEST(SupportsTest, RemoveSupersetsAutoSizeMatchesExplicitSize) {
-    Supports auto_size(5, false);
-    Supports explicit_size(5, false);
-    auto_size.initialize();
-    explicit_size.initialize();
-
-    bitset64 subset = 0ULL;
-    subset = bs64::set_bit_at_pos(subset, 0);
-    subset = bs64::set_bit_at_pos(subset, 2);
-    subset = bs64::set_bit_at_pos(subset, 4);
-
-    auto_size.remove_supersets(subset);
-    explicit_size.remove_supersets(subset, bs64::count_set_bits(subset));
-
-    for (size_t k = 1; k <= 5; ++k) {
-        EXPECT_EQ(auto_size.get_supports(k), explicit_size.get_supports(k));
-    }
-}
-

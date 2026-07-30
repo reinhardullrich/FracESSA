@@ -33,6 +33,19 @@ class NativeIntegrationTests(unittest.TestCase):
         self.assertTrue(result.summary.success)
         self.assertEqual(result.summary.status, 0)
         self.assertEqual(result.summary.ess_count, 1)
+        self.assertIsNone(result.candidates[0].multiplier)
+
+    def test_circular_native_returns_one_weighted_representative(self):
+        result = run_one(
+            MatrixJob(matrix_id=2, matrix="5#1,3"),
+            RunConfig(include_candidates=True, exact=True),
+            run_id="native_circular",
+        )
+
+        self.assertEqual(result.summary.ess_count, 5)
+        self.assertEqual(result.summary.candidate_count, 1)
+        self.assertEqual(len(result.candidates), 1)
+        self.assertEqual(result.candidates[0].multiplier, 5)
 
     def test_run_jobs_mp_native(self):
         start_method = "fork" if "fork" in mp.get_all_start_methods() else "spawn"

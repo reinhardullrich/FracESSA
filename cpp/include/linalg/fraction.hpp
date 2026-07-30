@@ -1,6 +1,6 @@
 #pragma once
 
-#include <flint/flint.h>  // For slong and basic types
+#include <flint/flint.h>
 #include <flint/fmpq.h>
 #include <stdexcept>
 #include <string>
@@ -9,12 +9,16 @@
 namespace linalg {
 
 /*
- * Thin RAII wrapper around FLINT's fmpq_t rational type.
+ * Owning C++ value wrapper around FLINT's fmpq_t rational type.
  *
- * Why this exists:
- * - Keep exact arithmetic semantics (no rounding) in ESS verification stages.
- * - Expose hot operations (addmul/submul/div) in-place to limit temporary objects.
- * - Provide C++ value semantics while preserving FLINT canonicalization behavior.
+ * Every object initializes and clears one FLINT rational. FLINT keeps values
+ * canonical, so arithmetic and comparisons are exact and need no epsilon.
+ * Returning operators keep formulas readable; destination-first and in-place
+ * helpers avoid wrapper temporaries in the small-matrix inner loops.
+ *
+ * Value constructors assume every denominator is nonzero. The matrix parser
+ * validates external text before construction; internal callers deliberately
+ * retain this precondition to avoid repeated checks.
  */
 class fraction {
 private:
@@ -30,18 +34,10 @@ private:
     }
     
 public:
-    // Default constructor (zero)
     fraction() noexcept {
         fmpq_init(data_);
     }
     
-    // From long
-    explicit fraction(long num, long den = 1) noexcept {
-        fmpq_init(data_);
-        set_signed_ratio(data_, static_cast<slong>(num), static_cast<slong>(den));
-    }
-    
-    // From long long
     explicit fraction(long long num, long long den = 1) noexcept {
         fmpq_init(data_);
         set_signed_ratio(data_, static_cast<slong>(num), static_cast<slong>(den));
@@ -57,13 +53,12 @@ public:
         fmpq_canonicalise(data_);
     }
     
-    // From int (non-explicit so templated code can write T(0), T(1) idioms).
+    // Implicit int construction keeps exact expressions with 0 and 1 concise.
     fraction(int num, int den = 1) noexcept {
         fmpq_init(data_);
         set_signed_ratio(data_, static_cast<slong>(num), static_cast<slong>(den));
     }
     
-    // Copy constructor
     fraction(const fraction& other) noexcept {
         fmpq_init(data_);
         fmpq_set(data_, other.data_);
@@ -75,12 +70,10 @@ public:
         fmpq_swap(data_, other.data_);
     }
     
-    // Destructor
     ~fraction() noexcept {
         fmpq_clear(data_);
     }
     
-    // Copy assignment
     fraction& operator=(const fraction& other) noexcept {
         if (this != &other) {
             fmpq_set(data_, other.data_);
@@ -96,19 +89,10 @@ public:
         return *this;
     }
     
-    // Direct FLINT access for low-level kernels (no wrapper overhead).
+    // Escape hatch for FLINT kernels; callers must preserve valid fmpq state.
     fmpq_t& data() noexcept { return data_; }
-    const fmpq_t& data() const noexcept { return data_; }
     
     // In-place arithmetic used in elimination/factorization loops.
-    void add_inplace(const fraction& other) noexcept {
-        fmpq_add(data_, data_, other.data_);
-    }
-    
-    void sub_inplace(const fraction& other) noexcept {
-        fmpq_sub(data_, data_, other.data_);
-    }
-    
     void mul_inplace(const fraction& other) noexcept {
         fmpq_mul(data_, data_, other.data_);
     }
@@ -153,13 +137,7 @@ public:
         return fmpq_sgn(data_);
     }
     
-    // Arithmetic operators stay available for readability in non-critical code paths.
-    
-    fraction operator-(const fraction& other) const {
-        fraction result;
-        fmpq_sub(result.data_, data_, other.data_);
-        return result;
-    }
+    // Returning operators favor readable formulas; hot loops use the helpers above.
     
     fraction operator*(const fraction& other) const {
         fraction result;
@@ -181,35 +159,27 @@ public:
         fmpq_neg(result.data_, data_);
         return result;
     }
-    
-    // Compound assignment forwards to in-place FLINT operations.
+
+    // Compound assignment writes into existing FLINT storage without a temporary.
     fraction& operator+=(const fraction& other) noexcept {
-        add_inplace(other);
+        fmpq_add(data_, data_, other.data_);
         return *this;
     }
-    
+
     fraction& operator-=(const fraction& other) noexcept {
-        sub_inplace(other);
+        fmpq_sub(data_, data_, other.data_);
         return *this;
     }
     
+    // Used by exact LU determinant accumulation.
     fraction& operator*=(const fraction& other) noexcept {
         mul_inplace(other);
-        return *this;
-    }
-    
-    fraction& operator/=(const fraction& other) {
-        div_inplace(other);
         return *this;
     }
     
     // Exact comparisons on canonicalized rationals.
     bool operator==(const fraction& other) const noexcept {
         return fmpq_equal(data_, other.data_);
-    }
-    
-    bool operator!=(const fraction& other) const noexcept {
-        return !fmpq_equal(data_, other.data_);
     }
     
     bool operator<(const fraction& other) const noexcept {
@@ -224,20 +194,16 @@ public:
         return fmpq_cmp(data_, other.data_) > 0;
     }
     
-    bool operator>=(const fraction& other) const noexcept {
-        return fmpq_cmp(data_, other.data_) >= 0;
-    }
-    
     bool is_zero() const noexcept {
         return fmpq_is_zero(data_);
     }
 
-    // Lossy conversion, used only for reporting and fast prefilters.
+    // Lossy conversion for reporting and the unsafe filter, never an exact certificate.
     double to_dbl() const noexcept {
         return fmpq_get_d(data_);
     }
     
-    // String representation
+    // FLINT allocates text buffers, so both conversion paths use flint_free.
     std::string to_string() const {
         char* str = fmpq_get_str(nullptr, 10, data_);
         if (str == nullptr) {
@@ -248,13 +214,12 @@ public:
         return result;
     }
     
-    // Stream output writes FLINT string directly and frees FLINT-allocated memory.
     friend std::ostream& operator<<(std::ostream& os, const fraction& r) {
         char* str = fmpq_get_str(nullptr, 10, r.data_);
         if (str == nullptr) {
             os << "0";
         } else {
-            os << str;  // Write directly to stream, no string allocation
+            os << str;  // Avoid an additional std::string copy.
             flint_free(str);
         }
         return os;
@@ -283,5 +248,4 @@ public:
 
 } // namespace linalg
 
-// Global type alias for convenience
 typedef linalg::fraction fraction;

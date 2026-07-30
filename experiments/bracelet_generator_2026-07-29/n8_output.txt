@@ -1,0 +1,48 @@
+dimension=8 bit_order=7..0
+
+support_size=1 raw=8 necklaces=1 bracelets=1
+  mask=1 bits=00000001 indices={0} orbit=8
+
+support_size=2 raw=28 necklaces=4 bracelets=4
+  mask=3 bits=00000011 indices={0,1} orbit=8
+  mask=5 bits=00000101 indices={0,2} orbit=8
+  mask=9 bits=00001001 indices={0,3} orbit=8
+  mask=17 bits=00010001 indices={0,4} orbit=4
+
+support_size=3 raw=56 necklaces=7 bracelets=5
+  mask=7 bits=00000111 indices={0,1,2} orbit=8
+  mask=11 bits=00001011 indices={0,1,3} orbit=16
+  mask=19 bits=00010011 indices={0,1,4} orbit=16
+  mask=21 bits=00010101 indices={0,2,4} orbit=8
+  mask=37 bits=00100101 indices={0,2,5} orbit=8
+
+support_size=4 raw=70 necklaces=10 bracelets=8
+  mask=15 bits=00001111 indices={0,1,2,3} orbit=8
+  mask=23 bits=00010111 indices={0,1,2,4} orbit=16
+  mask=27 bits=00011011 indices={0,1,3,4} orbit=8
+  mask=39 bits=00100111 indices={0,1,2,5} orbit=8
+  mask=43 bits=00101011 indices={0,1,3,5} orbit=16
+  mask=45 bits=00101101 indices={0,2,3,5} orbit=8
+  mask=51 bits=00110011 indices={0,1,4,5} orbit=4
+  mask=85 bits=01010101 indices={0,2,4,6} orbit=2
+
+support_size=5 raw=56 necklaces=7 bracelets=5
+  mask=31 bits=00011111 indices={0,1,2,3,4} orbit=8
+  mask=47 bits=00101111 indices={0,1,2,3,5} orbit=16
+  mask=55 bits=00110111 indices={0,1,2,4,5} orbit=16
+  mask=87 bits=01010111 indices={0,1,2,4,6} orbit=8
+  mask=91 bits=01011011 indices={0,1,3,4,6} orbit=8
+
+support_size=6 raw=28 necklaces=4 bracelets=4
+  mask=63 bits=00111111 indices={0,1,2,3,4,5} orbit=8
+  mask=95 bits=01011111 indices={0,1,2,3,4,6} orbit=8
+  mask=111 bits=01101111 indices={0,1,2,3,5,6} orbit=8
+  mask=119 bits=01110111 indices={0,1,2,4,5,6} orbit=4
+
+support_size=7 raw=8 necklaces=1 bracelets=1
+  mask=127 bits=01111111 indices={0,1,2,3,4,5,6} orbit=8
+
+support_size=8 raw=1 necklaces=1 bracelets=1
+  mask=255 bits=11111111 indices={0,1,2,3,4,5,6,7} orbit=1
+
+summary bracelets=29 represented_nonempty_supports=255 expected=255

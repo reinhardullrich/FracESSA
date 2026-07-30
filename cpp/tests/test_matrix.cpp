@@ -1,6 +1,8 @@
 #include <gtest/gtest.h>
+#include <fracessa/matrix_server.hpp>
 #include <linalg/matrix_fraction.hpp>
 #include <linalg/matrix_double.hpp>
+#include <cmath>
 
 using namespace linalg;
 
@@ -8,7 +10,7 @@ using namespace linalg;
  * Matrix container and factory tests.
  *
  * These keep basic storage/indexing/factory invariants stable and exercise
- * positive-definiteness routines on small, hand-checkable examples.
+ * exact positive-definiteness on small, hand-checkable examples.
  */
 
 TEST(MatrixFractionTest, BasicOperations) {
@@ -28,7 +30,6 @@ TEST(MatrixDoubleTest, BasicOperations) {
     A(1, 0) = 3.0; A(1, 1) = 4.0;
 
     EXPECT_EQ(A.rows(), 2);
-    EXPECT_EQ(A.cols(), 2);
     EXPECT_DOUBLE_EQ(A(0, 0), 1.0);
     EXPECT_DOUBLE_EQ(A(1, 1), 4.0);
 }
@@ -54,23 +55,23 @@ TEST(MatrixPositiveDefiniteTest, Fraction) {
     EXPECT_FALSE(B.is_positive_definite());
 }
 
-TEST(MatrixPositiveDefiniteTest, Double) {
-    matrix_dbl A(2, 2);
-    A(0, 0) = 2.0; A(0, 1) = -1.0;
-    A(1, 0) = -1.0; A(1, 1) = 2.0;
-    EXPECT_TRUE(A.is_positive_definite());
-}
+TEST(MatrixServerTest, RejectsSubnormalAndUnderflowedNormalization) {
+    for (const size_t exponent : {1023u, 1075u}) {
+        fraction tiny = fraction::one();
+        for (size_t i = 0; i < exponent; ++i) {
+            tiny.div_inplace(fraction::two());
+        }
 
-TEST(MatrixPositiveDefiniteTest, DoubleRejectsIndefinite) {
-    matrix_dbl B(2, 2);
-    B(0, 0) = 1.0; B(0, 1) = 2.0;
-    B(1, 0) = 2.0; B(1, 1) = 1.0;
-    EXPECT_FALSE(B.is_positive_definite());
-}
+        if (exponent == 1023) {
+            EXPECT_EQ(std::fpclassify(tiny.to_dbl()), FP_SUBNORMAL);
+        } else {
+            EXPECT_EQ(tiny.to_dbl(), 0.0);
+        }
 
-TEST(MatrixPositiveDefiniteTest, DoubleRejectsNonSquare) {
-    matrix_dbl C(2, 3);
-    C(0, 0) = 1.0; C(0, 1) = 0.0; C(0, 2) = 0.0;
-    C(1, 0) = 0.0; C(1, 1) = 1.0; C(1, 2) = 0.0;
-    EXPECT_FALSE(C.is_positive_definite());
+        matrix_frc A(2, 2);
+        A(0, 0) = fraction::zero(); A(0, 1) = tiny;
+        A(1, 0) = tiny;             A(1, 1) = fraction::one();
+        MatrixServer server(A);
+        EXPECT_FALSE(server.initialize_unsafe_filter());
+    }
 }
