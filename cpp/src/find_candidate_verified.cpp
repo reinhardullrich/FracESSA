@@ -1,6 +1,6 @@
 #include <mpfr.h>
 
-#include <fracessa/candidate_rejector_double.hpp>
+#include <fracessa/find_candidate_verified.hpp>
 
 #include <algorithm>
 #include <cfloat>
@@ -10,7 +10,7 @@
 #include <cstring>
 #include <limits>
 
-namespace candidate_rejection {
+namespace candidate_search {
 namespace {
 
 constexpr size_t kMaxDimension = bs64::kMaxBitsetDimension;
@@ -71,10 +71,10 @@ bool div_up(double numerator, double denominator, double& result) noexcept
     return round_up(rounded, result);
 }
 
-bool make_rational_enclosure(
+bool make_rational_bounds(
     const fraction& value,
     mpfr_t converted,
-    RationalEnclosure& result) noexcept
+    rational_bounds& result) noexcept
 {
     // Both conversion stages use the same direction; converting one midpoint
     // and stepping it would not rigorously enclose an arbitrary rational.
@@ -339,7 +339,7 @@ bool round_up(double value, double& result) noexcept
 
 const char* unavailable_reason() noexcept
 {
-#if FRACESSA_CANDIDATE_REJECTOR_DOUBLE_SUPPORTED
+#if FRACESSA_FIND_CANDIDATE_VERIFIED_SUPPORTED
     if constexpr (!has_binary64_format()) {
         return "IEEE 754 binary64 arithmetic is unavailable";
     }
@@ -360,15 +360,15 @@ const char* unavailable_reason() noexcept
     }
     return nullptr;
 #else
-    return "this compiler is not supported by candidate-rejector-double";
+    return "this compiler is not supported by find-candidate-verified";
 #endif
 }
 
-bool rational_enclosure(const fraction& value, RationalEnclosure& result) noexcept
+bool get_rational_bounds(const fraction& value, rational_bounds& result) noexcept
 {
     mpfr_t converted;
     mpfr_init2(converted, 53);
-    const bool success = make_rational_enclosure(value, converted, result);
+    const bool success = make_rational_bounds(value, converted, result);
     mpfr_clear(converted);
     return success;
 }
@@ -465,7 +465,7 @@ bool prove_solution_error(
     const double* input_row_bound,
     const double* residual_lower,
     const double* residual_upper,
-    SolutionErrorBound& result) noexcept
+    solution_error_bound& result) noexcept
 {
     // Oishi-Rump's underflow-aware LU defect bound gives d >= |P*C-L*U|*1.
     // q < 1 then proves nonsingularity, and beta/(1-q) bounds solution error.
@@ -550,28 +550,28 @@ bool prove_solution_error(
     return true;
 }
 
-candidate_rejector_dbl::candidate_rejector_dbl(const linalg::matrix_frc& game_matrix)
+find_candidate_verified::find_candidate_verified(const linalg::matrix_frc& game_matrix)
     : game_frc_(game_matrix)
-    , dimensions_(game_matrix.rows())
+    , dimension_(game_matrix.rows())
     , bounds_initialized_(false)
     , bounds_available_(false)
 {
 }
 
-void candidate_rejector_dbl::initialize_bounds()
+void find_candidate_verified::initialize_bounds()
 {
     bounds_initialized_ = true;
     bounds_available_ = false;
 
-    if (unavailable_reason() || dimensions_ == 0) return;
+    if (unavailable_reason() || dimension_ == 0) return;
 
     // Exact translation and positive scaling preserve every candidate inequality
     // while keeping all normalized matrix entries in [-1,1].
     const fraction translation = game_frc_(0, 0);
     fraction scale = fraction::zero();
     fraction difference;
-    for (size_t i = 0; i < dimensions_; ++i) {
-        for (size_t j = 0; j < dimensions_; ++j) {
+    for (size_t i = 0; i < dimension_; ++i) {
+        for (size_t j = 0; j < dimension_; ++j) {
             fraction::sub(difference, game_frc_(i, j), translation);
             if (difference.sgn() < 0) difference = -difference;
             if (difference > scale) scale = difference;
@@ -579,46 +579,46 @@ void candidate_rejector_dbl::initialize_bounds()
     }
     if (scale.is_zero()) return;
 
-    game_midpoint_ = linalg::matrix_dbl(dimensions_, dimensions_);
-    game_radius_ = linalg::matrix_dbl(dimensions_, dimensions_);
-    game_magnitude_ = linalg::matrix_dbl(dimensions_, dimensions_);
+    game_midpoint_ = linalg::matrix_dbl(dimension_, dimension_);
+    game_radius_ = linalg::matrix_dbl(dimension_, dimension_);
+    game_magnitude_ = linalg::matrix_dbl(dimension_, dimension_);
 
     fraction normalized;
     mpfr_t converted;
     mpfr_init2(converted, 53);
-    for (size_t i = 0; i < dimensions_; ++i) {
-        for (size_t j = 0; j < dimensions_; ++j) {
+    for (size_t i = 0; i < dimension_; ++i) {
+        for (size_t j = 0; j < dimension_; ++j) {
             fraction::sub(difference, game_frc_(i, j), translation);
             fraction::div(normalized, difference, scale);
 
-            RationalEnclosure enclosure;
-            if (!make_rational_enclosure(normalized, converted, enclosure)) {
+            rational_bounds bounds;
+            if (!make_rational_bounds(normalized, converted, bounds)) {
                 mpfr_clear(converted);
                 return;
             }
-            game_midpoint_(i, j) = enclosure.midpoint;
-            game_radius_(i, j) = enclosure.radius;
-            game_magnitude_(i, j) = enclosure.magnitude;
+            game_midpoint_(i, j) = bounds.midpoint;
+            game_radius_(i, j) = bounds.radius;
+            game_magnitude_(i, j) = bounds.magnitude;
         }
     }
     mpfr_clear(converted);
     bounds_available_ = true;
 }
 
-bool candidate_rejector_dbl::proves_candidate_rejection(const bitset64& support, size_t support_size)
+bool find_candidate_verified::find(const bitset64& support, size_t support_size)
 {
     if (!bounds_available_) {
         if (!bounds_initialized_) initialize_bounds();
-        if (!bounds_available_) return false;
+        if (!bounds_available_) return true;
     }
 
     // Support, complement, solution, and proof vectors remain fixed stack storage.
     uint8_t support_indices[bs64::kMaxBitsetDimension];
     uint8_t non_support_indices[bs64::kMaxBitsetDimension];
-    bs64::extract_set_indices(support, dimensions_, support_indices);
-    const bitset64 complement = bs64::set_all_n_bits(dimensions_) & ~support;
+    bs64::extract_set_indices(support, dimension_, support_indices);
+    const bitset64 complement = bs64::set_all_n_bits(dimension_) & ~support;
     const size_t non_support_count =
-        bs64::extract_set_indices(complement, dimensions_, non_support_indices);
+        bs64::extract_set_indices(complement, dimension_, non_support_indices);
 
     const size_t dimension = support_size + 1;
     if (compact_lu_.rows() != dimension) {
@@ -639,7 +639,7 @@ bool candidate_rejector_dbl::proves_candidate_rejection(const bitset64& support,
 
     uint8_t permutation[bs64::kMaxBitsetDimension];
     if (!factor_lu(compact_lu_, dimension, permutation)) {
-        return false;
+        return true;
     }
 
     double solution[bs64::kMaxBitsetDimension];
@@ -647,7 +647,7 @@ bool candidate_rejector_dbl::proves_candidate_rejection(const bitset64& support,
         solution[i] = permutation[i] == support_size ? 1.0 : 0.0;
     }
     if (!triangular_solve_in_place(compact_lu_, dimension, solution)) {
-        return false;
+        return true;
     }
 
     uint8_t support_proposals[bs64::kMaxBitsetDimension];
@@ -666,10 +666,10 @@ bool candidate_rejector_dbl::proves_candidate_rejection(const bitset64& support,
                 game_midpoint_, support_indices, support_size,
                 non_support_indices, non_support_count, solution,
                 outside_proposals, outside_proposal_count)) {
-            return false;
+            return true;
         }
         if (outside_proposal_count == 0) {
-            return false;
+            return true;
         }
     }
 
@@ -680,23 +680,23 @@ bool candidate_rejector_dbl::proves_candidate_rejection(const bitset64& support,
             game_midpoint_, game_radius_, support_indices, support_size,
             permutation, solution, input_row_bound,
             residual_lower, residual_upper)) {
-        return false;
+        return true;
     }
 
-    SolutionErrorBound proof;
+    solution_error_bound proof;
     if (!prove_solution_error(
             compact_lu_, dimension, permutation, input_row_bound,
             residual_lower, residual_upper, proof)) {
-        return false;
+        return true;
     }
 
     for (size_t i = 0; i < support_proposal_count; ++i) {
         double upper;
         if (!add_up(solution[support_proposals[i]], proof.error, upper)) {
-            return false;
+            return true;
         }
         if (upper <= 0.0) {
-            return true;
+            return false;
         }
     }
 
@@ -705,7 +705,7 @@ bool candidate_rejector_dbl::proves_candidate_rejection(const bitset64& support,
                 game_midpoint_, support_indices, support_size,
                 non_support_indices, non_support_count, solution,
                 outside_proposals, outside_proposal_count)) {
-            return false;
+            return true;
         }
     }
 
@@ -714,14 +714,14 @@ bool candidate_rejector_dbl::proves_candidate_rejection(const bitset64& support,
         if (!outside_gain_lower_bound(
                 game_midpoint_, game_radius_, game_magnitude_, outside_proposals[i],
                 support_indices, support_size, solution, proof.error, gain_lower)) {
-            return false;
+            return true;
         }
         if (gain_lower > 0.0) {
-            return true;
+            return false;
         }
     }
 
-    return false;
+    return true;
 }
 
-} // namespace candidate_rejection
+} // namespace candidate_search

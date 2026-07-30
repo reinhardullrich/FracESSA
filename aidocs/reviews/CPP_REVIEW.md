@@ -14,32 +14,29 @@ remove a finding after its fix and regression coverage are complete.
 
 ### P1: The exact candidate path materializes its full vector too early
 
-The exact path fills `candidate_.vector` at `cpp/src/findeq.cpp:227` before the
-outside-support validation beginning at `cpp/src/findeq.cpp:238`. It also does
+The exact path fills `result.vector` at `cpp/src/find_candidate_exact.cpp:65`
+before outside-support validation beginning at
+`cpp/src/find_candidate_exact.cpp:75`. It also does
 this when candidate output and logging are both disabled; stability itself does
 not consume the vector.
 
 Required outcome: validate first and materialize a full vector only for a
 successful candidate that will be output or logged.
 
-### P2: Set indices are rescanned at multiple exact stages
+### P2: Copositivity rescans set indices for every row
 
-The unsafe filter extracts support and complement once. When exact arithmetic is
-required, the support is extracted again at
-`cpp/include/fracessa/matrix_server.hpp:95` while building the bordered system
-and both support and complement are rebuilt at `cpp/src/findeq.cpp:222`.
-
-Bee construction uses the later `extended_support_reduced`, so it cannot share
-the initial extraction. Within `is_copositive_hadeler()`, however, the same
-subset mask is rescanned from its first bit for every row at
+Candidate search now extracts each stage's support partition once and reuses it
+for matrix construction and validation. Bee construction uses the later
+`extended_support_reduced`, so it cannot share those earlier partitions. Within
+`is_copositive_hadeler()`, however, the same subset mask is rescanned from its
+first bit for every row at
 `cpp/include/linalg/copositive_fraction.hpp:106` and
 `cpp/include/linalg/copositive_fraction.hpp:108`. One fixed index array removes
 those nested scans. The direct bit-scanning locations are listed in
 `../reference/FIND_POS_FIRST_SET_BIT_CALL_CHAIN.md`.
 
-Required outcome: keep logically different sets as separate extraction stages,
-but pass one exact-stage partition through bordered-system construction and
-candidate validation. Benchmark the interface change before retaining it.
+Required outcome: extract the current subset once before its nested matrix
+loops and reuse the fixed index array. Benchmark before retaining the change.
 
 ### P2: Partial copositivity retains every reduction matrix
 
@@ -150,10 +147,10 @@ Linux and macOS artifacts as portable standalone executables.
 - Current local Release build: successful.
 - Core/CLI CTests: 11/11 passed.
 - Wrapper tests: 26/26 passed.
-- Full matrix CTests: 55/55 passed, including candidate-rejector-double IDs 45-47.
+- Full matrix CTests: 55/55 passed, including verified-search IDs 45-47.
 - The single parser preserves 18-digit direct values and arbitrary-precision
   values, and the former signed-overflow input passes ASan/UBSan exactly.
-- The exact-rejection oracle passed all 53 permitted matrices; IDs 33-34 were
+- The verified-search oracle passed all 53 permitted matrices; IDs 33-34 were
   excluded from that oracle run as required. ASan/UBSan passed all 11 core/CLI
   tests and focused verification IDs 45-47.
 - The current standard library reports `high_resolution_clock::is_steady ==
@@ -165,5 +162,7 @@ Linux and macOS artifacts as portable standalone executables.
 - A fixed-seed audit generated 20,000 exact 4-by-4 integer matrices; all 19,890
   nonsingular cases satisfied `A * inverse(A) == I` exactly.
 - The most recent full sanitizer suite passed its existing tests.
-- The current implementation is uncommitted on `certified-filter`;
+- The fast timing sweep completed all 53 selected matrices successfully after
+  the candidate-search class split.
+- The three-class candidate-search refactor is uncommitted on `certified-filter`;
   no GitHub Actions run exists for this diff.

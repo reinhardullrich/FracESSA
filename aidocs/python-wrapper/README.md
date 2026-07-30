@@ -30,11 +30,11 @@ MatrixResult(summary: SummaryRow, candidates: list[CandidateRow], metadata)
 A matrix may use full CLI form (`"3#4,13/2,..."`) or values only when
 `metadata["dimension"]` is present.
 
-`exact=False, unsafe=False` uses candidate-rejector-double: it rejects only
+`exact=False, unsafe=False` uses verified candidate search: it rejects only
 after a one-sided proof and otherwise runs the exact candidate solver.
 `unsafe=True` selects the faster heuristic, which can miss exact candidates and
 ESS results. `exact=True` bypasses both numerical rejection procedures. Exact
-and unsafe together return `EXEC_ERROR`. If candidate-rejector-double is
+and unsafe together return `EXEC_ERROR`. If verified candidate search is
 unavailable on the build or calling thread, default mode also returns
 `EXEC_ERROR` before support enumeration and requires explicit exact or unsafe
 mode. Matrix input always uses the validating native parser.

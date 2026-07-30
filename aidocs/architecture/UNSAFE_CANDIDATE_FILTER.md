@@ -4,9 +4,9 @@ Status: implemented; local correctness and performance verification recorded
 below.
 
 Current status: this document records the completed temporary-default phase.
-The bounded-error Choice 1 filter is now the no-flag default; this heuristic remains
+Verified candidate search is now the no-flag default; this heuristic remains
 available only through explicit `--unsafe`. See
-`CANDIDATE_REJECTOR_DOUBLE.md` for the current routing and validation record.
+`FIND_CANDIDATE_VERIFIED.md` for the current routing and validation record.
 
 Branch: `choice-one-candidate-filter`
 
@@ -450,8 +450,8 @@ unsafe danger veto a correctness proof.
 After this phase is implemented, reviewed, benchmarked, and accepted, Choice 1
 is a separate change:
 
-1. Re-audit `CANDIDATE_REJECTOR_DOUBLE.md` against the accepted unsafe commit.
-2. Add candidate-rejector-double and only then add the mode state needed to
+1. Re-audit `FIND_CANDIDATE_VERIFIED.md` against the accepted unsafe commit.
+2. Add verified candidate search and only then add the mode state needed to
    distinguish Choice 1 from explicit unsafe.
 3. Change no-flag behavior from unsafe to Choice 1; keep `--unsafe` as the
    explicit heuristic override and `--exact` as exact-only.

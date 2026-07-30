@@ -27,7 +27,7 @@ is defined for zero.
 ```text
 main / fracessa_core.compute_matrix
   -> fracessa::fracessa
-     -> fracessa::search_one_support
+     -> fracessa::analyze_support
         -> fracessa::check_stability
            -> find_pos_first_set_bit
            -> lowest_set_bit_as_bit
@@ -43,11 +43,13 @@ main / fracessa_core.compute_matrix
 dimension, then repeatedly executes `ctz64(bits)` and `bits &= bits - 1`.
 Production callers are:
 
-- `cpp/src/findeq.cpp:19`
-- `cpp/include/fracessa/matrix_server.hpp:42`
-- `cpp/include/fracessa/matrix_server.hpp:71`
-- `cpp/include/fracessa/matrix_server.hpp:97`
-- `cpp/include/fracessa/matrix_server.hpp:131`
+- `cpp/src/find_candidate_verified.cpp:618`
+- `cpp/src/find_candidate_verified.cpp:621`
+- `cpp/src/find_candidate_unsafe.cpp:74`
+- `cpp/src/find_candidate_unsafe.cpp:77`
+- `cpp/src/find_candidate_exact.cpp:39`
+- `cpp/src/find_candidate_exact.cpp:42`
+- `cpp/src/checkstab.cpp:55`
 
 Regenerate the occurrence list with:
 

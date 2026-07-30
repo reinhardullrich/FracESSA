@@ -1,29 +1,16 @@
-# Candidate Rejector Double
+# Find Candidate Verified
 
-Status: implemented and locally verified on 2026-07-30. The body below retains
-the approved implementation plan; the completion record at the end is current.
+Status: implemented and locally verified on 2026-07-30. The body retains the
+mathematical design; the source ownership and completion record are current.
 
-Branch: `certified-filter`
-
-Base: `main` at `4a6c8c60c696`
-
-Read-only reference: committed Choice 1 implementation at
-`9a33dab8b06865571ef4ec6ca7f0b2aa6a6af6b2`. The implementation will be
-re-created manually from `main`; it will not merge or cherry-pick that branch.
-
-Preceding phase: `UNSAFE_CANDIDATE_FILTER.md` specifies the temporary
-unsafe-default heuristic and the single validating matrix parser. Implement
-that phase first. This document must then be re-audited against the accepted
-source before its file list is treated as implementation scope.
-
-When Choice 1 later lands, it becomes the no-flag numerical mode. Explicit
+Explicit
 `--unsafe` continues to select the already-implemented heuristic, and `--exact`
 continues to bypass both numerical rejection procedures. Unsafe code must not
 enter or weaken the strict proof kernel described here.
 
 ## Objective
 
-Add a rigorous one-sided bounded-error proof as the future no-flag rejection
+Provide a rigorous one-sided bounded-error proof as the no-flag rejection
 procedure while preserving the explicit unsafe heuristic, existing exact
 solver, and search flow.
 
@@ -97,7 +84,7 @@ A'(i,j) = (A(i,j)-c)/s.
 
 Translation by `c` and positive scaling by `s` preserve candidate supports,
 extended supports, payoff comparisons, and ESS decisions. If `s == 0`, disable
-candidate-rejector-double for that analyzer and use exact arithmetic.
+`find_candidate_verified` for that analyzer and use exact arithmetic.
 
 Initialization is lazy so `--exact` never allocates or prepares binary64
 candidate-rejection state.
@@ -276,7 +263,7 @@ d        = upward(d_lu+d_input)
 The implemented factorization-defect expression above matches Theorem 4.1 in
 Oishi and Rump, [*Fast Verification of Solutions of Matrix
 Equations*](https://www.tuhh.de/ti3/paper/rump/OiRu02.pdf) (2002). The existing
-`../correctness/CANDIDATE_REJECTOR_DOUBLE.md` contains the broader error-bound
+`../correctness/FIND_CANDIDATE_VERIFIED.md` contains the broader error-bound
 derivation and references.
 
 Apply upward absolute triangular recurrences to bound
@@ -330,49 +317,28 @@ gain_lo = downward(g0_lo-gain_radius).
 The final `+error` covers the payoff component. Reject only when `gain_lo > 0`.
 Equality and overlap with zero require the exact solver.
 
-## Future Production Source Scope
+## Production Source Ownership
 
-The strict mathematics and proof-kernel boundaries below are complete, but this
-source list was reviewed against the stated `main` base. The preceding unsafe
-phase changes several of the same files. Re-run caller and dead-code searches
-before requesting source approval; do not mechanically apply the old removals.
+`fracessa` owns the exact game once and coordinates four stages. The three
+candidate procedures are concrete classes. Each stores a reference to that
+exact game and owns only its own reusable matrices; no matrix is copied between
+the classes.
 
-The expected C++ production delta is:
-
-| File | Minimal change |
+| File | Responsibility |
 | --- | --- |
-| `cpp/CMakeLists.txt` | Add one strict proof object and one test-only exact-rejection oracle option. |
-| `cpp/include/fracessa/fracessa.hpp` | Add only the numerical mode state and candidate-rejector-double declaration needed beside the existing unsafe and exact paths. |
-| `cpp/include/fracessa/matrix_server.hpp` | Preserve exact and unsafe matrix preparation and storage; Choice 1 owns no `MatrixServer` state. |
-| `cpp/src/findeq.cpp` | Preserve unsafe rejection, then add the proven-rejection call plus compile-time exact oracle. |
-| `cpp/src/fracessa.cpp` | Select Choice 1 by default, unsafe only when explicitly requested, and exact when requested, with one predictable branch per support. |
-| `cpp/src/candidate_rejector_double.cpp` | Add the isolated Choice 1 implementation. |
-| `cpp/include/fracessa/candidate_rejector_double.hpp` | Own the lazy candidate-rejector-double state and declare its availability and proof-helper contracts. |
+| `cpp/include/fracessa/fracessa.hpp`, `cpp/src/fracessa.cpp` | Own the game, mode objects, candidate lifecycle, search, and final output. |
+| `cpp/include/fracessa/find_candidate_verified.hpp`, `cpp/src/find_candidate_verified.cpp` | Own lazy rigorous bounds and strict proof scratch; return false only for a proven non-candidate. |
+| `cpp/include/fracessa/find_candidate_unsafe.hpp`, `cpp/src/find_candidate_unsafe.cpp` | Own unsafe normalization and heuristic solve scratch. |
+| `cpp/include/fracessa/find_candidate_exact.hpp`, `cpp/src/find_candidate_exact.cpp` | Own exact bordered scratch and construct the exact candidate. |
+| `cpp/src/checkstab.cpp` | Build and reuse the exact Bee matrix stored by `fracessa`, then classify stability. |
 
-The matching C++ test scope is:
-
-| File | Minimal change |
-| --- | --- |
-| `cpp/tests/CMakeLists.txt` | Register one focused candidate-rejector-double test executable. |
-| `cpp/tests/test_candidate_rejector_double.cpp` | Test the actual strict production helpers and candidate-rejector-double integration. |
-
-The future public-mode handoff is expected to require the existing CLI, pybind,
-and wrapper boundary files as well: pass explicit unsafe selection into the
-core and add a numerical `unsafe` Python argument only when Choice 1 creates
-that distinction. Matrix parsing remains one validated path. Re-audit and list
-those exact files before seeking implementation approval.
-
-No Choice 1 change is expected in `cpp/include/linalg/linear_solver.hpp`; the
-temporary unsafe phase owns removal of the obsolete generic double solver, and
-the exact solver remains unchanged.
-
-If another `.cpp`, `.hpp`, or `.py` file becomes necessary after the required
-re-audit, implementation must stop and request renewed approval before changing
-it.
+The former `MatrixServer` and mixed `findeq.cpp` no longer exist. Stability
+remains a `fracessa` method; a separate stability class is a later decision,
+not part of this ownership change.
 
 ## Explicitly Excluded
 
-The reimplementation will not include:
+The implementation does not include:
 
 - Choice 2 or a compile-time Choice 1/Choice 2 selector;
 - unsafe heuristics or parser routing inside the strict proof kernel; the
@@ -384,19 +350,19 @@ The reimplementation will not include:
 - a generic interval type, inverse matrix, virtual dispatch, or public
   proof API.
 
-The temporary phase retains `find_candidate_dbl()` for the unsafe heuristic.
-Choice 1 adds the narrowly named `candidate_rejector_dbl()` entry instead of
-renaming or duplicating the existing unsafe implementation. Their boolean
-results deliberately match their names:
+All three candidate classes use the same Boolean viewpoint:
 
 ```text
-find_candidate_dbl()      false -> unsafe rejection
-find_candidate_dbl()      true  -> exact candidate solving is required
-candidate_rejector_dbl()  false -> exact candidate solving is required
-candidate_rejector_dbl()  true  -> proven rejection
+find_candidate_verified::find()  false -> proven no candidate
+find_candidate_verified::find()  true  -> exact candidate solving is required
+find_candidate_unsafe::find()    false -> heuristic no candidate
+find_candidate_unsafe::find()    true  -> exact candidate solving is required
+find_candidate_exact::find()     false -> exact no candidate
+find_candidate_exact::find()     true  -> exact candidate constructed
 ```
 
-Only candidate-rejector-double has a proof guarantee.
+Only the false result from verified and both results from exact have a proof
+guarantee. Unsafe remains explicitly heuristic.
 
 ## Comment Requirements
 
@@ -419,12 +385,6 @@ the same.
 
 ## Verification Gates
 
-### Baseline
-
-Before source edits, record the accepted temporary unsafe-default build and test
-state. Verification IDs 1-44 should already pass there; IDs 38 and 39 are no
-longer expected failures after unsafe normalization.
-
 ### Focused correctness
 
 The focused test must call the actual strict production helpers and cover:
@@ -442,14 +402,14 @@ The focused test must call the actual strict production helpers and cover:
 
 ### End-to-end correctness
 
-Build with `FRACESSA_CANDIDATE_REJECTOR_DOUBLE_ORACLE=ON`. Every candidate-rejector-double result is then
-cross-checked with the exact candidate solver and must fail immediately on any
-disagreement. The option must compile completely out of normal builds.
+Build with `FRACESSA_FIND_CANDIDATE_VERIFIED_ORACLE=ON`. Every false result from
+verified search is then cross-checked with the exact candidate solver and must
+fail immediately on any disagreement. The option compiles out of normal builds.
 
 Run:
 
 ```text
-focused candidate-rejector-double and exact-solver CTests
+focused `find_candidate_verified` and exact-solver CTests
 complete core/CLI CTests
 complete wrapper tests
 all verification-matrix correctness tests
@@ -481,7 +441,7 @@ The implementation is acceptable only when:
 
 1. No exact candidate is ever rejected by the oracle build.
 2. All included verification matrices match their exact candidate baselines.
-3. `--exact` does not initialize or allocate candidate-rejector-double state.
+3. `--exact` does not initialize or allocate `find_candidate_verified` state.
 4. The normal support path performs no per-support heap allocation except the
    existing scratch resize when support size changes.
 5. No-flag behavior becomes Choice 1, explicit unsafe remains available, and
@@ -489,46 +449,39 @@ The implementation is acceptable only when:
 6. The strict proof source remains isolated from fast-math, contraction, and IPO.
 7. The final source diff contains only the approved files and documented code.
 
-## Required Regression Data
+## Regression Data
 
-`main` contains verification IDs 1-44. Commit
-`2be0207242d585aaa14f9c87bbaed1b068c40de0` on `certified-filter` contains the
-validated data for IDs 45-47:
+The active verification data includes IDs 45-47:
 
 - ID 45 is the preserved dimension-20 heuristic counterexample;
 - ID 46 reaches the Choice 1 LU error proof and requires boundary fallback;
 - ID 47 reaches residual construction but fails the Choice 1 LU proof and
   requires exact fallback.
 
-Transfer only their committed rows during the future Choice 1 implementation
-into
-`python/verification/verification_matrices.json`,
+Their rows live in `python/verification/verification_matrices.json`,
 `python/verification/baseline_candidates.csv`, and
-`python/verification/baseline_result.json`. Do not activate them while unsafe is
-still the temporary default. The candidate CSV must retain the
-mathematically correct exact candidates; the result JSON intentionally remains
-the historical unsafe-speed baseline. Do not copy their experimental
-builds, logs, source snapshots, or Choice 2/unsafe code.
-
-This is required test-data scope, not an expansion of the approved C++ source
-scope.
+`python/verification/baseline_result.json`. The candidate CSV retains the exact
+candidates; the result JSON remains the historical unsafe-speed baseline.
 
 ## Implementation Record
 
 The current worktree implements only Choice 1. No Choice 2, diagnostics, exact
 solver rewrite, support-generator change, or parser change was added.
 
-- No flag selects candidate-rejector-double; `--unsafe` selects the preserved
+- No flag selects verified search; `--unsafe` selects the preserved
   heuristic; `--exact` bypasses both. The same selector is exposed by pybind and
   `RunConfig`, and exact plus unsafe is rejected.
-- The proof kernel is a separate object target compiled without fast-math,
+- Verified, unsafe, and exact candidate search are concrete state-owning classes
+  with matching HPP/CPP files. `fracessa` owns one exact game and each class
+  stores a reference to it; the former `MatrixServer` and `findeq.cpp` are gone.
+- The verified proof source is a separate object target compiled without fast-math,
   floating-point contraction, or IPO/LTO. One centralized build/runtime check
   refuses unavailable default mode before enumeration; exact and unsafe remain
   explicit alternatives.
 - Verification IDs 45-47 are active, and their exact candidate rows are in the
   maintained JSON/CSV baselines.
 - Release passed 11/11 core/CLI tests, 26/26 wrapper tests, and all 55 matrix
-  checks. The exact-rejection oracle passed the 53 permitted matrices with IDs
+  checks. The verified-search oracle passed the 53 permitted matrices with IDs
   33-34 excluded. ASan/UBSan passed all core/CLI tests and IDs 45-47.
 - On the historical pinned-CPU persistent-process set (IDs 1-33 and 35), summed
   bounded-error medians were 2,108.563 ms. This is 10.03x faster than the saved

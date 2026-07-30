@@ -1,10 +1,11 @@
 #include <gtest/gtest.h>
-#include <fracessa/matrix_server.hpp>
+#include <fracessa/find_candidate_unsafe.hpp>
 #include <linalg/matrix_fraction.hpp>
 #include <linalg/matrix_double.hpp>
 #include <cmath>
 
 using namespace linalg;
+using namespace candidate_search;
 
 /*
  * Matrix container and factory tests.
@@ -55,7 +56,7 @@ TEST(MatrixPositiveDefiniteTest, Fraction) {
     EXPECT_FALSE(B.is_positive_definite());
 }
 
-TEST(MatrixServerTest, RejectsUnusableNormalizedDoubleMatrix) {
+TEST(FindCandidateUnsafeTest, RejectsUnusableNormalizedDoubleMatrix) {
     for (const size_t exponent : {1023u, 1075u}) {
         fraction tiny = fraction::one();
         for (size_t i = 0; i < exponent; ++i) {
@@ -71,7 +72,7 @@ TEST(MatrixServerTest, RejectsUnusableNormalizedDoubleMatrix) {
         matrix_frc A(2, 2);
         A(0, 0) = fraction::zero(); A(0, 1) = tiny;
         A(1, 0) = tiny;             A(1, 1) = fraction::one();
-        MatrixServer server(A);
-        EXPECT_FALSE(server.initialize_game_matrix_dbl());
+        find_candidate_unsafe unsafe(A);
+        EXPECT_FALSE(unsafe.normalize_game_matrix());
     }
 }

@@ -1,9 +1,9 @@
-# Candidate Rejector Double Correctness
+# Find Candidate Verified Correctness
 
 Status: mathematical design implemented by the Choice 1 proof kernel. The
 original derivation and alternatives below are retained as its rationale;
 current source scope and validation are recorded in
-`../architecture/CANDIDATE_REJECTOR_DOUBLE.md`.
+`../architecture/FIND_CANDIDATE_VERIFIED.md`.
 
 ## Purpose
 
@@ -11,7 +11,7 @@ FracESSA may inspect up to `2^n` supports. Running exact rational Gaussian
 elimination for every support is potentially too slow, but the current double
 heuristic is not allowed to discard supports safely: verification matrices
 45-47 contain valid ESS supports that explicit unsafe mode rejects before exact
-arithmetic. Candidate-rejector-double fixes that correctness boundary.
+arithmetic. `find_candidate_verified` fixes that correctness boundary.
 
 The target is a one-sided rejection procedure:
 
@@ -164,7 +164,7 @@ s      = max(i,j) |d(i,j)|
 A'     = d / s,                    when s > 0.
 ```
 
-If `s = 0`, every matrix entry is equal and candidate-rejector-double should be
+If `s = 0`, every matrix entry is equal and `find_candidate_verified` should be
 bypassed in the first implementation.
 
 For any probability vector `x`, `sum(x_j) = 1`, so every pure-strategy payoff
@@ -297,11 +297,11 @@ following:
 3. The final `alpha`, `beta`, and `e` are rounded upward.
 4. Overflow, underflow, and non-finite values cause `EXACT_REQUIRED`, not
    rejection. Unsupported compiler or runtime floating-point behavior prevents
-   candidate-rejector-double from starting.
+   `find_candidate_verified` from starting.
 
 ### Enclosing Exact Rational Inputs
 
-Let `q` be one exact normalized rational entry. Candidate-rejector-double needs
+Let `q` be one exact normalized rational entry. `find_candidate_verified` needs
 binary64 endpoints `q_lo` and `q_hi` satisfying
 
 ```text
@@ -368,7 +368,7 @@ The error-bound code cannot be compiled under transformations that discard
 IEEE floating-point semantics, such as unrestricted `-ffast-math`. Fused
 multiply-add contraction is acceptable only when the error analysis accounts
 for the actual operation. If a platform cannot provide the arithmetic behavior
-assumed by the bound, candidate-rejector-double must stop before enumeration
+assumed by the bound, `find_candidate_verified` must stop before enumeration
 and require the user to choose explicit exact or unsafe mode.
 
 ## Turning The Solution Bound Into A Rejection Proof
@@ -475,8 +475,8 @@ A small pivot produces no proof and therefore goes exact. An approximate
 negative probability may trigger an attempted proof, but rejection occurs
 only if the exact probability enclosure lies entirely at or below zero.
 
-The current Gaussian elimination also overwrites its bordered matrix. A
-the proof later needs the original normalized `C` for the residual and
+The current Gaussian elimination also overwrites its bordered matrix. The
+proof later needs the original normalized `C` for the residual and
 `I - R C`. The implementation must either retain a small unmodified copy or
 reconstruct `C` from the normalized game and support. This is a performance
 choice, not a mathematical one.
@@ -635,7 +635,7 @@ Measure at least:
 2. current `--exact` runtime as the correctness reference;
 3. exact normalization with the existing unsafe double procedure, for isolated
    overhead;
-4. normalized candidate-rejector-double;
+4. normalized `find_candidate_verified`;
 5. total and per-support-size counts of:
    - proposed double rejections;
    - proven probability rejections;

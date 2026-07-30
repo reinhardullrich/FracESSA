@@ -55,7 +55,7 @@ def assert_success_with_ess_output(
 def assert_unsafe_warning(result: subprocess.CompletedProcess, case_name: str) -> None:
     warning = result.stderr.lower()
     required = (
-        "heuristic numerical filtering",
+        "heuristic candidate search",
         "miss exact candidates and ess results",
     )
     for text in required:
@@ -113,19 +113,19 @@ def main() -> int:
         matrix_46 = next(matrix for matrix in json.load(fh)["matrices"] if matrix["id"] == 46)
     unsafe_counterexample = f"{matrix_46['dimension']}#{matrix_46['matrix']}"
 
-    # Matrix 46 has one ESS under bounded-error/exact analysis, but unsafe filtering misses it.
+    # Matrix 46 has one ESS under verified/exact analysis, but unsafe search misses it.
     default_result = assert_success_with_ess_output(
-        fracessa_exe, [unsafe_counterexample], "default_bounded_success"
+        fracessa_exe, [unsafe_counterexample], "default_verified_success"
     )
     explicit_unsafe_result = assert_success_with_ess_output(
         fracessa_exe, ["--unsafe", unsafe_counterexample], "explicit_unsafe_success"
     )
     if first_non_empty_line(default_result.stdout) != "1":
-        raise AssertionError(f"bounded-error mode missed matrix 46 ESS: {default_result.stdout.strip()}")
+        raise AssertionError(f"verified mode missed matrix 46 ESS: {default_result.stdout.strip()}")
     if first_non_empty_line(explicit_unsafe_result.stdout) != "0":
         raise AssertionError(f"unsafe mode unexpectedly retained matrix 46 ESS: {explicit_unsafe_result.stdout.strip()}")
     if "unsafe" in default_result.stderr.lower():
-        raise AssertionError("default bounded-error mode unexpectedly printed an unsafe warning")
+        raise AssertionError("default verified mode unexpectedly printed an unsafe warning")
     assert_unsafe_warning(explicit_unsafe_result, "explicit_unsafe_warning")
 
     # Numerical mode and parser behavior

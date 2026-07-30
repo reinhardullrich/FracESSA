@@ -91,8 +91,8 @@ the exact fractions. Support masks have 64 storage bits, but complete
 enumeration requires the exclusive `2^n` bound, so dimension 64 is not
 supported.
 
-The numerical modes are candidate-rejector-double, unsafe rejection, and exact
-solving. No flag selects the rigorously one-sided candidate-rejector-double
+The numerical modes are verified candidate search, unsafe candidate search, and
+exact candidate search. No flag selects the rigorously one-sided verified
 procedure; `--unsafe` selects the faster heuristic; `--exact` bypasses both.
 `--exact` and `--unsafe` are mutually exclusive. If build-time or runtime
 floating-point requirements are unavailable, default mode stops before support
@@ -107,8 +107,8 @@ CLI or pybind input
   -> matrix_parser
   -> fracessa constructor
   -> support generation and pruning
-  -> candidate-rejector-double, unsafe rejection, or exact bypass
-  -> find_candidate_frc
+  -> find_candidate_verified, find_candidate_unsafe, or exact bypass
+  -> find_candidate_exact
   -> check_stability
   -> ESS/candidate output
 ```
@@ -133,37 +133,46 @@ Important implementation points:
 - Newly found exact candidates are pending until the next cardinality, keeping
   each generator layer's pruning rules stable. Stability is irrelevant to this
   pruning rule: every exact equilibrium support forbids later strict supersets.
-- Candidate-rejector-double lazily translates and positively scales the exact
+- `find_candidate_verified` lazily translates and positively scales the exact
   game into `[-1,1]`, encloses every entry in binary64, and reuses one bordered
   LU scratch matrix. It rejects only after a rigorous solution-error bound
   proves a nonpositive support probability or a profitable outside strategy.
-- Explicit unsafe mode retains its separate normalized binary64 matrix, danger
-  veto, and exact fallback. Constant games and unusable conversions fall back
-  to exact candidate solving.
+- `find_candidate_unsafe` owns its normalized binary64 matrix and bordered
+  scratch, then applies the existing danger veto. Constant games and unusable
+  conversions select exact candidate solving.
+- `find_candidate_exact` owns the reusable exact bordered system and constructs
+  the authoritative candidate in `candidate_`.
+- `fracessa` owns one exact game. All three concrete candidate classes store a
+  reference to it, so no game matrix is copied between procedures.
 - Exact arithmetic uses FLINT `fmpq_t` through `linalg::fraction`.
 - Stability uses exact rational positive-definiteness; a binary64 result is not
   accepted as a final mathematical certificate.
 - `correctness/DOUBLE_PD_FALSE_POSITIVES.md` documents the concrete failures and
   proves why tolerance tuning cannot recover an exact PD certificate.
-- `--exact` does not initialize or allocate either double candidate-rejection
+- `--exact` does not initialize or allocate either double candidate-search
   state, and all final stability decisions use exact rational arithmetic.
 - `--unsafe` uses a cheap pivot/margin danger veto, not a proof. IDs 45-47 are
-  active regressions for candidate-rejector-double and remain counterexamples
+  active regressions for verified search and remain counterexamples
   to the unsafe heuristic.
 
 Key files:
 
 - `cpp/include/fracessa/bitset64.hpp`: support-mask primitives.
 - `cpp/include/fracessa/supports.hpp`: support generation and pruning.
-- `cpp/include/fracessa/matrix_server.hpp`: exact and normalized unsafe matrix
-  preparation, storage, and scratch reuse.
 - `cpp/include/linalg/fraction.hpp`: FLINT rational wrapper.
 - `cpp/include/linalg/linear_solver.hpp`: exact bordered-system solver.
 - `cpp/include/linalg/copositive_fraction.hpp`: exact copositivity checks.
-- `cpp/include/fracessa/candidate_rejector_double.hpp`: candidate-rejector-double
-  ownership, availability, and focused proof-helper contracts.
-- `cpp/src/candidate_rejector_double.cpp`: strict one-sided implementation.
-- `cpp/src/findeq.cpp`: candidate construction and numerical rejection.
+- `cpp/include/fracessa/find_candidate_verified.hpp` and
+  `cpp/src/find_candidate_verified.cpp`: verified class, strict one-sided proof,
+  availability check, and focused proof-helper contracts.
+- `cpp/include/fracessa/find_candidate_unsafe.hpp` and
+  `cpp/src/find_candidate_unsafe.cpp`: unsafe class, normalized game, heuristic
+  solve, and reusable scratch.
+- `cpp/include/fracessa/find_candidate_exact.hpp` and
+  `cpp/src/find_candidate_exact.cpp`: exact class, bordered system, and candidate
+  construction.
+- `cpp/include/fracessa/fracessa.hpp` and `cpp/src/fracessa.cpp`: exact game
+  ownership, mode coordination, support search, and candidate lifecycle.
 - `cpp/src/checkstab.cpp`: stability classification.
 
 ## Build And Dependencies
@@ -197,13 +206,13 @@ up yet.
 
 Local non-MSVC builds default to `FRACESSA_NATIVE_ARCH=ON` (`-march=native`).
 Release CI sets it to `OFF`. IPO/LTO is enabled only when CMake confirms support.
-The candidate-rejector-double object overrides the normal throughput flags with
+The `find_candidate_verified` object target overrides normal throughput flags with
 strict floating-point semantics, contraction disabled, and IPO/LTO disabled.
 One centralized availability function combines compiler support with the
 runtime binary64, round-to-nearest, and subnormal checks. An unsupported build
-still provides exact and unsafe modes, but refuses candidate-rejector-double.
-`FRACESSA_CANDIDATE_REJECTOR_DOUBLE_ORACLE=ON` is a development build option
-that cross-checks every candidate-rejector-double rejection with exact
+still provides exact and unsafe modes, but refuses verified search.
+`FRACESSA_FIND_CANDIDATE_VERIFIED_ORACLE=ON` is a development build option
+that cross-checks every verified false result with exact
 arithmetic and compiles out when disabled.
 Do not run verification IDs 33 or 34 with `--exact` or this oracle without
 Reinhard's separate approval.
@@ -229,8 +238,8 @@ is one CTest per matrix so CTest can run matrices in parallel.
 Fast mode is a static policy: all verification matrices except IDs 32 and 34.
 The speed script records timings; correctness belongs to CTest.
 
-All 55 active verification matrices (IDs 1-55) pass with
-candidate-rejector-double. IDs 38-39 cover exact affine normalization, and IDs
+All 55 active verification matrices (IDs 1-55) pass with verified search. IDs
+38-39 cover exact affine normalization, and IDs
 45-47 exercise the unsafe counterexample, LU-boundary fallback, and failed-proof
 fallback paths. IDs 48-55 add non-circular
 dimensions 15-24 through Hilbert, Hadamard, Paley conference, MINIJ, Fiedler,

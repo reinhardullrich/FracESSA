@@ -22,7 +22,7 @@ int main(int argc, char *argv[])
     program.add_argument("-f", "--fullsupport").help("search full support directly").implicit_value(true).default_value(false);
     program.add_argument("-t", "--timing").help("output computation time").implicit_value(true).default_value(false);
     program.add_argument("-m", "--matrixid").help("optional matrix ID").scan<'i', int>().default_value(-1);
-    program.add_argument("-u", "--unsafe").help("use heuristic numerical filtering").implicit_value(true).default_value(false);
+    program.add_argument("-u", "--unsafe").help("use heuristic candidate search").implicit_value(true).default_value(false);
     program.add_argument("matrix").help("the matrix to compute");
 
     try { program.parse_args(argc, argv); }
@@ -48,7 +48,7 @@ int main(int argc, char *argv[])
 
     if (unsafe) {
         std::cerr
-            << "Warning: --unsafe uses heuristic numerical filtering and can miss "
+            << "Warning: --unsafe uses heuristic candidate search and can miss "
             << "exact candidates and ESS results." << std::endl;
     }
     

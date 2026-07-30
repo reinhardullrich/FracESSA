@@ -7,12 +7,11 @@
 #include <stdexcept>
 #include <string>
 
-#include <fracessa/candidate_rejector_double.hpp>
+#include <fracessa/find_candidate_exact.hpp>
+#include <fracessa/find_candidate_verified.hpp>
 #include <fracessa/fracessa.hpp>
-#include <fracessa/matrix_server.hpp>
-#include <linalg/linear_solver.hpp>
 
-using namespace candidate_rejection;
+using namespace candidate_search;
 using namespace linalg;
 
 namespace {
@@ -51,19 +50,19 @@ matrix_frc make_symmetric_2x2(const fraction& a, const fraction& b, const fracti
     return result;
 }
 
-class supported_candidate_rejector_dbl_test : public ::testing::Test {
+class supported_find_candidate_verified_test : public ::testing::Test {
 protected:
     void SetUp() override
     {
         if (unavailable_reason()) {
-            GTEST_SKIP() << "Candidate-rejector-double is unavailable";
+            GTEST_SKIP() << "Verified candidate search is unavailable";
         }
     }
 };
 
 } // namespace
 
-TEST_F(supported_candidate_rejector_dbl_test, StepsToAdjacentBinary64Values)
+TEST_F(supported_find_candidate_verified_test, StepsToAdjacentBinary64Values)
 {
     double result;
     ASSERT_TRUE(round_down(1.0, result));
@@ -78,7 +77,7 @@ TEST_F(supported_candidate_rejector_dbl_test, StepsToAdjacentBinary64Values)
     EXPECT_FALSE(round_down(-std::numeric_limits<double>::max(), result));
 }
 
-TEST_F(supported_candidate_rejector_dbl_test, DetectsUnsupportedRoundingMode)
+TEST_F(supported_find_candidate_verified_test, DetectsUnsupportedRoundingMode)
 {
     const int original_rounding = std::fegetround();
     ASSERT_EQ(std::fesetround(FE_UPWARD), 0);
@@ -86,10 +85,10 @@ TEST_F(supported_candidate_rejector_dbl_test, DetectsUnsupportedRoundingMode)
     ASSERT_EQ(std::fesetround(original_rounding), 0);
 }
 
-TEST_F(supported_candidate_rejector_dbl_test, RationalConversionEnclosesExactValues)
+TEST_F(supported_find_candidate_verified_test, RationalConversionEnclosesExactValues)
 {
-    RationalEnclosure enclosure;
-    ASSERT_TRUE(rational_enclosure(fraction(1, 2), enclosure));
+    rational_bounds enclosure;
+    ASSERT_TRUE(get_rational_bounds(fraction(1, 2), enclosure));
     EXPECT_EQ(enclosure.midpoint, 0.5);
     EXPECT_EQ(enclosure.radius, 0.0);
 
@@ -98,7 +97,7 @@ TEST_F(supported_candidate_rejector_dbl_test, RationalConversionEnclosesExactVal
             const fraction exact(
                 static_cast<long long>(numerator),
                 static_cast<long long>(denominator));
-            ASSERT_TRUE(rational_enclosure(exact, enclosure));
+            ASSERT_TRUE(get_rational_bounds(exact, enclosure));
 
             const fraction midpoint = exact_double(enclosure.midpoint);
             const fraction radius = exact_double(enclosure.radius);
@@ -107,12 +106,12 @@ TEST_F(supported_candidate_rejector_dbl_test, RationalConversionEnclosesExactVal
         }
     }
 
-    ASSERT_TRUE(rational_enclosure(fraction("1/1" + std::string(400, '0')), enclosure));
+    ASSERT_TRUE(get_rational_bounds(fraction("1/1" + std::string(400, '0')), enclosure));
     EXPECT_GE(enclosure.radius, std::numeric_limits<double>::denorm_min());
-    EXPECT_FALSE(rational_enclosure(fraction("1" + std::string(400, '0')), enclosure));
+    EXPECT_FALSE(get_rational_bounds(fraction("1" + std::string(400, '0')), enclosure));
 }
 
-TEST_F(supported_candidate_rejector_dbl_test, RetainedLuSolvesAndTracksMultipleSwaps)
+TEST_F(supported_find_candidate_verified_test, RetainedLuSolvesAndTracksMultipleSwaps)
 {
     matrix_dbl matrix(3, 3);
     matrix(0, 0) = 0.0; matrix(0, 1) = 1.0; matrix(0, 2) = 1.0;
@@ -148,7 +147,7 @@ TEST_F(supported_candidate_rejector_dbl_test, RetainedLuSolvesAndTracksMultipleS
     }
 }
 
-TEST_F(supported_candidate_rejector_dbl_test, RetainedLuAllowsNegativeLastVariable)
+TEST_F(supported_find_candidate_verified_test, RetainedLuAllowsNegativeLastVariable)
 {
     matrix_dbl matrix(3, 3);
     for (size_t i = 0; i < 3; ++i) matrix(i, i) = 1.0;
@@ -164,7 +163,7 @@ TEST_F(supported_candidate_rejector_dbl_test, RetainedLuAllowsNegativeLastVariab
     EXPECT_EQ(solution[2], -2.0);
 }
 
-TEST_F(supported_candidate_rejector_dbl_test, RetainedLuRejectsSingularAndNonFiniteWork)
+TEST_F(supported_find_candidate_verified_test, RetainedLuRejectsSingularAndNonFiniteWork)
 {
     matrix_dbl singular(2, 2);
     singular(0, 0) = 1.0; singular(0, 1) = 1.0;
@@ -185,7 +184,7 @@ TEST_F(supported_candidate_rejector_dbl_test, RetainedLuRejectsSingularAndNonFin
     EXPECT_FALSE(factor_lu(non_finite, 2, permutation));
 }
 
-TEST_F(supported_candidate_rejector_dbl_test, HandlesMaximumBorderedDimension)
+TEST_F(supported_find_candidate_verified_test, HandlesMaximumBorderedDimension)
 {
     constexpr size_t dimension = bs64::kMaxBitsetDimension;
     matrix_dbl matrix(dimension, dimension);
@@ -205,14 +204,14 @@ TEST_F(supported_candidate_rejector_dbl_test, HandlesMaximumBorderedDimension)
     for (size_t i = 0; i < dimension; ++i) EXPECT_EQ(solution[i], right_hand_side[i]);
 
     double zeros[dimension]{};
-    SolutionErrorBound proof;
+    solution_error_bound proof;
     ASSERT_TRUE(prove_solution_error(
         matrix, dimension, permutation, zeros, zeros, zeros, proof));
     EXPECT_LT(proof.q, 1.0);
     EXPECT_GE(proof.error, 0.0);
 }
 
-TEST_F(supported_candidate_rejector_dbl_test, AbsoluteTriangularRecurrenceIsAnUpperBound)
+TEST_F(supported_find_candidate_verified_test, AbsoluteTriangularRecurrenceIsAnUpperBound)
 {
     matrix_dbl matrix(3, 3);
     matrix(0, 0) = 2.0;  matrix(0, 1) = -1.0; matrix(0, 2) = 0.5;
@@ -240,7 +239,7 @@ TEST_F(supported_candidate_rejector_dbl_test, AbsoluteTriangularRecurrenceIsAnUp
     }
 }
 
-TEST_F(supported_candidate_rejector_dbl_test, ChoiceOneQBoundsExactTwoByTwoDefect)
+TEST_F(supported_find_candidate_verified_test, ChoiceOneQBoundsExactTwoByTwoDefect)
 {
     matrix_dbl original(2, 2);
     original(0, 0) = 3.0; original(0, 1) = 2.0;
@@ -250,7 +249,7 @@ TEST_F(supported_candidate_rejector_dbl_test, ChoiceOneQBoundsExactTwoByTwoDefec
     ASSERT_TRUE(factor_lu(matrix, 2, permutation));
 
     double zeros[bs64::kMaxBitsetDimension]{};
-    SolutionErrorBound proof;
+    solution_error_bound proof;
     ASSERT_TRUE(prove_solution_error(matrix, 2, permutation, zeros, zeros, zeros, proof));
 
     fraction product[2][2];
@@ -290,7 +289,7 @@ TEST_F(supported_candidate_rejector_dbl_test, ChoiceOneQBoundsExactTwoByTwoDefec
     EXPECT_FALSE(exact_double(proof.q) < exact_norm);
 }
 
-TEST_F(supported_candidate_rejector_dbl_test, ResidualIntervalsContainExactResidual)
+TEST_F(supported_find_candidate_verified_test, ResidualIntervalsContainExactResidual)
 {
     matrix_dbl midpoint(3, 3);
     matrix_dbl radius(3, 3);
@@ -342,7 +341,7 @@ TEST_F(supported_candidate_rejector_dbl_test, ResidualIntervalsContainExactResid
     }
 }
 
-TEST_F(supported_candidate_rejector_dbl_test, OutsideGainLowerBoundIsRigorous)
+TEST_F(supported_find_candidate_verified_test, OutsideGainLowerBoundIsRigorous)
 {
     matrix_dbl midpoint(2, 2);
     matrix_dbl radius(2, 2);
@@ -368,83 +367,83 @@ TEST_F(supported_candidate_rejector_dbl_test, OutsideGainLowerBoundIsRigorous)
     EXPECT_GT(gain_lower, 0.0);
 }
 
-TEST_F(supported_candidate_rejector_dbl_test, ProvesProfitableOutsideStrategy)
+TEST_F(supported_find_candidate_verified_test, ProvesProfitableOutsideStrategy)
 {
     const matrix_frc game = make_symmetric_2x2(fraction::zero(), fraction::one(), fraction::zero());
-    candidate_rejector_dbl candidate_rejector(game);
-    EXPECT_TRUE(candidate_rejector.proves_candidate_rejection(bitset64{1}, 1));
+    find_candidate_verified verified(game);
+    EXPECT_FALSE(verified.find(bitset64{1}, 1));
 }
 
-TEST_F(supported_candidate_rejector_dbl_test, FallsBackAtOutsideGainBoundary)
+TEST_F(supported_find_candidate_verified_test, FallsBackAtOutsideGainBoundary)
 {
     const matrix_frc game = make_symmetric_2x2(fraction::zero(), fraction::zero(), fraction::one());
-    candidate_rejector_dbl candidate_rejector(game);
-    EXPECT_FALSE(candidate_rejector.proves_candidate_rejection(bitset64{1}, 1));
+    find_candidate_verified verified(game);
+    EXPECT_TRUE(verified.find(bitset64{1}, 1));
 }
 
-TEST_F(supported_candidate_rejector_dbl_test, ProvesNonPositiveSupportProbability)
+TEST_F(supported_find_candidate_verified_test, ProvesNonPositiveSupportProbability)
 {
     const matrix_frc game = make_symmetric_2x2(fraction::zero(), fraction::one(), fraction(3));
-    candidate_rejector_dbl candidate_rejector(game);
-    EXPECT_TRUE(candidate_rejector.proves_candidate_rejection(bitset64{3}, 2));
+    find_candidate_verified verified(game);
+    EXPECT_FALSE(verified.find(bitset64{3}, 2));
 }
 
-TEST_F(supported_candidate_rejector_dbl_test, FallsBackAtZeroProbabilityBoundary)
+TEST_F(supported_find_candidate_verified_test, FallsBackAtZeroProbabilityBoundary)
 {
     const matrix_frc game = make_symmetric_2x2(fraction::zero(), fraction::one(), fraction::one());
-    candidate_rejector_dbl candidate_rejector(game);
-    EXPECT_FALSE(candidate_rejector.proves_candidate_rejection(bitset64{3}, 2));
+    find_candidate_verified verified(game);
+    EXPECT_TRUE(verified.find(bitset64{3}, 2));
 }
 
-TEST_F(supported_candidate_rejector_dbl_test, FallsBackForSingularAndNearSingularSystems)
+TEST_F(supported_find_candidate_verified_test, FallsBackForSingularAndNearSingularSystems)
 {
     const matrix_frc singular_game = make_symmetric_2x2(fraction::zero(), fraction::one(), fraction::two());
-    candidate_rejector_dbl singular(singular_game);
-    EXPECT_FALSE(singular.proves_candidate_rejection(bitset64{3}, 2));
+    find_candidate_verified singular(singular_game);
+    EXPECT_TRUE(singular.find(bitset64{3}, 2));
 
     const fraction epsilon("1/100000000000000000000");
     fraction nearly_two = fraction::two();
     nearly_two += epsilon;
     const matrix_frc nearly_singular_game = make_symmetric_2x2(fraction::zero(), fraction::one(), nearly_two);
-    candidate_rejector_dbl nearly_singular(nearly_singular_game);
-    EXPECT_FALSE(nearly_singular.proves_candidate_rejection(bitset64{3}, 2));
+    find_candidate_verified nearly_singular(nearly_singular_game);
+    EXPECT_TRUE(nearly_singular.find(bitset64{3}, 2));
 }
 
-TEST_F(supported_candidate_rejector_dbl_test, ReusesSameSizeScratchAfterFallback)
+TEST_F(supported_find_candidate_verified_test, ReusesSameSizeScratchAfterFallback)
 {
     matrix_frc game(3, 3);
     game(0, 0) = fraction::zero(); game(0, 1) = fraction::one(); game(0, 2) = fraction::one();
     game(1, 0) = fraction::one(); game(1, 1) = fraction::two(); game(1, 2) = fraction::zero();
     game(2, 0) = fraction::one(); game(2, 1) = fraction::zero(); game(2, 2) = fraction(3);
-    candidate_rejector_dbl candidate_rejector(game);
+    find_candidate_verified verified(game);
 
-    EXPECT_FALSE(candidate_rejector.proves_candidate_rejection(bitset64{3}, 2));
-    EXPECT_TRUE(candidate_rejector.proves_candidate_rejection(bitset64{5}, 2));
+    EXPECT_TRUE(verified.find(bitset64{3}, 2));
+    EXPECT_FALSE(verified.find(bitset64{5}, 2));
 }
 
-TEST_F(supported_candidate_rejector_dbl_test, NormalizationHandlesTinyScaleAndLargeTranslation)
+TEST_F(supported_find_candidate_verified_test, NormalizationHandlesTinyScaleAndLargeTranslation)
 {
     const fraction tiny("1/100000000000000000000");
     const matrix_frc tiny_game = make_symmetric_2x2(fraction::zero(), tiny, fraction::zero());
-    candidate_rejector_dbl tiny_scale(tiny_game);
-    EXPECT_TRUE(tiny_scale.proves_candidate_rejection(bitset64{1}, 1));
+    find_candidate_verified tiny_scale(tiny_game);
+    EXPECT_FALSE(tiny_scale.find(bitset64{1}, 1));
 
     const fraction base("100000000000000000000");
     fraction larger = base;
     larger += fraction::one();
     const matrix_frc translated_game = make_symmetric_2x2(base, larger, base);
-    candidate_rejector_dbl translated(translated_game);
-    EXPECT_TRUE(translated.proves_candidate_rejection(bitset64{1}, 1));
+    find_candidate_verified translated(translated_game);
+    EXPECT_FALSE(translated.find(bitset64{1}, 1));
 }
 
-TEST(candidate_rejector_dbl_fallback_test, ConstantMatrixFallsBack)
+TEST(find_candidate_verified_fallback_test, ConstantMatrixFallsBack)
 {
     const matrix_frc game = make_symmetric_2x2(fraction::one(), fraction::one(), fraction::one());
-    candidate_rejector_dbl constant(game);
-    EXPECT_FALSE(constant.proves_candidate_rejection(bitset64{1}, 1));
+    find_candidate_verified constant(game);
+    EXPECT_TRUE(constant.find(bitset64{1}, 1));
 }
 
-TEST(candidate_rejector_dbl_availability_test, UnavailableEnvironmentDisablesOnlyDefaultMode)
+TEST(find_candidate_verified_availability_test, UnavailableEnvironmentDisablesOnlyDefaultMode)
 {
     const matrix_frc game =
         make_symmetric_2x2(fraction::zero(), fraction::one(), fraction::zero());
@@ -467,7 +466,7 @@ TEST(candidate_rejector_dbl_availability_test, UnavailableEnvironmentDisablesOnl
     EXPECT_NE(message.find("--unsafe"), std::string::npos);
 }
 
-TEST_F(supported_candidate_rejector_dbl_test, NeverRejectsRandomExactCandidates)
+TEST_F(supported_find_candidate_verified_test, NeverRejectsRandomExactCandidates)
 {
     uint64_t state = 0x8f3d9b27a461ce55ULL;
     const auto next = [&state]() {
@@ -488,30 +487,14 @@ TEST_F(supported_candidate_rejector_dbl_test, NeverRejectsRandomExactCandidates)
             }
         }
 
-        candidate_rejector_dbl candidate_rejector(game);
-        MatrixServer matrix_server(game);
+        find_candidate_verified verified(game);
+        find_candidate_exact exact(game);
         for (bitset64 support = 1; support < bs64::two_to_the_power_of(dimension); ++support) {
             const size_t support_size = bs64::count_set_bits(support);
-            if (!candidate_rejector.proves_candidate_rejection(support, support_size)) continue;
+            if (verified.find(support, support_size)) continue;
 
-            auto& system = matrix_server.get_linear_system_frc(support, support_size);
-            matrix_frc solution;
-            bool exact_candidate = solve_linear_frc(system, solution);
-            if (exact_candidate) {
-                uint8_t support_indices[bs64::kMaxBitsetDimension];
-                bs64::extract_set_indices(support, dimension, support_indices);
-                const fraction payoff = solution(support_size, 0);
-                for (size_t i = 0; i < dimension && exact_candidate; ++i) {
-                    if (bs64::is_set_at_pos(support, i)) continue;
-                    fraction rowsum = fraction::zero();
-                    for (size_t j = 0; j < support_size; ++j) {
-                        rowsum.addmul(game(i, support_indices[j]), solution(j, 0));
-                    }
-                    exact_candidate = rowsum <= payoff;
-                }
-            }
-
-            EXPECT_FALSE(exact_candidate)
+            candidate result;
+            EXPECT_FALSE(exact.find(support, support_size, result))
                 << "sample=" << sample << " support=" << support;
         }
     }

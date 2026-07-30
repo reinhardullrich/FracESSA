@@ -1,6 +1,5 @@
 #include <fracessa/fracessa.hpp>
 #include <fracessa/bitset64.hpp>
-#include <fracessa/candidate_rejector_double.hpp>
 #include <fracessa/supports.hpp>
 #include <linalg/matrix_fraction.hpp>
 
@@ -9,8 +8,10 @@
 
 fracessa::fracessa(const linalg::matrix_frc& matrix, bool is_cs, bool with_candidates, bool exact,
                    bool full_support, bool with_log, int matrix_id, bool unsafe)
-    : matrix_server_(matrix)
-    , candidate_rejector_dbl_(matrix_server_.get_game_matrix_frc())
+    : game_matrix_(matrix)
+    , find_candidate_verified_(game_matrix_)
+    , find_candidate_unsafe_(game_matrix_)
+    , find_candidate_exact_(game_matrix_)
     , dimension_(matrix.rows())
     , conf_with_candidates_(with_candidates)
     , conf_exact_(exact)
@@ -21,9 +22,9 @@ fracessa::fracessa(const linalg::matrix_frc& matrix, bool is_cs, bool with_candi
     , logger_()
 {
     if (!conf_exact_ && !conf_unsafe_) {
-        if (const char* reason = candidate_rejection::unavailable_reason()) {
+        if (const char* reason = candidate_search::unavailable_reason()) {
             throw std::runtime_error(
-                std::string("Candidate-rejector-double is unavailable: ") + reason +
+                std::string("Verified candidate search is unavailable: ") + reason +
                 ". Run with --exact for correct exact analysis or --unsafe for "
                 "heuristic rejection that may miss candidates or ESS results.");
         }
@@ -46,11 +47,13 @@ fracessa::fracessa(const linalg::matrix_frc& matrix, bool is_cs, bool with_candi
             logger_->info("matrix_id={}", matrix_id);
 
         logger_->info("n={}", dimension_);
-        logger_->info("game matrix:\n{}", matrix_server_.get_game_matrix_frc().to_log_string());
+        logger_->info("game matrix:\n{}", game_matrix_.to_log_string());
     }
 
-    if (!conf_exact_ && conf_unsafe_ && !matrix_server_.initialize_game_matrix_dbl())
+    if (!conf_exact_ && conf_unsafe_ &&
+        !find_candidate_unsafe_.normalize_game_matrix()) {
         conf_exact_ = true;
+    }
 
     if (conf_full_support_) {
         const bitset64 full_support_mask = bs64::set_all_n_bits(dimension_);
@@ -99,12 +102,18 @@ fracessa::fracessa(const linalg::matrix_frc& matrix, bool is_cs, bool with_candi
 bool fracessa::analyze_support(bitset64 support, size_t support_size) {
     if (!conf_exact_) {
         if (conf_unsafe_) {
-            if (!find_candidate_dbl(support, support_size)) return false;
-        } else if (candidate_rejector_dbl(support, support_size)) {
+            if (!find_candidate_unsafe_.find(support, support_size)) return false;
+        } else if (!find_candidate_verified_.find(support, support_size)) {
+#ifdef FRACESSA_FIND_CANDIDATE_VERIFIED_ORACLE
+            if (find_candidate_exact_.find(support, support_size, candidate_)) {
+                throw std::logic_error(
+                    "Verified candidate search disagrees with exact arithmetic");
+            }
+#endif
             return false;
         }
     }
-    if (!find_candidate_frc(support, support_size))
+    if (!find_candidate_exact_.find(support, support_size, candidate_))
         return false;
 
     candidate_.support_size = support_size;

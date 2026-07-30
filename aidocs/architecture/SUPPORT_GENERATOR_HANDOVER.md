@@ -11,17 +11,17 @@ in [`../plans/SUPPORT_GENERATORS.md`](../plans/SUPPORT_GENERATORS.md).
 
 The current worktree contains four connected phases:
 
-1. the temporary explicitly unsafe numerical candidate filter and the exact
+1. the temporary explicitly unsafe numerical candidate search and the exact
    fallback mode;
 2. the support-frontier and circular-bracelet experiments that established the
    replacement design;
 3. the production one-support-at-a-time generators and compressed circular
    candidate output;
-4. the rigorously one-sided Choice 1 candidate filter.
+4. the rigorously one-sided verified candidate search.
 
-The strict bounded-error "Choice 1" numerical filter is the no-flag default. Its
+The verified candidate search is the no-flag default. Its
 implementation record remains in
-[`CANDIDATE_REJECTOR_DOUBLE.md`](CANDIDATE_REJECTOR_DOUBLE.md); explicit
+[`FIND_CANDIDATE_VERIFIED.md`](FIND_CANDIDATE_VERIFIED.md); explicit
 `--unsafe` still selects the separate heuristic.
 
 ## Agreed Production Architecture
@@ -77,7 +77,7 @@ belongs to the support most recently emitted to that callback.
 
 ## Candidate And Pruning Lifecycle
 
-`fracessa::analyze_support()` performs the selected bounded-error or unsafe filter,
+`fracessa::analyze_support()` performs the selected verified or unsafe search,
 exact rational equilibrium solve, candidate population, and stability classification.
 If it reports an exact candidate, the caller registers `candidate_.support` with
 the active generator and then calls `finalize_candidate()`.
@@ -85,7 +85,7 @@ the active generator and then calls `finalize_candidate()`.
 Every exact equilibrium support becomes forbidden for larger cardinalities,
 whether or not stability classifies that candidate as an ESS. A result accepted
 only by exact rational analysis may become a pruning rule; neither numerical
-filter creates one by itself.
+procedure creates one by itself.
 
 The explicit sequence remains visible in each of the three call paths: full
 support, circular generation, and non-circular generation. Moving generator

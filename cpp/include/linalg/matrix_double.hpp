@@ -8,7 +8,7 @@
 namespace linalg {
 
 /*
- * Row-major dense double storage for the bounded-error and unsafe candidate filters.
+ * Row-major dense double storage for verified and unsafe candidate searches.
  *
  * This is reusable numerical scratch space, not the exact game representation.
  * It deliberately provides only unchecked indexing, direct storage access, and

@@ -10,7 +10,7 @@ It is designed for raw speed in large support-space scans, with an exact-only
 mode and a rigorously one-sided default rejection procedure.
 
 ## Why FracESSA
-- Default two-stage pipeline: candidate-rejector-double, then exact FLINT
+- Default two-stage pipeline: verified candidate search, then exact FLINT
   fraction checks for every support not safely rejected.
 - Bitset-based support enumeration over a `2^n` search space.
 - Optimized for many repeated operations on small/medium matrix dimensions.
@@ -61,7 +61,7 @@ syntax. The 64-bit mask is storage, not support for a dimension-64 search.
 - `-m, --matrixid` optional matrix ID for logging/verification runs.
 
 `--exact` and `--unsafe` are mutually exclusive. With no numerical flag,
-FracESSA uses candidate-rejector-double: it rejects a support only after proving a
+FracESSA uses verified candidate search: it rejects a support only after proving a
 violated candidate condition and otherwise falls back to exact arithmetic.
 `--unsafe` can miss exact candidates and ESS results. `--exact` bypasses both
 numerical rejection procedures. If the compiler or runtime floating-point
