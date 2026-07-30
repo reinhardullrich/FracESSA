@@ -3,6 +3,11 @@
 Status: implemented; local correctness and performance verification recorded
 below.
 
+Current status: this document records the completed temporary-default phase.
+The bounded-error Choice 1 filter is now the no-flag default; this heuristic remains
+available only through explicit `--unsafe`. See
+`CANDIDATE_REJECTOR_DOUBLE.md` for the current routing and validation record.
+
 Branch: `choice-one-candidate-filter`
 
 Base: `main` at `32f61679da64beb30f36870e190538f9d80e5970`
@@ -29,7 +34,7 @@ path.
 Choice 1 is a later phase. Do not add its proof kernel, strict floating-point
 target, state, routing, tests, or regression data in this phase.
 
-Correctness warning: the unsafe filter is not a certificate. Its cheap danger
+Correctness warning: the unsafe filter is not a rejection proof. Its cheap danger
 test catches many suspicious floating-point rejections and sends them to exact
 arithmetic, but it can still reject a real candidate. Preserved reference cases
 45-47 demonstrate this limitation.
@@ -116,11 +121,11 @@ rational value that converts to zero or a subnormal double, returns false in
 the same way. The subnormal check is required because the relative-error model
 behind the epsilon guard is not valid below the smallest normal binary64 value.
 
-Implement one `MatrixServer::initialize_unsafe_filter()` call in the analyzer
-constructor before the first support. The method returns whether normalized
-double state is usable. If it returns false, set the analyzer's existing
-`conf_exact_` state to true so the unchanged support loop uses exact candidate
-solving thereafter.
+Implement `MatrixServer::initialize_game_matrix_dbl()` and call it from the
+analyzer constructor before the first support. The method only prepares the
+normalized matrix and reports whether it is usable. If it returns false, the
+analyzer sets its existing `conf_exact_` state to true so the unchanged support
+loop uses exact candidate solving thereafter.
 
 This is conditional initialization, not a first-support getter check. It keeps
 `--exact` free of double allocation while avoiding initialized/available state,
@@ -129,16 +134,13 @@ clear precondition: every double matrix reference is obtained only after
 successful initialization, so no reference can be invalidated by later matrix
 allocation.
 
-Implement normalization directly in the existing `MatrixServer`; there is one
-consumer in this phase, so a shared helper or new source file would be
-scaffolding. Iterate the matrices' contiguous data arrays for both normalization
-passes rather than repeatedly computing row/column offsets.
+Keep normalization in `MatrixServer` with the other matrix-preparation code.
+The server owns and returns the exact game, the finished normalized double
+game, and reusable matrix scratch, but contains no filter or fallback decision.
 
-Reuse the existing `game_dbl_` and `sub_bordered_dbl_` storage. Remove the
-uncalled `get_bee_matrix_dbl()` and `bee_dbl_`: after double initialization
-becomes conditional, retaining that accessor would leave a public method whose
-storage precondition is no longer guaranteed. Do not expand this into cleanup
-of the separate `matrix_dbl` positive-definiteness helpers or their tests.
+Reuse the existing `game_dbl_` and `sub_bordered_dbl_` storage. The uncalled
+`get_bee_matrix_dbl()` and `bee_dbl_` remain removed. Do not expand this into
+cleanup of unrelated matrix helpers or tests.
 
 FLINT's `fmpq_get_d()` conversion used by `fraction::to_dbl()` rounds toward
 zero. Using binary64 epsilon `2^-52`, rather than only unit roundoff `2^-53`, in
@@ -257,13 +259,13 @@ The implementation is limited to these source files.
 
 | File | Minimal change |
 | --- | --- |
-| `cpp/include/fracessa/matrix_server.hpp` | Add one conditional normalization initializer, reduce the double-system method to scratch access by size, and remove only the dead double-Bee accessor/state. |
+| `cpp/include/fracessa/matrix_server.hpp` | Prepare, store, and return the normalized double game and reusable scratch; contain no filter or fallback decision. |
 | `cpp/include/linalg/linear_solver.hpp` | Remove only `solve_linear_dbl()` after its single caller is fused; preserve the exact solver. |
-| `cpp/src/findeq.cpp` | Replace the current double-filter body with the fused solve, proposals, and danger veto. |
-| `cpp/src/fracessa.cpp` | Initialize unsafe state once before enumeration when non-exact; on unavailable normalization, reuse `conf_exact_` for permanent exact fallback. |
+| `cpp/src/findeq.cpp` | Own the fused unsafe solve, proposals, and danger veto while consuming the normalized matrix from `MatrixServer`. |
+| `cpp/src/fracessa.cpp` | Request normalized unsafe state once before enumeration; on preparation failure, reuse `conf_exact_` for permanent exact fallback. |
 | `cpp/src/main.cpp` | Add numerical `--unsafe`, reject exact+unsafe, use the single parser, and print the unsafe warning. |
 | `cpp/src/pybind_module.cpp` | Use the single parser and keep `exact` as the numerical selector. |
-| `cpp/tests/test_matrix.cpp` | Add one focused check that nonzero normalization values converting to zero or subnormal binary64 disable the unsafe filter. |
+| `cpp/tests/test_matrix.cpp` | Check that nonzero normalization values converting to zero or subnormal binary64 make double-matrix preparation fail. |
 | `cpp/tests/test_linear_solver.cpp` | Remove only tests for the deleted double solver. |
 | `cpp/tests/cli_parser_blackbox.py` | Verify parser routing, numerical routing, warning text, normalization cases, and incompatible CLI options. |
 
@@ -285,13 +287,13 @@ counterexamples; this phase improves an explicitly unsafe mode and does not
 make the default mathematically correct.
 
 The CLI and Python documentation must say plainly that no flag and
-`exact=False` use an uncertified filter that can miss candidates and ESS
+`exact=False` use a heuristic filter that can miss candidates and ESS
 results, and that conservative fallback can have exact-mode runtime.
 
-No change is planned for `cpp/include/fracessa/fracessa.hpp`,
-CMake, the constructor signature, output schemas, multiprocessing, sinks, or
-dependencies. If another `.cpp`, `.hpp`, or `.py` file becomes necessary, stop
-and request renewed source approval before editing it.
+No change is planned for `cpp/include/fracessa/fracessa.hpp`, CMake, the
+constructor signature, output schemas, multiprocessing, sinks, or dependencies.
+If another `.cpp`, `.hpp`, or `.py` file becomes necessary, stop and request
+renewed source approval before editing it.
 
 ## Explicitly Excluded
 
@@ -299,9 +301,9 @@ and request renewed source approval before editing it.
 - A third numerical mode or generalized filter interface.
 - `conf_unsafe_`, a numerical pybind/Python `unsafe` boolean, or a new core
   constructor parameter.
-- A certified-filter source file, strict floating-point object target, MPFR
-  proof arithmetic, or certificate oracle.
-- Claiming that the danger veto is certified.
+- A candidate-rejector-double source file, strict floating-point object target, MPFR
+  proof arithmetic, or exact-rejection oracle.
+- Claiming that the danger veto proves rejection.
 - Per-support heap allocation, diagnostics, counters, or logging.
 - Per-support normalization-state or availability checks.
 - A public `H` setting or automatic calibration.
@@ -318,7 +320,8 @@ and request renewed source approval before editing it.
 2. Both non-exact CLI forms print the unsafe warning.
 3. The CLI test proves that `--exact` prints no unsafe warning. Source and diff
    inspection must separately confirm that this path never calls
-   `initialize_unsafe_filter()` and leaves both double matrices unallocated;
+   `MatrixServer::initialize_game_matrix_dbl()` and leaves both double matrices
+   unallocated;
    do not add allocator instrumentation for this one structural property.
 4. Every numerical mode uses the same validating parser.
 5. `--exact --unsafe` fails before parsing or analysis.
@@ -398,7 +401,7 @@ This temporary phase is acceptable when:
 3. Every failed or suspicious unsafe check delegates to the exact candidate
    solver.
 4. IDs 1-44 match their accepted exact candidate and ESS output.
-5. IDs 45-47 remain documented evidence that unsafe is not certified and are
+5. IDs 45-47 remain documented evidence that unsafe is not proof-backed and are
    not activated as default-mode regressions yet.
 6. Exact solving, exact stability, output schema, and support ordering remain
    unchanged.
@@ -420,9 +423,10 @@ Verified locally on 2026-07-28:
 - Default and `--exact` candidate output matched byte-for-byte for the 42 active
   matrices allowed to run exact; exact IDs 33 and 34 were not executed.
 - A separate ASan/UBSan build passed the same 10, 24, and 44 test groups.
-- Source inspection confirms `--exact` skips `initialize_unsafe_filter()`;
-  `MatrixServer` starts with empty double matrices, and only the unsafe path can
-  allocate the double game or bordered scratch.
+- Source inspection confirms `--exact` skips
+  `MatrixServer::initialize_game_matrix_dbl()`; the server starts with empty
+  double matrices, and only the unsafe path can allocate the double game or
+  bordered scratch.
 - The existing three-second persistent-process harness measured IDs 1-33 and
   35-44 on CPU 2, with matrix 34 excluded. Every ESS and candidate count matched
   the saved unsafe run. Summed medians changed by `+0.052%` for IDs 1-12 and
@@ -439,15 +443,15 @@ Verified locally on 2026-07-28:
   and dependencies were not changed.
 
 The known IDs 45-47 limitation remains. Passing IDs 1-44 does not make the
-unsafe danger veto a correctness certificate.
+unsafe danger veto a correctness proof.
 
 ## Later Choice 1 Handoff
 
 After this phase is implemented, reviewed, benchmarked, and accepted, Choice 1
 is a separate change:
 
-1. Re-audit `CHOICE_ONE_CANDIDATE_FILTER.md` against the accepted unsafe commit.
-2. Add the strict certified filter and only then add the mode state needed to
+1. Re-audit `CANDIDATE_REJECTOR_DOUBLE.md` against the accepted unsafe commit.
+2. Add candidate-rejector-double and only then add the mode state needed to
    distinguish Choice 1 from explicit unsafe.
 3. Change no-flag behavior from unsafe to Choice 1; keep `--unsafe` as the
    explicit heuristic override and `--exact` as exact-only.

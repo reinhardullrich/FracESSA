@@ -21,7 +21,7 @@ PYTHONPATH=python python3 your_script.py
 ```text
 MatrixJob(matrix_id: int, matrix: str, metadata: dict | None = None)
 RunConfig(exact=False, full_support=False, include_candidates=False,
-          include_timing=True, enable_logging=False)
+          include_timing=True, enable_logging=False, unsafe=False)
 MPConfig(workers: int, chunk_size=128, queue_maxsize=4096,
          ordered_results=True, start_method="spawn")
 MatrixResult(summary: SummaryRow, candidates: list[CandidateRow], metadata)
@@ -30,10 +30,14 @@ MatrixResult(summary: SummaryRow, candidates: list[CandidateRow], metadata)
 A matrix may use full CLI form (`"3#4,13/2,..."`) or values only when
 `metadata["dimension"]` is present.
 
-`exact=False` uses the temporary uncertified numerical filter. It can miss
-exact candidates and ESS results, although suspicious or unusable floating
-cases fall back to exact arithmetic. Use `exact=True` when that risk is not
-acceptable. Matrix input always uses the validating native parser.
+`exact=False, unsafe=False` uses candidate-rejector-double: it rejects only
+after a one-sided proof and otherwise runs the exact candidate solver.
+`unsafe=True` selects the faster heuristic, which can miss exact candidates and
+ESS results. `exact=True` bypasses both numerical rejection procedures. Exact
+and unsafe together return `EXEC_ERROR`. If candidate-rejector-double is
+unavailable on the build or calling thread, default mode also returns
+`EXEC_ERROR` before support enumeration and requires explicit exact or unsafe
+mode. Matrix input always uses the validating native parser.
 
 `include_timing=False` suppresses the returned timing value; the native call
 still measures its execution internally. There is deliberately no computation

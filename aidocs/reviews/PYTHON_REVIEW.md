@@ -183,7 +183,7 @@ CTest.
 ## Current Validation State
 
 - Python syntax/import path: successful through the normal build/test flow.
-- Wrapper unittests: 23/23 passed with the native module present.
+- Wrapper unittests: 26/26 passed with the native module present.
 - Native single-process and multiprocessing integration tests passed.
 - Direct probes reconfirmed the raw queue submission hang, same-second run-ID
   collision, verifier coercion, and suppressed stream flush failures.

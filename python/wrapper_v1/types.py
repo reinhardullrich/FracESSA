@@ -28,6 +28,7 @@ class RunConfig:
     include_candidates: bool = False
     include_timing: bool = True
     enable_logging: bool = False
+    unsafe: bool = False
 
 
 @dataclass(slots=True)

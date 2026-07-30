@@ -91,9 +91,14 @@ the exact fractions. Support masks have 64 storage bits, but complete
 enumeration requires the exclusive `2^n` bound, so dimension 64 is not
 supported.
 
-The temporary numerical modes are unsafe filtering and exact solving. No flag
-and `--unsafe` select the same uncertified filter; `--exact` bypasses it.
-`--exact` and `--unsafe` are mutually exclusive.
+The numerical modes are candidate-rejector-double, unsafe rejection, and exact
+solving. No flag selects the rigorously one-sided candidate-rejector-double
+procedure; `--unsafe` selects the faster heuristic; `--exact` bypasses both.
+`--exact` and `--unsafe` are mutually exclusive. If build-time or runtime
+floating-point requirements are unavailable, default mode stops before support
+enumeration and requires an explicit `--exact` or `--unsafe` choice. An
+inconclusive proof for an individual support still falls back to exact
+arithmetic normally.
 
 ## Computation Flow
 
@@ -102,7 +107,7 @@ CLI or pybind input
   -> matrix_parser
   -> fracessa constructor
   -> support generation and pruning
-  -> find_candidate_dbl
+  -> candidate-rejector-double, unsafe rejection, or exact bypass
   -> find_candidate_frc
   -> check_stability
   -> ESS/candidate output
@@ -128,29 +133,37 @@ Important implementation points:
 - Newly found exact candidates are pending until the next cardinality, keeping
   each generator layer's pruning rules stable. Stability is irrelevant to this
   pruning rule: every exact equilibrium support forbids later strict supersets.
-- In non-exact mode, `MatrixServer` exactly translates and scales the game into
-  `[-1,1]`, converts it once to binary64, and reuses one bordered scratch matrix.
-  Constant games and unusable zero/subnormal conversions permanently fall back
-  to exact candidate solving before enumeration.
+- Candidate-rejector-double lazily translates and positively scales the exact
+  game into `[-1,1]`, encloses every entry in binary64, and reuses one bordered
+  LU scratch matrix. It rejects only after a rigorous solution-error bound
+  proves a nonpositive support probability or a profitable outside strategy.
+- Explicit unsafe mode retains its separate normalized binary64 matrix, danger
+  veto, and exact fallback. Constant games and unusable conversions fall back
+  to exact candidate solving.
 - Exact arithmetic uses FLINT `fmpq_t` through `linalg::fraction`.
 - Stability uses exact rational positive-definiteness; a binary64 result is not
   accepted as a final mathematical certificate.
 - `correctness/DOUBLE_PD_FALSE_POSITIVES.md` documents the concrete failures and
   proves why tolerance tuning cannot recover an exact PD certificate.
-- `--exact` does not initialize or allocate the double candidate-filter state,
-  and all final stability decisions use exact rational arithmetic.
-- The default unsafe filter uses a cheap pivot/margin danger veto, not a proof.
-  It can still reject valid exact candidates; see `reviews/CPP_REVIEW.md`.
+- `--exact` does not initialize or allocate either double candidate-rejection
+  state, and all final stability decisions use exact rational arithmetic.
+- `--unsafe` uses a cheap pivot/margin danger veto, not a proof. IDs 45-47 are
+  active regressions for candidate-rejector-double and remain counterexamples
+  to the unsafe heuristic.
 
 Key files:
 
 - `cpp/include/fracessa/bitset64.hpp`: support-mask primitives.
 - `cpp/include/fracessa/supports.hpp`: support generation and pruning.
-- `cpp/include/fracessa/matrix_server.hpp`: reusable matrix construction.
+- `cpp/include/fracessa/matrix_server.hpp`: exact and normalized unsafe matrix
+  preparation, storage, and scratch reuse.
 - `cpp/include/linalg/fraction.hpp`: FLINT rational wrapper.
 - `cpp/include/linalg/linear_solver.hpp`: exact bordered-system solver.
 - `cpp/include/linalg/copositive_fraction.hpp`: exact copositivity checks.
-- `cpp/src/findeq.cpp`: candidate construction.
+- `cpp/include/fracessa/candidate_rejector_double.hpp`: candidate-rejector-double
+  ownership, availability, and focused proof-helper contracts.
+- `cpp/src/candidate_rejector_double.cpp`: strict one-sided implementation.
+- `cpp/src/findeq.cpp`: candidate construction and numerical rejection.
 - `cpp/src/checkstab.cpp`: stability classification.
 
 ## Build And Dependencies
@@ -173,7 +186,7 @@ Required system dependencies are a C++17 compiler, CMake 3.18 or newer, Python
 
 - `spdlog`: optional rotating diagnostic logs.
 - `argparse`: the cross-platform CLI parser.
-- `googletest`: nine C++ unit-test executables only; it is not linked into the
+- `googletest`: ten C++ unit-test executables only; it is not linked into the
   production executable.
 - `pybind11`: the native Python module.
 
@@ -184,6 +197,16 @@ up yet.
 
 Local non-MSVC builds default to `FRACESSA_NATIVE_ARCH=ON` (`-march=native`).
 Release CI sets it to `OFF`. IPO/LTO is enabled only when CMake confirms support.
+The candidate-rejector-double object overrides the normal throughput flags with
+strict floating-point semantics, contraction disabled, and IPO/LTO disabled.
+One centralized availability function combines compiler support with the
+runtime binary64, round-to-nearest, and subnormal checks. An unsupported build
+still provides exact and unsafe modes, but refuses candidate-rejector-double.
+`FRACESSA_CANDIDATE_REJECTOR_DOUBLE_ORACLE=ON` is a development build option
+that cross-checks every candidate-rejector-double rejection with exact
+arithmetic and compiles out when disabled.
+Do not run verification IDs 33 or 34 with `--exact` or this oracle without
+Reinhard's separate approval.
 When sandboxing blocks the normal ccache directory, rerun the build with
 escalated filesystem access rather than disabling or redirecting ccache.
 
@@ -199,18 +222,17 @@ GMP, MPFR, or FLINT.
 ./python.sh --full # all-matrix speed benchmark
 ```
 
-The non-matrix CTest suite consists of nine GoogleTest executables plus one CLI
+The non-matrix CTest suite consists of ten GoogleTest executables plus one CLI
 black-box parser test. Wrapper tests use Python `unittest`. Matrix correctness
 is one CTest per matrix so CTest can run matrices in parallel.
 
 Fast mode is a static policy: all verification matrices except IDs 32 and 34.
 The speed script records timings; correctness belongs to CTest.
 
-All 52 active verification matrices (IDs 1-44 and 48-55) pass in the temporary
-default unsafe mode; IDs 38-39 specifically cover the corrected scale and
-translation behavior. Preserved reference IDs 45-47 are intentionally not
-active yet: they prove the unsafe heuristic can still miss an exact ESS and
-belong to the later certified Choice 1 phase. IDs 48-55 add non-circular
+All 55 active verification matrices (IDs 1-55) pass with
+candidate-rejector-double. IDs 38-39 cover exact affine normalization, and IDs
+45-47 exercise the unsafe counterexample, LU-boundary fallback, and failed-proof
+fallback paths. IDs 48-55 add non-circular
 dimensions 15-24 through Hilbert, Hadamard, Paley conference, MINIJ, Fiedler,
 deterministic random matrix families, and a dense weighted-Laplacian game with
 one full-support ESS.
@@ -220,11 +242,11 @@ one full-support ESS.
 `python/verification/` is the only active verification-data source. There is no
 second fixture copy under `cpp/tests/`.
 
-- `verification_matrices.json`: 52 matrices, active IDs 1-44 and 48-55,
-  maximum dimension 24.
-- `baseline_candidates.csv`: 1,196 candidate representative rows for all 52
-  active matrices, representing 38,044 candidates after multiplication.
-- `baseline_result.json`: historical timing results for IDs 1-35.
+- `verification_matrices.json`: 55 matrices, active IDs 1-55, maximum dimension
+  24.
+- `baseline_candidates.csv`: 1,199 candidate representative rows for all 55
+  active matrices, representing 38,047 candidates after multiplication.
+- `baseline_result.json`: historical timing results for IDs 1-35 and 45-47.
 - `ctest_verify_matrix.py`: matrix correctness comparison.
 - `matrix_selection.py`: fast/full static selection.
 - `create_baselines.py`: baseline regeneration using the archived executable.
@@ -247,9 +269,9 @@ remain useful correctness checks while enumeration is unchanged. Circular rows
 store the smallest dihedral support representative and a non-null `multiplier`;
 non-circular rows store null. Weighted candidate and ESS totals are recovered by
 summing `multiplier`, treating null as one. The DFS/FKM generator adoption and
-representative-output conversion were checked across all 52 active matrices and
-regenerated the affected circular fixtures in both the CSV baseline and SQLite
-snapshot.
+representative-output conversion were checked across their original 52-matrix
+scope; the current 55-matrix suite also passes with the same production
+generators.
 `T_pd_dbl` and `T_pd_frc` are normalized as the same `T_pd_*` classification for
 baseline comparison because floating-point branch selection can change while
 the mathematical result does not.

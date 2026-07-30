@@ -22,7 +22,7 @@ int main(int argc, char *argv[])
     program.add_argument("-f", "--fullsupport").help("search full support directly").implicit_value(true).default_value(false);
     program.add_argument("-t", "--timing").help("output computation time").implicit_value(true).default_value(false);
     program.add_argument("-m", "--matrixid").help("optional matrix ID").scan<'i', int>().default_value(-1);
-    program.add_argument("-u", "--unsafe").help("use uncertified numerical filtering").implicit_value(true).default_value(false);
+    program.add_argument("-u", "--unsafe").help("use heuristic numerical filtering").implicit_value(true).default_value(false);
     program.add_argument("matrix").help("the matrix to compute");
 
     try { program.parse_args(argc, argv); }
@@ -37,7 +37,6 @@ int main(int argc, char *argv[])
     const auto matrix_id = program.get<int>("--matrixid");
     const auto unsafe = program.get<bool>("--unsafe");
 
-    // `--unsafe` names the current default mode explicitly; exact bypasses it.
     if (exact && unsafe) {
         std::cerr << "Error: --exact and --unsafe cannot be used together." << std::endl;
         return EXIT_FAILURE;
@@ -47,28 +46,32 @@ int main(int argc, char *argv[])
     linalg::matrix_frc A;
     if (!matrix_parser::parse_matrix_string(matrix_str, A, is_cs)) return EXIT_FAILURE;
 
-    if (!exact) {
+    if (unsafe) {
         std::cerr
-            << "Warning: unsafe numerical mode can miss exact candidates and ESS results; "
-            << "suspicious or unusable floating-point cases fall back to exact arithmetic "
-            << "and can be much slower." << std::endl;
+            << "Warning: --unsafe uses heuristic numerical filtering and can miss "
+            << "exact candidates and ESS results." << std::endl;
     }
     
-    // CLI timing covers analyzer work only, excluding parsing and output formatting.
-    auto start_time = std::chrono::high_resolution_clock::now();
-    ::fracessa x(A, is_cs, candidates, exact, fullsupport, logger, matrix_id);
-    auto end_time = std::chrono::high_resolution_clock::now();
-    
-    // Consumers expect ESS count first, optional timing second, then candidate CSV.
-    std::cout << x.ess_count_ << std::endl;
-    if (timing) {
-        auto duration = std::chrono::duration_cast<std::chrono::microseconds>(end_time - start_time);
-        std::cout << std::fixed << std::setprecision(6) << duration.count() / 1000000.0 << std::endl;
-    }
+    try {
+        // CLI timing covers analyzer work only, excluding parsing and output formatting.
+        auto start_time = std::chrono::high_resolution_clock::now();
+        ::fracessa x(A, is_cs, candidates, exact, fullsupport, logger, matrix_id, unsafe);
+        auto end_time = std::chrono::high_resolution_clock::now();
 
-    if (candidates) {
-        std::cout << candidate::header() << std::endl;
-        for (auto& c : x.candidates_) std::cout << c.to_string() << std::endl;
+        // Consumers expect ESS count first, optional timing second, then candidate CSV.
+        std::cout << x.ess_count_ << std::endl;
+        if (timing) {
+            auto duration = std::chrono::duration_cast<std::chrono::microseconds>(end_time - start_time);
+            std::cout << std::fixed << std::setprecision(6) << duration.count() / 1000000.0 << std::endl;
+        }
+
+        if (candidates) {
+            std::cout << candidate::header() << std::endl;
+            for (auto& c : x.candidates_) std::cout << c.to_string() << std::endl;
+        }
+    } catch (const std::exception& err) {
+        std::cerr << "Error: " << err.what() << std::endl;
+        return EXIT_FAILURE;
     }
 
     return EXIT_SUCCESS;

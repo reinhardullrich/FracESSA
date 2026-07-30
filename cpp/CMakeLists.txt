@@ -14,6 +14,11 @@ set(CMAKE_CXX_STANDARD_REQUIRED ON)
 set(CMAKE_CXX_EXTENSIONS OFF)
 set(CMAKE_POSITION_INDEPENDENT_CODE ON)
 option(FRACESSA_NATIVE_ARCH "Enable local CPU-specific optimizations with -march=native" ON)
+option(
+    FRACESSA_CANDIDATE_REJECTOR_DOUBLE_ORACLE
+    "Cross-check every candidate-rejector-double result with exact arithmetic"
+    OFF
+)
 
 if(MSVC)
     set(CMAKE_MSVC_RUNTIME_LIBRARY "MultiThreaded$<$<CONFIG:Debug>:Debug>")
@@ -140,13 +145,46 @@ endif()
 # 4. Build Targets
 # ==============================================================================
 
+add_library(fracessa_candidate_rejector_double OBJECT
+    src/candidate_rejector_double.cpp
+)
+set_target_properties(fracessa_candidate_rejector_double PROPERTIES
+    INTERPROCEDURAL_OPTIMIZATION FALSE
+    POSITION_INDEPENDENT_CODE ON
+)
+target_include_directories(fracessa_candidate_rejector_double PRIVATE
+    ${CMAKE_CURRENT_SOURCE_DIR}/include
+    ${CMAKE_CURRENT_SOURCE_DIR}/include/fracessa
+    ${FLINT_INCLUDE_DIRS}
+    ${GMP_INCLUDE_DIR}
+    ${MPFR_INCLUDE_DIR}
+)
+
+if(MSVC)
+    target_compile_options(fracessa_candidate_rejector_double PRIVATE /fp:strict /GL-)
+    set(FRACESSA_CANDIDATE_REJECTOR_DOUBLE_SUPPORTED 1)
+elseif(CMAKE_CXX_COMPILER_ID MATCHES "^(GNU|Clang|AppleClang)$")
+    target_compile_options(fracessa_candidate_rejector_double PRIVATE -fno-fast-math -ffp-contract=off)
+    set(FRACESSA_CANDIDATE_REJECTOR_DOUBLE_SUPPORTED 1)
+else()
+    set(FRACESSA_CANDIDATE_REJECTOR_DOUBLE_SUPPORTED 0)
+endif()
+target_compile_definitions(fracessa_candidate_rejector_double PRIVATE
+    FRACESSA_CANDIDATE_REJECTOR_DOUBLE_SUPPORTED=${FRACESSA_CANDIDATE_REJECTOR_DOUBLE_SUPPORTED}
+)
+
 add_library(fracessa_lib
     src/fracessa.cpp
     src/findeq.cpp
     src/checkstab.cpp
     src/matrix_parser.cpp
+    $<TARGET_OBJECTS:fracessa_candidate_rejector_double>
 )
 set_target_properties(fracessa_lib PROPERTIES POSITION_INDEPENDENT_CODE ON)
+
+if(FRACESSA_CANDIDATE_REJECTOR_DOUBLE_ORACLE)
+    target_compile_definitions(fracessa_lib PRIVATE FRACESSA_CANDIDATE_REJECTOR_DOUBLE_ORACLE=1)
+endif()
 
 # Set common include directories
 target_include_directories(fracessa_lib PUBLIC

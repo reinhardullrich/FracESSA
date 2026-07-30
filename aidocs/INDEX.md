@@ -29,15 +29,13 @@
 - `correctness/DOUBLE_PD_FALSE_POSITIVES.md`: exact derivation of the removed
   double-PD certificate bug, its regression games, and arbitrary-small-
   perturbation counterexamples.
-- `correctness/CERTIFIED_CANDIDATE_FILTER.md`: unimplemented design for exact
-  affine normalization, rigorous numerical rejection certificates, and exact
-  fallback in candidate enumeration.
-- `architecture/UNSAFE_CANDIDATE_FILTER.md`: implemented temporary no-flag
-  unsafe filter and parser-rename design, including normalization, its cheap
-  danger veto, exact fallback, known limits, and verification requirements.
-- `architecture/CHOICE_ONE_CANDIDATE_FILTER.md`: future-phase mathematical plan
-  for adding certified Choice 1 after the unsafe phase is accepted; its source
-  scope must be re-audited against that accepted implementation.
+- `correctness/CANDIDATE_REJECTOR_DOUBLE.md`: mathematical basis for
+  implemented exact normalization, one-sided bounded-error rejection proof,
+  and exact fallback.
+- `architecture/UNSAFE_CANDIDATE_FILTER.md`: historical temporary-default phase;
+  its heuristic remains available only through explicit `--unsafe`.
+- `architecture/CANDIDATE_REJECTOR_DOUBLE.md`: implemented candidate-rejector-double
+  design, approved source scope, acceptance conditions, and validation record.
 - `architecture/SUPPORT_GENERATOR_HANDOVER.md`: durable handover of the agreed
   generator API, callback rationale, candidate lifecycle, circular multiplier,
   experimental V2 status, and deferred decisions.

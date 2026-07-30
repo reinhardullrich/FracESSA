@@ -1,34 +1,37 @@
-# Certified Candidate Filter Design Note
+# Candidate Rejector Double Correctness
 
-Status: design discussion only. Nothing in this document is implemented.
+Status: mathematical design implemented by the Choice 1 proof kernel. The
+original derivation and alternatives below are retained as its rationale;
+current source scope and validation are recorded in
+`../architecture/CANDIDATE_REJECTOR_DOUBLE.md`.
 
 ## Purpose
 
 FracESSA may inspect up to `2^n` supports. Running exact rational Gaussian
 elimination for every support is potentially too slow, but the current double
-filter is not allowed to discard supports safely: verification matrices 38 and
-39 contain valid ESS supports that the default path rejects before exact
-arithmetic.
+heuristic is not allowed to discard supports safely: verification matrices
+45-47 contain valid ESS supports that explicit unsafe mode rejects before exact
+arithmetic. Candidate-rejector-double fixes that correctness boundary.
 
-The target is a one-sided filter:
+The target is a one-sided rejection procedure:
 
 ```text
-CERTIFIED_REJECT  -> safely skip exact candidate solving
+PROVEN_REJECT     -> safely skip exact candidate solving
 EXACT_REQUIRED    -> make no numerical decision; run the exact solver
 ```
 
-The certificate is allowed to save work only when it proves rejection. It is
+The error-bound proof is allowed to save work only when it proves rejection. It is
 never allowed to turn uncertainty into rejection. In particular:
 
 ```text
-certificate succeeds and proves a violated condition -> reject
-certificate fails, is too wide, or overlaps a boundary -> exact fallback
+proof succeeds and proves a violated condition -> reject
+proof fails, is too wide, or overlaps a boundary -> exact fallback
 ```
 
 `EXACT_REQUIRED` is not an error. It is the normal and correct result for a
 singular, nearly singular, or insufficiently separated support system.
 
-## Source Of The Certificate
+## Source Of The Error Bound
 
 The proposed scalar error bound is a standard a posteriori verification result
 for linear systems. The primary reference is:
@@ -103,17 +106,45 @@ Here:
 - the first `k` equations say `A_S x = u * 1`;
 - the final equation says `sum(x_i) = 1`.
 
-The exact candidate conditions are:
+### The Logical Connection
 
-```text
-x_j > 0                                      for every j in S
-sum(j in S) A(i,j) x_j - u <= 0              for every i outside S
-```
+In FracESSA's candidate solver:
+
+$$
+\text{candidate}
+\iff
+\underbrace{C_S\text{ is nonsingular}}_{(1)}
+\land
+\underbrace{x_j>0\text{ for every }j\in S}_{(2)}
+\land
+\underbrace{g_i\leq0\text{ for every }i\notin S}_{(3)}.
+$$
+
+where
+
+$$
+g_i=\sum_{j\in S}A_{ij}x_j-u.
+$$
+
+Consequently:
+
+$$
+\text{not a candidate}
+\iff
+C_S\text{ is singular}
+\lor
+\left(\exists j\in S:x_j\leq0\right)
+\lor
+\left(\exists i\notin S:g_i>0\right).
+$$
+
+But conditions 2 and 3 can only be evaluated rigorously after we know that
+$C_S$ is nonsingular and therefore has a unique exact solution.
 
 An outside value equal to zero is not a rejection. It means that the outside
 strategy is another best response and belongs to the candidate's extended
-support. Exact equality therefore remains important even if a numerical filter
-can prove many strict rejections.
+support. Exact equality therefore remains important even if a numerical
+procedure can prove many strict rejections.
 
 ## Exact Affine Normalization
 
@@ -133,7 +164,7 @@ s      = max(i,j) |d(i,j)|
 A'     = d / s,                    when s > 0.
 ```
 
-If `s = 0`, every matrix entry is equal and the numerical filter should be
+If `s = 0`, every matrix entry is equal and candidate-rejector-double should be
 bypassed in the first implementation.
 
 For any probability vector `x`, `sum(x_j) = 1`, so every pure-strategy payoff
@@ -173,7 +204,7 @@ matrix 38: [0, 10^-20; 10^-20, 0] -> [0, 1; 1, 0]
 matrix 39: [10^20, 10^20+1; ...]  -> [0, 1; 1, 0]
 ```
 
-Normalization improves the numerical problem, but it is not a certificate.
+Normalization improves the numerical problem, but it is not a rejection proof.
 Matrices containing only small integers can still produce singular or
 ill-conditioned bordered systems.
 
@@ -264,13 +295,14 @@ following:
 1. The floating representation encloses every original exact rational entry.
 2. Every computed interval or analytic error bound encloses all rounding error.
 3. The final `alpha`, `beta`, and `e` are rounded upward.
-4. Overflow, underflow, non-finite values, and unsupported compiler behavior
-   cause `EXACT_REQUIRED`, not rejection.
+4. Overflow, underflow, and non-finite values cause `EXACT_REQUIRED`, not
+   rejection. Unsupported compiler or runtime floating-point behavior prevents
+   candidate-rejector-double from starting.
 
 ### Enclosing Exact Rational Inputs
 
-Let `q` be one exact normalized rational entry. The filter needs binary64
-endpoints `q_lo` and `q_hi` satisfying
+Let `q` be one exact normalized rational entry. Candidate-rejector-double needs
+binary64 endpoints `q_lo` and `q_hi` satisfying
 
 ```text
 q_lo <= q <= q_hi.
@@ -324,7 +356,7 @@ Ogita, Rump, and Oishi derive formulas that bound the matrix products and
 residual while leaving the processor in round-to-nearest mode. This can avoid
 rounding-mode switches and may suit FracESSA's millions of small systems better.
 Their bounds explicitly account for underflow; copying only the headline
-formula while omitting those correction terms would not be a certificate.
+formula while omitting those correction terms would not be a proof.
 
 The two routes establish the same mathematical premises. They should not both
 be implemented initially. Prototype and benchmark the smallest one that is
@@ -332,11 +364,12 @@ rigorous on FracESSA's supported compilers.
 
 ### Compiler Requirements
 
-The certificate code cannot be compiled under transformations that discard
+The error-bound code cannot be compiled under transformations that discard
 IEEE floating-point semantics, such as unrestricted `-ffast-math`. Fused
 multiply-add contraction is acceptable only when the error analysis accounts
 for the actual operation. If a platform cannot provide the arithmetic behavior
-assumed by the bound, the filter must be disabled there and exact solving used.
+assumed by the bound, candidate-rejector-double must stop before enumeration
+and require the user to choose explicit exact or unsafe mode.
 
 ## Turning The Solution Bound Into A Rejection Proof
 
@@ -356,7 +389,7 @@ upper(X_j) <= 0
 ```
 
 proves that this support cannot be a candidate and permits
-`CERTIFIED_REJECT`.
+`PROVEN_REJECT`.
 
 The converse is deliberately not used. `lower(X_j) > 0` proves positivity, but
 FracESSA still needs exact candidate values and exact extended-support equality
@@ -376,7 +409,7 @@ The exact candidate condition is `G_i <= 0`. Therefore
 lower(G_i) > 0
 ```
 
-proves a profitable outside deviation and permits `CERTIFIED_REJECT`.
+proves a profitable outside deviation and permits `PROVEN_REJECT`.
 
 These cases do not prove rejection:
 
@@ -419,11 +452,11 @@ for each support S:
 
     e = upward_bound(beta / (1 - alpha))
 
-    if some support probability has certified upper bound <= 0:
-        return CERTIFIED_REJECT
+    if some support probability has a proven upper bound <= 0:
+        return PROVEN_REJECT
 
-    if some outside gain has certified lower bound > 0:
-        return CERTIFIED_REJECT
+    if some outside gain has a proven lower bound > 0:
+        return PROVEN_REJECT
 
     return EXACT_REQUIRED
 ```
@@ -435,15 +468,15 @@ numerical stage must separate these concepts:
 ```text
 numerical solve status
 approximate candidate classification
-certified rejection status
+proven rejection status
 ```
 
-A small pivot produces no certificate and therefore goes exact. An approximate
-negative probability may trigger an attempted certificate, but rejection occurs
+A small pivot produces no proof and therefore goes exact. An approximate
+negative probability may trigger an attempted proof, but rejection occurs
 only if the exact probability enclosure lies entirely at or below zero.
 
 The current Gaussian elimination also overwrites its bordered matrix. A
-certificate later needs the original normalized `C` for the residual and
+the proof later needs the original normalized `C` for the residual and
 `I - R C`. The implementation must either retain a small unmodified copy or
 reconstruct `C` from the normalized game and support. This is a performance
 choice, not a mathematical one.
@@ -459,7 +492,7 @@ r = b - C z_hat
 may be tiny even when `z_hat` is far from the true solution if `C` is badly
 conditioned. The factor involving `R` and `1 - alpha` is what converts a
 residual into a proof of forward error. Therefore none of these is a
-certificate by itself:
+rejection proof by itself:
 
 ```text
 small residual
@@ -468,7 +501,7 @@ large estimated reciprocal condition number
 agreement between two ordinary floating-point solves
 ```
 
-They can guide whether certification is likely to succeed, but they cannot
+They can guide whether the error-bound proof is likely to succeed, but they cannot
 justify rejection.
 
 ## Why Direct Interval Gaussian Elimination Is Not The First Choice
@@ -503,15 +536,15 @@ The exact constant factors matter more than the asymptotic notation because
 FracESSA performs millions or billions of operations on small matrices.
 
 An explicit inverse is the easiest statement of the theorem, but it may make
-the verified filter several times as expensive as the present double solve.
+the verified procedure several times as expensive as the present double solve.
 Possible later optimization is to derive or adopt a factorization-based
 verified bound that reuses the LU factors without materializing all of `R`.
 That is not the first implementation: it adds proof and code complexity and is
-justified only if the simple certified prototype is correct but too slow.
+justified only if the simple bounded-error prototype is correct but too slow.
 
 The verifier should run only when the ordinary double calculation proposes a
 rejection. Candidate-like supports already require exact arithmetic for exact
-output and equality classification, so certifying their acceptance provides no
+output and equality classification, so proving their acceptance provides no
 immediate benefit.
 
 ## Failure Semantics
@@ -526,8 +559,8 @@ Every exceptional numerical case maps to exact fallback:
 | `alpha >= 1` | `EXACT_REQUIRED` |
 | `beta` or `e` overflows | `EXACT_REQUIRED` |
 | An interval overlaps the decision boundary | `EXACT_REQUIRED` |
-| A probability interval has upper endpoint `<= 0` | `CERTIFIED_REJECT` |
-| An outside-gain interval has lower endpoint `> 0` | `CERTIFIED_REJECT` |
+| A probability interval has upper endpoint `<= 0` | `PROVEN_REJECT` |
+| An outside-gain interval has lower endpoint `> 0` | `PROVEN_REJECT` |
 
 Most importantly:
 
@@ -535,7 +568,7 @@ Most importantly:
 alpha >= 1 does not prove that C is singular.
 ```
 
-It says only that this `R`, this precision, and this bound did not certify the
+It says only that this `R`, this precision, and this bound did not prove the
 system.
 
 ## Why There Is No Reliable Global "Good Matrix" Rule
@@ -558,12 +591,12 @@ Useful diagnostics are still possible:
 - distinct exact normalized values collapse to one binary64 value;
 - a nonzero normalized value rounds to zero;
 - the estimated reciprocal condition number is small;
-- certification gives `alpha` near or above one;
+- the error-bound proof gives `alpha` near or above one;
 - the proof radius `e` is large relative to the decision margin.
 
 The first two are input-level warnings. The last three are support-level
 diagnostics. None replaces exact fallback. The meaningful safety statement is
-not "this input looks normal," but "this particular rejection was certified."
+not "this input looks normal," but "this particular rejection was proven."
 
 ## Validation Plan
 
@@ -573,7 +606,7 @@ Correctness must be established before speed is considered.
 
 1. Compare every result against the current `--exact` path.
 2. During development, independently run the exact candidate solver for every
-   `CERTIFIED_REJECT` and assert that it really rejects.
+   `PROVEN_REJECT` and assert that it really rejects.
 3. Keep verification matrices 38 and 39 as scale/translation regressions.
 4. Add or generate exact rational cases with:
    - singular bordered systems;
@@ -585,13 +618,13 @@ Correctness must be established before speed is considered.
 5. Apply exact transformations `a A + c 11^T` with `a > 0` and verify that the
    candidate and ESS results remain identical.
 6. Run the checks on every supported compiler/runner because rounding,
-   contraction, and underflow behavior are part of the certificate machinery.
+   contraction, and underflow behavior are part of the error-bound machinery.
 
 The central test invariant is:
 
 ```text
 No support accepted by the exact candidate solver may ever be
-CERTIFIED_REJECT.
+PROVEN_REJECT.
 ```
 
 ### Required Performance Measurements
@@ -600,12 +633,13 @@ Measure at least:
 
 1. current default runtime as an incorrect speed reference;
 2. current `--exact` runtime as the correctness reference;
-3. exact normalization with the existing double filter, for isolated overhead;
-4. normalized certified filtering;
+3. exact normalization with the existing unsafe double procedure, for isolated
+   overhead;
+4. normalized candidate-rejector-double;
 5. total and per-support-size counts of:
    - proposed double rejections;
-   - certified probability rejections;
-   - certified outside-payoff rejections;
+   - proven probability rejections;
+   - proven outside-payoff rejections;
    - `alpha >= 1` failures;
    - boundary-overlap fallbacks;
    - exact solves.
@@ -619,13 +653,13 @@ FracESSA's actual cost is the sum across an exponential support search.
 Ponytail's minimal implementation boundary is:
 
 1. exact affine normalization once per matrix;
-2. one scalar infinity-norm certificate based on Rump's Theorem 10.2;
-3. only `CERTIFIED_REJECT` and `EXACT_REQUIRED` outcomes;
-4. no certified acceptance;
+2. one scalar infinity-norm error bound based on Rump's Theorem 10.2;
+3. only `PROVEN_REJECT` and `EXACT_REQUIRED` outcomes;
+4. no bounded-error acceptance path;
 5. no full Krawczyk iteration;
 6. no new public option until correctness and speed are measured.
 
-If this version certifies enough rejections and remains faster than full exact
+If this version proves enough rejections and remains faster than full exact
 solving, stop. Add a tighter componentwise/Krawczyk enclosure or a
 factorization-based verifier only when measurements identify the simple bound
 as the limiting factor.
@@ -650,7 +684,7 @@ rigorously proving the relevant exact inequality.
    arithmetic*, Acta Numerica 19 (2010), 287-449,
    [DOI](https://doi.org/10.1017/S096249291000005X),
    [PDF](https://www.tuhh.de/ti3/rump/intlab/ActaNumerica2010.pdf). Theorem 10.2
-   is the direct source of the scalar residual/error certificate.
+   is the direct source of the scalar residual/error bound.
 2. T. Ogita, S. M. Rump, and S. Oishi, *Verified Solution of Linear Systems
    Without Directed Rounding*, Technical Report 2005-04,
    [record](https://tore.tuhh.de/entities/publication/8ae7c0ad-441d-45da-be13-d6421d5f1c01),

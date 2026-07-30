@@ -1,19 +1,34 @@
 #include <fracessa/fracessa.hpp>
 #include <fracessa/bitset64.hpp>
+#include <fracessa/candidate_rejector_double.hpp>
 #include <fracessa/supports.hpp>
 #include <linalg/matrix_fraction.hpp>
 
+#include <stdexcept>
+#include <string>
+
 fracessa::fracessa(const linalg::matrix_frc& matrix, bool is_cs, bool with_candidates, bool exact,
-                   bool full_support, bool with_log, int matrix_id)
+                   bool full_support, bool with_log, int matrix_id, bool unsafe)
     : matrix_server_(matrix)
+    , candidate_rejector_dbl_(matrix_server_.get_game_matrix_frc())
     , dimension_(matrix.rows())
     , conf_with_candidates_(with_candidates)
     , conf_exact_(exact)
     , conf_full_support_(full_support)
     , conf_with_log_(with_log)
+    , conf_unsafe_(unsafe)
     , candidate_()
     , logger_()
 {
+    if (!conf_exact_ && !conf_unsafe_) {
+        if (const char* reason = candidate_rejection::unavailable_reason()) {
+            throw std::runtime_error(
+                std::string("Candidate-rejector-double is unavailable: ") + reason +
+                ". Run with --exact for correct exact analysis or --unsafe for "
+                "heuristic rejection that may miss candidates or ESS results.");
+        }
+    }
+
     if (conf_with_candidates_)
         candidates_.reserve(250 * dimension_);
 
@@ -34,7 +49,7 @@ fracessa::fracessa(const linalg::matrix_frc& matrix, bool is_cs, bool with_candi
         logger_->info("game matrix:\n{}", matrix_server_.get_game_matrix_frc().to_log_string());
     }
 
-    if (!conf_exact_ && !matrix_server_.initialize_unsafe_filter())
+    if (!conf_exact_ && conf_unsafe_ && !matrix_server_.initialize_game_matrix_dbl())
         conf_exact_ = true;
 
     if (conf_full_support_) {
@@ -82,8 +97,13 @@ fracessa::fracessa(const linalg::matrix_frc& matrix, bool is_cs, bool with_candi
 }
 
 bool fracessa::analyze_support(bitset64 support, size_t support_size) {
-    if (!conf_exact_ && !find_candidate_dbl(support, support_size))
-        return false;
+    if (!conf_exact_) {
+        if (conf_unsafe_) {
+            if (!find_candidate_dbl(support, support_size)) return false;
+        } else if (candidate_rejector_dbl(support, support_size)) {
+            return false;
+        }
+    }
     if (!find_candidate_frc(support, support_size))
         return false;
 

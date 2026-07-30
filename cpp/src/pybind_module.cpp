@@ -99,11 +99,19 @@ NativeResult compute_matrix_impl(
     bool exact,
     bool full_support,
     bool enable_logging,
-    int matrix_id)
+    int matrix_id,
+    bool unsafe)
 {
     NativeResult result;
 
     try {
+        if (exact && unsafe) {
+            result.status = kStatusExecError;
+            result.success = false;
+            result.error_message = "exact and unsafe modes cannot be used together";
+            return result;
+        }
+
         linalg::matrix_frc parsed_matrix;
         bool is_cs = false;
 
@@ -116,7 +124,9 @@ NativeResult compute_matrix_impl(
 
         // Match CLI timing: measure only analyzer construction and search.
         const auto start = std::chrono::high_resolution_clock::now();
-        ::fracessa analyzer(parsed_matrix, is_cs, include_candidates, exact, full_support, enable_logging, matrix_id);
+        ::fracessa analyzer(
+            parsed_matrix, is_cs, include_candidates, exact, full_support,
+            enable_logging, matrix_id, unsafe);
         const auto end = std::chrono::high_resolution_clock::now();
 
         result.elapsed_us = std::chrono::duration_cast<std::chrono::microseconds>(end - start).count();
@@ -164,7 +174,8 @@ py::dict compute_matrix(
     bool exact,
     bool full_support,
     bool enable_logging,
-    int matrix_id)
+    int matrix_id,
+    bool unsafe)
 {
     NativeResult native;
     {
@@ -172,7 +183,7 @@ py::dict compute_matrix(
         py::gil_scoped_release release;
         native = compute_matrix_impl(
             matrix, include_candidates, exact, full_support,
-            enable_logging, matrix_id);
+            enable_logging, matrix_id, unsafe);
     }
 
     // The release object above has restored the GIL; Python allocation is safe.
@@ -228,6 +239,7 @@ PYBIND11_MODULE(fracessa_core, m)
         py::arg("full_support") = false,
         py::arg("enable_logging") = false,
         py::arg("matrix_id") = -1,
+        py::arg("unsafe") = false,
         R"doc(
 Compute one matrix with native C++ core and return structured results.
 

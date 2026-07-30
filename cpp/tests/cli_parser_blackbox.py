@@ -9,6 +9,7 @@ unit tests on matrix_parser internals.
 from __future__ import annotations
 
 import argparse
+import json
 import re
 import subprocess
 import sys
@@ -54,9 +55,8 @@ def assert_success_with_ess_output(
 def assert_unsafe_warning(result: subprocess.CompletedProcess, case_name: str) -> None:
     warning = result.stderr.lower()
     required = (
+        "heuristic numerical filtering",
         "miss exact candidates and ess results",
-        "fall back to exact arithmetic",
-        "much slower",
     )
     for text in required:
         if text not in warning:
@@ -108,18 +108,27 @@ def main() -> int:
         print(f"[ERROR] missing executable: {fracessa_exe}")
         return 1
 
-    # Numerical mode and parser behavior
+    verification_file = Path(__file__).resolve().parents[2] / "python/verification/verification_matrices.json"
+    with verification_file.open("r", encoding="utf-8") as fh:
+        matrix_46 = next(matrix for matrix in json.load(fh)["matrices"] if matrix["id"] == 46)
+    unsafe_counterexample = f"{matrix_46['dimension']}#{matrix_46['matrix']}"
+
+    # Matrix 46 has one ESS under bounded-error/exact analysis, but unsafe filtering misses it.
     default_result = assert_success_with_ess_output(
-        fracessa_exe, ["2#0,1,0"], "default_unsafe_success"
+        fracessa_exe, [unsafe_counterexample], "default_bounded_success"
     )
     explicit_unsafe_result = assert_success_with_ess_output(
-        fracessa_exe, ["--unsafe", "2#0,1,0"], "explicit_unsafe_success"
+        fracessa_exe, ["--unsafe", unsafe_counterexample], "explicit_unsafe_success"
     )
-    if default_result.stdout != explicit_unsafe_result.stdout:
-        raise AssertionError("default and explicit unsafe modes produced different output")
-    assert_unsafe_warning(default_result, "default_unsafe_warning")
+    if first_non_empty_line(default_result.stdout) != "1":
+        raise AssertionError(f"bounded-error mode missed matrix 46 ESS: {default_result.stdout.strip()}")
+    if first_non_empty_line(explicit_unsafe_result.stdout) != "0":
+        raise AssertionError(f"unsafe mode unexpectedly retained matrix 46 ESS: {explicit_unsafe_result.stdout.strip()}")
+    if "unsafe" in default_result.stderr.lower():
+        raise AssertionError("default bounded-error mode unexpectedly printed an unsafe warning")
     assert_unsafe_warning(explicit_unsafe_result, "explicit_unsafe_warning")
 
+    # Numerical mode and parser behavior
     exact_result = assert_success_with_ess_output(
         fracessa_exe, ["--exact", "2#0,1,0"], "exact_success"
     )

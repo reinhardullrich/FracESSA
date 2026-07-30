@@ -13,7 +13,7 @@
  * The same shapes occur for many supports. Keeping the bordered system and Bee
  * matrix here lets the search reuse their allocations instead of asking the
  * heap for another small matrix millions of times. The exact game remains the
- * source of truth; the double copy exists only for the unsafe rejection filter.
+ * source of truth; unsafe double state is used only for heuristic rejection.
  */
 class MatrixServer {
 public:
@@ -21,22 +21,11 @@ public:
         : game_frc_(game_matrix), dimensions_(game_matrix.rows()) {}
 
     /*
-     * Build one normalized binary64 copy for the unsafe filter:
-     *
-     *     A' = (A - c) / s,
-     *     c = one exact matrix entry,
-     *     s = max |A_ij - c|.
-     *
-     * Adding a common constant and multiplying by a positive constant preserve
-     * all best-response comparisons and ESS decisions. Subtraction and division
-     * happen exactly before conversion, removing irrelevant common offset and
-     * scale before binary64 rounding is introduced.
-     *
-     * False means the double copy is unusable (for example, the game is
-     * constant or a nonzero value underflows). The analyzer then uses exact
-     * candidate solving for every support.
+     * Build the normalized double game used by the unsafe candidate routine.
+     * Returning false means that no usable double matrix can be built; the
+     * analyzer, not MatrixServer, decides what numerical mode to use instead.
      */
-    bool initialize_unsafe_filter() {
+    bool initialize_game_matrix_dbl() {
         const auto& rational_data = game_frc_.data();
         const fraction& translation = rational_data.front();
         fraction scale;

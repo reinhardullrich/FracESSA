@@ -539,8 +539,8 @@ size_t add_forbidden(bitset64 support); // distinct-orbit multiplier
 - `CircularSupportGenerator` uses fixed-content FKM recursion, reflection
   reduction, expanded dihedral forbidden masks, and returns their distinct
   orbit size as the candidate multiplier.
-- `fracessa::analyze_support()` owns unsafe/exact candidate analysis and exact
-  stability classification.
+- `fracessa::analyze_support()` selects bounded-error, unsafe, or exact candidate
+  analysis and owns exact stability classification.
 - `fracessa::finalize_candidate()` owns representative IDs, weighted ESS counting,
   and optional output of the one representative row.
 - `--fullsupport` still tests its single mask first. On fallback, the callback

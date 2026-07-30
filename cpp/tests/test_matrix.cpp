@@ -55,7 +55,7 @@ TEST(MatrixPositiveDefiniteTest, Fraction) {
     EXPECT_FALSE(B.is_positive_definite());
 }
 
-TEST(MatrixServerTest, RejectsSubnormalAndUnderflowedNormalization) {
+TEST(MatrixServerTest, RejectsUnusableNormalizedDoubleMatrix) {
     for (const size_t exponent : {1023u, 1075u}) {
         fraction tiny = fraction::one();
         for (size_t i = 0; i < exponent; ++i) {
@@ -72,6 +72,6 @@ TEST(MatrixServerTest, RejectsSubnormalAndUnderflowedNormalization) {
         A(0, 0) = fraction::zero(); A(0, 1) = tiny;
         A(1, 0) = tiny;             A(1, 1) = fraction::one();
         MatrixServer server(A);
-        EXPECT_FALSE(server.initialize_unsafe_filter());
+        EXPECT_FALSE(server.initialize_game_matrix_dbl());
     }
 }

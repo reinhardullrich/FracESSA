@@ -1,5 +1,7 @@
+import json
 import multiprocessing as mp
 import unittest
+from pathlib import Path
 
 from wrapper_v1 import (
     MPConfig,
@@ -24,16 +26,38 @@ class NativeIntegrationTests(unittest.TestCase):
         if not self.native_available:
             self.skipTest("fracessa_core not available; run ./build.sh first")
 
-    def test_run_one_native(self):
+    def test_bounded_and_unsafe_routes_native(self):
+        verification_file = Path(__file__).resolve().parents[2] / "verification/verification_matrices.json"
+        with verification_file.open("r", encoding="utf-8") as fh:
+            matrix = next(matrix for matrix in json.load(fh)["matrices"] if matrix["id"] == 46)
+        job = MatrixJob(matrix_id=46, matrix=f"{matrix['dimension']}#{matrix['matrix']}")
+
+        bounded = run_one(
+            job,
+            RunConfig(include_candidates=True),
+            run_id="native_bounded",
+        )
+        unsafe = run_one(
+            job,
+            RunConfig(include_candidates=True, unsafe=True),
+            run_id="native_unsafe",
+        )
+
+        self.assertTrue(bounded.summary.success)
+        self.assertTrue(unsafe.summary.success)
+        self.assertEqual(bounded.summary.ess_count, 1)
+        self.assertEqual(unsafe.summary.ess_count, 0)
+        self.assertIsNone(bounded.candidates[0].multiplier)
+        self.assertEqual(unsafe.candidates, [])
+
+    def test_exact_and_unsafe_are_rejected(self):
         result = run_one(
             MatrixJob(matrix_id=1, matrix="2#0,1,0"),
-            RunConfig(include_candidates=True),
-            run_id="native_single",
+            RunConfig(exact=True, unsafe=True),
+            run_id="native_mode_conflict",
         )
-        self.assertTrue(result.summary.success)
-        self.assertEqual(result.summary.status, 0)
-        self.assertEqual(result.summary.ess_count, 1)
-        self.assertIsNone(result.candidates[0].multiplier)
+        self.assertFalse(result.summary.success)
+        self.assertEqual(result.summary.status, 4)
 
     def test_circular_native_returns_one_weighted_representative(self):
         result = run_one(

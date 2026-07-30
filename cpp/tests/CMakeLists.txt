@@ -9,6 +9,7 @@ set(TEST_LIST
     test_bitset64
     test_integration
     test_fraction
+    test_candidate_rejector_double
 )
 
 foreach(test_name ${TEST_LIST})
@@ -33,6 +34,7 @@ add_test(NAME CopositivityTests COMMAND test_copositivity)
 add_test(NAME Bitset64Tests COMMAND test_bitset64)
 add_test(NAME IntegrationTests COMMAND test_integration)
 add_test(NAME FractionTests COMMAND test_fraction)
+add_test(NAME CandidateRejectorDoubleTests COMMAND test_candidate_rejector_double)
 
 # ------------------------------------------------------------------------------
 # Verification correctness tests (one CTest per matrix for parallel execution)

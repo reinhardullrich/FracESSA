@@ -5,6 +5,9 @@
 #include <cmath>
 #include <cstdint>
 #include <limits>
+#ifdef FRACESSA_CANDIDATE_REJECTOR_DOUBLE_ORACLE
+#include <stdexcept>
+#endif
 
 /*
  * Candidate construction for a proposed support S.
@@ -18,8 +21,8 @@
  *
  * The bordered linear system supplies x and u. Exact equality in the final
  * inequality identifies an additional best reply; these tied strategies form
- * the extended support J(x). The double routine may cheaply reject a support,
- * but only the rational routine can create a candidate.
+ * the extended support J(x). The selected numerical procedure may cheaply reject
+ * a support, but only the rational routine can create a candidate.
  */
 
 namespace {
@@ -54,10 +57,23 @@ inline void extract_support_partition(
 
 } // namespace
 
+bool fracessa::candidate_rejector_dbl(const bitset64& support, size_t support_size)
+{
+    const bool rejected = candidate_rejector_dbl_.proves_candidate_rejection(support, support_size);
+
+#ifdef FRACESSA_CANDIDATE_REJECTOR_DOUBLE_ORACLE
+    if (rejected && find_candidate_frc(support, support_size)) {
+        throw std::logic_error("Candidate-rejector-double disagrees with exact arithmetic");
+    }
+#endif
+
+    return rejected;
+}
+
 bool fracessa::find_candidate_dbl(const bitset64& support, size_t support_size)
 {
     /*
-     * Unsafe rejection filter.
+     * Unsafe rejection procedure.
      *
      * `false` means the floating result looks clearly incompatible with a
      * candidate, so the support is skipped. `true` means "ask the exact solver";
@@ -148,7 +164,7 @@ bool fracessa::find_candidate_dbl(const bitset64& support, size_t support_size)
      * `minimum_pivot` is a rough measure of how strongly elimination could have
      * amplified rounding. If the estimated rounding risk is not clearly below
      * their product, the violation is suspicious and the exact solver decides.
-     * This comparison is deliberately a heuristic, not a certified error bound.
+     * This comparison is deliberately a heuristic, not a rigorous error bound.
      */
     const auto is_suspicious = [&](double margin, double decision_scale) noexcept {
         const double risk = base_risk * decision_scale;

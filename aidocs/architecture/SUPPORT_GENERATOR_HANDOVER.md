@@ -1,7 +1,7 @@
 # Support Generator Design Handover
 
-Status: implemented on branch `choice-one-candidate-filter` and prepared for a
-pull request on 2026-07-30.
+Status: implemented on `main`; the certified-filter worktree uses the same
+generator architecture unchanged.
 
 This is a durable design handover, not a transcript of the implementation
 session. The detailed algorithms, proofs, counterexamples, and benchmarks remain
@@ -9,20 +9,20 @@ in [`../plans/SUPPORT_GENERATORS.md`](../plans/SUPPORT_GENERATORS.md).
 
 ## Branch Context
 
-The branch name predates the support-generator work. It now contains three
-connected phases:
+The current worktree contains four connected phases:
 
 1. the temporary explicitly unsafe numerical candidate filter and the exact
    fallback mode;
 2. the support-frontier and circular-bracelet experiments that established the
    replacement design;
 3. the production one-support-at-a-time generators and compressed circular
-   candidate output.
+   candidate output;
+4. the rigorously one-sided Choice 1 candidate filter.
 
-The strict certified "Choice 1" numerical filter is still a future phase. Its
-mathematical plan remains in
-[`CHOICE_ONE_CANDIDATE_FILTER.md`](CHOICE_ONE_CANDIDATE_FILTER.md); it must not be
-confused with the temporary unsafe filter already on this branch.
+The strict bounded-error "Choice 1" numerical filter is the no-flag default. Its
+implementation record remains in
+[`CANDIDATE_REJECTOR_DOUBLE.md`](CANDIDATE_REJECTOR_DOUBLE.md); explicit
+`--unsafe` still selects the separate heuristic.
 
 ## Agreed Production Architecture
 
@@ -77,15 +77,15 @@ belongs to the support most recently emitted to that callback.
 
 ## Candidate And Pruning Lifecycle
 
-`fracessa::analyze_support()` performs the configured unsafe prefilter, exact
-rational equilibrium solve, candidate population, and stability classification.
+`fracessa::analyze_support()` performs the selected bounded-error or unsafe filter,
+exact rational equilibrium solve, candidate population, and stability classification.
 If it reports an exact candidate, the caller registers `candidate_.support` with
 the active generator and then calls `finalize_candidate()`.
 
 Every exact equilibrium support becomes forbidden for larger cardinalities,
 whether or not stability classifies that candidate as an ESS. A result accepted
-only by exact rational analysis may become a pruning rule; the unsafe double
-prefilter never creates one by itself.
+only by exact rational analysis may become a pruning rule; neither numerical
+filter creates one by itself.
 
 The explicit sequence remains visible in each of the three call paths: full
 support, circular generation, and non-circular generation. Moving generator

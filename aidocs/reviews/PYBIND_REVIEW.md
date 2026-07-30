@@ -51,7 +51,7 @@ rather than a behavior bug.
 ## Current Validation State
 
 - The current Release build produces an importable `fracessa_core` module.
-- Wrapper unittests that exercise the native module pass 23/23.
+- Wrapper unittests that exercise the native module pass 26/26.
 - Native single-process and multiprocessing integration tests pass.
 - `compute_matrix()` still always measures elapsed time and returns the narrowed
   native ESS count described above.

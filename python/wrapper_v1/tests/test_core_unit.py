@@ -58,12 +58,13 @@ class CoreUnitTests(unittest.TestCase):
     def test_compute_job_uses_cli_string_if_already_prefixed(self):
         fake = _FakeNative()
         job = MatrixJob(matrix_id=11, matrix="2#0,1,0")
-        cfg = RunConfig(include_candidates=True)
+        cfg = RunConfig(include_candidates=True, unsafe=True)
 
         with mock.patch("wrapper_v1.core.load_native_module", return_value=fake):
             result = core.compute_job(job=job, config=cfg, run_id="unit")
 
         self.assertEqual(fake.last_kwargs["matrix"], "2#0,1,0")
+        self.assertTrue(fake.last_kwargs["unsafe"])
         self.assertEqual(result.summary.matrix_id, 11)
         self.assertEqual(result.summary.ess_count, 2)
         self.assertEqual(result.summary.elapsed_us, 1234)

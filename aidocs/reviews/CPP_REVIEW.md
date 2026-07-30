@@ -10,35 +10,12 @@ dated result is cited as evidence.
 Correctness is ranked before speed. This file contains unresolved findings only;
 remove a finding after its fix and regression coverage are complete.
 
-## Correctness
-
-### P0: The double candidate filter drops valid ESS supports
-
-The temporary default filter exactly normalizes the game and sends small-pivot,
-non-finite, and danger-veto cases to exact arithmetic. However,
-`is_suspicious()` still uses `minimum_pivot * margin` only as a heuristic proxy
-for forward solution error at `cpp/src/findeq.cpp:153`. The negative-probability
-and outside-gain decisions at `cpp/src/findeq.cpp:163` and
-`cpp/src/findeq.cpp:183` can therefore reject a valid support before exact
-arithmetic sees it.
-
-Preserved verification IDs 45-47 at reference commit `2be0207` each have one
-exact full-support ESS, while this unsafe filter returns zero candidates and
-zero ESS. ID 45 is especially important: its entries are approximately
-`-139.66` to `80.15` and its exact minimum support probability is `1e-6`, yet
-the normalized bordered system has condition number about `5.34e11`; the
-minimum-pivot danger test accepts the wrong negative probability as decisive.
-
-Required outcome: make the later rigorously one-sided Choice 1 filter the
-default and retain this heuristic only as explicit `--unsafe` behavior. The
-implementation plan is in `../architecture/CHOICE_ONE_CANDIDATE_FILTER.md`.
-
 ## Speed
 
 ### P1: The exact candidate path materializes its full vector too early
 
-The exact path fills `candidate_.vector` at `cpp/src/findeq.cpp:211` before the
-outside-support validation beginning at `cpp/src/findeq.cpp:222`. It also does
+The exact path fills `candidate_.vector` at `cpp/src/findeq.cpp:227` before the
+outside-support validation beginning at `cpp/src/findeq.cpp:238`. It also does
 this when candidate output and logging are both disabled; stability itself does
 not consume the vector.
 
@@ -49,8 +26,8 @@ successful candidate that will be output or logged.
 
 The unsafe filter extracts support and complement once. When exact arithmetic is
 required, the support is extracted again at
-`cpp/include/fracessa/matrix_server.hpp:91` while building the bordered system
-and both support and complement are rebuilt at `cpp/src/findeq.cpp:206`.
+`cpp/include/fracessa/matrix_server.hpp:95` while building the bordered system
+and both support and complement are rebuilt at `cpp/src/findeq.cpp:222`.
 
 Bee construction uses the later `extended_support_reduced`, so it cannot share
 the initial extraction. Within `is_copositive_hadeler()`, however, the same
@@ -96,7 +73,7 @@ first failure. Benchmark any destructive or move-based LU variant separately.
 ### P2: CLI elapsed time uses a non-monotonic clock
 
 The CLI measures analyzer duration with `std::chrono::high_resolution_clock` at
-`cpp/src/main.cpp:63` and `cpp/src/main.cpp:65`. The C++ standard does not require
+`cpp/src/main.cpp:56` and `cpp/src/main.cpp:58`. The C++ standard does not require
 that clock to be steady; on the current libstdc++ build it aliases a clock with
 `is_steady == false`. A wall-clock correction can therefore distort or even
 reverse an elapsed interval used for speed baselines.
@@ -137,8 +114,8 @@ artifact publication restricted to release tags.
 
 ### P2: C++ tests cannot be disabled
 
-`cpp/CMakeLists.txt:44` declares all four FetchContent projects unconditionally,
-`cpp/CMakeLists.txt:73` fetches them together, and `cpp/CMakeLists.txt:181` always
+`cpp/CMakeLists.txt:45` declares all four FetchContent projects unconditionally,
+`cpp/CMakeLists.txt:74` fetches them together, and `cpp/CMakeLists.txt:212` always
 adds tests. `BUILD_TESTING=OFF` is not wired, so every build fetches and builds
 GoogleTest and the test targets.
 
@@ -148,8 +125,8 @@ only if a CLI-only build becomes an actual supported workflow.
 
 ### P2: Debug configurations are forcibly optimized with assertions disabled
 
-Global compile options at `cpp/CMakeLists.txt:20` and
-`cpp/CMakeLists.txt:27` apply `/O2` or `-O3` and `NDEBUG` regardless of the
+Global compile options at `cpp/CMakeLists.txt:21` and
+`cpp/CMakeLists.txt:28` apply `/O2` or `-O3` and `NDEBUG` regardless of the
 selected configuration. A nominal Debug build therefore still disables
 assertions and compiles production optimization flags.
 
@@ -158,9 +135,9 @@ and `NDEBUG`; scope only FracESSA-specific throughput flags to Release builds.
 
 ### P2: Linux and macOS release executables are not self-contained
 
-CMake prefers `.so`/`.dylib` over static archives at `cpp/CMakeLists.txt:82` and
-`cpp/CMakeLists.txt:85`, and the workflow uploads only the executable at
-`.github/workflows/release.yml:125`. The runner installs FLINT, MPFR, and GMP,
+CMake prefers `.so`/`.dylib` over static archives at `cpp/CMakeLists.txt:85` and
+`cpp/CMakeLists.txt:87`, and the workflow uploads only the executable at
+`.github/workflows/release.yml:130`. The runner installs FLINT, MPFR, and GMP,
 but an end user still needs ABI-compatible libraries; the macOS binary also
 records a Homebrew library path.
 
@@ -171,20 +148,22 @@ Linux and macOS artifacts as portable standalone executables.
 ## Current Validation State
 
 - Current local Release build: successful.
-- Core/CLI CTests: 10/10 passed.
-- Wrapper tests: 23/23 passed.
-- Full matrix CTests: 52/52 passed, including normalization IDs 38-39.
+- Core/CLI CTests: 11/11 passed.
+- Wrapper tests: 26/26 passed.
+- Full matrix CTests: 55/55 passed, including candidate-rejector-double IDs 45-47.
 - The single parser preserves 18-digit direct values and arbitrary-precision
   values, and the former signed-overflow input passes ASan/UBSan exactly.
-- All active fast and full verification matrices pass. Reference IDs 45-47
-  remain outside active fixtures because unsafe mode is known to fail them.
+- The exact-rejection oracle passed all 53 permitted matrices; IDs 33-34 were
+  excluded from that oracle run as required. ASan/UBSan passed all 11 core/CLI
+  tests and focused verification IDs 45-47.
 - The current standard library reports `high_resolution_clock::is_steady ==
   false` and `steady_clock::is_steady == true`.
 - Production DFS/FKM generators retain no complete support frontier or
   cardinality layer. An independent order-insensitive comparison matched all
-  mathematical candidate rows and ESS results across the 52 active matrices.
+  mathematical candidate rows and ESS results across the original 52-matrix
+  generator suite; the current 55-matrix suite also passes.
 - A fixed-seed audit generated 20,000 exact 4-by-4 integer matrices; all 19,890
   nonsingular cases satisfied `A * inverse(A) == I` exactly.
 - The most recent full sanitizer suite passed its existing tests.
-- The current implementation is uncommitted on `choice-one-candidate-filter`;
+- The current implementation is uncommitted on `certified-filter`;
   no GitHub Actions run exists for this diff.

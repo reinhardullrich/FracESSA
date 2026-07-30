@@ -128,6 +128,7 @@ def compute_job(job: MatrixJob, config: RunConfig, run_id: str) -> MatrixResult:
         full_support=config.full_support,
         enable_logging=config.enable_logging,
         matrix_id=int(job.matrix_id),
+        unsafe=config.unsafe,
     )
 
     status = int(native_out.get("status", StatusCode.INTERNAL_ERROR))
