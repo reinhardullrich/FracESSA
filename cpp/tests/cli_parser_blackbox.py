@@ -126,6 +126,13 @@ def main() -> int:
     if "unsafe numerical mode" in exact_result.stderr.lower():
         raise AssertionError("exact mode unexpectedly printed the unsafe warning")
 
+    assert_failure_with_stderr(
+        fracessa_exe,
+        ["--exact", "--unsafe", "2#0,1,0"],
+        "cannot be used together",
+        "exact_unsafe_conflict",
+    )
+
     # Affine normalization restores the exact result for both historical cases.
     for case_name, matrix in (
         ("normalized_scale", "2#0,1/100000000000000000000,0"),
@@ -137,14 +144,12 @@ def main() -> int:
 
     # Other success paths
     assert_success_with_ess_output(fracessa_exe, ["5#1,3"], "circular_success")
-    assert_candidate_header_matches_rows(fracessa_exe)
-
-    assert_failure_with_stderr(
+    assert_success_with_ess_output(
         fracessa_exe,
-        ["--exact", "--unsafe", "2#0,1,0"],
-        "cannot be used together",
-        "exact_unsafe_conflict",
+        ["--matrixid", "9223372036854775807", "2#0,1,0"],
+        "signed_64_bit_matrix_id",
     )
+    assert_candidate_header_matches_rows(fracessa_exe)
 
     # Parser failure paths
     assert_failure_with_stderr(
@@ -156,7 +161,7 @@ def main() -> int:
     assert_failure_with_stderr(
         fracessa_exe,
         ["2#0#1"],
-        "Invalid character",
+        "Multiple '#'",
         "multiple_hash_rejected",
     )
     assert_failure_with_stderr(

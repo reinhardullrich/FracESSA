@@ -549,5 +549,4 @@ Related files:
 - `../reviews/CPP_REVIEW.md`: remaining unresolved C++ findings.
 - `../experiments/speed_comparison_2026-07-26/MICROBENCHMARK_COMPARISON.md`:
   persistent-process speed comparison.
-- `../../python/verification/verification_matrices.json`: regression inputs
-  36 and 37.
+- `../../testdata/fracessa_testdata.sqlite3`: regression inputs 36 and 37.

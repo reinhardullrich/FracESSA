@@ -1,25 +1,25 @@
+from queue import Empty
+from types import SimpleNamespace
 import unittest
 from unittest import mock
 
 from wrapper_v1 import mp as mp_mod
-from wrapper_v1.types import MPConfig, MatrixJob, MatrixResult, RunConfig, SummaryRow
+from wrapper_v1.types import MPConfig, MatrixJob, RunConfig
 
 
-def _fake_result(matrix_id: int) -> MatrixResult:
-    return MatrixResult(
-        summary=SummaryRow(
-            run_id="unit",
-            matrix_id=matrix_id,
-            status=0,
-            success=True,
-            ess_count=1,
-            elapsed_us=1,
-            candidate_count=0,
-            error_message="",
-        ),
-        candidates=[],
-        metadata=None,
-    )
+def _fake_result(matrix_id: int) -> dict:
+    return {
+        "run_id": "unit",
+        "matrix_id": matrix_id,
+        "status": 0,
+        "success": True,
+        "ess_count": 1,
+        "elapsed_ns": 1,
+        "candidate_count": 0,
+        "error_message": "",
+        "candidates": [],
+        "metadata": None,
+    }
 
 
 class _FakeRunner:
@@ -34,6 +34,7 @@ class _FakeRunner:
         self._ready = []
         self._closed = False
         self._shutdown = False
+        self.cancelled = None
         self.max_submitted_not_received = 0
         self.__class__.instances.append(self)
 
@@ -41,37 +42,36 @@ class _FakeRunner:
         if self._closed:
             raise AssertionError("submit called after close_input")
 
-        seq = self._submitted
         self._submitted += 1
-        self._ready.append((seq, job))
+        self._ready.append(job)
         outstanding = self._submitted - self._received
         self.max_submitted_not_received = max(self.max_submitted_not_received, outstanding)
         if outstanding > self.mp_config.queue_maxsize:
             raise AssertionError("batch runner submitted too far ahead of result draining")
-        return seq
 
     def close_input(self):
         self._closed = True
 
-    def _get_result_item(self):
+    def get_result(self):
         if not self._ready:
             raise AssertionError("result requested before a job was submitted")
 
-        seq, job = self._ready.pop(0)
+        job = self._ready.pop()
         self._received += 1
-        return seq, _fake_result(job.matrix_id)
+        return _fake_result(job.matrix_id)
 
-    def shutdown(self):
+    def shutdown(self, *, cancel):
         self._shutdown = True
+        self.cancelled = cancel
 
 
 class MPUnitTests(unittest.TestCase):
-    def test_run_jobs_mp_drains_while_submitting(self):
+    def test_run_jobs_mp_yields_as_completed_and_bounds_submission(self):
         jobs = [MatrixJob(matrix_id=i, matrix="2#0,1,0") for i in range(10)]
-        cfg = MPConfig(workers=1, chunk_size=10, queue_maxsize=2, ordered_results=True)
+        cfg = MPConfig(workers=1, prefetch_per_worker=10, queue_maxsize=2)
 
         _FakeRunner.instances.clear()
-        with mock.patch("wrapper_v1.mp.MPQueueRunner", _FakeRunner):
+        with mock.patch("wrapper_v1.mp._QueueRunner", _FakeRunner):
             results = list(
                 mp_mod.run_jobs_mp(
                     jobs=jobs,
@@ -82,17 +82,96 @@ class MPUnitTests(unittest.TestCase):
             )
 
         runner = _FakeRunner.instances[-1]
-        self.assertEqual([result.summary.matrix_id for result in results], list(range(10)))
+        self.assertEqual([result["matrix_id"] for result in results], [*range(1, 10), 0])
         self.assertLessEqual(runner.max_submitted_not_received, cfg.queue_maxsize)
         self.assertTrue(runner._closed)
         self.assertTrue(runner._shutdown)
+        self.assertFalse(runner.cancelled)
 
-    def test_max_buffered_results_uses_worker_chunk_and_queue_cap(self):
+    def test_run_jobs_mp_cancels_when_consumer_stops_early(self):
+        jobs = [MatrixJob(matrix_id=i, matrix="2#0,1,0") for i in range(3)]
+        cfg = MPConfig(workers=1, prefetch_per_worker=1, queue_maxsize=1)
+
+        _FakeRunner.instances.clear()
+        with mock.patch("wrapper_v1.mp._QueueRunner", _FakeRunner):
+            results = mp_mod.run_jobs_mp(jobs, RunConfig(), cfg)
+            next(results)
+            results.close()
+
+        runner = _FakeRunner.instances[-1]
+        self.assertTrue(runner._shutdown)
+        self.assertTrue(runner.cancelled)
+
+    def test_run_jobs_mp_rejects_logging_before_starting_workers(self):
+        jobs = [MatrixJob(matrix_id=1, matrix="2#0,1,0")]
+
+        with mock.patch("wrapper_v1.mp._QueueRunner") as runner:
+            with self.assertRaisesRegex(ValueError, "enable_logging"):
+                list(
+                    mp_mod.run_jobs_mp(
+                        jobs,
+                        RunConfig(enable_logging=True),
+                        MPConfig(workers=1),
+                    )
+                )
+
+        runner.assert_not_called()
+
+    def test_submit_serializes_before_queueing(self):
+        runner = object.__new__(mp_mod._QueueRunner)
+        runner._input_closed = False
+        runner._input_queue = mock.Mock()
+        job = MatrixJob(matrix_id=1, matrix="2#0,1,0", metadata={"bad": lambda: None})
+
+        with self.assertRaises(Exception):
+            runner.submit(job)
+
+        runner._input_queue.put.assert_not_called()
+
+    def test_worker_serializes_results_before_queueing(self):
+        input_queue = mock.Mock()
+        input_queue.get.side_effect = [
+            bytes(mp_mod.ForkingPickler.dumps(MatrixJob(matrix_id=1, matrix="2#0,1,0"))),
+            None,
+        ]
+        output_queue = mock.Mock()
+
+        with mock.patch("wrapper_v1.mp._safe_compute", return_value={"bad": lambda: None}):
+            with self.assertRaises(Exception):
+                mp_mod._queue_worker(input_queue, output_queue, RunConfig(), "unit")
+
+        output_queue.put.assert_not_called()
+
+    def test_safe_compute_does_not_reconvert_an_invalid_mutated_id(self):
+        job = MatrixJob(matrix_id=1, matrix="1#0")
+        job.matrix_id = "invalid"
+
+        with mock.patch("wrapper_v1.mp.compute_job", side_effect=RuntimeError("forced")):
+            result = mp_mod._safe_compute(job, RunConfig(), "unit")
+
+        self.assertEqual(result["matrix_id"], -1)
+        self.assertEqual(result["status"], 255)
+        self.assertIn("forced", result["error_message"])
+
+    def test_get_result_reports_dead_worker(self):
+        runner = object.__new__(mp_mod._QueueRunner)
+        runner._output_queue = mock.Mock()
+        runner._output_queue.get.side_effect = Empty
+        runner._workers = [SimpleNamespace(name="fracessa-worker-0", exitcode=7)]
+
+        with self.assertRaisesRegex(RuntimeError, "fracessa-worker-0=7"):
+            runner.get_result()
+
+    def test_max_pending_jobs_uses_worker_prefetch_and_queue_cap(self):
         self.assertEqual(
-            mp_mod._max_buffered_results(MPConfig(workers=4, chunk_size=3, queue_maxsize=20)),
+            mp_mod._max_pending_jobs(
+                MPConfig(workers=4, prefetch_per_worker=3, queue_maxsize=20)
+            ),
             12,
         )
         self.assertEqual(
-            mp_mod._max_buffered_results(MPConfig(workers=4, chunk_size=3, queue_maxsize=5)),
+            mp_mod._max_pending_jobs(
+                MPConfig(workers=4, prefetch_per_worker=3, queue_maxsize=5)
+            ),
             5,
         )

@@ -10,7 +10,7 @@
    `fracessa_core` boundary, result/status conversion, GIL behavior, or native
    timing.
 5. Read `reviews/PYTHON_REVIEW.md` before reviewing or changing the Python API,
-   multiprocessing, sinks, verification, or benchmarks.
+   multiprocessing, sinks, or wrapper tests.
 6. Read `CHANGES.md` only when history matters, when diagnosing drift, or when
    the user asks what changed.
 7. Read only the task-specific references below.
@@ -24,8 +24,8 @@
   findings.
 - `reviews/PYBIND_REVIEW.md`: unresolved native Python binding and boundary
   findings.
-- `reviews/PYTHON_REVIEW.md`: unresolved Python correctness, speed, API, and
-  verification findings.
+- `reviews/PYTHON_REVIEW.md`: unresolved Python correctness, speed, and API
+  findings.
 - `correctness/DOUBLE_PD_FALSE_POSITIVES.md`: exact derivation of the removed
   double-PD certificate bug, its regression games, and arbitrary-small-
   perturbation counterexamples.
@@ -42,6 +42,7 @@
   generator API, callback rationale, candidate lifecycle, circular multiplier,
   experimental V2 status, and deferred decisions.
 - `python-wrapper/README.md`: public Python and multiprocessing API.
+- `../testdata/README.md`: canonical SQLite test-data schema and scope.
 - `plans/SUPPORT_GENERATORS.md`: implemented DFS/FKM support-generator design,
   circular bracelet reduction, orbit-aware exact-candidate pruning, correctness
   proofs, experimental evidence, and future benchmark gates.

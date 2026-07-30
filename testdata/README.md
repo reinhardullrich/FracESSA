@@ -1,15 +1,13 @@
 # FracESSA Test Data
 
-`fracessa_testdata.sqlite3` stores verification matrices and their complete
-candidate baselines. It is an initial migration snapshot; the existing Python
-verification files remain active until their consumers are deliberately
-switched to this database.
+`fracessa_testdata.sqlite3` is the canonical store for test matrices and their
+complete expected candidate results.
 
 The current snapshot contains 63 matrices and 29,114 stored candidate
 representatives. Their multipliers represent 65,962 candidates and 63,369 ESS.
-The first 52 matrices mirror the active verification files. IDs 56-66 are
-staged complete-multipartite many-ESS benchmark matrices and are not active
-CTest fixtures yet.
+The first 52 matrices preserve the former verification corpus. IDs 56-66 are
+staged complete-multipartite many-ESS benchmark matrices. No SQLite matrix suite
+is currently wired into CTest.
 
 ## Tables
 
@@ -55,10 +53,12 @@ counts, and support-size structures, are not duplicated in `tags`.
 
 Benchmark runs are intentionally not represented yet. Their environment and
 result schema will be decided separately, because timing is an observation tied
-to a machine and binary rather than a property of a matrix.
+to a machine and binary rather than a property of a matrix. No active
+verification or benchmark runner exists yet; future tooling must read its
+matrix inputs and expected results from this database.
 
 The schema is defined in `schema.sql`. The C++ runtime does not read this
-database; verification tooling can use Python's standard `sqlite3` module.
+database; future tooling can use Python's standard `sqlite3` module.
 
 ## Integrity
 

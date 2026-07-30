@@ -27,9 +27,8 @@ Last verified: 2026-07-30
    abstractions, or branches to proven hot paths without a demonstrated
    correctness need and a benchmark.
 4. Intentionally unchecked bitset operations exist for raw speed. Matrix input
-   instead has one validating parser at the input boundary; values up to 18
-   digits use direct integer construction and larger values use exact FLINT text
-   conversion.
+   has one validating parser at the input boundary; values up to 18 digits use
+   direct integer construction and larger values use exact FLINT text conversion.
 5. Use the Ponytail skill for code work: understand the complete path, then use
    the smallest correct implementation.
 
@@ -38,14 +37,15 @@ Last verified: 2026-07-30
 - Root: `/home/reinhard/projects/fracessa`
 - Remote: `git@github.com:reinhardullrich/FracESSA.git`
 - Main implementation: `cpp/`
-- Python API and verification: `python/`
-- Reproducible benchmark material: `experiments/`
+- Python API: `python/`
+- Canonical test data: `testdata/fracessa_testdata.sqlite3`
+- Historical benchmark material: `experiments/`
 - Agent documentation: `aidocs/`
 - Public GitHub introduction: `README.md`
 - `AGENTS.md` must remain a pointer only.
 
-Generated or local-only paths include `cpp/build*/`, `python/results/`, raw
-Callgrind output, and experiment `builds/`, `sources/`, and `logs/` directories.
+Generated or local-only paths include `cpp/build*/` and experiment `builds/`,
+`sources/`, and `logs/` directories.
 `zzz_legacy/` is the tracked collection of preserved REF/EFR predecessors.
 Its six top-level folders are `EFR`, `REF_2016-10-06`, `REF_2016-11-16`,
 `REF_2016-11-20-Werner`, `REF_2019-09-20`, and `REF_R`. They are preserved historical
@@ -169,13 +169,14 @@ cmake --build cpp/build -j"$(nproc)"
 ```
 
 Required system dependencies are a C++17 compiler, CMake 3.18 or newer, Python
-3 development headers, GMP, MPFR, and FLINT. CMake FetchContent downloads:
+3.14 or newer with development headers, GMP, MPFR, and FLINT. CMake
+FetchContent downloads:
 
 - `spdlog`: optional rotating diagnostic logs.
 - `argparse`: the cross-platform CLI parser.
 - `googletest`: nine C++ unit-test executables only; it is not linked into the
   production executable.
-- `pybind11`: the native Python module.
+- `pybind11` v3.0.4: the native Python module.
 
 These four dependencies are currently fetched unconditionally, so a clean
 configure needs network access unless the FetchContent sources are cached.
@@ -190,73 +191,33 @@ escalated filesystem access rather than disabling or redirecting ccache.
 `cmake --install cpp/build` installs the CLI target only. It does not install
 GMP, MPFR, or FLINT.
 
-## Tests And Benchmarks
+## Tests And Test Data
 
 ```bash
-./test.sh          # core/CLI, wrapper, and fast matrix correctness
-./test.sh --full   # core/CLI, wrapper, and all matrix correctness
-./python.sh        # fast speed benchmark
-./python.sh --full # all-matrix speed benchmark
+./test.sh # build, core/CLI tests, and wrapper tests
 ```
 
-The non-matrix CTest suite consists of nine GoogleTest executables plus one CLI
-black-box parser test. Wrapper tests use Python `unittest`. Matrix correctness
-is one CTest per matrix so CTest can run matrices in parallel.
+CTest consists of nine GoogleTest executables plus one CLI black-box parser
+test. Wrapper tests use Python `unittest`.
 
-Fast mode is a static policy: all verification matrices except IDs 32 and 34.
-The speed script records timings; correctness belongs to CTest.
+`testdata/fracessa_testdata.sqlite3` is the canonical matrix and expected-result
+store. Its strict schema is in `testdata/schema.sql`; the current snapshot has
+63 matrices and 29,114 stored candidate representatives. Nullable multipliers
+recover weighted totals of 65,962 candidates and 63,369 ESS: circular rows store
+one smallest dihedral representative and its orbit count, while non-circular
+rows store null. Candidate IDs and row order remain reproducibility checks;
+complete weighted candidate sets and ESS classifications are the mathematical
+contracts.
 
-All 52 active verification matrices (IDs 1-44 and 48-55) pass in the temporary
-default unsafe mode; IDs 38-39 specifically cover the corrected scale and
-translation behavior. Preserved reference IDs 45-47 are intentionally not
-active yet: they prove the unsafe heuristic can still miss an exact ESS and
-belong to the later certified Choice 1 phase. IDs 48-55 add non-circular
-dimensions 15-24 through Hilbert, Hadamard, Paley conference, MINIJ, Fiedler,
-deterministic random matrix families, and a dense weighted-Laplacian game with
-one full-support ESS.
+The former JSON/CSV verification, baseline-generation, speed-benchmark, and
+Callgrind runners were removed. No replacement matrix-verification or benchmark
+runner exists yet. Future tooling must read matrix inputs and expected results
+from SQLite. Dated material under `experiments/` and `aidocs/experiments/`
+remains immutable historical evidence.
 
-## Verification Data
-
-`python/verification/` is the only active verification-data source. There is no
-second fixture copy under `cpp/tests/`.
-
-- `verification_matrices.json`: 52 matrices, active IDs 1-44 and 48-55,
-  maximum dimension 24.
-- `baseline_candidates.csv`: 1,196 candidate representative rows for all 52
-  active matrices, representing 38,044 candidates after multiplication.
-- `baseline_result.json`: historical timing results for IDs 1-35.
-- `ctest_verify_matrix.py`: matrix correctness comparison.
-- `matrix_selection.py`: fast/full static selection.
-- `create_baselines.py`: baseline regeneration using the archived executable.
-
-`testdata/fracessa_testdata.sqlite3` is a staged SQLite migration snapshot, not
-an active test input yet. It currently contains 63 matrices and 29,114 stored
-candidate representatives. Their multipliers represent 65,962 candidates and
-63,369 ESS. Its `matrices` rows use stable IDs rather than names and include
-dimension, size class, circular symmetry, exact input, weighted candidate/ESS
-counts, weighted support-size structures, and required provenance/purpose text
-in `origin`. Qualitative categories live in the `tags` JSON array; quantitative
-facts are not duplicated as tags. IDs 56-66 are staged non-circular
-complete-multipartite matrices with many ESS for support-frontier benchmarks.
-The schema is in `testdata/schema.sql`; benchmark-run storage remains deferred.
-Do not switch Python or CTest consumers from the existing JSON/CSV files without
-separate approval.
-
-There is no `in_use` field. Candidate IDs and row order are deterministic and
-remain useful correctness checks while enumeration is unchanged. Circular rows
-store the smallest dihedral support representative and a non-null `multiplier`;
-non-circular rows store null. Weighted candidate and ESS totals are recovered by
-summing `multiplier`, treating null as one. The DFS/FKM generator adoption and
-representative-output conversion were checked across all 52 active matrices and
-regenerated the affected circular fixtures in both the CSV baseline and SQLite
-snapshot.
-`T_pd_dbl` and `T_pd_frc` are normalized as the same `T_pd_*` classification for
-baseline comparison because floating-point branch selection can change while
-the mathematical result does not.
-
-The archived baseline executable is x86-64. Do not run it on this ARM64 Linux
-machine: it invokes the system `binfmt` dispatcher without a configured x86-64
-emulator. Use native CTest correctness checks for current development.
+Database IDs 45-47 preserve the known unsafe-filter correctness regressions
+tracked in `reviews/CPP_REVIEW.md`; no SQLite matrix suite is currently wired
+into `./test.sh` or release CI.
 
 ## Pybind Boundary
 
@@ -266,33 +227,79 @@ native status codes, GIL release, and native timing. Binding-specific open
 findings are tracked in `reviews/PYBIND_REVIEW.md`, separately from both the
 analyzer core and Python orchestration.
 
+The safe parser throws `std::invalid_argument` with a detailed diagnostic and
+does not write to `stderr`. The CLI catches and prints that diagnostic; Pybind
+catches the same exception and exposes one `PARSE_ERROR` status with the
+diagnostic in `error_message`, without reparsing the input.
+
+The analyzer and native binding both store the ESS count as `size_t`; Pybind
+converts that value directly to Python's arbitrary-precision integer.
+
+Native analyzer timing uses `std::chrono::steady_clock` and is always returned
+as integer nanoseconds in `elapsed_ns`. The CLI `--timing` output uses the same
+clock and unit. There is no wrapper timing-suppression option.
+
+Matrix IDs are signed 64-bit values at the CLI, analyzer, Pybind, and file-sink
+boundaries. `MatrixJob` accepts only built-in Python integers in that range and
+rejects booleans and coercible float/string values before native execution.
+
+The binding releases the GIL during native execution. Logging-enabled calls are
+serialized by one process-wide native mutex because each analyzer writes and
+rotates the same log file; non-logging calls remain concurrent.
+
 ## Python Wrapper
 
 `python/wrapper_v1/` calls `fracessa_core` in-process and is the maintained API.
 It supports sequential execution, process-based parallelism across matrices,
-and stream/CSV/JSON/Arrow/Parquet sinks. One matrix is always computed by one
-worker process; parallelism is across matrices.
+and CSV/JSON/Parquet disk sinks. One matrix is always computed by one worker
+process; parallelism is across matrices. File sinks create output paths
+exclusively and never overwrite existing run-ID output. Each format writes
+summary and candidate data plus a format-specific JSON sidecar for per-matrix
+metadata. Empty outputs have stable readable schemas; Parquet buffers 1,024
+rows per row group. JSON writers replace non-finite floats with `null` and use
+strict encoding, so they never emit the non-standard `NaN` or `Infinity`
+literals.
 
-For circular matrices, `CandidateRow` contains one bracelet representative with
-an integer `multiplier`; non-circular rows use `None`. `SummaryRow.candidate_count`
-is the number of returned representative rows, while `ess_count` remains the
-weighted mathematical total.
+Sink construction and consumption are transactional across each exclusive
+output triplet. A caught initialization, computation, write, or finalization
+exception closes the result iterator and sink resources, removes only paths
+made by that attempt, and re-raises the original exception so callers may retry
+the same run ID. Cleanup errors never replace an active operation error.
+
+All maintained wrapper execution paths return one flat dictionary. Candidate
+rows are plain dictionaries; there are no Python result-row classes. Circular
+rows contain one bracelet representative with an integer `multiplier`;
+non-circular rows use `None`. `candidate_count` is the number of returned
+representatives, while `ess_count` remains the weighted mathematical total.
 
 No production wrapper or matrix workflow imposes a per-matrix computation
 timeout. A matrix may legitimately run for hours. Worker-liveness handling must
 not be implemented as a computation timeout.
 
-`run_jobs_mp` uses bounded streaming submission. The lower-level
-`MPQueueRunner` still has backpressure, dead-worker, and shutdown problems; see
-`reviews/PYTHON_REVIEW.md` before using it for unbounded generated input.
+`run_jobs_mp` is the only public multiprocessing runner. Its private helper
+uses one shared job queue and one shared result queue, yields completion order,
+bounds pending jobs to `min(queue_maxsize, workers * prefetch_per_worker)`,
+serializes each job before counting it, detects dead workers while waiting, and
+cancels workers when iteration stops early. It does not batch multiple jobs
+into one queue item. Native logging is rejected before multiprocessing workers
+are created; it remains available in sequential wrapper execution.
 
-`python/fracessa_py.py` is legacy subprocess code still used by the speed script.
 New API work belongs in `python/wrapper_v1/` and `fracessa_core`.
+
+The generic JSON loader accepts a top-level row list or an object containing
+the configured matrix key. It requires a list of object rows and rejects a
+missing key or malformed row container instead of silently returning no jobs.
+It validates integer/string fields without lossy coercion; values-only matrices
+require a built-in integer dimension.
 
 ## Release Workflow
 
-`.github/workflows/release.yml` runs only for pushed `v*` tags. It builds and
-checks Ubuntu, macOS, and Windows before publishing three executables.
+`.github/workflows/release.yml` builds and checks Ubuntu, macOS, and Windows
+with Python 3.14 for ordinary pushes, pull requests, and pushed `v*` tags.
+Native integration tests require the built module, and every matrix job installs
+PyArrow before the wrapper suite, so binding and Parquet coverage cannot turn
+into successful skips. Packaging, artifact upload, write permission, and GitHub
+release publication run only for `v*` tags.
 
 The artifacts are architecture-specific and are not uniformly self-contained:
 
