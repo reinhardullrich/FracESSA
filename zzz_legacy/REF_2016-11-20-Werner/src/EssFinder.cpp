@@ -1,0 +1,590 @@
+#include "EssFinder.h"
+
+
+EssFinder::EssFinder(MatrixTemplate<Rational> matrix)
+{
+    mGamematrix=matrix;
+    if (!config::exact)
+        mGamematrixDouble=mGamematrix.toDouble();
+    mDimension=matrix.rows();
+    mAllSupports = std::vector< std::vector<uint64_t>>(mDimension);
+    if (config::withLog)
+        mLogfile= new std::ofstream("log.txt");
+}
+
+
+void EssFinder::computeEss()
+{
+    if (config::withLog) {
+        *mLogfile<<"n="<<mDimension<<std::endl<<"game matrix:"<<std::endl;
+        mGamematrix.streamMatrix(*mLogfile);
+    }
+
+	for (size_t i = 0; i < mDimension; i++) {
+		mAllSupports[i].reserve(static_cast<uint64_t>(boost::math::binomial_coefficient<double>(mDimension, i + 1)));
+	}
+
+	if (config::isCS) {
+        mCoprime.resize(mDimension);
+        for (size_t i = 0; i < mDimension; i++) {
+            mCoprime[i]=(boost::math::gcd(i+1, mDimension)==1);
+        }
+        for (uint64_t i = 1ull; i < (1ull << mDimension); i++) {
+            size_t supportSizeMinusOne=getSupportSize(i)-1;
+            if (mCoprime[supportSizeMinusOne]) {
+                if (smallestRepresentation(i, mDimension)==i)
+                    (mAllSupports[supportSizeMinusOne]).push_back(i);
+            }
+            else
+                (mAllSupports[supportSizeMinusOne]).push_back(i);
+        }
+	}
+	else {
+        for (uint64_t i = 1ull; i < (1ull << mDimension); i++) {
+            (mAllSupports[getSupportSize(i)-1]).push_back(i);
+        }
+	}
+
+    if (config::fullSupport) {
+        mNumberOfEss +=searchOneSupportsize(1);
+        if (searchOneSupportsize(mDimension)==1) {
+            mNumberOfEss +=1;
+        }
+        else {
+            for (size_t i=2; i<mDimension;i++)
+                mNumberOfEss +=searchOneSupportsize(i);
+        }
+    }
+    else {
+        for (size_t i=1; i<mDimension+1;i++)
+            mNumberOfEss +=searchOneSupportsize(i);
+    }
+
+
+    std::cout<<mNumberOfEss<<std::endl;
+
+     if (config::withVectors) {
+        std::cout<<VectorInformation::getHeader()<<std::endl;
+        for (auto x: mVectorList) {
+            std::cout<<x.getVectorInformation()<<std::endl;
+        }
+    }
+}
+
+
+size_t EssFinder::searchOneSupportsize(size_t supportSize) //uses real supportsize not c-array-style!
+{
+    VectorInformation resultVector;
+    int checkstabResult;
+    size_t numberOfEss=0;
+    MatrixTemplate<double> linearEquationMatrixDouble= MatrixTemplate<double>::initializeLinearEquationMatrix(supportSize);
+    MatrixTemplate<Rational> linearEquationMatrixRational= MatrixTemplate<Rational>::initializeLinearEquationMatrix(supportSize);
+
+    if (config::withLog)
+        *mLogfile<<std::endl<<"Searching support size "<<supportSize<<std::endl;
+
+    for (auto support : mAllSupports[supportSize-1]) {
+
+        if (!config::exact) {
+            if (config::withLog)
+                *mLogfile<<"["<<support<<"]";
+            if (!hasCandidateDouble(support, supportSize, linearEquationMatrixDouble))
+                continue;
+        }
+
+        if (config::withLog)
+            *mLogfile<<"[rational: "<<support<<"]";
+
+        if (!getCandidate(support, supportSize, resultVector, linearEquationMatrixRational))
+            continue;
+
+        if (config::withLog)
+            *mLogfile<<std::endl<<"Found candidate! Check stability:" <<std::endl;
+
+        ReasonEss reasonEss;
+        checkstabResult = checkStability(support, resultVector.extendedSupport, resultVector.extendedSupportSize, reasonEss);
+
+        mNumberOfCandidates += 1;
+
+        if (checkstabResult==1) {
+            numberOfEss += 1;
+        }
+
+        resultVector.vectorID = mNumberOfCandidates;
+        resultVector.support = support;
+        resultVector.supportSize = supportSize;
+        if (config::isCS && mCoprime[supportSize-1])
+            resultVector.shiftReference=resultVector.vectorID;
+        else
+            resultVector.shiftReference=0;
+        resultVector.IsEss = checkstabResult;
+        resultVector.ReasonEss = (int)reasonEss;
+        mVectorList.push_back(resultVector);
+
+        if (config::withLog) {
+            *mLogfile<<VectorInformation::getHeader()<<std::endl;
+            *mLogfile<<resultVector.getVectorInformation()<<std::endl<<std::endl;
+        }
+
+        //remove all supersets for this support
+        for (size_t i = supportSize; i < mDimension; i++) {
+            mAllSupports[i].erase(std::remove_if(mAllSupports[i].begin(), mAllSupports[i].end(),
+                [support](const uint64_t& x) {
+                    return ((support & x) == support);
+                }), mAllSupports[i].end());
+        }
+
+        if (config::isCS && mCoprime[supportSize-1]) {
+            std::vector<Rational> tempVector;
+            uint64_t tempSupport, tempExtended;
+            tempVector=resultVector.resultVector;
+            tempSupport=resultVector.support;
+            tempExtended=resultVector.extendedSupport;
+            for (size_t i=0; i<mDimension-1;i++) {
+
+                VectorInformation actual;
+                mNumberOfCandidates+=1;
+                if (checkstabResult==1)
+                    numberOfEss += 1;
+                actual.vectorID=mNumberOfCandidates;
+                actual.supportSize=resultVector.supportSize;
+                actual.extendedSupportSize=resultVector.extendedSupportSize;
+                actual.shiftReference=resultVector.shiftReference;
+                actual.IsEss=resultVector.IsEss;
+                actual.ReasonEss=resultVector.ReasonEss;
+                actual.payoff=resultVector.payoff;
+                actual.payoffDouble=resultVector.payoffDouble;
+
+                std::rotate(tempVector.begin(), tempVector.begin() + 1, tempVector.end());
+                tempSupport=shiftRight(tempSupport,mDimension);
+                tempExtended=shiftRight(tempExtended,mDimension);
+
+                actual.resultVector=tempVector;
+                actual.support=tempSupport;
+                actual.extendedSupport=tempExtended;
+
+                mVectorList.push_back(actual);
+
+                if (config::withLog) {
+                    *mLogfile<<VectorInformation::getHeader()<<std::endl;
+                    *mLogfile<<actual.getVectorInformation()<<std::endl<<std::endl;
+                }
+
+                for (size_t i = supportSize; i < mDimension; i++) {
+                    mAllSupports[i].erase(std::remove_if(mAllSupports[i].begin(), mAllSupports[i].end(),
+                        [tempSupport](const uint64_t& x) {
+                            return ((tempSupport & x) == tempSupport);
+                        }), mAllSupports[i].end());
+                }
+            }
+        }
+
+    }
+    return numberOfEss;
+}
+
+
+
+bool EssFinder::checkStability(uint64_t support, uint64_t extendedSupport, size_t extendedSupportSize, ReasonEss& reasonEss)
+{
+    uint64_t bitsetm = support & (~(support - 1)); //get lowest set bit as bitfield
+    int extendedSupportReduced = extendedSupport & (~bitsetm); //ext support without m
+    size_t m = getPositionOfLowestSetBit(bitsetm);
+
+    if (config::withLog) {
+        *mLogfile<<"Support: "<<std::bitset<64>(support)<<std::endl;
+        *mLogfile<<"Support size: "<<getSupportSize(support)<<std::endl;
+        *mLogfile<<"Extended support: "<<std::bitset<64>(extendedSupport)<<std::endl;
+        *mLogfile<<"Extended support size: "<<extendedSupportSize<<std::endl;
+        *mLogfile<<"Extended support reduced: "<<std::bitset<64>(extendedSupportReduced)<<std::endl;
+        *mLogfile<<"index m: "<<m<<std::endl;
+    }
+
+    size_t extendedSupportSizeReduced = extendedSupportSize - 1;
+    if (extendedSupportSizeReduced == 0)
+    {
+        reasonEss = ReasonEss::true_pure_ess;
+        if (config::withLog)
+            *mLogfile<<"Reason: true_pure_ess"<<std::endl;
+        return 1;
+    }
+
+    MatrixTemplate<Rational> B = MatrixTemplate<Rational> (extendedSupportSizeReduced,extendedSupportSizeReduced);
+
+    size_t row = 0;
+    size_t column = 0;
+    for (size_t i = 0;i<mDimension;i++)
+        if ((extendedSupportReduced & (1ull << i)) != 0) {
+            column = 0;
+            for (size_t j = 0; j < i+1; j++)
+                if ((extendedSupportReduced & (1ull << j)) != 0) {
+                    B(row,column) = B(column,row) = mGamematrix(m, j) + mGamematrix(j, m) + mGamematrix(i, m) + mGamematrix(m, i) -
+                        mGamematrix(i, j) - mGamematrix(j, i) - 2 * mGamematrix(m, m);
+                    column += 1;
+                }
+            row += 1;
+        }
+
+    if (config::withLog) {
+        *mLogfile<<"Matrix B: "<<std::endl;
+        B.streamMatrix(*mLogfile);
+    }
+
+    if (!config::exact) {
+        if (B.toDouble().IsPosDefDouble()) {
+            reasonEss = ReasonEss::true_posdef_double;
+            if (config::withLog)
+                *mLogfile<<"Reason: true_posdef_double"<<std::endl;
+            return 1;
+        }
+    }
+
+    if (B.IsPosDef()) {
+        reasonEss = ReasonEss::true_posdef_rational;
+        if (config::withLog)
+            *mLogfile<<"Reason: true_posdef_rational"<<std::endl;
+        return 1;
+    }
+
+    uint64_t K = (extendedSupport & (~support)); //extendedSupport without support
+    size_t Ksize = getSupportSize(K);
+
+    if (config::withLog)
+        *mLogfile<<"K: "<<std::bitset<64>(K)<<std::endl;
+
+    if (Ksize==0 || Ksize==1) {
+        reasonEss = ReasonEss::false_not_posdef_and_K_0_1;
+        if (config::withLog)
+            *mLogfile<<"Reason: false_not_posdef_and_K_0_1"<<std::endl;
+        return 0;
+    }
+
+    //do partial copositivity-check as in bomze_1992, p. 321/322
+
+    uint64_t J = extendedSupportReduced; // set J on p.322!!!
+    //set K on p.322, as defined above!!!
+    size_t r= getSupportSize(J & (~K));
+
+    std::vector<uint64_t> Kv(r+1);
+    std::vector<size_t> KvSize(r+1);
+    std::vector<uint64_t> JwithoutKv (r+1);
+    std::vector< MatrixTemplate<Rational>> Bv(r+1);
+
+
+    Kv[0]= J;
+    KvSize[0]=extendedSupportSizeReduced;
+    JwithoutKv[0]=J & (~K);
+    Bv[0]=B;
+
+    if (config::withLog) {
+        *mLogfile<<"Partial Copositivity Check:"<<std::endl;
+        *mLogfile<<"v=0:"<<std::endl;
+        *mLogfile<<"Kv[0]: "<<std::bitset<64>(Kv[0])<<std::endl;
+        *mLogfile<<"KvSize[0]: "<<KvSize[0]<<std::endl;
+        *mLogfile<<"JwithoutKv[0]: "<<std::bitset<64>(JwithoutKv[0])<<std::endl;
+        *mLogfile<<"r: "<<r<<std::endl;
+        *mLogfile<<"Bv[0]: "<<std::endl;
+        Bv[0].streamMatrix(*mLogfile);
+    }
+
+
+    for (size_t v=1; v<=r; v++) {
+
+        uint64_t iv = JwithoutKv[v-1] & (~(JwithoutKv[v-1]-1)); //iv is lowest set bit!
+        JwithoutKv[v] = JwithoutKv[v-1] & (~iv); //remove iv from J\K
+        Kv[v] = Kv[v-1] & (~iv); //build Kv
+        KvSize[v]=KvSize[v-1]-1; //KvSize
+        Bv[v]= MatrixTemplate<Rational>(KvSize[v],KvSize[v]);
+
+        uint64_t lowestKvMinus1= Kv[v-1] & (~(Kv[v-1] - 1)); //get lowest set bit of Kv[v-1]
+        size_t indexPositionToRemove=0; //get the real distance of iv and lowest set bit of Kv[v-1]
+        size_t iterater=0;
+        while (true) {
+            uint64_t actualBitKvMinus1 = lowestKvMinus1 << iterater;
+            if ((Kv[v-1] & actualBitKvMinus1) != 0) {
+                if ((iv & actualBitKvMinus1) !=0)
+                    break;
+                else
+                    indexPositionToRemove++;
+            }
+            iterater++;
+        }
+
+        if (config::withLog) {
+            *mLogfile<<"v="<<v<<":"<<std::endl;
+            *mLogfile<<"Kv: "<<std::bitset<64>(Kv[v])<<std::endl;
+            *mLogfile<<"KvSize: "<<KvSize[v]<<std::endl;
+            *mLogfile<<"JwithoutKv: "<<std::bitset<64>(JwithoutKv[v])<<std::endl;
+            *mLogfile<<"iv: "<<std::bitset<64>(iv)<<std::endl;
+            *mLogfile<<"Real index (distance) to remove: "<<indexPositionToRemove<<std::endl;
+        }
+
+        if (Bv[v-1](indexPositionToRemove,indexPositionToRemove) <=0) {
+            reasonEss=ReasonEss::false_not_partial_copositive;
+            if (config::withLog)
+                *mLogfile<<"Reason: false_not_partial_copositive"<<std::endl;
+            return 0;
+        }
+
+        for (size_t i = 0;i< KvSize[v];i++) { //build matrix Bv[v]
+            for (size_t j = 0; j< KvSize[v]; j++) {
+
+                size_t rowIndexKvMinus1 = (i>=indexPositionToRemove) ? i+1 : i;
+                size_t colIndexKvMinus1 = (j>=indexPositionToRemove) ? j+1 : j;
+
+                Bv[v](i,j) = Bv[v-1](indexPositionToRemove,indexPositionToRemove) * Bv[v-1](rowIndexKvMinus1,colIndexKvMinus1) -
+                    Bv[v-1](indexPositionToRemove,rowIndexKvMinus1) * Bv[v-1](indexPositionToRemove,colIndexKvMinus1);
+            }
+        }
+
+        if (config::withLog) {
+            *mLogfile<<"Bv:"<<std::endl;
+            Bv[v].streamMatrix(*mLogfile);
+        }
+    }
+
+    //copositivity check as in hadeler_1983
+    if (config::withLog)
+        *mLogfile<<"Copositivity Check:"<<std::endl;
+
+    if (Bv[r].isCopositive()) {
+        if (config::withLog)
+            *mLogfile<<"Reason: true_copositive"<<std::endl;
+        reasonEss=ReasonEss::true_copositive;
+        return 1;
+    } else {
+        if (config::withLog)
+            *mLogfile<<"Reason: false_not_copositive"<<std::endl;
+        reasonEss=ReasonEss::false_not_copositive;
+        return 0;
+    }
+}
+
+
+bool EssFinder::hasCandidateDouble(uint64_t support, size_t supportSize, MatrixTemplate<double> &linearEquationMatrix)
+{
+    int n = supportSize + 1;
+
+    std::vector<double> resultLinearEquation= std::vector<double>(supportSize+1,0.);
+    std::vector<double> resultVector= std::vector<double>(mDimension);
+
+    mGamematrixDouble.getLinearEquationMatrix(support, supportSize, linearEquationMatrix);
+
+    ////////////////////////////////////////////////////////////////////////// gauss with partial pivoting
+    for (int i=0; i<n; i++) {
+        // Search for maximum in this column
+        double maxEl = std::abs(linearEquationMatrix(i,i));
+        int maxRow = i;
+        for (int k=i+1; k<n; k++) {
+            if (std::abs(linearEquationMatrix(k,i)) > maxEl) {
+                maxEl = std::abs(linearEquationMatrix(k,i));
+                maxRow = k;
+            }
+        }
+        // Swap maximum row with current row (column by column)
+        for (int k=i; k<n+1;k++) {
+            double tmp = linearEquationMatrix(maxRow,k);
+            linearEquationMatrix(maxRow,k) = linearEquationMatrix(i,k);
+            linearEquationMatrix(i,k) = tmp;
+        }
+
+        if (std::abs(linearEquationMatrix(i,i)) < 1e-15) {
+            return false;
+        }
+        // Make all rows below this one 0 in current column
+        for (int k=i+1; k<n; k++) {
+            double c = -linearEquationMatrix(k,i)/linearEquationMatrix(i,i);
+            for (int j=i; j<n+1; j++) {
+                if (i==j) {
+                    linearEquationMatrix(k,j)= 0;
+                } else {
+                    linearEquationMatrix(k,j) += c * linearEquationMatrix(i,j);
+                }
+            }
+        }
+    }
+    // Solve equation Ax=b for an upper triangular matrix A
+    for (int i=n-1; i>=0; i--) {
+        resultLinearEquation[i] = linearEquationMatrix(i,n)/linearEquationMatrix(i,i);
+        for (int k=i-1;k>=0; k--) {
+            linearEquationMatrix(k,n) -= linearEquationMatrix(k,i) * resultLinearEquation[i];
+        }
+    }
+
+    //build large vector, if all elements are not too negative
+    size_t tracker = 0;
+    for (size_t i = 0; i < mDimension; i++)
+    {
+        if ((support & (1ull << i)) != 0)
+        {
+            double x = resultLinearEquation[tracker];
+            if (x > -1e-5)
+                resultVector[i] = x;
+            else
+                return false;
+            tracker += 1;
+        }
+        else
+            resultVector[i] = 0.;
+    }
+
+    // check p'Ap<=v for all rows not in the support
+    double errorboundRowsum=5e-5*mDimension;
+
+    for (size_t i = 0; i < mDimension; i++)
+    {
+        if ((support & (1ull << i)) == 0) //not in the support - rows
+        {
+            double rowsum = 0.;
+            for (size_t j = 0; j < mDimension; j++)
+                if ((support & (1ull << j)) != 0) // is in the support - columns
+                    rowsum += mGamematrixDouble(i,j) * resultVector[j];
+
+            if (!(rowsum <= resultLinearEquation[supportSize] + errorboundRowsum))
+                return false;
+        }
+    }
+    return true;
+}
+
+
+bool EssFinder::getCandidate(uint64_t support, size_t supportSize, VectorInformation& candidate, MatrixTemplate<Rational> &linearEquationMatrix)
+{
+    int n = supportSize + 1;
+
+    std::vector<Rational> resultLinearEquation= std::vector<Rational>(supportSize+1,0);
+    std::vector<Rational> resultVector= std::vector<Rational>(mDimension);
+
+    mGamematrix.getLinearEquationMatrix(support,supportSize, linearEquationMatrix);
+
+    ////////////////////////////////////////////////////////////////////////// gauss with partial pivoting
+    for (int i=0; i<n; i++) {
+        // Search for maximum in this column
+        Rational maxEl = abs(linearEquationMatrix(i,i));
+        int maxRow = i;
+        for (int k=i+1; k<n; k++) {
+            if (abs(linearEquationMatrix(k,i)) > maxEl) {
+                maxEl = abs(linearEquationMatrix(k,i));
+                maxRow = k;
+            }
+        }
+        // Swap maximum row with current row (column by column)
+        for (int k=i; k<n+1;k++) {
+            Rational tmp = linearEquationMatrix(maxRow,k);
+            linearEquationMatrix(maxRow,k) = linearEquationMatrix(i,k);
+            linearEquationMatrix(i,k) = tmp;
+        }
+
+        if (linearEquationMatrix(i,i)==Rational(0)) {
+            return false;
+        }
+        // Make all rows below this one 0 in current column
+        for (int k=i+1; k<n; k++) {
+            Rational c = -linearEquationMatrix(k,i)/linearEquationMatrix(i,i);
+            for (int j=i; j<n+1; j++) {
+                if (i==j) {
+                    linearEquationMatrix(k,j)= Rational(0);
+                } else {
+                    linearEquationMatrix(k,j) += c * linearEquationMatrix(i,j);
+                }
+            }
+        }
+
+    }
+    // Solve equation Ax=b for an upper triangular matrix A
+    for (int i=n-1; i>=0; i--) {
+        resultLinearEquation[i] = linearEquationMatrix(i,n)/linearEquationMatrix(i,i);
+        for (int k=i-1;k>=0; k--) {
+            linearEquationMatrix(k,n) -= linearEquationMatrix(k,i) * resultLinearEquation[i];
+        }
+    }
+
+    //build large vector, if all elements are not too negative
+    size_t tracker = 0;
+    for (size_t i = 0; i < mDimension; i++)
+    {
+        if ((support & (1ull << i)) != 0)
+        {
+            Rational x = resultLinearEquation[tracker];
+            if (x > Rational(0))
+                resultVector[i] = x;
+            else
+                return false;
+            tracker += 1;
+        }
+        else
+            resultVector[i] = Rational(0);
+    }
+
+    // check p'Ap<=v for all rows not in the support
+    uint64_t extendedSupport=support;
+    for (size_t i = 0; i < mDimension; i++)
+    {
+        if ((support & (1ull << i)) == 0) //not in the support - rows
+        {
+            Rational rowsum = Rational(0);
+            for (size_t j = 0; j < mDimension; j++)
+                if ((support & (1ull << j)) != 0) // is in the support - columns
+                    rowsum += mGamematrix(i,j) * resultVector[j];
+
+            if (rowsum > resultLinearEquation[supportSize])
+                return false;
+            if (rowsum==resultLinearEquation[supportSize])
+                extendedSupport = (extendedSupport | (1ull << i));
+        }
+
+    }
+    candidate.resultVector=resultVector;
+    candidate.extendedSupport=extendedSupport;
+    candidate.extendedSupportSize=getSupportSize(extendedSupport);
+    candidate.payoff =resultLinearEquation[supportSize];
+    candidate.payoffDouble=static_cast<double>(candidate.payoff);
+    return true;
+}
+
+
+EssFinder::~EssFinder()
+{
+}
+
+
+
+
+//    for (int i = 0; i < n; i++)
+//    {
+//        /* Find the row with the largest first value */
+//        int maxrow = i;
+//        for (int j = i + 1; j < n; j++)
+//            if (abs(linearEquationMatrix(j, i)) > abs(linearEquationMatrix(maxrow, i)))
+//                maxrow = j;
+//        /* Swap the maxrow and ith row */
+//        for (int k = i; k < n + 1; k++){
+//            tmp = linearEquationMatrix(i, k);
+//            linearEquationMatrix(i, k) =linearEquationMatrix(maxrow, k);
+//            linearEquationMatrix(maxrow, k) = tmp;
+//        }
+//        /* Singular matrix? */
+//        std::cout<<"xxx"<<abs(linearEquationMatrix(i, i));
+//        if (abs(linearEquationMatrix(i, i)) < 1e-14) {
+//            std::cout<<"singular!!!"<<std::endl;
+//            return false;
+//        }
+//        /* Eliminate the kth element of the jth row */
+//        for (int j = i + 1; j < n; j++){
+//            tmp = linearEquationMatrix(j, i) / linearEquationMatrix(i, i);
+//            for (int k = n; k >= i; k--)
+//                linearEquationMatrix(j, k) -= linearEquationMatrix(i, k) * tmp;
+//        }
+//    }
+//    /* Do the back substitution */
+//    for (int j = n - 1; j >= 0; j--){
+//        tmp = 0.;
+//        for (int k = j + 1; k < n; k++)
+//            tmp += linearEquationMatrix(j, k) * resultLinearEquation[k];
+//        resultLinearEquation[j] = (linearEquationMatrix(j, n) - tmp) / linearEquationMatrix(j, j);
+//    }
+//    for (auto x : resultLinearEquation)
+//        std::cout<<x<<",";
+//    std::cout<<std::endl;
+
+

@@ -233,3 +233,35 @@ constructed the full-support mask directly and delayed `Supports::initialize()` 
 ## 2026-07-27
 113. Benchmarked default candidate filtering against full `--exact` execution:
 used the persistent-process three-second protocol on verification IDs 1-33 and 35, excluding matrix 34 by request; the summed primary medians increased from 5.129 seconds to 171.323 seconds (`33.41x`), while a second pass measured `32.50x`; all ESS and candidate counts agreed in the detailed pass, and the per-matrix results and single-sample limits are preserved in the dated experiment report and raw CSV/JSON files.
+
+## 2026-07-30
+114. Consolidated local REF/EFR history:
+moved the four preserved REF/EFR trees under the ignored `zzz_legacy/` collection and renamed them by language and historical period without changing their contents; retained nested Git metadata, including the existing dirty legacy REF worktree. A projects-wide filename, source-signature, and ZIP-content scan found no additional REF/EFR implementation roots. The collection remains local-only and is not active project source.
+115. Reduced redundant legacy storage without removing unique source:
+permanently removed the two extracted Boost 1.71 trees and seven byte-identical duplicate Boost 1.62 trees after verifying both retained Boost 1.71 archives and the complete canonical Boost 1.62 tree hash; moved five byte-identical nested 2018 project copies and 24 generated `build*`/`obj` directories to the desktop Trash for recovery. Retained all Git metadata, unique source variants, binary output, dependency packages, both Boost 1.71 distributions, and one Boost 1.62 tree. The active collection fell from 3.19 GB to 576 MB allocated, while approximately 119 MB remains recoverable in Trash.
+116. Removed nested Git control from the legacy collection:
+moved the two internal `.git` directories to the desktop Trash and confirmed that no internal `.git`, `.gitignore`, `.gitattributes`, `.gitmodules`, `.gitkeep`, or `.github` path remains. The four legacy folders now occupy 538,533,888 allocated bytes (about 514 MiB) together; the main FracESSA repository continues to ignore the local-only `zzz_legacy/` collection.
+117. Consolidated the Werner 2016 C++ archive:
+renamed the retained 2019-imported copy to `REF_CPP_2016_Version_Werner`, preserved the only remaining `CMakeLists.txt` and Boost 1.62 tree inside it, and moved the now-redundant `REF_history_mixed_2008-2019/REF_version_werner` copy to the desktop Trash.
+118. Clarified the local 2019 REF archive name:
+renamed `REF_CPP_2019_modified_2025` to `REF_CPP_2019` because its core implementation is the substantial 2019 local rewrite; the December 2025 differences are limited to optional timing output and compiler settings.
+119. Created a direct-move EFR timeline:
+created `zzz_legacy/EFR/` and moved the four selected complete C# project trees into `EFR_2016-04`, `EFR_2016-09`, `EFR_2018-03`, and `EFR_2019-08`. Directory inode checks confirmed that each tree was moved rather than copied; the standalone `NewRational.2.1` experiments, duplicate EFR trees, and skipped intermediate September 2016 port were left untouched.
+120. Removed the skipped intermediate EFR snapshot from the active archive:
+after confirming identical source and project content, moved both the primary intermediate September 2016 project and its nested `REF_von_2018` duplicate to the desktop Trash. The four selected `zzz_legacy/EFR/` timeline projects were unchanged.
+121. Removed duplicate April and September 2016 EFR snapshots:
+after verifying that the April tree was byte-identical and that all September program and project files were identical, moved both duplicate trees to the desktop Trash. The sole September difference was MonoDevelop active-document and cursor state in `EFR.userprefs`; the four selected `zzz_legacy/EFR/` timeline projects were unchanged.
+122. Consolidated the NewRational archive:
+verified that all three `NewRational.2.1` trees were byte-identical, moved one directly to `zzz_legacy/EFR/NewRational`, and moved the two redundant copies to the desktop Trash. The versioned ZIP remains inside the retained project.
+123. Consolidated the legacy EFR R test driver:
+retained the newer October 7, 2016 `efr_tester.R` at `zzz_legacy/REF_history_mixed_2008-2019/zzz_old/efr_tester.R`, then moved `EFR_CSharp_2008-2016` and both remaining `_EFR` containers to the desktop Trash. Their older or duplicate tester scripts, identical `.RData` workspaces, and trivial `.Rhistory` files were intentionally removed from the active archive.
+124. Replaced the mixed REF archive with date-named milestones:
+created source-only `REF_2016-10-06` and `REF_2016-11-16` milestones, renamed the retained Werner and 2019 trees to `REF_2016-11-20` and `REF_2019-09-20`, consolidated one copy of each research script under `REF_R`, and retained the actual newest EFR tester from October 21, 2016. Moved both Boost 1.71 distributions into `REF_2019-09-20/dependencies/`, verified the retained source and duplicate relationships, and moved the remaining 63 MiB `REF_history_mixed_2008-2019` tree to the desktop Trash. The discarded remainder comprised superseded intermediate source snapshots, exact duplicates, binaries, objects, profiles, logs, IDE state, R workspace/history, the unrelated `EFCsimple` tutorial, and the duplicated travel document.
+125. Marked the Werner REF milestone explicitly:
+renamed the local legacy folder `REF_2016-11-20` to `REF_2016-11-20-Werner` and updated its project documentation references.
+126. Flattened the Werner REF milestone:
+moved the contents of its redundant inner `REF/` directory directly into `REF_2016-11-20-Werner/` and updated the documented Boost path.
+127. Removed the redundant Boost 1.71 ZIP distribution:
+moved `REF_2019-09-20/dependencies/boost_1_71_0.zip` to the desktop Trash and retained the smaller verified `boost_1_71_0.tar.gz`; the separate extracted Boost 1.62 tree remains available for the November 2016 versions.
+128. Published the curated legacy collection:
+removed the repository-wide `zzz_legacy/` exclusion, added the complete retained REF/EFR history to `main`, and tracked the 118.5 MB Boost 1.71 archive with Git LFS because it exceeds GitHub's normal 100 MB file limit. Generated builds, caches, and other existing ignored output remain local.

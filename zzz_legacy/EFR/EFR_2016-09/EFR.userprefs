@@ -1,0 +1,20 @@
+﻿<Properties StartupItem="EFR/EFR.csproj">
+  <MonoDevelop.Ide.Workspace ActiveConfiguration="Release" />
+  <MonoDevelop.Ide.Workbench ActiveDocument="EFR/FindNashRational.cs">
+    <Files>
+      <File FileName="EFR/FindNashRational.cs" Line="1" Column="1" />
+      <File FileName="EFR/Helper.cs" Line="1" Column="1" />
+      <File FileName="EFR/BitVector.cs" Line="1" Column="1" />
+      <File FileName="EFR/EFR.cs" Line="1" Column="1" />
+      <File FileName="EFR/VectorInformation.cs" Line="1" Column="1" />
+      <File FileName="EFR/MatrixBigRational.cs" Line="1" Column="1" />
+      <File FileName="EFR/EssFinderQueue.cs" Line="1" Column="1" />
+      <File FileName="EFR/FindNashDouble.cs" Line="1" Column="1" />
+      <File FileName="EFR/EssFinder.cs" Line="1" Column="1" />
+    </Files>
+  </MonoDevelop.Ide.Workbench>
+  <MonoDevelop.Ide.DebuggingService.Breakpoints>
+    <BreakpointStore />
+  </MonoDevelop.Ide.DebuggingService.Breakpoints>
+  <MonoDevelop.Ide.DebuggingService.PinnedWatches />
+</Properties>
