@@ -3,6 +3,7 @@
 
 #include <linalg/matrix_fraction.hpp>
 #include <fracessa/bitset64.hpp>
+#include <optional>
 #include <string>
 #include <sstream>
 #include <iomanip>
@@ -19,8 +20,8 @@
 class candidate
 {
     public:
-        // IDs count exact candidates in deterministic search order, not every
-        // support that was attempted.
+        // IDs count stored representatives in deterministic search order, not
+        // every support that was attempted or represented circular variant.
         size_t candidate_id = 0;
 
         // Full n-dimensional mixed strategy. Entries outside I(x) are zero.
@@ -30,9 +31,9 @@ class candidate
         bitset64 extended_support;
         size_t extended_support_size = 0;
 
-        // Rotated copies in a circular-symmetric game point to the first
-        // candidate in their orbit; ordinary candidates use zero.
-        size_t shift_reference = 0;
+        // Number of distinct rotations/reflections represented by this row.
+        // Ordinary, non-circular candidates have no multiplier.
+        std::optional<size_t> multiplier;
 
         bool is_ess = false;
         std::string stability;
@@ -54,9 +55,10 @@ class candidate
             oss << ";" << bs64::to_string(support) << ";"
                 << support_size << ";"
                 << bs64::to_string(extended_support) << ";"
-                << extended_support_size << ";"
-                << shift_reference << ";"
-                << is_ess << ";"
+                << extended_support_size << ";";
+            if (multiplier)
+                oss << *multiplier;
+            oss << ";" << is_ess << ";"
                 << stability << ";"
                 << payoff << ";"
                 << std::fixed << std::setprecision(6) << payoff_dbl;
@@ -65,7 +67,7 @@ class candidate
 
         static std::string header()
         {
-            return "candidate_id;vector;support;support_size;extended_support;extended_support_size;shift_reference;is_ess;stability;payoff;payoff_dbl";
+            return "candidate_id;vector;support;support_size;extended_support;extended_support_size;multiplier;is_ess;stability;payoff;payoff_dbl";
         }
 };
 

@@ -2,6 +2,7 @@
 #include <pybind11/stl.h>
 
 #include <chrono>
+#include <optional>
 #include <sstream>
 #include <string>
 #include <vector>
@@ -33,7 +34,7 @@ struct NativeCandidate {
     size_t support_size = 0;
     bitset64 extended_support = 0;
     size_t extended_support_size = 0;
-    size_t shift_reference = 0;
+    std::optional<size_t> multiplier;
     bool is_ess = false;
     std::string stability;
     std::string payoff;
@@ -134,7 +135,7 @@ NativeResult compute_matrix_impl(
                 row.support_size = c.support_size;
                 row.extended_support = c.extended_support;
                 row.extended_support_size = c.extended_support_size;
-                row.shift_reference = c.shift_reference;
+                row.multiplier = c.multiplier;
                 row.is_ess = c.is_ess;
                 row.stability = c.stability;
                 row.payoff = c.payoff.to_string();
@@ -191,7 +192,10 @@ py::dict compute_matrix(
         row["support_size"] = c.support_size;
         row["extended_support"] = c.extended_support;
         row["extended_support_size"] = c.extended_support_size;
-        row["shift_reference"] = c.shift_reference;
+        if (c.multiplier)
+            row["multiplier"] = *c.multiplier;
+        else
+            row["multiplier"] = py::none();
         row["is_ess"] = c.is_ess;
         row["stability"] = c.stability;
         row["payoff"] = c.payoff;

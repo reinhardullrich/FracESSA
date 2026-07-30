@@ -1,3 +1,4 @@
+import csv
 import io
 import json
 import tempfile
@@ -30,7 +31,7 @@ def _sample_result() -> MatrixResult:
         support_size=2,
         extended_support=3,
         extended_support_size=2,
-        shift_reference=0,
+        multiplier=None,
         is_ess=True,
         stability="pure",
         payoff="1",
@@ -73,9 +74,13 @@ class SinkTests(unittest.TestCase):
 
             summary_lines = summary_path.read_text(encoding="utf-8").strip().splitlines()
             candidate_lines = candidates_path.read_text(encoding="utf-8").strip().splitlines()
+            with candidates_path.open(encoding="utf-8", newline="") as fh:
+                candidate_rows = list(csv.DictReader(fh))
 
         self.assertGreaterEqual(len(summary_lines), 2)
         self.assertGreaterEqual(len(candidate_lines), 2)
+        self.assertIn("multiplier", candidate_lines[0])
+        self.assertEqual(candidate_rows[0]["multiplier"], "")
 
     def test_json_sink_writes_arrays(self):
         with tempfile.TemporaryDirectory() as tmpdir:
@@ -90,6 +95,29 @@ class SinkTests(unittest.TestCase):
 
         self.assertEqual(len(summary), 1)
         self.assertEqual(len(candidates), 1)
+        self.assertIsNone(candidates[0]["multiplier"])
+
+    def test_parquet_multiplier_stays_nullable_across_batches(self):
+        try:
+            import pyarrow.parquet as pq
+            from wrapper_v1.sinks_parquet import ParquetSink
+        except ImportError:
+            self.skipTest("pyarrow not installed")
+
+        ordinary = _sample_result()
+        circular = _sample_result()
+        circular.candidates[0].multiplier = 5
+
+        with tempfile.TemporaryDirectory() as tmpdir:
+            summary_path = Path(tmpdir) / "summary.parquet"
+            candidates_path = Path(tmpdir) / "candidates.parquet"
+            sink = ParquetSink(summary_path, candidates_path)
+            sink.write_result(ordinary)
+            sink.write_result(circular)
+            sink.close()
+            multipliers = pq.read_table(candidates_path)["multiplier"].to_pylist()
+
+        self.assertEqual(multipliers, [None, 5])
 
     def test_create_sink_and_multi_sink(self):
         with tempfile.TemporaryDirectory() as tmpdir:

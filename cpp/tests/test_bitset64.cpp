@@ -149,6 +149,14 @@ TEST(Bitset64Test, RotOneRightMasksBitsOutsideDimension) {
     EXPECT_FALSE(bs64::is_set_at_pos(bits, 6));
 }
 
+TEST(Bitset64Test, ReflectExactPatternAndRoundTrip) {
+    const bitset64 bits = 0b001011;
+    const bitset64 reflected = bs64::reflect(bits, 6);
+
+    EXPECT_EQ(reflected, 0b110100u);
+    EXPECT_EQ(bs64::reflect(reflected, 6), bits);
+}
+
 
 TEST(Bitset64Test, IsSmallestRepresentation) {
     bitset64 bits = 0ULL;

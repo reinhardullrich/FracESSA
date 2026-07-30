@@ -72,6 +72,24 @@ inline bitset64 rot_one_right(bitset64 bits, size_t n) noexcept {
   return (hi | lo) & mask;
 }
 
+// Rotate the lowest n bits left by shift positions. Caller guarantees
+// 1 <= n < 64 and shift < n.
+inline bitset64 rot_left(bitset64 bits, size_t shift, size_t n) noexcept {
+  const bitset64 mask = set_all_n_bits(n);
+  bits &= mask;
+  if (shift == 0) return bits;
+  return ((bits << shift) | (bits >> (n - shift))) & mask;
+}
+
+// Mirror strategy i to n-1-i. Rotations of this result cover every reflection
+// axis of a circular support.
+inline bitset64 reflect(bitset64 bits, size_t n) noexcept {
+  bitset64 reflected = 0;
+  for (size_t i = 0; i < n; ++i)
+    reflected |= ((bits >> i) & 1ULL) << (n - 1 - i);
+  return reflected;
+}
+
 inline bool is_set_at_pos(bitset64 bits, size_t pos) noexcept {
   return (bits >> pos) & 1ULL;
 }

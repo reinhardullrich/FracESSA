@@ -38,10 +38,13 @@
 - `architecture/CHOICE_ONE_CANDIDATE_FILTER.md`: future-phase mathematical plan
   for adding certified Choice 1 after the unsafe phase is accepted; its source
   scope must be re-audited against that accepted implementation.
+- `architecture/SUPPORT_GENERATOR_HANDOVER.md`: durable handover of the agreed
+  generator API, callback rationale, candidate lifecycle, circular multiplier,
+  experimental V2 status, and deferred decisions.
 - `python-wrapper/README.md`: public Python and multiprocessing API.
-- `plans/STREAMING_SUPPORT_GENERATION.md`: complete deferred DFS/FKM design for
-  one-at-a-time support generation, circular bracelet reduction, orbit-aware
-  exact-candidate pruning, correctness proofs, and benchmark gates.
+- `plans/SUPPORT_GENERATORS.md`: implemented DFS/FKM support-generator design,
+  circular bracelet reduction, orbit-aware exact-candidate pruning, correctness
+  proofs, experimental evidence, and future benchmark gates.
 - `reference/FIND_POS_FIRST_SET_BIT_CALL_CHAIN.md`: compact production-only
   bit-scanning call chain requested for hot-path work.
 

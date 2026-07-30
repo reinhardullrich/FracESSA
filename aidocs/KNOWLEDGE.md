@@ -88,13 +88,21 @@ Important implementation points:
 - Supports are represented by `uint64_t` masks.
 - Fixed stack buffers hold extracted support indices; clear-lowest-set-bit
   iteration avoids bit-test branches in inner matrix loops.
-- `--fullsupport` constructs and checks the full mask directly; all support
-  buckets are initialized only if normal or fallback enumeration is needed.
-- Production normal search still materializes support buckets. The deferred
-  replacement in `plans/STREAMING_SUPPORT_GENERATION.md` uses fixed-cardinality
-  DFS for non-circular games and FKM-style necklace/bracelet recursion for
-  circular games, integrating exact-candidate pruning into generation; it is
-  not implemented on this branch.
+- `--fullsupport` constructs and checks the full mask directly; on failure its
+  fallback solves only cardinalities below `n`.
+- Production generates one mask at a time through a header-defined templated
+  callback and never materializes the complete frontier or a cardinality layer.
+  The generator owns the cardinality sweep and calls the analyzer with both the
+  mask and its size. `NonCircularSupportGenerator` uses fixed-cardinality binary DFS;
+  `CircularSupportGenerator` uses fixed-content FKM necklace recursion plus
+  reflection reduction. Both prune partial branches against earlier exact
+  candidate supports bucketed by lowest bit. Circular rules expand every
+  distinct rotation/reflection only as compact forbidden masks. The analyzer
+  stores one solved bracelet representative with their count as `multiplier`.
+  See `plans/SUPPORT_GENERATORS.md`.
+- Newly found exact candidates are pending until the next cardinality, keeping
+  each generator layer's pruning rules stable. Stability is irrelevant to this
+  pruning rule: every exact equilibrium support forbids later strict supersets.
 - In non-exact mode, `MatrixServer` exactly translates and scales the game into
   `[-1,1]`, converts it once to binary64, and reuses one bordered scratch matrix.
   Constant games and unusable zero/subnormal conversions permanently fall back
@@ -189,30 +197,34 @@ second fixture copy under `cpp/tests/`.
 
 - `verification_matrices.json`: 52 matrices, active IDs 1-44 and 48-55,
   maximum dimension 24.
-- `baseline_candidates.csv`: candidate rows for all 52 active matrices.
+- `baseline_candidates.csv`: 1,196 candidate representative rows for all 52
+  active matrices, representing 38,044 candidates after multiplication.
 - `baseline_result.json`: historical timing results for IDs 1-35.
 - `ctest_verify_matrix.py`: matrix correctness comparison.
 - `matrix_selection.py`: fast/full static selection.
 - `create_baselines.py`: baseline regeneration using the archived executable.
 
 `testdata/fracessa_testdata.sqlite3` is a staged SQLite migration snapshot, not
-an active test input yet. It currently contains 63 matrices, 65,962 complete
-candidate rows, and 63,369 ESS rows. Its `matrices` rows use stable IDs rather
-than names and include dimension, size class, circular symmetry, exact input,
-candidate/ESS counts, support-size structures, and required provenance/purpose
-text in `origin`. Qualitative categories live in the `tags` JSON array;
-quantitative facts are not duplicated as tags. IDs 56-66 are staged non-circular
+an active test input yet. It currently contains 63 matrices and 29,114 stored
+candidate representatives. Their multipliers represent 65,962 candidates and
+63,369 ESS. Its `matrices` rows use stable IDs rather than names and include
+dimension, size class, circular symmetry, exact input, weighted candidate/ESS
+counts, weighted support-size structures, and required provenance/purpose text
+in `origin`. Qualitative categories live in the `tags` JSON array; quantitative
+facts are not duplicated as tags. IDs 56-66 are staged non-circular
 complete-multipartite matrices with many ESS for support-frontier benchmarks.
 The schema is in `testdata/schema.sql`; benchmark-run storage remains deferred.
 Do not switch Python or CTest consumers from the existing JSON/CSV files without
 separate approval.
 
-There is no `in_use` field. Candidate IDs, row order, and `shift_reference` are
-deterministic and remain useful correctness checks while enumeration is
-unchanged. They are not mathematical contracts across an intentional generator
-redesign: a new deterministic order may replace them only after an independent
-order-insensitive comparison proves that the complete candidate set, vectors,
-exact payoffs, stability results, and ESS classifications are unchanged.
+There is no `in_use` field. Candidate IDs and row order are deterministic and
+remain useful correctness checks while enumeration is unchanged. Circular rows
+store the smallest dihedral support representative and a non-null `multiplier`;
+non-circular rows store null. Weighted candidate and ESS totals are recovered by
+summing `multiplier`, treating null as one. The DFS/FKM generator adoption and
+representative-output conversion were checked across all 52 active matrices and
+regenerated the affected circular fixtures in both the CSV baseline and SQLite
+snapshot.
 `T_pd_dbl` and `T_pd_frc` are normalized as the same `T_pd_*` classification for
 baseline comparison because floating-point branch selection can change while
 the mathematical result does not.
@@ -235,6 +247,11 @@ analyzer core and Python orchestration.
 It supports sequential execution, process-based parallelism across matrices,
 and stream/CSV/JSON/Arrow/Parquet sinks. One matrix is always computed by one
 worker process; parallelism is across matrices.
+
+For circular matrices, `CandidateRow` contains one bracelet representative with
+an integer `multiplier`; non-circular rows use `None`. `SummaryRow.candidate_count`
+is the number of returned representative rows, while `ess_count` remains the
+weighted mathematical total.
 
 No production wrapper or matrix workflow imposes a per-matrix computation
 timeout. A matrix may legitimately run for hours. Worker-liveness handling must

@@ -69,7 +69,7 @@ class CandidateRow:
     support_size: int
     extended_support: int
     extended_support_size: int
-    shift_reference: int
+    multiplier: int | None
     is_ess: bool
     stability: str
     payoff: str

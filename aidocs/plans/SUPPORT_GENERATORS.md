@@ -1,35 +1,36 @@
-# Streaming Support Generation With DFS And FKM
+# Support Generators With DFS And FKM
 
-Status: deferred architecture and experiment plan. No production implementation
-has been approved or made.
+Status: implemented in production on 2026-07-30. A compact bit-parallel
+alternative exists as a test-only class; its permanent comparison test and
+end-to-end benchmark remain future work.
 
 ## Purpose
 
-FracESSA currently builds support masks eagerly and then physically removes
-strict supersets after an exact candidate is found. This document records the
-design discussed for replacing that frontier with one-at-a-time generation:
+FracESSA generates one support mask at a time and prunes recursive branches
+after an exact candidate is found. This document records the production design
+and the experiments that led to it:
 
 - fixed-cardinality depth-first search (DFS) for general symmetric games;
 - fixed-content necklace/bracelet generation for circular-symmetric games;
 - candidate pruning inside the generator, so forbidden subtrees are never
   generated;
-- no complete `2^n` frontier and, eventually, no complete cardinality layer.
+- no complete `2^n` frontier or complete cardinality layer.
 
-This is a record of the reasoning and experimental evidence, not a decision to
-change production. Correctness remains absolute; speed is second; code size and
-readability matter after both.
+Correctness remains absolute; speed is second; code size and readability matter
+after both.
 
 ## Short Decision
 
-The promising common architecture is:
+The production architecture is:
 
 ```text
-for support_size = 1, ..., dimension:
-    generate one support or one circular orbit representative
-    prune a recursive branch as soon as its partial support contains an
-        earlier exact candidate support
-    solve each surviving support immediately
-    retain only exact candidate masks needed by later cardinalities
+generator.generate(callback):
+    for support_size = 1, ..., dimension:
+        generate one support or one circular orbit representative
+        prune a recursive branch as soon as its partial support contains an
+            earlier exact candidate support
+        callback(support, support_size)
+        retain only exact candidate masks needed by later cardinalities
 ```
 
 The two paths differ only in their generator:
@@ -38,9 +39,12 @@ The two paths differ only in their generator:
 - circular: an FKM-style fixed-content necklace recursion plus bracelet
   reduction, with the same forbidden-subset test inserted into its branches.
 
-A callback from the generator to the existing support solver is likely simpler
-than a resumable `get_next_support()` state machine in C++17. Both are streaming;
-the implementation should use whichever is shorter and easier to verify.
+Each generator's constructor receives only the matrix dimension. Its single
+`generate(callback)` call owns the complete cardinality sweep and supplies both
+the mask and its cardinality to a templated callback defined in the header.
+This keeps the callback inlineable and avoids `std::function`, virtual dispatch,
+and the explicit resumable stack that `get_next_support()` would require in
+C++17.
 
 ## Terms
 
@@ -55,9 +59,8 @@ An exact candidate is a support accepted by `find_candidate_frc()`. Only that
 exact result may create a pruning rule. A support accepted only by the double
 filter must never prune anything.
 
-Production already calls `remove_supersets()` for every exact candidate,
-regardless of whether stability later classifies it as ESS. The invariant to
-preserve is:
+Every exact candidate becomes a generator pruning rule, regardless of whether
+stability later classifies it as ESS. The invariant is:
 
 ```text
 After exact candidate S is accepted, no strict superset T of S needs to be
@@ -97,26 +100,26 @@ from the current period, or choose the next larger symbol and start a new
 period. For binary supports, the content is fixed by the required number of
 ones.
 
-The experimental circular generator is best described precisely as
+The production circular generator is best described precisely as
 "fixed-content FKM-style necklace recursion followed by reflection reduction."
 It first emits one representative per rotation class, then retains one of the
 two reflected rotation classes to obtain bracelets.
 
-## Current Production Behavior
+## Former Eager Production Behavior
 
-Production `Supports::initialize()` enumerates every nonempty support and stores
-it in a vector bucket by cardinality. For circular games, the current code keeps
-one rotation representative only when the support cardinality and matrix
-dimension are coprime; otherwise it stores every mask.
+The former `Supports::initialize()` enumerated every nonempty support and stored
+it in a vector bucket by cardinality. For circular games, it kept one rotation
+representative only when the support cardinality and matrix dimension were
+coprime; otherwise it stored every mask.
 
-After an exact candidate is found, `remove_supersets()` scans all larger
+After an exact candidate was found, `remove_supersets()` scanned all larger
 cardinality buckets and erases every stored mask containing that candidate.
 This has two independent costs:
 
 1. all support masks are built before the first normal support is solved;
 2. pruning repeatedly scans and compacts large vectors.
 
-The search order is cardinality first. That property must remain. A candidate
+The replacement preserves cardinality-first search. A candidate
 of size `s` can only eliminate strict supersets of sizes `s+1` through `n`; it
 cannot eliminate another distinct mask of size `s`.
 
@@ -161,20 +164,20 @@ descendant mask.
 
 ### Lowest-bit buckets
 
-The experiment stores each forbidden mask in the bucket indexed by its lowest
+Production stores each forbidden mask in the bucket indexed by its lowest
 set bit. When bit `b` is included, only bucket `b` can contain a forbidden mask
 that has become complete for the first time. The hot check is then a contiguous
 scan of that bucket:
 
 ```text
 for S in forbidden_by_lowest[b]:
-    if size(S) < current_cardinality and (S & partial) == S:
+    if (S & partial) == S:
         prune this branch
 ```
 
-The `size(S) < current_cardinality` guard states the strict-superset condition.
-It also makes it safe to register candidates immediately even though candidates
-found in the current layer cannot prune one another.
+New rules are held in a pending vector and activated only when the next
+cardinality begins. Candidates found in one layer therefore cannot prune one
+another, and every active rule is already strictly smaller than the target.
 
 The one-bit bucket is not merely an arbitrary hash in this traversal: it is the
 bit at which containment can first become final. More elaborate indexing may
@@ -193,9 +196,9 @@ key about `C(11,3)/C(24,3)`. The smaller buckets come with `11`, `55`, or `165`
 possible key probes. Contiguous vectors are preferable to linked lists because
 the subset scan is simple and cache-sensitive.
 
-Deferred alternatives include a rare-bit anchor, a candidate trie, bit-sliced
-candidate IDs, or SIMD scans. None belongs in the first implementation without
-profiling evidence.
+Possible alternatives include a rare-bit anchor, a candidate trie, bit-sliced
+candidate IDs, or SIMD scans. None belongs in production without profiling
+evidence.
 
 ### No-forbidden fast path
 
@@ -204,9 +207,9 @@ no forbidden candidates existed, because ordinary combination generation was
 then cheaper than recursive branch management. Once the first exact candidate
 appeared, it changed to branch-pruning DFS.
 
-This optimization is experimental, not a required part of the architecture. A
-first implementation should benchmark the simpler always-DFS form before
-retaining a second generator path.
+This optimization remains experimental. Production uses the simpler always-DFS
+form; another path should be added only after an end-to-end benchmark justifies
+it.
 
 ## Gosper Generation And Why It Is Secondary
 
@@ -267,7 +270,7 @@ The retained simple experiment performs these steps for each cardinality `k`:
 3. emit only the smaller representative, giving one bracelet per dihedral
    orbit;
 4. solve that representative once;
-5. reconstruct all distinct rotated/reflected candidate rows and ESS counts.
+5. count all distinct rotated/reflected supports represented by the solved row.
 
 This simple approach was compared with the paper's optimized direct
 fixed-content bracelet recursion (`BraceletFC`). Both generated identical orbit
@@ -276,7 +279,7 @@ faster for the largest generator-only cases but slower for small dimensions;
 the end-to-end difference did not justify replacing the simpler
 FKM-plus-reflection code.
 
-### Current experimental pruning
+### Former experimental pruning
 
 The bracelet experiment generates one complete cardinality layer of bracelet
 representatives. At each emitted representative it checks whether any stored
@@ -289,10 +292,10 @@ avoidable pieces:
 - the whole bracelet layer is materialized before solving;
 - subset pruning occurs at complete leaves rather than inside FKM recursion.
 
-## Integrating Candidate Pruning Into FKM
+## Integrated Candidate Pruning In FKM
 
-FKM is already a recursive tree, so the same monotone DFS argument can be used
-without generating a complete bracelet first.
+FKM is already a recursive tree, so production uses the same monotone DFS
+argument without generating a complete bracelet first.
 
 The recursion assigns the binary word from its most significant position toward
 its least significant position. It tracks at least:
@@ -309,7 +312,7 @@ Each recursive branch assigns the next symbol. Whenever that symbol is one:
 partial |= bit_for_current_position
 
 for S in forbidden_by_lowest[current_bit]:
-    if size(S) < target_cardinality and (S & partial) == S:
+    if (S & partial) == S:
         do not recurse
 ```
 
@@ -324,9 +327,8 @@ contains `S`. FKM may remove additional noncanonical branches, but it cannot
 make a selected bit disappear from a descendant.
 
 Candidates found at cardinality `k` cannot prune another distinct mask of the
-same cardinality. The forbidden family is therefore logically stable throughout
-one FKM layer. The implementation can either activate new masks between
-cardinalities or store them immediately and retain the strict-size guard.
+same cardinality. The forbidden family is therefore stable throughout one FKM
+layer; production activates pending masks between cardinalities.
 
 ## Why One Canonical Forbidden Mask Is Not Enough
 
@@ -377,8 +379,8 @@ Store every distinct rotation and reflected rotation of each exact candidate,
 bucketed by lowest set bit. This uses at most `2*n` 64-bit masks per bracelet
 candidate and makes each branch check one ordinary mask containment operation.
 
-This is the recommended first experiment because it is the shortest and easiest
-to prove. The apparent duplication is modest at the tested dimensions. Matrix
+Production uses this representation because it is the shortest and easiest to
+prove. The apparent duplication is modest at the tested dimensions. Matrix
 34 has 15,120 output candidates, all at support size 10; storing one raw
 `uint64_t` for each is 120,960 bytes, about 118 KiB, before vector capacity and
 bucket overhead.
@@ -391,10 +393,11 @@ cyclic shifts. For every set bit of candidate `S`, rotate or align `P` and
 intersect the valid-shift set. A nonzero result means some rotation of `S` is
 contained in `P`.
 
-This stores only one or two masks per candidate orbit, but each query costs
-roughly `popcount(S)` rotations and intersections per candidate representative.
-It may move more work into the hot branch test than explicit orbit expansion.
-It should be tested only as a separate benchmark against Option A.
+This stores only one mask per candidate orbit, but each query costs roughly
+`popcount(S)` rotations and intersections per candidate representative. It may
+move more work into the hot branch test than explicit orbit expansion. The
+test-only `CircularSupportGeneratorV2` implements this representation for a
+future benchmark against Option A; production does not call it.
 
 ### More elaborate representations
 
@@ -423,9 +426,9 @@ This can reduce leaf-level subset comparisons, especially when candidate
 families are large. It cannot prune internal FKM nodes, so it still visits every
 canonical leaf. It is a secondary fallback, not the primary integrated design.
 
-## Retained State In The Target Design
+## Retained Production State
 
-The search should need only:
+The search retains only:
 
 - current cardinality and recursion state;
 - current partial support mask;
@@ -447,8 +450,7 @@ An intentional generator replacement may change deterministic enumeration
 metadata:
 
 - candidate row order;
-- `candidate_id`;
-- `shift_reference`.
+- `candidate_id`.
 
 Those fields remain useful regression checks while the generator is unchanged,
 but they are not mathematical correctness contracts across a deliberate
@@ -456,16 +458,18 @@ enumeration redesign. A new deterministic order and regenerated baseline are
 acceptable only after an independent order-insensitive comparison proves that
 the following remain identical:
 
-- the complete FracESSA candidate set under the existing pruning semantics;
+- the complete represented FracESSA candidate set under the existing pruning
+  semantics;
 - candidate count and ESS count;
 - each support and strategy vector;
 - exact payoff and stability result;
 - each candidate's ESS classification.
 
-For a circular representative, candidate reconstruction must include every
-distinct orbit member exactly once. If an orientation `g(T)` contains candidate
-`S`, then canonical `T` contains `g^-1(S)`. Registering the complete dihedral
-orbit of `S` therefore makes the pruning test orientation-independent.
+For a circular representative, `multiplier` is the number of distinct masks in
+its complete dihedral orbit. Only the smallest mask and its candidate data are
+stored. If an orientation `g(T)` contains candidate `S`, then canonical `T`
+contains `g^-1(S)`. Registering the complete dihedral orbit of `S` as compact
+forbidden masks therefore remains necessary even though output is compressed.
 
 ## Experimental Evidence Already Available
 
@@ -514,42 +518,48 @@ Conclusion: circular orbit reduction is the strongest measured opportunity.
 The simpler FKM-plus-reflection generator remains the preferred base until an
 end-to-end result justifies the more complex direct bracelet recursion.
 
-## Implementation Experiment, When Approved
+## Implemented Shape
 
-No production change should be made directly. Use isolated experiment sources
-and proceed in small stages so each effect is measurable.
+`cpp/include/fracessa/supports.hpp` contains two production classes with the
+same compile-time interface and no inheritance:
 
-### Stage 1: branch pruning in the existing circular generator
+```cpp
+template<class Consumer>
+void generate(Consumer&& consume); // consume(support, support_size)
 
-- keep the existing FKM-plus-reflection algorithm;
-- keep expanded dihedral forbidden masks;
-- insert the lowest-bit subset test into both one-writing recursion branches;
-- retain the current bracelet layer temporarily, isolating only the effect of
-  moving pruning from leaves into recursion.
+// NonCircularSupportGenerator
+void add_forbidden(bitset64 support);
 
-### Stage 2: remove the circular layer
+// CircularSupportGenerator
+size_t add_forbidden(bitset64 support); // distinct-orbit multiplier
+```
 
-- replace layer accumulation with a callback that immediately solves each
-  surviving representative;
-- retain the same generation, pruning, and orbit reconstruction logic;
-- compare memory and end-to-end time with Stage 1.
+- `NonCircularSupportGenerator` uses fixed-cardinality binary DFS and preserves
+  increasing numeric mask order.
+- `CircularSupportGenerator` uses fixed-content FKM recursion, reflection
+  reduction, expanded dihedral forbidden masks, and returns their distinct
+  orbit size as the candidate multiplier.
+- `fracessa::analyze_support()` owns unsafe/exact candidate analysis and exact
+  stability classification.
+- `fracessa::finalize_candidate()` owns representative IDs, weighted ESS counting,
+  and optional output of the one representative row.
+- `--fullsupport` still tests its single mask first. On fallback, the callback
+  ignores that already-tested mask when the generator reaches cardinality `n`.
 
-### Stage 3: unify the non-circular path
+The two generator objects are selected once per matrix with two explicit
+branches. Their templated callback is compiler-inlineable; the support hot path
+has no virtual call, `std::function`, or per-support matrix-type branch.
 
-- expose the same callback contract from fixed-cardinality binary DFS;
-- preserve cardinality-first traversal and increasing numeric order where
-  practical;
-- retain Gosper as the experimental baseline, not as another permanent mode
-  unless measurements require it.
+### Optional compact orbit test
 
-### Optional Stage 4: compact orbit test
+`CircularSupportGeneratorV2` is present in `supports.hpp` as a test-only third
+class. It stores one forbidden representative and uses two 64-bit alignment
+masks to test rotations and reflections in parallel. It is not wired into
+production. Add the permanent comparison test and benchmark it against expanded
+production forbidden masks; keep it only if end-to-end time or memory improves
+materially and the proof remains understandable.
 
-- benchmark the one/two-canonical-mask bit-parallel rotation test against
-  expanded orbit masks;
-- keep it only if end-to-end time or memory improves materially and the proof
-  remains understandable.
-
-## Measurements Required
+## Future Experimental Measurements
 
 Instrument only the experiment, not production. Record:
 
@@ -564,12 +574,12 @@ Instrument only the experiment, not production. Record:
 - candidate representatives and expanded orbit-mask counts;
 - peak RSS and end-to-end median time.
 
-Correctness checks must include:
+Any future generator replacement must include:
 
 - all maintained circular and non-circular verification matrices;
 - randomized circular games for manageable dimensions, for example `2..14`;
 - exact order-insensitive candidate and ESS comparisons;
-- explicit orbit uniqueness and complete-orbit reconstruction checks;
+- explicit orbit uniqueness and multiplier checks;
 - ASan and UBSan runs for the isolated generator/analyzer.
 
 Performance should use the existing persistent-process, pinned-CPU,
@@ -577,9 +587,15 @@ approximately three-second median protocol. Include small, medium, and large
 cases, matrix 34, strongly pruned non-circular games, and the no-pruning
 full-support control.
 
-## Acceptance Rule
+## Acceptance Record And Future Rule
 
-Production adoption requires all of the following:
+The production replacement passed an independent order-insensitive comparison
+of all 52 active matrices with zero mathematical differences. The deterministic
+candidate metadata baseline was regenerated for the 23 circular fixtures whose
+IDs or shift references changed, the matching SQLite rows were synchronized,
+and all 62 CTests passed in both Release and ASan/UBSan builds.
+
+Any further production generator change requires all of the following:
 
 1. zero mathematical result differences;
 2. a meaningful end-to-end speed benefit on the intended matrix classes;
@@ -588,9 +604,9 @@ Production adoption requires all of the following:
 5. no permanent matrix-property switch unless a measured, reliable predicate
    justifies it.
 
-If integrated branch checks regress weakly pruned games and no simple measured
-fast path fixes that, keep the current production path. A sophisticated
-generator is not worthwhile for a small or theoretical improvement.
+Keep the current production path unless a replacement clears those gates. A
+sophisticated generator is not worthwhile for a small or theoretical
+improvement.
 
 ## Literature Boundary
 

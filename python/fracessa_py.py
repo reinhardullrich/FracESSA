@@ -86,7 +86,7 @@ class Candidate:
         support_size: Size of the support set
         extended_support: Extended support bitmask
         extended_support_size: Size of extended support
-        shift_reference: Shift reference value
+        multiplier: Number of distinct rotations/reflections represented, or None
         is_ess: Whether this is confirmed to be an ESS
         reason_ess: Reason why this is/isn't an ESS
         payoff: Payoff value (rational)
@@ -100,7 +100,7 @@ class Candidate:
         self.support_size = data.get('support_size', 0)
         self.extended_support = data.get('extended_support', 0)
         self.extended_support_size = data.get('extended_support_size', 0)
-        self.shift_reference = data.get('shift_reference', 0)
+        self.multiplier = data.get('multiplier')
         self.is_ess = data.get('is_ess', False)
         self.reason_ess = data.get('reason_ess', '')
         self.payoff = data.get('payoff', '0')
@@ -288,7 +288,7 @@ class Fracessa:
                                 'support_size': int(parts[3]) if parts[3] else 0,
                                 'extended_support': int(parts[4]) if parts[4] else 0,
                                 'extended_support_size': int(parts[5]) if parts[5] else 0,
-                                'shift_reference': int(parts[6]) if parts[6] else 0,
+                                'multiplier': int(parts[6]) if parts[6] else None,
                                 'is_ess': parts[7].lower() == '1' if parts[7] else False,
                                 'reason_ess': parts[8] if len(parts) > 8 else '',
                                 'payoff': parts[9] if len(parts) > 9 else '0',

@@ -3,6 +3,7 @@
 
 #include <vector>
 #include <memory>
+#include <optional>
 
 #include <spdlog/spdlog.h>
 #include <spdlog/sinks/rotating_file_sink.h>
@@ -10,7 +11,6 @@
 #include <linalg/matrix_fraction.hpp>
 #include <fracessa/candidate.hpp>
 #include <fracessa/bitset64.hpp>
-#include <fracessa/supports.hpp>
 #include <fracessa/matrix_server.hpp>
 
 /*
@@ -39,7 +39,6 @@ private:
     MatrixServer matrix_server_;
 
     size_t dimension_;
-    bool is_cs_;
 
     bool conf_with_candidates_;
     bool conf_exact_;
@@ -47,13 +46,16 @@ private:
     bool conf_with_log_;
 
     candidate candidate_;
-    Supports supports_;
 
     std::shared_ptr<spdlog::logger> logger_;
 
     // Test one support through the selected numerical mode and exact stability.
-    // The coprime flag permits reconstruction of a full circular-symmetry orbit.
-    void search_one_support(const bitset64& support, size_t support_size, bool is_cs_and_coprime = false);
+    // True means an exact equilibrium was found and may prune later supports.
+    bool analyze_support(bitset64 support, size_t support_size);
+
+    // Count and optionally output the one exact candidate in candidate_.
+    // Circular representatives carry their distinct dihedral-orbit size.
+    void finalize_candidate(std::optional<size_t> multiplier);
 
     // The double routine is only an unsafe rejection filter. The rational
     // routine is the authoritative equilibrium test and fills candidate_.

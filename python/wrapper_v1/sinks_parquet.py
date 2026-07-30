@@ -27,6 +27,21 @@ class ParquetSink:
 
         self._summary_writer = None
         self._candidate_writer = None
+        self._candidate_schema = pa.schema([
+            ("run_id", pa.string()),
+            ("matrix_id", pa.int64()),
+            ("candidate_id", pa.int64()),
+            ("vector", pa.string()),
+            ("support", pa.uint64()),
+            ("support_size", pa.int64()),
+            ("extended_support", pa.uint64()),
+            ("extended_support_size", pa.int64()),
+            ("multiplier", pa.int64()),
+            ("is_ess", pa.bool_()),
+            ("stability", pa.string()),
+            ("payoff", pa.string()),
+            ("payoff_dbl", pa.float64()),
+        ])
 
     def write_result(self, result: MatrixResult) -> None:
         summary_dict = asdict(result.summary)
@@ -41,7 +56,9 @@ class ParquetSink:
 
         if result.candidates:
             candidate_rows = [asdict(c) for c in result.candidates]
-            candidate_table = self._pa.Table.from_pylist(candidate_rows)
+            candidate_table = self._pa.Table.from_pylist(
+                candidate_rows, schema=self._candidate_schema
+            )
             if self._candidate_writer is None:
                 self._candidate_writer = self._pq.ParquetWriter(
                     self._candidate_path,

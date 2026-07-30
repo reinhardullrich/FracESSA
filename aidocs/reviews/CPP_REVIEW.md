@@ -1,6 +1,6 @@
 # C++ Review
 
-Last verified: 2026-07-29
+Last verified: 2026-07-30
 
 Scope: active C++ analyzer core, CLI, shared parser, CMake, C++/CTest coverage,
 and the release workflow. The native Python binding is reviewed separately in
@@ -34,44 +34,6 @@ default and retain this heuristic only as explicit `--unsafe` behavior. The
 implementation plan is in `../architecture/CHOICE_ONE_CANDIDATE_FILTER.md`.
 
 ## Speed
-
-### P1: Normal search materializes the complete exponential support frontier
-
-`Supports::initialize()` stores every nonempty support in cardinality buckets at
-`cpp/include/fracessa/supports.hpp:61` before the first normal support is solved
-at `cpp/src/fracessa.cpp:67`. For a non-circular game this is `2^n - 1` masks,
-in addition to the unavoidable search time. At `n=30`, the masks alone require
-almost 8 GiB before vector overhead and before pruning removes any supersets.
-
-A direct current-code measurement at `n=23` stored 8,388,607 masks and reached
-about 69 MiB maximum RSS. The circular path stores fewer coprime-cardinality
-representatives, but still scans every mask and tests up to `n` rotations at
-`cpp/include/fracessa/supports.hpp:72`.
-
-The isolated experiment in `../experiments/SUPPORT_FRONTIER_2026-07-29.md`
-preserved byte-identical output on 44 official and 35 generated games. A
-byte-indexed fixed-cardinality Gosper generator improved strongly pruned cases
-by approximately 30-74% and cut matrix-34 peak RSS roughly in half, at the cost
-of approximately 2% median slowdown on weak random games. Recursive DFS was not
-predictable from dimension and the larger adaptive implementation was rejected
-as unnecessary complexity.
-
-A follow-up on the initially omitted prime circular dimension-19 games found a
-52.07% regression on ID 28. Its 1,843 rotated size-7/8 candidates repeatedly
-mark approximately 6.73 million supersets, although circular reduction stores
-only one representative per 19-mask orbit. ID 29 regressed only 2.30%, proving
-that neither dimension nor primality alone is a sufficient gate.
-
-The complete 44-matrix pass found all five major 30-73% wins at composite
-circular dimensions 18, 20, 21, 22, and 24. Prime circular IDs 22, 26, 28, and
-33 instead regressed by 2.8-52.4%. Candidate output remained byte-identical in
-every case.
-
-Required outcome: generate supports by cardinality on demand while preserving
-the existing numeric order and exact-equilibrium superset pruning. Use the
-byte-indexed Gosper experiment only as a starting point, eliminate its repeated
-direct marking for circular representatives without adding a large framework,
-and rebenchmark every official dimension 18-24 matrix before retention.
 
 ### P1: The exact candidate path materializes its full vector too early
 
@@ -211,17 +173,18 @@ Linux and macOS artifacts as portable standalone executables.
 - Current local Release build: successful.
 - Core/CLI CTests: 10/10 passed.
 - Wrapper tests: 23/23 passed.
-- Full matrix CTests: 44/44 passed, including normalization IDs 38-39.
+- Full matrix CTests: 52/52 passed, including normalization IDs 38-39.
 - The single parser preserves 18-digit direct values and arbitrary-precision
   values, and the former signed-overflow input passes ASan/UBSan exactly.
 - All active fast and full verification matrices pass. Reference IDs 45-47
   remain outside active fixtures because unsafe mode is known to fail them.
 - The current standard library reports `high_resolution_clock::is_steady ==
   false` and `steady_clock::is_steady == true`.
-- A temporary `n=23` support-generation check stored 8,388,607 masks and used
-  about 69 MiB maximum RSS before any analyzer work.
+- Production DFS/FKM generators retain no complete support frontier or
+  cardinality layer. An independent order-insensitive comparison matched all
+  mathematical candidate rows and ESS results across the 52 active matrices.
 - A fixed-seed audit generated 20,000 exact 4-by-4 integer matrices; all 19,890
   nonsingular cases satisfied `A * inverse(A) == I` exactly.
 - The most recent full sanitizer suite passed its existing tests.
-- The current implementation is uncommitted on `choice-one-candidate-filter`,
-  based on `main` at `32f6167`; no GitHub Actions run exists for this diff.
+- The current implementation is uncommitted on `choice-one-candidate-filter`;
+  no GitHub Actions run exists for this diff.

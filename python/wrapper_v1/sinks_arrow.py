@@ -45,7 +45,7 @@ class ArrowSink:
             ("support_size", pa.int64()),
             ("extended_support", pa.uint64()),
             ("extended_support_size", pa.int64()),
-            ("shift_reference", pa.int64()),
+            ("multiplier", pa.int64()),
             ("is_ess", pa.bool_()),
             ("stability", pa.string()),
             ("payoff", pa.string()),
