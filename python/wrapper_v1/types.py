@@ -27,7 +27,6 @@ class RunConfig:
     full_support: bool = False
     include_candidates: bool = False
     include_timing: bool = True
-    unsafe: bool = False
     enable_logging: bool = False
 
 
@@ -70,7 +69,7 @@ class CandidateRow:
     support_size: int
     extended_support: int
     extended_support_size: int
-    shift_reference: int
+    multiplier: int | None
     is_ess: bool
     stability: str
     payoff: str

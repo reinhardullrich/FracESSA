@@ -5,9 +5,10 @@ candidate baselines. It is an initial migration snapshot; the existing Python
 verification files remain active until their consumers are deliberately
 switched to this database.
 
-The current snapshot contains 63 matrices, 65,962 candidates, and 63,369 ESS
-rows. The first 52 matrices mirror the active verification files. IDs 56-66
-are staged complete-multipartite many-ESS benchmark matrices and are not active
+The current snapshot contains 63 matrices and 29,114 stored candidate
+representatives. Their multipliers represent 65,962 candidates and 63,369 ESS.
+The first 52 matrices mirror the active verification files. IDs 56-66 are
+staged complete-multipartite many-ESS benchmark matrices and are not active
 CTest fixtures yet.
 
 ## Tables
@@ -22,9 +23,10 @@ Each row stores one exact matrix input and its summary:
   `large` for 17-63.
 - `is_cs`: 1 for compact circular-symmetric input, otherwise 0.
 - `matrix`: the exact comma-separated input values, without the `n#` prefix.
-- `candidate_count` and `ess_count`: complete baseline counts.
-- `candidate_structure`: JSON object mapping support size to candidate count.
-- `ess_structure`: JSON object mapping support size to ESS count.
+- `candidate_count` and `ess_count`: complete weighted baseline counts.
+- `candidate_structure`: JSON object mapping support size to weighted candidate
+  count.
+- `ess_structure`: JSON object mapping support size to weighted ESS count.
 - `origin`: where the matrix came from and why it was retained.
 - `tags`: JSON array of short qualitative categories such as
   `"numerical_edge"` or `"support_frontier"`.
@@ -39,10 +41,12 @@ support-four results. Empty ESS structure is stored as `{}`.
 
 ### `candidates`
 
-Each row mirrors one candidate output row. Exact fractions and vectors remain
-text; `payoff_double` is also text so database reads cannot alter formatting.
-`(matrix_id, candidate_id)` is the primary key, and a support may occur only
-once for a matrix.
+Each row mirrors one candidate output row. A circular row stores only the
+smallest support in its rotation/reflection orbit, and its non-null `multiplier`
+is the number of distinct supports represented. A non-circular row has a null
+multiplier. Exact fractions and vectors remain text; `payoff_double` is also
+text so database reads cannot alter formatting. `(matrix_id, candidate_id)` is
+the primary key, and a support may occur only once for a matrix.
 
 Fixed facts already represented by columns, including size, circular symmetry,
 counts, and support-size structures, are not duplicated in `tags`.

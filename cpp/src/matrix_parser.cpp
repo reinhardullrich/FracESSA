@@ -4,60 +4,80 @@
 #include <cstdint>
 #include <exception>
 #include <iostream>
-#include <stdexcept>
 #include <vector>
 
 namespace matrix_parser {
 
 namespace {
 
-linalg::fraction parse_fraction_token(const std::string& values, size_t start, size_t end)
+constexpr size_t kMaxDimension = 63;
+constexpr size_t kFastIntegerDigits = 18;
+
+struct DecimalComponent {
+    uint64_t magnitude = 0;
+    size_t digits = 0;
+    bool negative = false;
+    bool nonzero = false;
+};
+
+bool parse_decimal_component(const char*& position, const char* end, DecimalComponent& component) noexcept
 {
-    if (start >= end) {
-        throw std::invalid_argument("empty fraction token");
+    if (position < end && *position == '-') {
+        component.negative = true;
+        ++position;
     }
 
-    const std::string token = values.substr(start, end - start);
-    const size_t slash_pos = token.find('/');
-    if (slash_pos != std::string::npos) {
-        size_t denominator_pos = slash_pos + 1;
-        if (denominator_pos < token.size() && (token[denominator_pos] == '+' || token[denominator_pos] == '-')) {
-            ++denominator_pos;
-        }
+    const char* const digits_begin = position;
+    while (position < end && *position >= '0' && *position <= '9') {
+        const unsigned digit = static_cast<unsigned>(*position - '0');
+        // Unsigned overflow is defined and ignored when the text takes the arbitrary-precision path.
+        component.magnitude = component.magnitude * 10 + digit;
+        component.nonzero = component.nonzero || digit != 0;
+        ++position;
+    }
+    component.digits = static_cast<size_t>(position - digits_begin);
+    return component.digits != 0;
+}
 
-        if (denominator_pos == token.size()) {
-            throw std::invalid_argument("Invalid rational denominator: " + token);
-        }
+void append_fraction(
+    std::vector<linalg::fraction>& values,
+    const std::string& matrix_str,
+    size_t token_start,
+    size_t token_end,
+    const DecimalComponent& numerator,
+    const DecimalComponent& denominator)
+{
+    if (numerator.digits <= kFastIntegerDigits &&
+        (denominator.digits == 0 || denominator.digits <= kFastIntegerDigits)) {
+        long long num = static_cast<long long>(numerator.magnitude);
+        if (numerator.negative) num = -num;
 
-        bool denominator_is_zero = true;
-        for (size_t i = denominator_pos; i < token.size(); ++i) {
-            if (token[i] < '0' || token[i] > '9') {
-                throw std::invalid_argument("Invalid rational denominator: " + token);
-            }
-            denominator_is_zero = denominator_is_zero && token[i] == '0';
+        long long den = 1;
+        if (denominator.digits != 0) {
+            den = static_cast<long long>(denominator.magnitude);
+            if (denominator.negative) den = -den;
         }
-        if (denominator_is_zero) {
-            throw std::invalid_argument("Rational denominator cannot be zero: " + token);
-        }
+        values.emplace_back(num, den);
+        return;
     }
 
-    return linalg::fraction(token);
+    values.emplace_back(matrix_str.substr(token_start, token_end - token_start));
+}
+
+bool report_value_error(const char* detail)
+{
+    std::cerr << "Error: Could not convert matrix values to fraction numbers!" << std::endl;
+    std::cerr << "  " << detail << std::endl;
+    return false;
 }
 
 } // namespace
 
 bool parse_matrix_string(const std::string& matrix_str, linalg::matrix_frc& A, bool& is_cs)
 {
-    constexpr size_t kMaxSafeDimension = 63;
-
     const size_t hash_pos = matrix_str.find('#');
     if (hash_pos == std::string::npos || hash_pos == 0 || hash_pos == matrix_str.length() - 1) {
         std::cerr << "Error: String for the matrix does not include '#' as a separator between dimension and matrix!" << std::endl;
-        return false;
-    }
-
-    if (matrix_str.find('#', hash_pos + 1) != std::string::npos) {
-        std::cerr << "Error: Multiple '#' characters found in matrix string!" << std::endl;
         return false;
     }
 
@@ -70,29 +90,57 @@ bool parse_matrix_string(const std::string& matrix_str, linalg::matrix_frc& A, b
         return false;
     }
 
-    if (n == 0 || n > kMaxSafeDimension) {
-        std::cerr << "Error: Safe parser supports dimensions in [1, " << kMaxSafeDimension << "], got " << n << std::endl;
-        std::cerr << "Use --unsafe to bypass this validation (not recommended)." << std::endl;
+    /*
+     * Masks have 64 storage bits, but exhaustive search needs a representable
+     * one-past-the-end value 2^n. Therefore the analyzer stops at n=63.
+     */
+    if (n == 0 || n > kMaxDimension) {
+        std::cerr << "Error: Parser supports dimensions in [1, " << kMaxDimension << "], got " << n << std::endl;
         return false;
     }
 
-    const std::string& values_str = matrix_str.substr(hash_pos + 1);
+    const size_t expected_cs = n / 2;
+    const size_t expected_sym = n * (n + 1) / 2;
     std::vector<linalg::fraction> rational_values;
-    rational_values.reserve(n * (n + 1) / 2);
+    rational_values.reserve(expected_sym);
 
+    const char* const begin = matrix_str.data();
+    const char* position = begin + hash_pos + 1;
+    const char* const end = begin + matrix_str.size();
     try {
-        size_t start = 0;
-        size_t comma_pos;
-
-        while (start < values_str.length()) {
-            comma_pos = values_str.find(',', start);
-            if (comma_pos == std::string::npos) {
-                comma_pos = values_str.length();
+        while (position < end) {
+            const size_t token_start = static_cast<size_t>(position - begin);
+            DecimalComponent numerator;
+            if (!parse_decimal_component(position, end, numerator)) {
+                return report_value_error("Invalid rational numerator");
             }
 
-            rational_values.push_back(parse_fraction_token(values_str, start, comma_pos));
+            DecimalComponent denominator;
+            if (position < end && *position == '/') {
+                ++position;
+                if (!parse_decimal_component(position, end, denominator)) {
+                    return report_value_error("Invalid rational denominator");
+                }
+                if (!denominator.nonzero) {
+                    return report_value_error("Rational denominator cannot be zero");
+                }
+            }
 
-            start = comma_pos + 1;
+            if (position < end && *position != ',') {
+                return report_value_error("Invalid character in rational value");
+            }
+
+            const size_t token_end = static_cast<size_t>(position - begin);
+            append_fraction(
+                rational_values, matrix_str, token_start, token_end,
+                numerator, denominator);
+
+            if (position < end) {
+                ++position;
+                if (position == end) {
+                    return report_value_error("Empty fraction token");
+                }
+            }
         }
     } catch (const std::exception& e) {
         std::cerr << "Error: Could not convert matrix values to fraction numbers!" << std::endl;
@@ -100,8 +148,6 @@ bool parse_matrix_string(const std::string& matrix_str, linalg::matrix_frc& A, b
         return false;
     }
 
-    const size_t expected_cs = n / 2;
-    const size_t expected_sym = n * (n + 1) / 2;
     const size_t actual_size = rational_values.size();
 
     if (actual_size == expected_cs) {
@@ -116,73 +162,6 @@ bool parse_matrix_string(const std::string& matrix_str, linalg::matrix_frc& A, b
     }
 
     return true;
-}
-
-void parse_matrix_string_unsafe(const std::string& matrix_str, linalg::matrix_frc& A, bool& is_cs)
-{
-    size_t hash_pos = 0;
-    while (matrix_str[hash_pos] != '#') {
-        ++hash_pos;
-    }
-
-    size_t n = 0;
-    for (size_t i = 0; i < hash_pos; ++i) {
-        n = n * 10 + (matrix_str[i] - '0');
-    }
-
-    std::vector<linalg::fraction> rational_values;
-    rational_values.reserve(n / 2);
-
-    size_t pos = hash_pos + 1;
-    const size_t len = matrix_str.length();
-
-    while (pos < len) {
-        int64_t num = 0;
-        bool num_negative = false;
-        if (matrix_str[pos] == '-') {
-            num_negative = true;
-            ++pos;
-        }
-        while (pos < len && matrix_str[pos] != '/' && matrix_str[pos] != ',') {
-            num = num * 10 + (matrix_str[pos] - '0');
-            ++pos;
-        }
-        if (num_negative) {
-            num = -num;
-        }
-
-        if (pos < len && matrix_str[pos] == '/') {
-            ++pos;
-            int64_t den = 0;
-            bool den_negative = false;
-            if (matrix_str[pos] == '-') {
-                den_negative = true;
-                ++pos;
-            }
-            while (pos < len && matrix_str[pos] != ',') {
-                den = den * 10 + (matrix_str[pos] - '0');
-                ++pos;
-            }
-            if (den_negative) {
-                num = -num;
-            }
-            rational_values.push_back(linalg::fraction(static_cast<long long>(num), static_cast<long long>(den)));
-        } else {
-            rational_values.push_back(linalg::fraction(static_cast<long long>(num), 1LL));
-        }
-        if (pos < len && matrix_str[pos] == ',') {
-            ++pos;
-        }
-    }
-
-    const size_t expected_cs = n / 2;
-    if (rational_values.size() == expected_cs) {
-        A = linalg::create_circular_symmetric(n, rational_values);
-        is_cs = true;
-    } else {
-        A = linalg::create_symmetric(n, rational_values);
-        is_cs = false;
-    }
 }
 
 } // namespace matrix_parser

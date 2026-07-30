@@ -9,7 +9,10 @@
 
 int main(int argc, char *argv[])
 {
-    // CLI surface mirrors core search toggles used in batch verification and CI.
+    /*
+     * This file is only the command-line adapter: parse options and one matrix,
+     * run the native analyzer, then print its stable line-oriented result.
+     */
     argparse::ArgumentParser program("fracessa", "3.0.0");
     program.add_description("FRACESSA - Fractional ESS Analyzer");
 
@@ -19,7 +22,7 @@ int main(int argc, char *argv[])
     program.add_argument("-f", "--fullsupport").help("search full support directly").implicit_value(true).default_value(false);
     program.add_argument("-t", "--timing").help("output computation time").implicit_value(true).default_value(false);
     program.add_argument("-m", "--matrixid").help("optional matrix ID").scan<'i', int>().default_value(-1);
-    program.add_argument("-u", "--unsafe").help("unsafe parsing").implicit_value(true).default_value(false);
+    program.add_argument("-u", "--unsafe").help("use uncertified numerical filtering").implicit_value(true).default_value(false);
     program.add_argument("matrix").help("the matrix to compute");
 
     try { program.parse_args(argc, argv); }
@@ -34,15 +37,29 @@ int main(int argc, char *argv[])
     const auto matrix_id = program.get<int>("--matrixid");
     const auto unsafe = program.get<bool>("--unsafe");
 
+    // `--unsafe` names the current default mode explicitly; exact bypasses it.
+    if (exact && unsafe) {
+        std::cerr << "Error: --exact and --unsafe cannot be used together." << std::endl;
+        return EXIT_FAILURE;
+    }
+
     bool is_cs;
     linalg::matrix_frc A;
-    if (unsafe) matrix_parser::parse_matrix_string_unsafe(matrix_str, A, is_cs);
-    else if (!matrix_parser::parse_matrix_string(matrix_str, A, is_cs)) return EXIT_FAILURE;
+    if (!matrix_parser::parse_matrix_string(matrix_str, A, is_cs)) return EXIT_FAILURE;
+
+    if (!exact) {
+        std::cerr
+            << "Warning: unsafe numerical mode can miss exact candidates and ESS results; "
+            << "suspicious or unusable floating-point cases fall back to exact arithmetic "
+            << "and can be much slower." << std::endl;
+    }
     
+    // CLI timing covers analyzer work only, excluding parsing and output formatting.
     auto start_time = std::chrono::high_resolution_clock::now();
     ::fracessa x(A, is_cs, candidates, exact, fullsupport, logger, matrix_id);
     auto end_time = std::chrono::high_resolution_clock::now();
     
+    // Consumers expect ESS count first, optional timing second, then candidate CSV.
     std::cout << x.ess_count_ << std::endl;
     if (timing) {
         auto duration = std::chrono::duration_cast<std::chrono::microseconds>(end_time - start_time);

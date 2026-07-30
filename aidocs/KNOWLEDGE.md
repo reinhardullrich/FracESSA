@@ -26,8 +26,10 @@ Last verified: 2026-07-30
 3. Keep validation at input boundaries. Do not add checks, allocations,
    abstractions, or branches to proven hot paths without a demonstrated
    correctness need and a benchmark.
-4. The intentionally unchecked bitset and `--unsafe` parser paths exist for raw
-   speed. Their caller preconditions are part of the design.
+4. Intentionally unchecked bitset operations exist for raw speed. Matrix input
+   instead has one validating parser at the input boundary; values up to 18
+   digits use direct integer construction and larger values use exact FLINT text
+   conversion.
 5. Use the Ponytail skill for code work: understand the complete path, then use
    the smallest correct implementation.
 
@@ -44,6 +46,31 @@ Last verified: 2026-07-30
 
 Generated or local-only paths include `cpp/build*/`, `python/results/`, raw
 Callgrind output, and experiment `builds/`, `sources/`, and `logs/` directories.
+`zzz_legacy/` is the tracked collection of preserved REF/EFR predecessors.
+Its six top-level folders are `EFR`, `REF_2016-10-06`, `REF_2016-11-16`,
+`REF_2016-11-20-Werner`, `REF_2019-09-20`, and `REF_R`. They are preserved historical
+material, not active project source. `EFR/` contains the four selected C# timeline snapshots
+`EFR_2016-04`, `EFR_2016-09`, `EFR_2018-03`, and `EFR_2019-08`, plus the sole
+`NewRational.2.1` version as `NewRational`. These project directories were moved
+directly from their former locations without copying. The other two
+byte-identical `NewRational.2.1` copies are in the desktop Trash.
+The duplicate April and September 2016 timeline trees and both copies of the
+skipped intermediate September 2016 port are in the desktop Trash.
+`REF_2016-10-06` is the source-only GMP/hybrid milestone, `REF_2016-11-16` is
+the last source-only version before circular-symmetry optimization,
+`REF_2016-11-20-Werner` is the Werner circular-symmetry version, and `REF_2019-09-20`
+is the substantial 2019 rewrite with its minor December 2025 timing and build
+changes retained. `REF_R` contains one copy of each preserved research script
+and the newest EFR test driver, dated October 21, 2016. The former mixed-history
+tree and its duplicate, intermediate, generated, profiling, IDE, and unrelated
+material are in the desktop Trash.
+The collection is intentionally storage-cleaned rather than independently
+buildable in every folder: `REF_2019-09-20/dependencies/` retains the verified
+Boost 1.71 tarball through Git LFS, and the canonical Boost 1.62 tree remains under
+`REF_2016-11-20-Werner/include/boost`. Redundant extracted Boost trees and
+generated `build*`/`obj` directories are not retained.
+The legacy collection intentionally contains no nested Git-control metadata;
+its former `.git` directories were removed from the collection.
 
 ## Product Surface
 
@@ -58,12 +85,15 @@ CLI matrix format is `dimension#values`. Values are either the upper triangle
 of a symmetric matrix (`n*(n+1)/2` entries) or the compact circular-symmetric
 form (`floor(n/2)` entries).
 
-The safe parser accepts dimensions 1 through 63, rejects textual fractions with
-a zero denominator, and validates the remaining input. Support masks have 64
-storage bits, but complete enumeration requires the exclusive `2^n` bound, so
-dimension 64 is not supported. The `--unsafe` parser deliberately adds no
-dimension or denominator checks and assumes trusted, well-formed input that
-still satisfies `1 <= n < 64`.
+The parser accepts dimensions 1 through 63, rejects textual fractions with a
+zero denominator, and validates value syntax during the same scan that builds
+the exact fractions. Support masks have 64 storage bits, but complete
+enumeration requires the exclusive `2^n` bound, so dimension 64 is not
+supported.
+
+The temporary numerical modes are unsafe filtering and exact solving. No flag
+and `--unsafe` select the same uncertified filter; `--exact` bypasses it.
+`--exact` and `--unsafe` are mutually exclusive.
 
 ## Computation Flow
 
@@ -83,23 +113,34 @@ Important implementation points:
 - Supports are represented by `uint64_t` masks.
 - Fixed stack buffers hold extracted support indices; clear-lowest-set-bit
   iteration avoids bit-test branches in inner matrix loops.
-- `--fullsupport` constructs and checks the full mask directly; all support
-  buckets are initialized only if normal or fallback enumeration is needed.
-- Production normal search still materializes support buckets. The deferred
-  replacement in `plans/STREAMING_SUPPORT_GENERATION.md` uses fixed-cardinality
-  DFS for non-circular games and FKM-style necklace/bracelet recursion for
-  circular games, integrating exact-candidate pruning into generation; it is
-  not implemented on this branch.
-- `MatrixServer` owns reusable double and rational matrix buffers.
+- `--fullsupport` constructs and checks the full mask directly; on failure its
+  fallback solves only cardinalities below `n`.
+- Production generates one mask at a time through a header-defined templated
+  callback and never materializes the complete frontier or a cardinality layer.
+  The generator owns the cardinality sweep and calls the analyzer with both the
+  mask and its size. `NonCircularSupportGenerator` uses fixed-cardinality binary DFS;
+  `CircularSupportGenerator` uses fixed-content FKM necklace recursion plus
+  reflection reduction. Both prune partial branches against earlier exact
+  candidate supports bucketed by lowest bit. Circular rules expand every
+  distinct rotation/reflection only as compact forbidden masks. The analyzer
+  stores one solved bracelet representative with their count as `multiplier`.
+  See `plans/SUPPORT_GENERATORS.md`.
+- Newly found exact candidates are pending until the next cardinality, keeping
+  each generator layer's pruning rules stable. Stability is irrelevant to this
+  pruning rule: every exact equilibrium support forbids later strict supersets.
+- In non-exact mode, `MatrixServer` exactly translates and scales the game into
+  `[-1,1]`, converts it once to binary64, and reuses one bordered scratch matrix.
+  Constant games and unusable zero/subnormal conversions permanently fall back
+  to exact candidate solving before enumeration.
 - Exact arithmetic uses FLINT `fmpq_t` through `linalg::fraction`.
 - Stability uses exact rational positive-definiteness; a binary64 result is not
   accepted as a final mathematical certificate.
 - `correctness/DOUBLE_PD_FALSE_POSITIVES.md` documents the concrete failures and
   proves why tolerance tuning cannot recover an exact PD certificate.
-- `--exact` skips the double candidate solver, and all final stability decisions
-  use exact rational arithmetic.
-- The default path still has a known double candidate-filter correctness bug;
-  see `reviews/CPP_REVIEW.md`.
+- `--exact` does not initialize or allocate the double candidate-filter state,
+  and all final stability decisions use exact rational arithmetic.
+- The default unsafe filter uses a cheap pivot/margin danger veto, not a proof.
+  It can still reject valid exact candidates; see `reviews/CPP_REVIEW.md`.
 
 Key files:
 
@@ -107,7 +148,7 @@ Key files:
 - `cpp/include/fracessa/supports.hpp`: support generation and pruning.
 - `cpp/include/fracessa/matrix_server.hpp`: reusable matrix construction.
 - `cpp/include/linalg/fraction.hpp`: FLINT rational wrapper.
-- `cpp/include/linalg/linear_solver.hpp`: double and exact solvers.
+- `cpp/include/linalg/linear_solver.hpp`: exact bordered-system solver.
 - `cpp/include/linalg/copositive_fraction.hpp`: exact copositivity checks.
 - `cpp/src/findeq.cpp`: candidate construction.
 - `cpp/src/checkstab.cpp`: stability classification.
@@ -165,34 +206,53 @@ is one CTest per matrix so CTest can run matrices in parallel.
 Fast mode is a static policy: all verification matrices except IDs 32 and 34.
 The speed script records timings; correctness belongs to CTest.
 
-Current expected red tests are verification IDs 38-39. They expose
-scale/translation failures in the double candidate filter
-and expect one mixed ESS, while the current default path returns zero.
-
-These are real open regressions, not flaky tests. Consequently `./test.sh` and
-release publication currently fail until the candidate-filter finding in
-`reviews/CPP_REVIEW.md` is fixed.
+All 52 active verification matrices (IDs 1-44 and 48-55) pass in the temporary
+default unsafe mode; IDs 38-39 specifically cover the corrected scale and
+translation behavior. Preserved reference IDs 45-47 are intentionally not
+active yet: they prove the unsafe heuristic can still miss an exact ESS and
+belong to the later certified Choice 1 phase. IDs 48-55 add non-circular
+dimensions 15-24 through Hilbert, Hadamard, Paley conference, MINIJ, Fiedler,
+deterministic random matrix families, and a dense weighted-Laplacian game with
+one full-support ESS.
 
 ## Verification Data
 
 `python/verification/` is the only active verification-data source. There is no
 second fixture copy under `cpp/tests/`.
 
-- `verification_matrices.json`: 44 matrices, IDs 1-44, maximum dimension 24.
-- `baseline_candidates.csv`: candidate rows for all 44 matrices.
+- `verification_matrices.json`: 52 matrices, active IDs 1-44 and 48-55,
+  maximum dimension 24.
+- `baseline_candidates.csv`: 1,196 candidate representative rows for all 52
+  active matrices, representing 38,044 candidates after multiplication.
 - `baseline_result.json`: historical timing results for IDs 1-35.
 - `ctest_verify_matrix.py`: matrix correctness comparison.
 - `matrix_selection.py`: fast/full static selection.
 - `create_baselines.py`: baseline regeneration using the archived executable.
 
-There is no `in_use` field. Candidate IDs are deterministic in the current
-enumeration and remain useful for detecting accidental changes. They, candidate
-row order, and `shift_reference` are not mathematical correctness contracts: an
-intentional generator change may replace them and regenerate the baseline after
-an independent order-insensitive comparison confirms the complete candidate
-set and all ESS results. `T_pd_dbl` and `T_pd_frc` are normalized as the same
-`T_pd_*` classification for baseline comparison because floating-point branch
-selection can change while the mathematical result does not.
+`testdata/fracessa_testdata.sqlite3` is a staged SQLite migration snapshot, not
+an active test input yet. It currently contains 63 matrices and 29,114 stored
+candidate representatives. Their multipliers represent 65,962 candidates and
+63,369 ESS. Its `matrices` rows use stable IDs rather than names and include
+dimension, size class, circular symmetry, exact input, weighted candidate/ESS
+counts, weighted support-size structures, and required provenance/purpose text
+in `origin`. Qualitative categories live in the `tags` JSON array; quantitative
+facts are not duplicated as tags. IDs 56-66 are staged non-circular
+complete-multipartite matrices with many ESS for support-frontier benchmarks.
+The schema is in `testdata/schema.sql`; benchmark-run storage remains deferred.
+Do not switch Python or CTest consumers from the existing JSON/CSV files without
+separate approval.
+
+There is no `in_use` field. Candidate IDs and row order are deterministic and
+remain useful correctness checks while enumeration is unchanged. Circular rows
+store the smallest dihedral support representative and a non-null `multiplier`;
+non-circular rows store null. Weighted candidate and ESS totals are recovered by
+summing `multiplier`, treating null as one. The DFS/FKM generator adoption and
+representative-output conversion were checked across all 52 active matrices and
+regenerated the affected circular fixtures in both the CSV baseline and SQLite
+snapshot.
+`T_pd_dbl` and `T_pd_frc` are normalized as the same `T_pd_*` classification for
+baseline comparison because floating-point branch selection can change while
+the mathematical result does not.
 
 The archived baseline executable is x86-64. Do not run it on this ARM64 Linux
 machine: it invokes the system `binfmt` dispatcher without a configured x86-64
@@ -212,6 +272,11 @@ analyzer core and Python orchestration.
 It supports sequential execution, process-based parallelism across matrices,
 and stream/CSV/JSON/Arrow/Parquet sinks. One matrix is always computed by one
 worker process; parallelism is across matrices.
+
+For circular matrices, `CandidateRow` contains one bracelet representative with
+an integer `multiplier`; non-circular rows use `None`. `SummaryRow.candidate_count`
+is the number of returned representative rows, while `ess_count` remains the
+weighted mathematical total.
 
 No production wrapper or matrix workflow imposes a per-matrix computation
 timeout. A matrix may legitimately run for hours. Worker-liveness handling must

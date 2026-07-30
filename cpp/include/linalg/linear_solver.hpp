@@ -2,100 +2,31 @@
 #define RATIONAL_LINALG_LINEAR_SOLVER_HPP
 
 #include <linalg/matrix_fraction.hpp>
-#include <linalg/matrix_double.hpp>
-#include <cmath>
-#include <algorithm>
-#include <vector>
 
 namespace linalg {
 
 /*
- * Small dense linear solvers for bordered support systems:
- * [A_S  -1; 1^T 0] [x;u] = [0;1].
+ * Solve the exact support-equilibrium system
  *
- * Behavioral contract:
- * - `false` means either singular/degenerate system or violation of positivity
- *   constraints required for interior support candidates.
- * - Input matrix is intentionally modified in place to avoid extra buffers.
- */
-/**
- * solve_linear_dbl - Optimized Standard Gaussian elimination for double matrices.
- * 
- * Side Effects:
- *   - Modifies the input matrix M IN-PLACE (Forward Elimination).
- *   - M will be in an upper triangular form after this call.
- * 
- * Performance:
- *   - Uses physical row swaps for better cache locality.
- */
-inline bool solve_linear_dbl(matrix_dbl& M, matrix_dbl& x) {
-    const size_t n = M.rows();
-    
-    for (size_t k = 0; k < n - 1; ++k) {
-        size_t max_row = k;
-        double max_val = std::abs(M(k, k));
-        
-        for (size_t i = k + 1; i < n; ++i) {
-            double val = std::abs(M(i, k));
-            if (val > max_val) {
-                max_val = val;
-                max_row = i;
-            }
-        }
-        
-        // Pivot too small => numerically singular for filter purposes.
-        if (max_val < 1e-12) return false;
-        
-        if (max_row != k) {
-            M.swap_rows(k, max_row);
-        }
-        
-        const double pivot = M(k, k);
-        for (size_t i = k + 1; i < n; ++i) {
-            const double factor = M(i, k) / pivot;
-            for (size_t j = k + 1; j <= n; ++j) {
-                M(i, j) -= factor * M(k, j);
-            }
-            M(i, k) = 0.0;
-        }
-    }
-    
-    if (std::abs(M(n - 1, n - 1)) < 1e-12) return false;
-    
-    // Keep API simple: caller gets a right-sized output vector.
-    x = matrix_dbl(n, 1);
-    for (size_t i = n; i-- > 0; ) {
-        double sum = M(i, n);
-        for (size_t j = i + 1; j < n; ++j) {
-            sum -= M(i, j) * x(j, 0);
-        }
-        
-        const double pivot = M(i, i);
-        double temp_x = sum / pivot;
-        
-        // Only support probabilities must be positive; the last variable is payoff.
-        if (i < n - 1 && temp_x < -1e-10) return false;
-        
-        x(i, 0) = temp_x;
-    }
-    
-    return true;
-}
-
-/**
- * solve_linear_frc - Optimized Gaussian elimination for rational matrices.
- * 
- * Side Effects:
- *   - Modifies the input matrix M IN-PLACE (Forward Elimination).
- * 
- * Optimizations:
- *   - Uses fmpq_submul (FLINT) for direct subtraction-multiplication without temporaries.
- *   - Uses physical row swaps instead of virtual pivoting for better cache locality.
+ *     [ A_S  -1 ] [x] = [0]
+ *     [ 1^T    0 ] [u]   [1].
+ *
+ * For support size k, M has k+1 rows and k+2 columns; its last column is the
+ * right-hand side. The first k unknowns are support probabilities and the last
+ * unknown u is the equilibrium payoff. A valid interior candidate requires all
+ * probabilities to be strictly positive, but u may have any sign.
+ *
+ * M is reusable scratch storage and is intentionally destroyed by Gaussian
+ * elimination. `false` means the system is singular or does not produce an
+ * interior support strategy; in that case the caller must ignore x because it
+ * may be incomplete. FLINT's fused submul operation avoids a temporary rational
+ * in the innermost update.
  */
 inline bool solve_linear_frc(matrix_frc& M, matrix_frc& x) {
     const size_t n = M.rows();
 
-    // Forward elimination with exact arithmetic and first non-zero pivot selection.
+    // Exact arithmetic has no rounding-instability problem, so any nonzero pivot
+    // is valid. Taking the first one avoids a full magnitude scan in every column.
     for (size_t k = 0; k < n - 1; ++k) {
         size_t max_row = k;
         
@@ -135,7 +66,8 @@ inline bool solve_linear_frc(matrix_frc& M, matrix_frc& x) {
         return false;
     }
 
-    // Back substitution in exact arithmetic.
+    // Allocate the result only after elimination has shown that the system is
+    // nonsingular. This avoids allocating x for singular supports rejected above.
     x = matrix_frc(n, 1);
     for (size_t i = n; i-- > 0; ) {
         fraction sum = M(i, n);
@@ -145,7 +77,7 @@ inline bool solve_linear_frc(matrix_frc& M, matrix_frc& x) {
         }
 
         fraction::div(x(i, 0), sum, M(i, i)); 
-        // Only support weights must be strictly positive; x(n-1) is payoff.
+        // The final component is u; only the preceding support weights must be positive.
         if (i < n - 1 && x(i, 0).sgn() <= 0) {
             return false; 
         }

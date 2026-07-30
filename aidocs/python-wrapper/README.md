@@ -21,7 +21,7 @@ PYTHONPATH=python python3 your_script.py
 ```text
 MatrixJob(matrix_id: int, matrix: str, metadata: dict | None = None)
 RunConfig(exact=False, full_support=False, include_candidates=False,
-          include_timing=True, unsafe=False, enable_logging=False)
+          include_timing=True, enable_logging=False)
 MPConfig(workers: int, chunk_size=128, queue_maxsize=4096,
          ordered_results=True, start_method="spawn")
 MatrixResult(summary: SummaryRow, candidates: list[CandidateRow], metadata)
@@ -29,6 +29,11 @@ MatrixResult(summary: SummaryRow, candidates: list[CandidateRow], metadata)
 
 A matrix may use full CLI form (`"3#4,13/2,..."`) or values only when
 `metadata["dimension"]` is present.
+
+`exact=False` uses the temporary uncertified numerical filter. It can miss
+exact candidates and ESS results, although suspicious or unusable floating
+cases fall back to exact arithmetic. Use `exact=True` when that risk is not
+acceptable. Matrix input always uses the validating native parser.
 
 `include_timing=False` suppresses the returned timing value; the native call
 still measures its execution internally. There is deliberately no computation

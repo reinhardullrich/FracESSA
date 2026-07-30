@@ -6,7 +6,7 @@ on all matrices from verification_matrices.json.
 This script:
 1. Loads matrices from verification_matrices.json
 2. Runs the modified executable (python/the_old_exe/REF_linux64_modified.exe) with -c and -t flags
-3. Parses the output to extract ESS counts, timing (from C++), and candidates
+3. Parses the output and collapses circular candidates to bracelet representatives
 4. Writes both baseline files:
    - baseline_result.json
    - baseline_candidates.csv
@@ -57,6 +57,72 @@ def map_reason_ess_to_string(reason_ess_value: str) -> str:
     if normalized in legacy_string_mapping:
         return legacy_string_mapping[normalized]
     return numeric_mapping.get(normalized, normalized)
+
+
+def rotate_support_right(support: int, dimension: int) -> int:
+    mask = (1 << dimension) - 1
+    return ((support >> 1) | ((support & 1) << (dimension - 1))) & mask
+
+
+def reflect_support(support: int, dimension: int) -> int:
+    reflected = 0
+    for bit in range(dimension):
+        reflected |= ((support >> bit) & 1) << (dimension - 1 - bit)
+    return reflected
+
+
+def dihedral_orbit(support: int, dimension: int) -> set[int]:
+    orbit = set()
+    current = support
+    while current not in orbit:
+        orbit.add(current)
+        current = rotate_support_right(current, dimension)
+
+    current = reflect_support(support, dimension)
+    while current not in orbit:
+        orbit.add(current)
+        current = rotate_support_right(current, dimension)
+    return orbit
+
+
+def compress_candidates(candidates: List[Dict], dimension: int, is_cs: bool) -> List[Dict]:
+    if not is_cs:
+        result = []
+        for candidate_id, candidate in enumerate(candidates, start=1):
+            representative = candidate.copy()
+            representative['candidate_id'] = candidate_id
+            representative['multiplier'] = None
+            result.append(representative)
+        return result
+
+    groups = {}
+    for candidate in candidates:
+        orbit = dihedral_orbit(candidate['support'], dimension)
+        canonical_support = min(orbit)
+        group = groups.setdefault(
+            canonical_support,
+            {'multiplier': len(orbit), 'candidates': []},
+        )
+        group['candidates'].append(candidate)
+
+    result = []
+    for canonical_support, group in groups.items():
+        matches = [
+            candidate for candidate in group['candidates']
+            if candidate['support'] == canonical_support
+        ]
+        if not matches:
+            raise ValueError(
+                f"legacy output has no canonical row for support {canonical_support}"
+            )
+        representative = min(matches, key=lambda candidate: candidate['candidate_id']).copy()
+        representative['multiplier'] = group['multiplier']
+        result.append(representative)
+
+    result.sort(key=lambda candidate: (candidate['support_size'], candidate['support']))
+    for candidate_id, representative in enumerate(result, start=1):
+        representative['candidate_id'] = candidate_id
+    return result
 
 
 def full_matrix_to_upper_triangular(matrix_str: str, dimension: int) -> str:
@@ -181,7 +247,6 @@ def run_old_executable(exe_path: Path, matrix_cli_string: str, matrix_id: int = 
                             'support_size': int(parts[3]) if parts[3] else 0,
                             'extended_support': int(parts[4]) if parts[4] else 0,
                             'extended_support_size': int(parts[5]) if parts[5] else 0,
-                            'shift_reference': int(parts[6]) if parts[6] else 0,
                             'is_ess': is_ess,
                             'reason_ess': reason_ess_string,
                             'payoff': parts[9] if len(parts) > 9 else '0',
@@ -216,8 +281,9 @@ def process_matrix(matrix_data: Dict, old_exe_path: Path) -> Tuple[Dict, List[Di
     
     # Run old executable
     success, ess_count, candidates, timing, error = run_old_executable(old_exe_path, cli_string, matrix_id)
-    
+
     if success:
+        candidates = compress_candidates(candidates, dimension, is_cs)
         # For output, use the new format from 'matrix' field if available
         # (matrix_old was used for CLI string, but output should use the new format)
         if 'matrix' in matrix_data:
@@ -378,12 +444,12 @@ def main():
     print(f"Writing candidates to {baseline_candidates_file}")
     csv_columns = [
         "matrix_id", "candidate_id", "vector", "support", "support_size",
-        "extended_support", "extended_support_size", "shift_reference",
+        "extended_support", "extended_support_size", "multiplier",
         "is_ess", "reason_ess", "payoff", "payoff_double"
     ]
     
     with open(baseline_candidates_file, 'w', newline='') as f:
-        writer = csv.DictWriter(f, fieldnames=csv_columns)
+        writer = csv.DictWriter(f, fieldnames=csv_columns, lineterminator='\n')
         writer.writeheader()
         for candidate in all_candidates:
             # Convert is_ess boolean to string representation for CSV

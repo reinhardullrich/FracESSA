@@ -54,6 +54,9 @@ __pycache__/
 /experiments/**/sources/
 /experiments/**/logs/
 /experiments/**/microbench/build/
+/experiments/**/checks/test_supports_*
+/experiments/**/checks/*_sanitize
+/experiments/**/checks/gosper_jump_check
 
 # Local backups and archives
 *.bak
@@ -64,7 +67,6 @@ __pycache__/
 *.zip
 zzz_altes_zeug.tar.gz
 old_code_backup.tar.gz
-zzz_old/
 
 # OS files
 .DS_Store

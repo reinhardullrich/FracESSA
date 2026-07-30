@@ -37,7 +37,7 @@ CREATE TABLE candidates (
     extended_support_size INTEGER NOT NULL CHECK (
         extended_support_size BETWEEN support_size AND 63
     ),
-    shift_reference INTEGER NOT NULL CHECK (shift_reference >= 0),
+    multiplier INTEGER CHECK (multiplier IS NULL OR multiplier >= 1),
     is_ess INTEGER NOT NULL CHECK (is_ess IN (0, 1)),
     reason_ess TEXT NOT NULL,
     payoff TEXT NOT NULL,

@@ -36,7 +36,7 @@ def assert_success_with_ess_output(
     fracessa_exe: Path,
     args: list[str],
     case_name: str,
-) -> None:
+) -> subprocess.CompletedProcess:
     result = run_case(fracessa_exe, args)
     if result.returncode != 0:
         raise AssertionError(
@@ -48,6 +48,19 @@ def assert_success_with_ess_output(
         raise AssertionError(
             f"{case_name}: expected integer ESS count on first line, got '{first_line}'"
         )
+    return result
+
+
+def assert_unsafe_warning(result: subprocess.CompletedProcess, case_name: str) -> None:
+    warning = result.stderr.lower()
+    required = (
+        "miss exact candidates and ess results",
+        "fall back to exact arithmetic",
+        "much slower",
+    )
+    for text in required:
+        if text not in warning:
+            raise AssertionError(f"{case_name}: unsafe warning is missing '{text}'")
 
 
 def assert_failure_with_stderr(
@@ -95,36 +108,68 @@ def main() -> int:
         print(f"[ERROR] missing executable: {fracessa_exe}")
         return 1
 
-    # Success paths
-    assert_success_with_ess_output(fracessa_exe, ["2#0,1,0"], "safe_symmetric_success")
-    assert_success_with_ess_output(fracessa_exe, ["5#1,3"], "safe_circular_success")
-    assert_success_with_ess_output(fracessa_exe, ["--unsafe", "2#0,1,0"], "unsafe_route_success")
+    # Numerical mode and parser behavior
+    default_result = assert_success_with_ess_output(
+        fracessa_exe, ["2#0,1,0"], "default_unsafe_success"
+    )
+    explicit_unsafe_result = assert_success_with_ess_output(
+        fracessa_exe, ["--unsafe", "2#0,1,0"], "explicit_unsafe_success"
+    )
+    if default_result.stdout != explicit_unsafe_result.stdout:
+        raise AssertionError("default and explicit unsafe modes produced different output")
+    assert_unsafe_warning(default_result, "default_unsafe_warning")
+    assert_unsafe_warning(explicit_unsafe_result, "explicit_unsafe_warning")
+
+    exact_result = assert_success_with_ess_output(
+        fracessa_exe, ["--exact", "2#0,1,0"], "exact_success"
+    )
+    if "unsafe numerical mode" in exact_result.stderr.lower():
+        raise AssertionError("exact mode unexpectedly printed the unsafe warning")
+
+    # Affine normalization restores the exact result for both historical cases.
+    for case_name, matrix in (
+        ("normalized_scale", "2#0,1/100000000000000000000,0"),
+        ("normalized_translation", "2#100000000000000000000,100000000000000000001,100000000000000000000"),
+    ):
+        result = assert_success_with_ess_output(fracessa_exe, [matrix], case_name)
+        if first_non_empty_line(result.stdout) != "1":
+            raise AssertionError(f"{case_name}: expected one ESS, got {result.stdout.strip()}")
+
+    # Other success paths
+    assert_success_with_ess_output(fracessa_exe, ["5#1,3"], "circular_success")
     assert_candidate_header_matches_rows(fracessa_exe)
 
-    # Failure paths in safe parser
+    assert_failure_with_stderr(
+        fracessa_exe,
+        ["--exact", "--unsafe", "2#0,1,0"],
+        "cannot be used together",
+        "exact_unsafe_conflict",
+    )
+
+    # Parser failure paths
     assert_failure_with_stderr(
         fracessa_exe,
         ["2,0,1,0"],
         "does not include '#'",
-        "safe_missing_hash_rejected",
+        "missing_hash_rejected",
     )
     assert_failure_with_stderr(
         fracessa_exe,
         ["2#0#1"],
-        "Multiple '#'",
-        "safe_multiple_hash_rejected",
+        "Invalid character",
+        "multiple_hash_rejected",
     )
     assert_failure_with_stderr(
         fracessa_exe,
-        ["64#1"],
+        ["--unsafe", "64#1"],
         "supports dimensions in [1, 63]",
-        "safe_dimension_guard_rejected",
+        "numerical_unsafe_uses_dimension_guard",
     )
     assert_failure_with_stderr(
         fracessa_exe,
         ["2#1/0,0,1"],
         "denominator cannot be zero",
-        "safe_zero_denominator_rejected",
+        "zero_denominator_rejected",
     )
 
     print("[OK] parser black-box checks passed")

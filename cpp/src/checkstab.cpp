@@ -2,23 +2,29 @@
 #include <fracessa/bitset64.hpp>
 #include <linalg/copositive_fraction.hpp>
 #include <linalg/matrix_fraction.hpp>
-#include <iostream>
-#include <cassert>
 #include <stdexcept>
 
 /*
- * ESS stability classification for one already-feasible candidate.
+ * Exact stability test for a candidate equilibrium p.
  *
- * Decision ladder (cheap -> expensive):
- * 1) pure ESS shortcut,
- * 2) positive-definite Bee in exact rationals,
- * 3) partial copositivity reductions (Bomze-style rank-1 updates),
- * 4) final strict copositivity test on reduced Bee matrix.
+ * Write I=I(p) for its support and J=J(p) for all pure best replies to p.
+ * Choose one reference strategy m in I and form Bomze's matrix B on J without
+ * m. Let K=J\I be the unused best replies. Bomze (1992), Theorems 3.2 and 3.3,
+ * say that p is an ESS exactly when y^T B y is positive for every nonzero y
+ * whose coordinates in K are nonnegative; coordinates belonging to I without
+ * m are unrestricted.
+ *
+ * The code takes the cheapest exact route that settles this condition:
+ * 1) J without m is empty: p is a pure strict equilibrium;
+ * 2) B is positive definite: it is positive on every nonzero vector;
+ * 3) eliminate the unrestricted coordinates with Bomze's rank-one recurrence;
+ * 4) test ordinary strict copositivity on the remaining K-by-K matrix.
  */
 
 void fracessa::check_stability()
 {
-    // `m` is the first support index; Bee construction uses this pivot strategy.
+    // Any m in I is valid. The lowest set bit gives a deterministic choice and
+    // lets the bit mask and its original strategy index be obtained cheaply.
     bitset64 bitsetm = bs64::lowest_set_bit_as_bit(candidate_.support);
     bitset64 extended_support_reduced = bs64::subtract(candidate_.extended_support, bitsetm);
     size_t m = bs64::find_pos_first_set_bit(candidate_.support);
@@ -33,6 +39,7 @@ void fracessa::check_stability()
         logger_->info("index m: {}", m);
     }
 
+    // J={m}: no other pure strategy ties p's payoff, so the pure equilibrium is strict.
     if (extended_support_size_reduced == 0)
     {
         if (conf_with_log_)
@@ -42,7 +49,8 @@ void fracessa::check_stability()
         return;
     }
     
-    // Exact rational PD is the only positive-definiteness certificate.
+    // Positive definiteness is stronger than the required cone condition and is
+    // therefore a sufficient shortcut. Rational LDL^T makes it an exact certificate.
     auto& Bee = matrix_server_.get_bee_matrix_frc(extended_support_reduced, m);
 
     if (conf_with_log_) {
@@ -57,12 +65,19 @@ void fracessa::check_stability()
         return;
     }
 
-    bitset64 kay = bs64::subtract(candidate_.extended_support, candidate_.support); // will call them "unused best responses" or "ubr"
-    size_t kay_size = bs64::count_set_bits(kay); //ubr size
+    // K=J\I contains best replies that receive zero probability in p.
+    bitset64 kay = bs64::subtract(candidate_.extended_support, candidate_.support);
+    size_t kay_size = bs64::count_set_bits(kay);
 
     if (conf_with_log_)
         logger_->info("kay: {}", bs64::to_bitstring(kay, dimension_));
 
+    /*
+     * If K is empty, the cone is all of R^(J\{m}); strict positivity is exactly
+     * positive definiteness, which already failed. The same is true for one
+     * constrained coordinate: for every vector, either it or its negative has
+     * that coordinate nonnegative, and both have the same quadratic value.
+     */
     if (kay_size == 0 || kay_size == 1) {
         if (conf_with_log_)
             logger_->info("Reason: false_not_posdef_and_kay_0_1");
@@ -71,9 +86,11 @@ void fracessa::check_stability()
         return;
     }
    
+    // The paper calls the reduced extended support J. J\K is exactly I\{m},
+    // the set of unrestricted coordinates that the recurrence must eliminate.
     const bitset64 jay = extended_support_reduced;
-    const bitset64 jay_minus_kay = bs64::subtract(jay, kay); // extended support reduced - ubr = support minus m (since m is element of support!)
-    const size_t r = bs64::count_set_bits(jay_minus_kay); // must be support size - 1
+    const bitset64 jay_minus_kay = bs64::subtract(jay, kay);
+    const size_t r = bs64::count_set_bits(jay_minus_kay);
     if (r != candidate_.support_size - 1) {
         throw std::runtime_error("Invariant violation: r != candidate_.support_size - 1");
     }
@@ -83,10 +100,13 @@ void fracessa::check_stability()
     std::vector<bitset64> jay_without_kay_vee(r + 1);
     std::vector<linalg::matrix_frc> bee_vee(r + 1);
 
-    kay_vee[0] = jay; // extended support reduced
-    kay_vee_size[0] = extended_support_size_reduced; // extended support size - 1
-    jay_without_kay_vee[0] = jay_minus_kay; // support minus m
-    bee_vee[0] = Bee; // size: extended support size - 1
+    // State v=0 is the original reduced problem. Despite the historical name
+    // `kay_vee`, it stores the current index set, initially all of J;
+    // `jay_without_kay_vee` stores the unrestricted coordinates still to remove.
+    kay_vee[0] = jay;
+    kay_vee_size[0] = extended_support_size_reduced;
+    jay_without_kay_vee[0] = jay_minus_kay;
+    bee_vee[0] = Bee;
 
     if (conf_with_log_) {
         logger_->info("Partial Copositivity Check:");
@@ -98,7 +118,8 @@ void fracessa::check_stability()
         logger_->info("bee_vee[0]:\n{}", bee_vee[0].to_log_string());
     }
 
-    // Iteratively eliminate support-minus-m coordinates to isolate UBR block.
+    // Eliminate the r unrestricted coordinates one at a time. What remains is
+    // indexed only by K, where the ordinary nonnegative copositivity test applies.
     for (size_t v = 1; v <= r; ++v) {
         const size_t iv_pos = bs64::find_pos_first_set_bit(jay_without_kay_vee[v-1]);
         
@@ -106,6 +127,8 @@ void fracessa::check_stability()
         kay_vee[v] = bs64::subtract(kay_vee[v-1], bs64::single_bit_at_pos(iv_pos));
         kay_vee_size[v] = kay_vee_size[v-1] - 1;
         
+        // iv_pos is an original strategy index. The matrix is compact, so count
+        // surviving lower indices to find the corresponding row and column.
         const bitset64 bits_before_iv = bs64::bits_before_pos(kay_vee[v-1], iv_pos);
         const size_t pivot_pos = bs64::count_set_bits(bits_before_iv);
         
@@ -119,6 +142,8 @@ void fracessa::check_stability()
                         static_cast<unsigned int>(pivot_pos));
         }
         
+        // A positive diagonal pivot is condition (a) of Bomze's recurrence. A
+        // nonpositive one proves that the required cone positivity has failed.
         const fraction& pivot = bee_vee[v-1](pivot_pos, pivot_pos);
         if (pivot <= fraction::zero()) {
             if (conf_with_log_) {
@@ -129,18 +154,24 @@ void fracessa::check_stability()
             return;
         }
         
-        // Equation (20) in Bomze (1992): Schur-complement-like rank-1 update.
-        bee_vee[v] = linalg::matrix_frc(kay_vee_size[v], kay_vee_size[v]);  // NO_INIT by default, all elements assigned below
+        /*
+         * Equation (20) in Bomze (1992). A positive pivot permits removal of
+         * this unrestricted coordinate. Multiplying the Schur complement by
+         * the positive pivot avoids division and preserves all relevant signs:
+         *
+         *     B_new(i,j) = pivot*B_old(i,j)
+         *                  - B_old(i,pivot)*B_old(pivot,j).
+         */
+        bee_vee[v] = linalg::matrix_frc(kay_vee_size[v], kay_vee_size[v]);
         const size_t n_old = kay_vee_size[v-1];
         const auto& B_old = bee_vee[v-1];
         auto& B_new = bee_vee[v];
         
-        // Process rows/columns, skipping pivot
+        // Copy the compact result while omitting the eliminated row and column.
         for (size_t i_old = 0, i_new = 0; i_old < n_old; ++i_old) {
-            if (i_old == pivot_pos) continue;  // Skip pivot row            
+            if (i_old == pivot_pos) continue;
             for (size_t j_old = 0, j_new = 0; j_old < n_old; ++j_old) {
-                if (j_old == pivot_pos) continue;  // Skip pivot column               
-                // B'[i,j] = pivot*B[i,j] - B[i,pivot]*B[pivot,j]
+                if (j_old == pivot_pos) continue;
                 fraction::mul(B_new(i_new, j_new), pivot, B_old(i_old, j_old));
                 B_new(i_new, j_new).submul(B_old(i_old, pivot_pos), B_old(pivot_pos, j_old));
                 ++j_new;
@@ -156,6 +187,7 @@ void fracessa::check_stability()
     if (conf_with_log_)
         logger_->info("Copositivity Check:");
 
+    // All unrestricted coordinates are gone; decide positivity for nonzero y>=0 on K.
     if (linalg::is_strictly_copositive(bee_vee[r])) {
         if (conf_with_log_)
             logger_->info("Reason: true_copositive");

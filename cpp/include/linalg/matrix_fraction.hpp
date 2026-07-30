@@ -1,12 +1,13 @@
 #ifndef RATIONAL_LINALG_MATRIX_FRACTION_HPP
 #define RATIONAL_LINALG_MATRIX_FRACTION_HPP
 
+#include <cstddef>
+#include <utility>
 #include <vector>
 #include <string>
 #include <sstream>
 #include <iomanip>
 #include <linalg/fraction.hpp>
-#include <fracessa/bitset64.hpp>
 
 namespace linalg {
 
@@ -47,7 +48,6 @@ public:
     size_t rows() const noexcept { return rows_; }
     size_t cols() const noexcept { return cols_; }
     
-    const std::vector<fraction>& data() const noexcept { return data_; }
     std::vector<fraction>& data() noexcept { return data_; }
 
     fraction& operator()(size_t i, size_t j) {
@@ -86,10 +86,11 @@ public:
     }
 
     /*
-     * Exact positive-definiteness test via LDL^T factorization.
-     *
-     * For rational arithmetic this is an exact sign test on D's diagonal,
-     * so there is no tolerance tuning unlike the double variant.
+     * Test a symmetric matrix by the exact factorization A = L*D*L^T, where L
+     * has unit diagonal and D is diagonal. A is positive definite exactly when
+     * every entry of D is positive. Because all entries are rational, these are
+     * exact sign decisions: no epsilon or floating-point tolerance is involved.
+     * This is the fast sufficient stability test for the Bee matrix.
      */
     bool is_positive_definite() const {
         const size_t n = rows_;
@@ -106,26 +107,21 @@ public:
             for (size_t j = 0; j < i; ++j) {
                 aSum = fraction::zero();
                 for (size_t k = 0; k < j; ++k) {
-                    // term = L(j, k) * d[k]
+                    // Subtract the part already explained by earlier columns of L.
                     fraction::mul(term, L(j, k), d[k]);
-                    // aSum += L(i, k) * term
                     aSum.addmul(L(i, k), term);
                 }
-                // L(i, j) = A(i, j) - aSum
                 fraction::sub(L(i, j), (*this)(i, j), aSum);
-                // L(i, j) /= d[j]
                 L(i, j).div_inplace(d[j]);
             }
             
             bSum = fraction::zero();
             for (size_t k = 0; k < i; ++k) {
-                // term = L(i, k) * d[k]
                 fraction::mul(term, L(i, k), d[k]);
-                // bSum += L(i, k) * term
                 bSum.addmul(L(i, k), term);
             }
             
-            // d[i] = A(i, i) - bSum
+            // This is the next diagonal entry of D; its sign decides this step.
             fraction::sub(d[i], (*this)(i, i), bSum);
             if (d[i].sgn() <= 0) {
                 return false;
@@ -140,7 +136,12 @@ private:
     std::vector<fraction> data_;
 };
 
-// Factory for circular-symmetric compact input representation (n/2 values).
+/*
+ * Expand the compact circular-symmetric format. `half_row` gives the payoff by
+ * circular distance from strategy 0; reflection supplies the opposite side,
+ * and every later row is a cyclic shift of the first. The diagonal is zero by
+ * definition of this input format.
+ */
 inline matrix_frc create_circular_symmetric(size_t n, const std::vector<fraction>& half_row) {
     matrix_frc result(n, n);
     std::vector<fraction> first_row(n);
@@ -167,7 +168,7 @@ inline matrix_frc create_circular_symmetric(size_t n, const std::vector<fraction
     return result;
 }
 
-// Factory for standard upper-triangular symmetric serialization.
+// Expand row-major upper-triangle input and mirror it across the diagonal.
 inline matrix_frc create_symmetric(size_t n, const std::vector<fraction>& upper_triangular) {
     matrix_frc result(n, n);
     size_t idx = 0;

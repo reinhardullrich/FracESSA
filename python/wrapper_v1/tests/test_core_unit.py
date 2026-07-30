@@ -28,7 +28,7 @@ class _FakeNative:
                     "support_size": 2,
                     "extended_support": 3,
                     "extended_support_size": 2,
-                    "shift_reference": 0,
+                    "multiplier": None,
                     "is_ess": True,
                     "stability": "pure",
                     "payoff": "1",
@@ -68,6 +68,7 @@ class CoreUnitTests(unittest.TestCase):
         self.assertEqual(result.summary.ess_count, 2)
         self.assertEqual(result.summary.elapsed_us, 1234)
         self.assertEqual(result.summary.candidate_count, 1)
+        self.assertIsNone(result.candidates[0].multiplier)
 
     def test_compute_job_adds_dimension_prefix_from_metadata(self):
         fake = _FakeNative()

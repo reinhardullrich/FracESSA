@@ -22,7 +22,7 @@ std::string join_ones(size_t count) {
 
 } // namespace
 
-TEST(MatrixParserSafeTest, ParsesUpperTriangularSymmetricInput) {
+TEST(MatrixParserTest, ParsesUpperTriangularSymmetricInput) {
     matrix_frc A;
     bool is_cs = true;
 
@@ -36,7 +36,7 @@ TEST(MatrixParserSafeTest, ParsesUpperTriangularSymmetricInput) {
     EXPECT_EQ(A(2, 2), fraction(6));
 }
 
-TEST(MatrixParserSafeTest, ParsesCircularSymmetricInput) {
+TEST(MatrixParserTest, ParsesCircularSymmetricInput) {
     matrix_frc A;
     bool is_cs = false;
 
@@ -51,7 +51,7 @@ TEST(MatrixParserSafeTest, ParsesCircularSymmetricInput) {
     EXPECT_EQ(A(0, 4), fraction::one());
 }
 
-TEST(MatrixParserSafeTest, ParsesValuesBeyondWindowsLongRange) {
+TEST(MatrixParserTest, ParsesValuesBeyondWindowsLongRange) {
     matrix_frc A;
     bool is_cs = true;
 
@@ -62,7 +62,24 @@ TEST(MatrixParserSafeTest, ParsesValuesBeyondWindowsLongRange) {
     EXPECT_EQ(A(1, 1), fraction::one());
 }
 
-TEST(MatrixParserSafeTest, RejectsZeroDenominator) {
+TEST(MatrixParserTest, ParsesFastAndArbitraryPrecisionValues) {
+    matrix_frc A;
+    bool is_cs = true;
+
+    ASSERT_TRUE(matrix_parser::parse_matrix_string(
+        "3#999999999999999999,1000000000000000000,1/1000000000000000000,"
+        "-100000000000000000000,-1/-2,1",
+        A, is_cs));
+
+    EXPECT_FALSE(is_cs);
+    EXPECT_EQ(A(0, 0).to_string(), "999999999999999999");
+    EXPECT_EQ(A(0, 1).to_string(), "1000000000000000000");
+    EXPECT_EQ(A(0, 2).to_string(), "1/1000000000000000000");
+    EXPECT_EQ(A(1, 1).to_string(), "-100000000000000000000");
+    EXPECT_EQ(A(1, 2).to_string(), "1/2");
+}
+
+TEST(MatrixParserTest, RejectsZeroDenominator) {
     matrix_frc A;
     bool is_cs = false;
 
@@ -73,26 +90,26 @@ TEST(MatrixParserSafeTest, RejectsZeroDenominator) {
     EXPECT_FALSE(matrix_parser::parse_matrix_string("2#1/ 0,0,1", A, is_cs));
 }
 
-TEST(MatrixParserSafeTest, RejectsMissingHash) {
+TEST(MatrixParserTest, RejectsMissingHash) {
     matrix_frc A;
     bool is_cs = false;
     EXPECT_FALSE(matrix_parser::parse_matrix_string("3,1,2,3,4,5,6", A, is_cs));
 }
 
-TEST(MatrixParserSafeTest, RejectsMultipleHashes) {
+TEST(MatrixParserTest, RejectsMultipleHashes) {
     matrix_frc A;
     bool is_cs = false;
     EXPECT_FALSE(matrix_parser::parse_matrix_string("3#1,2#3", A, is_cs));
 }
 
-TEST(MatrixParserSafeTest, RejectsInvalidDimensionRange) {
+TEST(MatrixParserTest, RejectsInvalidDimensionRange) {
     matrix_frc A;
     bool is_cs = false;
     EXPECT_FALSE(matrix_parser::parse_matrix_string("0#1", A, is_cs));
     EXPECT_FALSE(matrix_parser::parse_matrix_string("64#1", A, is_cs));
 }
 
-TEST(MatrixParserSafeTest, RejectsNonDecimalDimensionText) {
+TEST(MatrixParserTest, RejectsNonDecimalDimensionText) {
     matrix_frc A;
     bool is_cs = false;
 
@@ -103,7 +120,7 @@ TEST(MatrixParserSafeTest, RejectsNonDecimalDimensionText) {
     EXPECT_FALSE(matrix_parser::parse_matrix_string("2 #0,1,0", A, is_cs));
 }
 
-TEST(MatrixParserSafeTest, AcceptsMaximumSearchDimension) {
+TEST(MatrixParserTest, AcceptsMaximumSearchDimension) {
     matrix_frc A;
     bool is_cs = false;
 
@@ -115,46 +132,14 @@ TEST(MatrixParserSafeTest, AcceptsMaximumSearchDimension) {
     EXPECT_EQ(A.cols(), 63);
 }
 
-TEST(MatrixParserSafeTest, RejectsUnexpectedValueCount) {
+TEST(MatrixParserTest, RejectsUnexpectedValueCount) {
     matrix_frc A;
     bool is_cs = false;
     EXPECT_FALSE(matrix_parser::parse_matrix_string("4#1,2,3", A, is_cs));
 }
 
-TEST(MatrixParserUnsafeTest, ParsesMaximumSearchDimensionWithoutValidation) {
+TEST(MatrixParserTest, RejectsTrailingComma) {
     matrix_frc A;
     bool is_cs = false;
-
-    const std::string payload = "63#" + join_ones(31);
-    matrix_parser::parse_matrix_string_unsafe(payload, A, is_cs);
-
-    EXPECT_TRUE(is_cs);
-    EXPECT_EQ(A.rows(), 63);
-    EXPECT_EQ(A.cols(), 63);
-    EXPECT_EQ(A(0, 0), fraction::zero());
-    EXPECT_EQ(A(0, 1), fraction::one());
-}
-
-TEST(MatrixParserUnsafeTest, FallsBackToSymmetricWhenCountNotCs) {
-    matrix_frc A;
-    bool is_cs = true;
-
-    matrix_parser::parse_matrix_string_unsafe("3#1,2,3,4,5,6", A, is_cs);
-
-    EXPECT_FALSE(is_cs);
-    EXPECT_EQ(A.rows(), 3);
-    EXPECT_EQ(A(0, 0), fraction::one());
-    EXPECT_EQ(A(1, 0), fraction::two());
-}
-
-TEST(MatrixParserUnsafeTest, ParsesValuesBeyondWindowsLongRange) {
-    matrix_frc A;
-    bool is_cs = true;
-
-    matrix_parser::parse_matrix_string_unsafe("2#2147483648/2147483649,0,1", A, is_cs);
-
-    EXPECT_FALSE(is_cs);
-    EXPECT_EQ(A(0, 0).to_string(), "2147483648/2147483649");
-    EXPECT_EQ(A(0, 1), fraction::zero());
-    EXPECT_EQ(A(1, 1), fraction::one());
+    EXPECT_FALSE(matrix_parser::parse_matrix_string("2#1,2,3,", A, is_cs));
 }

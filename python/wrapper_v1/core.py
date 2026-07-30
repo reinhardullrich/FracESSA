@@ -107,7 +107,9 @@ def _candidate_row(run_id: str, matrix_id: int, row: dict) -> CandidateRow:
         support_size=int(row.get("support_size", 0)),
         extended_support=int(row.get("extended_support", 0)),
         extended_support_size=int(row.get("extended_support_size", 0)),
-        shift_reference=int(row.get("shift_reference", 0)),
+        multiplier=(
+            int(row["multiplier"]) if row.get("multiplier") is not None else None
+        ),
         is_ess=bool(row.get("is_ess", False)),
         stability=str(row.get("stability", "")),
         payoff=str(row.get("payoff", "0")),
@@ -125,7 +127,6 @@ def compute_job(job: MatrixJob, config: RunConfig, run_id: str) -> MatrixResult:
         exact=config.exact,
         full_support=config.full_support,
         enable_logging=config.enable_logging,
-        unsafe=config.unsafe,
         matrix_id=int(job.matrix_id),
     )
 

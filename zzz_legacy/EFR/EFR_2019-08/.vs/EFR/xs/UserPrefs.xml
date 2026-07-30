@@ -1,0 +1,33 @@
+﻿<Properties StartupConfiguration="{71388346-5205-449E-B7A8-356EF7220F64}|Default">
+  <MonoDevelop.Ide.Workbench ActiveDocument="EFR/EssFinder.cs">
+    <Files>
+      <File FileName="EFR/FindNashRational.cs" Line="1" Column="1" />
+      <File FileName="EFR/Helper.cs" Line="1" Column="1" />
+      <File FileName="EFR/BitVector.cs" Line="63" Column="5" />
+      <File FileName="EFR/EFR.cs" Line="1" Column="1" />
+      <File FileName="EFR/VectorInformation.cs" Line="52" Column="30" />
+      <File FileName="EFR/MatrixBigRational.cs" Line="121" Column="31" />
+      <File FileName="EFR/EssFinderQueue.cs" Line="1" Column="1" />
+      <File FileName="EFR/FindNashDouble.cs" Line="1" Column="1" />
+      <File FileName="EFR/EssFinder.cs" Line="320" Column="41" />
+    </Files>
+    <Pads>
+      <Pad Id="ProjectPad">
+        <State name="__root__">
+          <Node name="EFR" expanded="True">
+            <Node name="EFR" expanded="True">
+              <Node name="EssFinder.cs" selected="True" />
+            </Node>
+          </Node>
+        </State>
+      </Pad>
+    </Pads>
+  </MonoDevelop.Ide.Workbench>
+  <MonoDevelop.Ide.DebuggingService.PinnedWatches />
+  <MonoDevelop.Ide.Workspace ActiveConfiguration="Release" />
+  <MonoDevelop.Ide.DebuggingService.Breakpoints>
+    <BreakpointStore />
+  </MonoDevelop.Ide.DebuggingService.Breakpoints>
+  <MultiItemStartupConfigurations />
+  <MonoDevelop.Ide.ItemProperties.EFR PreferredExecutionTarget="MonoDevelop.Default" />
+</Properties>

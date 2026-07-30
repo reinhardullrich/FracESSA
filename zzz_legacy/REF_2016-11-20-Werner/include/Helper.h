@@ -1,0 +1,45 @@
+#ifndef HELPER_H
+#define HELPER_H
+
+#include <sstream>
+#include <string>
+#include <vector>
+#include <bitset>
+
+#include "boost/multiprecision/cpp_int.hpp"
+//#include "boost/multiprecision/gmp.hpp"
+
+#ifdef _MSC_VER
+#define _CRT_SECURE_NO_WARNINGS
+#define _SCL_SECURE_NO_WARNINGS
+#endif
+
+enum class ReasonEss : int
+{
+    true_pure_ess=1,
+    true_posdef_double = 2,
+    true_posdef_rational=3,
+    true_copositive=4,
+    false_not_posdef_and_K_0_1 = 5,
+    false_not_partial_copositive = 6,
+    false_not_copositive=7
+};
+
+
+typedef boost::multiprecision::cpp_rational Rational;
+//typedef boost::multiprecision::gmp_rational Rational;
+//typedef mpq_rational Rational;
+//typedef number< rational_adaptor< cpp_int_backend< 255, 256, signed_magnitude, checked, void> > > Rational;
+
+
+std::vector<std::string> splitString(const std::string &s, char delim);
+size_t getSupportSize(uint64_t support);
+size_t getPositionOfLowestSetBit(uint64_t bitsetm);
+uint64_t smallestRepresentation(uint64_t bitsetm, size_t dimension);
+uint64_t shiftRight(uint64_t x, size_t dimension);
+
+
+
+
+
+#endif // HELPER_H
