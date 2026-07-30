@@ -33,11 +33,6 @@ mode and a rigorously one-sided default rejection procedure.
 ./cpp/build/fracessa "3#4,13/2,1/2,5,11/2,3"
 ```
 
-### 4. Batch Verification
-```bash
-./python.sh
-```
-
 ## Input Format
 Matrix input is:
 ```text
@@ -57,8 +52,8 @@ syntax. The 64-bit mask is storage, not support for a dimension-64 search.
 - `-e, --exact` disable floating-point candidate rejection and use exact solving.
 - `-u, --unsafe` select the faster heuristic rejection procedure.
 - `-f, --fullsupport` evaluate full support first.
-- `-t, --timing` print wall-clock timing.
-- `-m, --matrixid` optional matrix ID for logging/verification runs.
+- `-t, --timing` print analyzer timing in nanoseconds.
+- `-m, --matrixid` optional signed 64-bit matrix ID for logging/verification runs.
 
 `--exact` and `--unsafe` are mutually exclusive. With no numerical flag,
 FracESSA uses verified candidate search: it rejects a support only after proving a
@@ -70,14 +65,14 @@ the search and asks for an explicit `--exact` or `--unsafe` choice.
 
 Output format:
 - line 1: ESS count
-- optional line 2 (`-t`): runtime in seconds
+- optional line 2 (`-t`): runtime in nanoseconds
 - optional extra lines (`-c`): candidate CSV rows
 
 ## Build Dependencies
 - C++17 compiler
 - CMake >= 3.18
 - GMP, MPFR, FLINT
-- Python 3 with development headers (for the pybind module)
+- Python 3.14 or newer with development headers (for the pybind module)
 
 Notes:
 - Third-party C++ dependencies (`spdlog`, `argparse`, `googletest`, `pybind11`) are pulled by CMake `FetchContent`.
@@ -85,11 +80,12 @@ Notes:
 - Current Linux and macOS release binaries dynamically link GMP/MPFR/FLINT; they are not universal standalone binaries.
 
 ## Repository Layout
-- `cpp/`: core engine, tests, local build, and profiling tools
-- `python/`: automation, verification scripts, baseline generation
+- `cpp/`: core engine, tests, and local build
+- `python/`: maintained Python wrapper
+- `testdata/`: canonical SQLite test matrices and expected candidates
 - `aidocs/`: current project knowledge, open issues, wrapper docs, benchmark reports, and references
-- `experiments/`: reproducible benchmark code, metadata, and results
-- `.github/workflows/`: release/build automation
+- `experiments/`: historical benchmark code, metadata, and results
+- `.github/workflows/`: build/test CI and tagged-release automation
 
 ## Project Focus
 FracESSA is explicitly tuned for high-throughput ESS workflows where millions of support-level operations are common.

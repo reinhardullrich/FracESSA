@@ -6,8 +6,16 @@
 #include <stdexcept>
 #include <string>
 
+/*
+ * Core search orchestration.
+ *
+ * The constructor performs the full enumeration process. Supports are scanned
+ * by increasing size, and each support runs through candidate detection plus
+ * stability classification. Confirmed ESS supports trigger superset pruning.
+ */
+
 fracessa::fracessa(const linalg::matrix_frc& matrix, bool is_cs, bool with_candidates, bool exact,
-                   bool full_support, bool with_log, int matrix_id, bool unsafe)
+                   bool full_support, bool with_log, std::int64_t matrix_id, bool unsafe)
     : game_matrix_(matrix)
     , find_candidate_verified_(game_matrix_)
     , find_candidate_unsafe_(game_matrix_)
@@ -103,15 +111,7 @@ bool fracessa::analyze_support(bitset64 support, size_t support_size) {
     if (!conf_exact_) {
         if (conf_unsafe_) {
             if (!find_candidate_unsafe_.find(support, support_size)) return false;
-        } else if (!find_candidate_verified_.find(support, support_size)) {
-#ifdef FRACESSA_FIND_CANDIDATE_VERIFIED_ORACLE
-            if (find_candidate_exact_.find(support, support_size, candidate_)) {
-                throw std::logic_error(
-                    "Verified candidate search disagrees with exact arithmetic");
-            }
-#endif
-            return false;
-        }
+        } else if (!find_candidate_verified_.find(support, support_size)) return false;
     }
     if (!find_candidate_exact_.find(support, support_size, candidate_))
         return false;

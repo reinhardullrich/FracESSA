@@ -36,9 +36,7 @@ add_test(NAME IntegrationTests COMMAND test_integration)
 add_test(NAME FractionTests COMMAND test_fraction)
 add_test(NAME FindCandidateVerifiedTests COMMAND test_find_candidate_verified)
 
-# ------------------------------------------------------------------------------
-# Verification correctness tests (one CTest per matrix for parallel execution)
-# ------------------------------------------------------------------------------
+# CLI parser black-box test
 set(CLI_PARSER_BLACKBOX_SCRIPT "${CMAKE_CURRENT_SOURCE_DIR}/cli_parser_blackbox.py")
 add_test(
     NAME CliParserBlackBoxTests
@@ -46,50 +44,3 @@ add_test(
         --fracessa-exe $<TARGET_FILE:fracessa>
 )
 set_tests_properties(CliParserBlackBoxTests PROPERTIES LABELS "cli;parser")
-
-set(VERIFICATION_DIR "${CMAKE_CURRENT_SOURCE_DIR}/../../python/verification")
-set(MATRIX_SELECTOR_SCRIPT "${VERIFICATION_DIR}/matrix_selection.py")
-set(VERIFY_MATRIX_SCRIPT "${VERIFICATION_DIR}/ctest_verify_matrix.py")
-
-execute_process(
-    COMMAND ${Python3_EXECUTABLE} ${MATRIX_SELECTOR_SCRIPT} --list-tests --verification-dir ${VERIFICATION_DIR}
-    RESULT_VARIABLE MATRIX_LIST_RC
-    OUTPUT_VARIABLE MATRIX_LIST_OUT
-    ERROR_VARIABLE MATRIX_LIST_ERR
-    OUTPUT_STRIP_TRAILING_WHITESPACE
-)
-
-if(NOT MATRIX_LIST_RC EQUAL 0)
-    message(FATAL_ERROR "Failed to get verification matrix list: ${MATRIX_LIST_ERR}")
-endif()
-
-string(REPLACE "\n" ";" MATRIX_LIST_LINES "${MATRIX_LIST_OUT}")
-foreach(matrix_line IN LISTS MATRIX_LIST_LINES)
-    if(matrix_line STREQUAL "")
-        continue()
-    endif()
-
-    string(REPLACE "," ";" matrix_parts "${matrix_line}")
-    list(LENGTH matrix_parts matrix_parts_len)
-    if(NOT matrix_parts_len EQUAL 2)
-        message(FATAL_ERROR "Malformed matrix selection line: ${matrix_line}")
-    endif()
-
-    list(GET matrix_parts 0 matrix_id)
-    list(GET matrix_parts 1 matrix_is_fast)
-
-    set(verification_test_name "VerificationMatrix_${matrix_id}")
-    add_test(
-        NAME ${verification_test_name}
-        COMMAND ${Python3_EXECUTABLE} ${VERIFY_MATRIX_SCRIPT}
-            --matrix-id ${matrix_id}
-            --verification-dir ${VERIFICATION_DIR}
-            --fracessa-exe $<TARGET_FILE:fracessa>
-    )
-
-    if(matrix_is_fast STREQUAL "1")
-        set_tests_properties(${verification_test_name} PROPERTIES LABELS "verification;verification_fast")
-    else()
-        set_tests_properties(${verification_test_name} PROPERTIES LABELS "verification;verification_full_only")
-    endif()
-endforeach()

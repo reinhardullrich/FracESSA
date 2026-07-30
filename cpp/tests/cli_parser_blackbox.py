@@ -9,8 +9,9 @@ unit tests on matrix_parser internals.
 from __future__ import annotations
 
 import argparse
-import json
+from contextlib import closing
 import re
+import sqlite3
 import subprocess
 import sys
 from pathlib import Path
@@ -108,10 +109,12 @@ def main() -> int:
         print(f"[ERROR] missing executable: {fracessa_exe}")
         return 1
 
-    verification_file = Path(__file__).resolve().parents[2] / "python/verification/verification_matrices.json"
-    with verification_file.open("r", encoding="utf-8") as fh:
-        matrix_46 = next(matrix for matrix in json.load(fh)["matrices"] if matrix["id"] == 46)
-    unsafe_counterexample = f"{matrix_46['dimension']}#{matrix_46['matrix']}"
+    database = Path(__file__).resolve().parents[2] / "testdata/fracessa_testdata.sqlite3"
+    with closing(sqlite3.connect(database)) as connection:
+        dimension, values = connection.execute(
+            "SELECT dimension, matrix FROM matrices WHERE matrix_id = 46"
+        ).fetchone()
+    unsafe_counterexample = f"{dimension}#{values}"
 
     # Matrix 46 has one ESS under verified/exact analysis, but unsafe search misses it.
     default_result = assert_success_with_ess_output(
@@ -135,6 +138,13 @@ def main() -> int:
     if "unsafe numerical mode" in exact_result.stderr.lower():
         raise AssertionError("exact mode unexpectedly printed the unsafe warning")
 
+    assert_failure_with_stderr(
+        fracessa_exe,
+        ["--exact", "--unsafe", "2#0,1,0"],
+        "cannot be used together",
+        "exact_unsafe_conflict",
+    )
+
     # Affine normalization restores the exact result for both historical cases.
     for case_name, matrix in (
         ("normalized_scale", "2#0,1/100000000000000000000,0"),
@@ -146,14 +156,12 @@ def main() -> int:
 
     # Other success paths
     assert_success_with_ess_output(fracessa_exe, ["5#1,3"], "circular_success")
-    assert_candidate_header_matches_rows(fracessa_exe)
-
-    assert_failure_with_stderr(
+    assert_success_with_ess_output(
         fracessa_exe,
-        ["--exact", "--unsafe", "2#0,1,0"],
-        "cannot be used together",
-        "exact_unsafe_conflict",
+        ["--matrixid", "9223372036854775807", "2#0,1,0"],
+        "signed_64_bit_matrix_id",
     )
+    assert_candidate_header_matches_rows(fracessa_exe)
 
     # Parser failure paths
     assert_failure_with_stderr(
@@ -165,7 +173,7 @@ def main() -> int:
     assert_failure_with_stderr(
         fracessa_exe,
         ["2#0#1"],
-        "Invalid character",
+        "Multiple '#'",
         "multiple_hash_rejected",
     )
     assert_failure_with_stderr(

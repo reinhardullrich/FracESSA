@@ -398,13 +398,9 @@ The focused test must call the actual strict production helpers and cover:
 - strict and boundary support-probability decisions;
 - strict and boundary outside-gain decisions;
 - exact affine transformations and constant-matrix fallback;
-- deterministic exact-oracle cases that must never be falsely rejected.
+- deterministic regression cases that must never be falsely rejected.
 
 ### End-to-end correctness
-
-Build with `FRACESSA_FIND_CANDIDATE_VERIFIED_ORACLE=ON`. Every false result from
-verified search is then cross-checked with the exact candidate solver and must
-fail immediately on any disagreement. The option compiles out of normal builds.
 
 Run:
 
@@ -416,8 +412,8 @@ all verification-matrix correctness tests
 ASan/UBSan core and CLI checks
 ```
 
-Do not run verification matrix 33 or 34 with `--exact` or the exact-rejection
-oracle without Reinhard's separate approval for that run.
+Do not run verification matrix 33 or 34 with `--exact` without Reinhard's
+separate approval for that run.
 
 ### Strict-build inspection
 
@@ -439,15 +435,14 @@ instrumentation requires a separate measured reason and separate approval.
 
 The implementation is acceptable only when:
 
-1. No exact candidate is ever rejected by the oracle build.
-2. All included verification matrices match their exact candidate baselines.
-3. `--exact` does not initialize or allocate `find_candidate_verified` state.
-4. The normal support path performs no per-support heap allocation except the
+1. All included verification matrices match their exact candidate baselines.
+2. `--exact` does not initialize or allocate `find_candidate_verified` state.
+3. The normal support path performs no per-support heap allocation except the
    existing scratch resize when support size changes.
-5. No-flag behavior becomes Choice 1, explicit unsafe remains available, and
+4. No-flag behavior becomes Choice 1, explicit unsafe remains available, and
    exact, parser, result, and output-schema behavior otherwise remain unchanged.
-6. The strict proof source remains isolated from fast-math, contraction, and IPO.
-7. The final source diff contains only the approved files and documented code.
+5. The strict proof source remains isolated from fast-math, contraction, and IPO.
+6. The final source diff contains only the approved files and documented code.
 
 ## Regression Data
 
@@ -458,10 +453,9 @@ The active verification data includes IDs 45-47:
 - ID 47 reaches residual construction but fails the Choice 1 LU proof and
   requires exact fallback.
 
-Their rows live in `python/verification/verification_matrices.json`,
-`python/verification/baseline_candidates.csv`, and
-`python/verification/baseline_result.json`. The candidate CSV retains the exact
-candidates; the result JSON remains the historical unsafe-speed baseline.
+Their matrices, expected counts, and exact candidate rows live in the
+`matrices` and `candidates` tables of
+`testdata/fracessa_testdata.sqlite3`.
 
 ## Implementation Record
 
@@ -478,11 +472,10 @@ solver rewrite, support-generator change, or parser change was added.
   floating-point contraction, or IPO/LTO. One centralized build/runtime check
   refuses unavailable default mode before enumeration; exact and unsafe remain
   explicit alternatives.
-- Verification IDs 45-47 are active, and their exact candidate rows are in the
-  maintained JSON/CSV baselines.
-- Release passed 11/11 core/CLI tests, 26/26 wrapper tests, and all 55 matrix
-  checks. The verified-search oracle passed the 53 permitted matrices with IDs
-  33-34 excluded. ASan/UBSan passed all core/CLI tests and IDs 45-47.
+- Verification IDs 45-47 are active in the maintained SQLite database.
+- Release passed 11/11 core/CLI tests and 53/53 wrapper tests. A complete
+  verified-mode sweep matched all 88 stored ESS counts, and ASan/UBSan passed
+  all 11 core/CLI tests.
 - On the historical pinned-CPU persistent-process set (IDs 1-33 and 35), summed
   bounded-error medians were 2,108.563 ms. This is 10.03x faster than the saved
   pre-generator Choice 1 run and 81.25x faster than the saved full-exact run;

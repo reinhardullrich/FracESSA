@@ -1,15 +1,26 @@
 # FracESSA Test Data
 
-`fracessa_testdata.sqlite3` stores verification matrices and their complete
-candidate baselines. It is an initial migration snapshot; the existing Python
-verification files remain active until their consumers are deliberately
-switched to this database.
+`fracessa_testdata.sqlite3` is the canonical store for test matrices and their
+complete expected candidate results.
 
-The current snapshot contains 63 matrices and 29,114 stored candidate
-representatives. Their multipliers represent 65,962 candidates and 63,369 ESS.
-The first 52 matrices mirror the active verification files. IDs 56-66 are
-staged complete-multipartite many-ESS benchmark matrices and are not active
-CTest fixtures yet.
+The current snapshot contains 88 matrices and 49,158 stored candidate
+representatives. Their multipliers represent 86,153 candidates and 83,378 ESS.
+It contains each distinct matrix from Tables 1 and 2 of the
+Bomze-Schachinger-Ullrich ESS-growth paper exactly once. IDs 18 and 26 hold the
+exact published Table 1 matrices that replaced same-property alternatives;
+IDs 80-90 hold the previously missing Table 2 base and constructed matrices.
+Redundant alternatives formerly at IDs 12 and 21 were removed. IDs 56-66 are
+staged complete-multipartite many-ESS benchmark matrices. IDs 67-79 are
+deterministic random-integer coverage matrices; together with the existing rows,
+every dimension from 2 through 25 has at least one circular and one non-circular
+matrix. IDs 45-47 preserve the unsafe-filter, LU-boundary, and failed-proof
+verified-search regressions. No complete SQLite matrix suite is currently wired
+into CTest.
+
+The timing table contains one complete current-build Pybind session for the 85
+matrices present before IDs 45-47 were restored: both unsafe and exact modes,
+for 170 adaptive measurements with no ESS-count mismatch. The three restored
+regressions have no observations in that historical session.
 
 ## Tables
 
@@ -51,14 +62,37 @@ the primary key, and a support may occur only once for a matrix.
 Fixed facts already represented by columns, including size, circular symmetry,
 counts, and support-size structures, are not duplicated in `tags`.
 
+### `timings`
+
+Each row is one sequential analyzer timing measurement for one matrix. A
+session may contain several builds, but each build is measured by a separate
+runner invocation. Rows record the machine and pinned CPU, human build label,
+moving source reference such as `main`, immutable revision, binary SHA-256,
+Pybind or CLI backend, numerical mode, target and measured wall durations,
+iteration count, average native duration in nanoseconds, observed ESS count,
+and an optional comment.
+
+The observed count remains separate from the expected count in `matrices`, so a
+report can expose unsafe-mode mismatches without hiding or rejecting their
+timings. The report derives the Bomze-Schachinger-Ullrich exponential-growth
+lower bound `expected_ess ** (1 / dimension)` and prints it with dimension and
+circularity; this value is not stored in the database. Old CLI builds simply
+have no `safe` rows.
+
 ## Scope
 
-Benchmark runs are intentionally not represented yet. Their environment and
-result schema will be decided separately, because timing is an observation tied
-to a machine and binary rather than a property of a matrix.
+`python -m fracessa.timing` reads matrices from this database and writes timing
+observations back to `timings`. It is deliberately a sequential, Linux
+CPU-affinity runner, not part of the multiprocessing wrapper. One pilot at or
+above the target is the complete measurement. Faster cases use the pilot as a
+warmup and choose enough measured iterations for about the requested wall
+duration, one second by default; the stored result is their average native
+duration. The tool supports the current Pybind timer and legacy CLI timers whose
+output unit is supplied on the command line. No active matrix-verification
+runner is wired into CTest yet.
 
 The schema is defined in `schema.sql`. The C++ runtime does not read this
-database; verification tooling can use Python's standard `sqlite3` module.
+database; the timing tool uses Python's standard `sqlite3` module.
 
 ## Integrity
 

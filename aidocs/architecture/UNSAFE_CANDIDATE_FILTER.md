@@ -269,18 +269,18 @@ The implementation is limited to these source files.
 | `cpp/tests/test_linear_solver.cpp` | Remove only tests for the deleted double solver. |
 | `cpp/tests/cli_parser_blackbox.py` | Verify parser routing, numerical routing, warning text, normalization cases, and incompatible CLI options. |
 
-### Python Wrapper
+### PyFracESSA
 
 | File | Minimal change |
 | --- | --- |
-| `python/wrapper_v1/types.py` | Expose no parser selector in `RunConfig`. |
-| `python/wrapper_v1/core.py` | Call pybind without a parser selector. |
-| `python/wrapper_v1/tests/test_core_unit.py` | Assert no parser selector reaches pybind. |
+| `python/fracessa/types.py` | Expose no parser selector in `RunConfig`. |
+| `python/fracessa/core.py` | Call pybind without a parser selector. |
+| `python/fracessa/tests/test_core_unit.py` | Assert no parser selector reaches pybind. |
 
 ### Documentation
 
 Update `README.md`, `aidocs/KNOWLEDGE.md`, `aidocs/INDEX.md`, this architecture
-document, `aidocs/python-wrapper/README.md`, `aidocs/reviews/CPP_REVIEW.md`, and
+document, `aidocs/pyfracessa/README.md`, `aidocs/reviews/CPP_REVIEW.md`, and
 `aidocs/CHANGES.md` in the implementation task. Keep the P0 review finding open
 but replace its obsolete IDs 38-39 evidence with the preserved unsafe
 counterexamples; this phase improves an explicitly unsafe mode and does not
@@ -302,7 +302,7 @@ renewed source approval before editing it.
 - `conf_unsafe_`, a numerical pybind/Python `unsafe` boolean, or a new core
   constructor parameter.
 - A candidate-rejector-double source file, strict floating-point object target, MPFR
-  proof arithmetic, or exact-rejection oracle.
+  proof arithmetic.
 - Claiming that the danger veto proves rejection.
 - Per-support heap allocation, diagnostics, counters, or logging.
 - Per-support normalization-state or availability checks.
@@ -348,10 +348,6 @@ renewed source approval before editing it.
 6. The focused MatrixServer test must prove that a nonzero normalized rational
    converting to zero or a subnormal double makes initialization return false.
 7. Run normal C++, CLI, wrapper, matrix, and ASan/UBSan coverage.
-
-Do not add an exact-after-rejection oracle or CMake option in this phase. The
-known negative controls already prove that this heuristic cannot satisfy such
-an oracle; the rigorous oracle belongs to the later Choice 1 phase.
 
 ### Performance
 

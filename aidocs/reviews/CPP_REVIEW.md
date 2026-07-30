@@ -1,6 +1,6 @@
 # C++ Review
 
-Last verified: 2026-07-30
+Last verified: 2026-07-31
 
 Scope: active C++ analyzer core, CLI, shared parser, CMake, C++/CTest coverage,
 and the release workflow. The native Python binding is reviewed separately in
@@ -67,17 +67,6 @@ principal submatrix at `cpp/include/linalg/copositive_fraction.hpp:160`.
 Required outcome: generate fixed-cardinality masks on demand and stop at the
 first failure. Benchmark any destructive or move-based LU variant separately.
 
-### P2: CLI elapsed time uses a non-monotonic clock
-
-The CLI measures analyzer duration with `std::chrono::high_resolution_clock` at
-`cpp/src/main.cpp:56` and `cpp/src/main.cpp:58`. The C++ standard does not require
-that clock to be steady; on the current libstdc++ build it aliases a clock with
-`is_steady == false`. A wall-clock correction can therefore distort or even
-reverse an elapsed interval used for speed baselines.
-
-Required outcome: use `std::chrono::steady_clock` for elapsed CLI timing. This is
-a direct standard-library replacement with no new mechanism.
-
 ## Test Coverage
 
 ### P2: Two proof-critical exact branches lack focused regressions
@@ -99,15 +88,6 @@ Required outcome: add the nonsingular matrix `[[1,1,0],[1,1,1],[0,1,1]]` as a
 cover the branches directly.
 
 ## Build And Release
-
-### P1: CI runs only for release tags
-
-`.github/workflows/release.yml:3` has only a `v*` tag trigger. Pull requests and
-ordinary pushes to `main` can therefore merge correctness failures without any
-GitHub build or test signal.
-
-Required outcome: run build plus fast tests on pushes and pull requests; keep
-artifact publication restricted to release tags.
 
 ### P2: C++ tests cannot be disabled
 
@@ -144,25 +124,23 @@ Linux and macOS artifacts as portable standalone executables.
 
 ## Current Validation State
 
-- Current local Release build: successful.
-- Core/CLI CTests: 11/11 passed.
-- Wrapper tests: 26/26 passed.
-- Full matrix CTests: 55/55 passed, including verified-search IDs 45-47.
+- The combined Release build passed all 11 C++/CLI tests, and a complete
+  verified-mode sweep matched the stored ESS count for all 88 SQLite matrices.
+- Wrapper tests: see `PYBIND_REVIEW.md` and `PYTHON_REVIEW.md`.
 - The single parser preserves 18-digit direct values and arbitrary-precision
-  values, and the former signed-overflow input passes ASan/UBSan exactly.
-- The verified-search oracle passed all 53 permitted matrices; IDs 33-34 were
-  excluded from that oracle run as required. ASan/UBSan passed all 11 core/CLI
-  tests and focused verification IDs 45-47.
-- The current standard library reports `high_resolution_clock::is_steady ==
-  false` and `steady_clock::is_steady == true`.
+  values, rejects dimensions outside 1-63, and reports failures through
+  `std::invalid_argument`.
 - Production DFS/FKM generators retain no complete support frontier or
   cardinality layer. An independent order-insensitive comparison matched all
-  mathematical candidate rows and ESS results across the original 52-matrix
-  generator suite; the current 55-matrix suite also passes.
+  mathematical candidate rows and ESS results across the former 52-matrix
+  verification corpus.
+- The canonical SQLite snapshot stores 49,158 candidate representatives whose
+  multipliers recover 86,153 candidates and 83,378 ESS across 88 matrices.
 - A fixed-seed audit generated 20,000 exact 4-by-4 integer matrices; all 19,890
   nonsingular cases satisfied `A * inverse(A) == I` exactly.
-- The most recent full sanitizer suite passed its existing tests.
-- The fast timing sweep completed all 53 selected matrices successfully after
-  the candidate-search class split.
-- The three-class candidate-search refactor is uncommitted on `certified-filter`;
-  no GitHub Actions run exists for this diff.
+- ASan/UBSan passed all 11 C++/CLI tests on the combined tree.
+- Ordinary pushes and pull requests run the same three-platform build and fast
+  test matrix as tags; artifact packaging and publication remain tag-only.
+- One wrapper integration regression exercises database ID 46 through verified
+  and unsafe modes; no complete SQLite matrix-verification runner is wired into
+  CTest or CI.

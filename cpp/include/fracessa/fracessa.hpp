@@ -1,6 +1,7 @@
 #ifndef FRACESSA_HPP
 #define FRACESSA_HPP
 
+#include <cstdint>
 #include <vector>
 #include <memory>
 #include <optional>
@@ -31,7 +32,7 @@
 class fracessa
 {
 public:
-    fracessa(const linalg::matrix_frc& matrix, bool is_cs, bool with_candidates = false, bool exact = false, bool full_support = false, bool with_log = false, int matrix_id = -1, bool unsafe = false);
+    fracessa(const linalg::matrix_frc& matrix, bool is_cs, bool with_candidates = false, bool exact = false, bool full_support = false, bool with_log = false, std::int64_t matrix_id = -1, bool unsafe = false);
     fracessa(const fracessa&) = delete;
     fracessa& operator=(const fracessa&) = delete;
     fracessa(fracessa&&) = delete;

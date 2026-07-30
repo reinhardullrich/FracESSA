@@ -27,7 +27,7 @@ Makefile
 *.dll
 *.lib
 
-# Python environments, caches, and generated benchmark output
+# Python environments and caches
 __pycache__/
 *.py[cod]
 *.pyd
@@ -40,14 +40,10 @@ __pycache__/
 .mypy_cache/
 .pytest_cache/
 .hypothesis/
-/python/results/
 
-# Logs and profiling output
+# Logs
 *.log
 /cpp/log/
-/cpp/callgrind/callgrind.out.*
-/cpp/callgrind/callgrind_reports/
-/cpp/callgrind/gprof_reports/
 
 # Generated experiment copies; keep scripts, reports, metadata, and results
 /experiments/**/builds/
