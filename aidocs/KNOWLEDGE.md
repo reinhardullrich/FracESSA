@@ -49,8 +49,10 @@ Generated or local-only paths include `cpp/build*/` and experiment `builds/`,
 `sources/`, and `logs/` directories.
 `archive/callgrind/` preserves the four former JSON-fed profiling scripts
 unchanged for reference. They are not active tooling and do not run against the
-current SQLite matrix store without adaptation. Generated `callgrind.out.*`
-profiles remain local and ignored.
+current SQLite matrix store without adaptation. The tracked
+`cpp/callgrind/callgrind.out.1` through `.35` files are historical Callgrind
+3.15.0 profiles from the former x86-64 Linux build; newly generated
+`callgrind.out.*` files remain ignored unless added deliberately.
 `zzz_legacy/` is the tracked collection of preserved REF/EFR predecessors.
 Its six top-level folders are `EFR`, `REF_2016-10-06`, `REF_2016-11-16`,
 `REF_2016-11-20-Werner`, `REF_2019-09-20`, and `REF_R`. They are preserved historical
