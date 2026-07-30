@@ -1,12 +1,15 @@
-name: Release Fracessa
+name: Build and Release Fracessa
 
 on:
   push:
+    branches:
+      - '**'
     tags:
       - 'v*'
+  pull_request:
 
 permissions:
-  contents: write
+  contents: read
 
 jobs:
   build:
@@ -23,7 +26,10 @@ jobs:
     - name: Set up Python
       uses: actions/setup-python@v6
       with:
-        python-version: '3.12'
+        python-version: '3.14'
+
+    - name: Install Python test dependencies
+      run: python -m pip install pyarrow
 
     # --- CACHE VCPKG (Windows Only) ---
     - name: Restore vcpkg cache
@@ -88,42 +94,33 @@ jobs:
       run: cmake --build cpp/build --config Release -j 4
 
     # --- TEST ---
-    - name: Test core, wrapper, and fast verification suite
+    - name: Test core and wrapper suites
       shell: bash
       run: |
-        ctest --test-dir cpp/build --build-config Release --output-on-failure -j 4 -E "^VerificationMatrix_"
+        ctest --test-dir cpp/build --build-config Release --output-on-failure -j 4
         PYTHONPATH=python python -m unittest discover -s python/wrapper_v1/tests -p "test_*.py"
-
-        FAST_IDS_RAW="$(python python/verification/matrix_selection.py --fast-ids --verification-dir python/verification)"
-        if [[ -z "${FAST_IDS_RAW// }" ]]; then
-          echo "No fast verification matrices selected." >&2
-          exit 1
-        fi
-
-        read -r -a FAST_IDS <<< "${FAST_IDS_RAW}"
-        FAST_REGEX="$(IFS='|'; echo "${FAST_IDS[*]}")"
-        ctest --test-dir cpp/build --build-config Release --output-on-failure -j 4 -R "^VerificationMatrix_(${FAST_REGEX})$"
 
     # --- STRIP BINARIES ---
     - name: Strip Binary (Linux/Mac)
-      if: runner.os != 'Windows'
+      if: startsWith(github.ref, 'refs/tags/v') && runner.os != 'Windows'
       run: strip cpp/build/fracessa
 
     # --- PREPARE ARTIFACTS ---
     - name: Rename Binary (Linux)
-      if: runner.os == 'Linux'
+      if: startsWith(github.ref, 'refs/tags/v') && runner.os == 'Linux'
       run: mv cpp/build/fracessa fracessa-linux
 
     - name: Rename Binary (macOS)
-      if: runner.os == 'macOS'
+      if: startsWith(github.ref, 'refs/tags/v') && runner.os == 'macOS'
       run: mv cpp/build/fracessa fracessa-macos
 
     - name: Rename Binary (Windows)
-      if: runner.os == 'Windows'
+      if: startsWith(github.ref, 'refs/tags/v') && runner.os == 'Windows'
       run: mv cpp/build/Release/fracessa.exe fracessa-windows.exe
 
     # --- UPLOAD TO STAGING ---
     - name: Upload Artifact
+      if: startsWith(github.ref, 'refs/tags/v')
       uses: actions/upload-artifact@v7
       with:
         name: binary-${{ matrix.os }}
@@ -132,8 +129,11 @@ jobs:
 
   # --- PUBLISH RELEASE ---
   publish:
+    if: startsWith(github.ref, 'refs/tags/v')
     needs: build
     runs-on: ubuntu-latest
+    permissions:
+      contents: write
 
     steps:
     - name: Download All Artifacts

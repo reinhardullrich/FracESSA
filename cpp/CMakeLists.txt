@@ -55,14 +55,14 @@ FetchContent_Declare(googletest
 )
 FetchContent_Declare(pybind11
     GIT_REPOSITORY https://github.com/pybind/pybind11.git
-    GIT_TAG v2.13.6
+    GIT_TAG v3.0.4
 )
 
 # Use the same `python3` selected by project scripts unless explicitly overridden.
 if(NOT Python3_EXECUTABLE)
     find_program(Python3_EXECUTABLE NAMES python3 python REQUIRED)
 endif()
-find_package(Python3 COMPONENTS Interpreter Development.Module REQUIRED)
+find_package(Python3 3.14 COMPONENTS Interpreter Development.Module REQUIRED)
 set(PYBIND11_FINDPYTHON ON CACHE BOOL "Use CMake FindPython for pybind11" FORCE)
 
 # MSVC-specific settings for FetchContent

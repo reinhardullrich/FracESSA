@@ -1,10 +1,12 @@
 # Python Wrapper
 
 The maintained Python API calls the native `fracessa_core` pybind module
-in-process. It does not use the legacy subprocess wrapper
-`python/fracessa_py.py`.
+in-process.
 
 ## Build And Import
+
+Python 3.14 or newer is required. The native module is built for the selected
+interpreter and must be imported by that same Python minor version.
 
 From repository root:
 
@@ -21,11 +23,24 @@ PYTHONPATH=python python3 your_script.py
 ```text
 MatrixJob(matrix_id: int, matrix: str, metadata: dict | None = None)
 RunConfig(exact=False, full_support=False, include_candidates=False,
-          include_timing=True, enable_logging=False)
-MPConfig(workers: int, chunk_size=128, queue_maxsize=4096,
-         ordered_results=True, start_method="spawn")
-MatrixResult(summary: SummaryRow, candidates: list[CandidateRow], metadata)
+          enable_logging=False)
+MPConfig(workers: int, prefetch_per_worker=128, queue_maxsize=4096,
+         start_method="spawn")
 ```
+
+`MatrixJob` validates its public contract immediately: `matrix_id` must be a
+built-in Python integer in the signed 64-bit range (booleans are rejected),
+`matrix` must be a string, and `metadata` must be a dictionary or `None`.
+
+Every computation returns one plain dictionary with `run_id`, `matrix_id`,
+`status`, `success`, `ess_count`, `elapsed_ns`, `candidate_count`,
+`error_message`, `candidates`, and `metadata`. `candidates` is a list of plain
+dictionaries; there are no result-row classes or conversion step.
+
+Each candidate dictionary has a nullable `multiplier`: circular matrices return
+one bracelet representative with its orbit count, while ordinary candidates use
+`None`. `candidate_count` counts returned representatives; `ess_count` remains
+the weighted mathematical total.
 
 A matrix may use full CLI form (`"3#4,13/2,..."`) or values only when
 `metadata["dimension"]` is present.
@@ -35,9 +50,8 @@ exact candidates and ESS results, although suspicious or unusable floating
 cases fall back to exact arithmetic. Use `exact=True` when that risk is not
 acceptable. Matrix input always uses the validating native parser.
 
-`include_timing=False` suppresses the returned timing value; the native call
-still measures its execution internally. There is deliberately no computation
-timeout.
+`elapsed_ns` is always the native analyzer duration measured with a monotonic
+clock. There is deliberately no computation timeout.
 
 Status codes:
 
@@ -45,10 +59,12 @@ Status codes:
 |---:|---|
 | 0 | `OK` |
 | 1 | `PARSE_ERROR` |
-| 2 | `DIMENSION_OUT_OF_RANGE` |
-| 3 | `INVALID_VALUE_COUNT` |
 | 4 | `EXEC_ERROR` |
 | 255 | `INTERNAL_ERROR` |
+
+Every rejected safe-parser input returns `PARSE_ERROR` with the parser's
+detailed diagnostic in `error_message`. The parser throws
+`std::invalid_argument`; Pybind catches it and does not write to `stderr`.
 
 ## Sequential API
 
@@ -57,20 +73,19 @@ from wrapper_v1 import MatrixJob, RunConfig, run_one
 
 job = MatrixJob(3, "3#4,13/2,1/2,5,11/2,3")
 result = run_one(job, RunConfig(include_candidates=True), run_id="example")
-print(result.summary.ess_count)
+print(result["ess_count"])
 ```
 
 Native and adapter helpers:
 
 - `load_native_module()` loads `fracessa_core`.
-- `compute_job(job, config, run_id) -> MatrixResult` calls the native module.
+- `compute_job(job, config, run_id) -> dict` calls the native module.
 - `native_status_map()` returns native status constants.
-- `result_to_dict(result)` converts dataclass output to plain dictionaries.
 
 Public sequential functions:
 
-- `run_one(job, config=None, run_id=None) -> MatrixResult`
-- `run_many(jobs, config=None, run_id=None) -> Iterator[MatrixResult]`
+- `run_one(job, config=None, run_id=None) -> dict`
+- `run_many(jobs, config=None, run_id=None) -> Iterator[dict]`
 - `run_many_to_sink(jobs, sink, config=None, run_id=None) -> int`
 
 ## Multiprocessing Batch API
@@ -81,20 +96,23 @@ computes one matrix at a time; parallelism is across matrices.
 ```python
 from wrapper_v1 import (
     MPConfig,
+    MatrixJob,
     RunConfig,
-    load_jobs_from_verification_json,
     run_jobs_mp,
 )
 
-jobs = load_jobs_from_verification_json(
-    "python/verification/verification_matrices.json"
-)
-for result in run_jobs_mp(
-    jobs,
-    RunConfig(include_candidates=False),
-    MPConfig(workers=8, ordered_results=False),
-):
-    print(result.summary.matrix_id, result.summary.ess_count)
+jobs = [
+    MatrixJob(1, "2#0,1,0"),
+    MatrixJob(2, "3#4,13/2,1/2,5,11/2,3"),
+]
+
+if __name__ == "__main__":
+    for result in run_jobs_mp(
+        jobs,
+        RunConfig(include_candidates=False),
+        MPConfig(workers=8),
+    ):
+        print(result["matrix_id"], result["ess_count"])
 ```
 
 Public batch functions:
@@ -103,38 +121,67 @@ Public batch functions:
 - `run_jobs_mp_to_sink(jobs, sink, run_config, mp_config, run_id=None)`
 
 Submission is bounded to
-`min(queue_maxsize, workers * chunk_size)` outstanding jobs. `chunk_size`
-controls this window; it does not currently combine jobs into one IPC message.
-Set `ordered_results=False` to consume results as workers finish.
+`min(queue_maxsize, workers * prefetch_per_worker)` outstanding jobs. The
+parent puts one matrix at a time onto one shared job queue, every worker takes
+from that queue, and all workers return dictionaries through one shared result
+queue. Results are yielded as workers finish; there is no ordered mode or IPC
+batching. Jobs are serialized before submission, worker exits are detected
+while waiting, and closing the iterator early cancels its workers. The queue
+runner is internal; `run_jobs_mp()` is the public generated-input API.
 
-## Low-Level Queue API
+Native logging is sequential-only. Passing `RunConfig(enable_logging=True)` to
+`run_jobs_mp()` or `run_jobs_mp_to_sink()` raises `ValueError` before any worker
+is created because independent processes cannot safely rotate the shared native
+log file. Direct logging-enabled calls from Python threads are serialized by the
+native binding; non-logging calls remain concurrent.
 
-`MPQueueRunner` exposes `submit()`, `close_input()`, `iter_results()`, and
-`shutdown()` for generated input. It is not yet safe for a single thread to
-submit an unbounded stream before consuming results: bounded input/output queues
-can deadlock, dead workers are not detected while waiting, and shutdown can
-terminate legitimate long-running work. See `../reviews/PYTHON_REVIEW.md`.
+The `if __name__ == "__main__":` guard is required in scripts when using the
+default `spawn` start method.
 
-Until that is fixed, prefer `run_jobs_mp()` for generated iterables. It already
-interleaves bounded submission and result consumption.
+## Input Loader
 
-## Input Loaders
-
-- `load_jobs_from_verification_json(path)` loads the project verification schema.
 - `load_jobs_from_json(path, ...)` accepts either a top-level list or
   `{"matrices": [...]}`.
 
-Rows without a `dimension#` matrix prefix must provide a dimension field.
+Top-level objects must contain the configured matrix key, its value must be a
+list, and every row must be an object. Malformed schemas raise `ValueError`.
+
+Rows without a `dimension#` matrix prefix must provide a built-in integer
+dimension field. The loader rejects floats, booleans, and strings for integer
+fields and rejects non-string matrix values instead of coercing them.
 
 ## Output Sinks
 
-- `StreamSink`: one compact JSON object per line.
-- `CsvSink`: summary and candidate CSV files.
-- `JsonSink`: summary and candidate JSON arrays.
-- `ArrowSink`: Arrow IPC files; requires `pyarrow`.
-- `ParquetSink`: Parquet files; requires `pyarrow`.
-- `MultiSink`: fan-out to several sinks.
+- `CsvSink`: summary and candidate CSV files plus metadata JSON.
+- `JsonSink`: summary, candidate, and metadata JSON arrays.
+- `ParquetSink`: Parquet summary/candidate files plus metadata JSON; requires
+  `pyarrow`.
 - `create_sink(kind, output_dir, run_id)`: constructs a named sink.
+
+Every file sink accepts `(summary_path, candidates_path, metadata_path=None)`.
+When omitted for direct construction, the metadata path defaults to
+`<summary_path>.metadata.json`. `create_sink()` instead uses format-specific
+names such as `<run_id>_csv_metadata.json` so each output is unambiguous.
+
+Metadata sidecars contain streamed rows of `run_id`, `matrix_id`, and the
+original per-matrix metadata dictionary. Results with `metadata=None` add no
+metadata row. All three paths are created exclusively; if any exists,
+construction raises `FileExistsError` without overwriting it.
+
+Every JSON file is standards-compliant. Non-finite floating-point approximations
+(`NaN` or positive/negative infinity) are written as JSON `null`; unsupported
+metadata values still raise and trigger the normal triplet rollback.
+
+Construction and consumption retain one rollback stack for the complete run. If
+initialization, computation, writing, or finalization raises, the result
+iterator and sink resources are closed, only paths created by that attempt are
+removed, and the original error is re-raised. Cleanup errors do not replace the
+active error, and the same run ID can then be retried.
+
+Empty outputs retain readable stable schemas. Parquet aggregates up to 1,024
+result or candidate rows before writing a row group and flushes the final
+partial group during `close()`. Closing a sink attempts every underlying
+finalization and propagates the first failure.
 
 For large runs, consume the result iterator continuously or use a sink so
 results do not accumulate in memory. Disable candidates when they are not
@@ -147,5 +194,9 @@ PYTHONPATH=python python3 -m unittest discover \
   -s python/wrapper_v1/tests -p 'test_*.py'
 ```
 
-The suite includes unit tests plus native single-process and multiprocessing
-integration tests. Build `fracessa_core` first with `./build.sh`.
+The suite includes unit tests plus mandatory native single-process,
+multithreaded-logging, and multiprocessing integration tests. Build
+`fracessa_core` first with `./build.sh`; a missing module is a test failure.
+GitHub runs the build and suite on ordinary pushes, pull requests, and release
+tags. It installs PyArrow first, making the Parquet sink tests mandatory on
+Ubuntu, macOS, and Windows; only release tags package and publish binaries.

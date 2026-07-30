@@ -1,7 +1,8 @@
 #include <iostream>
 #include <string>
 #include <chrono>
-#include <iomanip>
+#include <cstdint>
+#include <stdexcept>
 
 #include <fracessa/fracessa.hpp>
 #include <fracessa/matrix_parser.hpp>
@@ -20,8 +21,8 @@ int main(int argc, char *argv[])
     program.add_argument("-l", "--log").help("output log file").implicit_value(true).default_value(false);
     program.add_argument("-e", "--exact").help("exact only").implicit_value(true).default_value(false);
     program.add_argument("-f", "--fullsupport").help("search full support directly").implicit_value(true).default_value(false);
-    program.add_argument("-t", "--timing").help("output computation time").implicit_value(true).default_value(false);
-    program.add_argument("-m", "--matrixid").help("optional matrix ID").scan<'i', int>().default_value(-1);
+    program.add_argument("-t", "--timing").help("output computation time in nanoseconds").implicit_value(true).default_value(false);
+    program.add_argument("-m", "--matrixid").help("optional matrix ID").scan<'i', std::int64_t>().default_value(std::int64_t{-1});
     program.add_argument("-u", "--unsafe").help("use uncertified numerical filtering").implicit_value(true).default_value(false);
     program.add_argument("matrix").help("the matrix to compute");
 
@@ -34,10 +35,9 @@ int main(int argc, char *argv[])
     const auto exact = program.get<bool>("--exact");
     const auto fullsupport = program.get<bool>("--fullsupport");
     const auto timing = program.get<bool>("--timing");
-    const auto matrix_id = program.get<int>("--matrixid");
+    const auto matrix_id = program.get<std::int64_t>("--matrixid");
     const auto unsafe = program.get<bool>("--unsafe");
 
-    // `--unsafe` names the current default mode explicitly; exact bypasses it.
     if (exact && unsafe) {
         std::cerr << "Error: --exact and --unsafe cannot be used together." << std::endl;
         return EXIT_FAILURE;
@@ -45,7 +45,11 @@ int main(int argc, char *argv[])
 
     bool is_cs;
     linalg::matrix_frc A;
-    if (!matrix_parser::parse_matrix_string(matrix_str, A, is_cs)) return EXIT_FAILURE;
+    try { matrix_parser::parse_matrix_string(matrix_str, A, is_cs); }
+    catch (const std::invalid_argument& err) {
+        std::cerr << "Error: " << err.what() << std::endl;
+        return EXIT_FAILURE;
+    }
 
     if (!exact) {
         std::cerr
@@ -53,17 +57,16 @@ int main(int argc, char *argv[])
             << "suspicious or unusable floating-point cases fall back to exact arithmetic "
             << "and can be much slower." << std::endl;
     }
-    
-    // CLI timing covers analyzer work only, excluding parsing and output formatting.
-    auto start_time = std::chrono::high_resolution_clock::now();
+
+    auto start_time = std::chrono::steady_clock::now();
     ::fracessa x(A, is_cs, candidates, exact, fullsupport, logger, matrix_id);
-    auto end_time = std::chrono::high_resolution_clock::now();
+    auto end_time = std::chrono::steady_clock::now();
     
     // Consumers expect ESS count first, optional timing second, then candidate CSV.
     std::cout << x.ess_count_ << std::endl;
     if (timing) {
-        auto duration = std::chrono::duration_cast<std::chrono::microseconds>(end_time - start_time);
-        std::cout << std::fixed << std::setprecision(6) << duration.count() / 1000000.0 << std::endl;
+        auto duration = std::chrono::duration_cast<std::chrono::nanoseconds>(end_time - start_time);
+        std::cout << duration.count() << std::endl;
     }
 
     if (candidates) {

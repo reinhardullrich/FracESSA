@@ -2,8 +2,7 @@
 
 #include <charconv>
 #include <cstdint>
-#include <exception>
-#include <iostream>
+#include <stdexcept>
 #include <vector>
 
 namespace matrix_parser {
@@ -64,21 +63,16 @@ void append_fraction(
     values.emplace_back(matrix_str.substr(token_start, token_end - token_start));
 }
 
-bool report_value_error(const char* detail)
-{
-    std::cerr << "Error: Could not convert matrix values to fraction numbers!" << std::endl;
-    std::cerr << "  " << detail << std::endl;
-    return false;
-}
-
 } // namespace
 
-bool parse_matrix_string(const std::string& matrix_str, linalg::matrix_frc& A, bool& is_cs)
+void parse_matrix_string(const std::string& matrix_str, linalg::matrix_frc& A, bool& is_cs)
 {
     const size_t hash_pos = matrix_str.find('#');
     if (hash_pos == std::string::npos || hash_pos == 0 || hash_pos == matrix_str.length() - 1) {
-        std::cerr << "Error: String for the matrix does not include '#' as a separator between dimension and matrix!" << std::endl;
-        return false;
+        throw std::invalid_argument("String for the matrix does not include '#' as a separator between dimension and matrix");
+    }
+    if (matrix_str.find('#', hash_pos + 1) != std::string::npos) {
+        throw std::invalid_argument("Multiple '#' characters found in matrix string");
     }
 
     size_t n = 0;
@@ -86,17 +80,13 @@ bool parse_matrix_string(const std::string& matrix_str, linalg::matrix_frc& A, b
     const char* const dimension_end = dimension_begin + hash_pos;
     const auto [parsed_end, parse_error] = std::from_chars(dimension_begin, dimension_end, n);
     if (parse_error != std::errc{} || parsed_end != dimension_end) {
-        std::cerr << "Error: The given dimension could not be converted into an integer number!" << std::endl;
-        return false;
+        throw std::invalid_argument("The given dimension could not be converted into an integer number");
     }
-
-    /*
-     * Masks have 64 storage bits, but exhaustive search needs a representable
-     * one-past-the-end value 2^n. Therefore the analyzer stops at n=63.
-     */
     if (n == 0 || n > kMaxDimension) {
-        std::cerr << "Error: Parser supports dimensions in [1, " << kMaxDimension << "], got " << n << std::endl;
-        return false;
+        throw std::invalid_argument(
+            "Parser supports dimensions in [1, " + std::to_string(kMaxDimension)
+            + "], got " + std::to_string(n)
+        );
     }
 
     const size_t expected_cs = n / 2;
@@ -107,49 +97,46 @@ bool parse_matrix_string(const std::string& matrix_str, linalg::matrix_frc& A, b
     const char* const begin = matrix_str.data();
     const char* position = begin + hash_pos + 1;
     const char* const end = begin + matrix_str.size();
-    try {
-        while (position < end) {
-            const size_t token_start = static_cast<size_t>(position - begin);
-            DecimalComponent numerator;
-            if (!parse_decimal_component(position, end, numerator)) {
-                return report_value_error("Invalid rational numerator");
+    while (position < end) {
+        const size_t token_start = static_cast<size_t>(position - begin);
+        DecimalComponent numerator;
+        if (!parse_decimal_component(position, end, numerator)) {
+            throw std::invalid_argument("Invalid rational numerator");
+        }
+
+        DecimalComponent denominator;
+        if (position < end && *position == '/') {
+            ++position;
+            if (!parse_decimal_component(position, end, denominator)) {
+                throw std::invalid_argument("Invalid rational denominator");
             }
-
-            DecimalComponent denominator;
-            if (position < end && *position == '/') {
-                ++position;
-                if (!parse_decimal_component(position, end, denominator)) {
-                    return report_value_error("Invalid rational denominator");
-                }
-                if (!denominator.nonzero) {
-                    return report_value_error("Rational denominator cannot be zero");
-                }
-            }
-
-            if (position < end && *position != ',') {
-                return report_value_error("Invalid character in rational value");
-            }
-
-            const size_t token_end = static_cast<size_t>(position - begin);
-            append_fraction(
-                rational_values, matrix_str, token_start, token_end,
-                numerator, denominator);
-
-            if (position < end) {
-                ++position;
-                if (position == end) {
-                    return report_value_error("Empty fraction token");
-                }
+            if (!denominator.nonzero) {
+                throw std::invalid_argument(
+                    "Rational denominator cannot be zero: "
+                    + matrix_str.substr(
+                        token_start,
+                        static_cast<size_t>(position - begin) - token_start));
             }
         }
-    } catch (const std::exception& e) {
-        std::cerr << "Error: Could not convert matrix values to fraction numbers!" << std::endl;
-        std::cerr << "  " << e.what() << std::endl;
-        return false;
+
+        if (position < end && *position != ',') {
+            throw std::invalid_argument("Invalid character in rational value");
+        }
+
+        const size_t token_end = static_cast<size_t>(position - begin);
+        append_fraction(
+            rational_values, matrix_str, token_start, token_end,
+            numerator, denominator);
+
+        if (position < end) {
+            ++position;
+            if (position == end) {
+                throw std::invalid_argument("Empty fraction token");
+            }
+        }
     }
 
     const size_t actual_size = rational_values.size();
-
     if (actual_size == expected_cs) {
         A = linalg::create_circular_symmetric(n, rational_values);
         is_cs = true;
@@ -157,11 +144,12 @@ bool parse_matrix_string(const std::string& matrix_str, linalg::matrix_frc& A, b
         A = linalg::create_symmetric(n, rational_values);
         is_cs = false;
     } else {
-        std::cerr << "Error: Expected " << expected_cs << " (CS) or " << expected_sym << " (Sym) values, got " << actual_size << std::endl;
-        return false;
+        throw std::invalid_argument(
+            "Expected " + std::to_string(expected_cs) + " (CS) or "
+            + std::to_string(expected_sym) + " (Sym) values, got "
+            + std::to_string(actual_size)
+        );
     }
-
-    return true;
 }
 
 } // namespace matrix_parser

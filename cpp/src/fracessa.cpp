@@ -3,8 +3,15 @@
 #include <fracessa/supports.hpp>
 #include <linalg/matrix_fraction.hpp>
 
-fracessa::fracessa(const linalg::matrix_frc& matrix, bool is_cs, bool with_candidates, bool exact,
-                   bool full_support, bool with_log, int matrix_id)
+/*
+ * Core search orchestration.
+ *
+ * The constructor performs the full enumeration process. Supports are scanned
+ * by increasing size, and each support runs through candidate detection plus
+ * stability classification. Confirmed ESS supports trigger superset pruning.
+ */
+
+fracessa::fracessa(const linalg::matrix_frc& matrix, bool is_cs, bool with_candidates, bool exact, bool full_support, bool with_log, std::int64_t matrix_id)
     : matrix_server_(matrix)
     , dimension_(matrix.rows())
     , conf_with_candidates_(with_candidates)

@@ -1,9 +1,11 @@
 #include <pybind11/pybind11.h>
-#include <pybind11/stl.h>
 
 #include <chrono>
+#include <cstdint>
+#include <mutex>
 #include <optional>
 #include <sstream>
+#include <stdexcept>
 #include <string>
 #include <vector>
 
@@ -17,16 +19,13 @@ namespace {
 // These integer values are part of the Python wrapper's public status contract.
 constexpr int kStatusOk = 0;
 constexpr int kStatusParseError = 1;
-constexpr int kStatusDimensionOutOfRange = 2;
-constexpr int kStatusInvalidValueCount = 3;
 constexpr int kStatusExecError = 4;
 constexpr int kStatusInternalError = 255;
 
-/*
- * Python-free transport objects let parsing, analysis, and candidate copying
- * run while the GIL is released. Python dictionaries are created only after
- * native work has finished.
- */
+// ponytail: one process-wide lock is enough; use per-run log files if logging
+// throughput matters.
+static std::mutex logging_mutex;
+
 struct NativeCandidate {
     size_t candidate_id = 0;
     std::string vector;
@@ -45,8 +44,8 @@ struct NativeResult {
     int status = kStatusInternalError;
     bool success = false;
     std::string error_message;
-    int ess_count = 0;
-    long long elapsed_us = 0;
+    size_t ess_count = 0;
+    long long elapsed_ns = 0;
     std::vector<NativeCandidate> candidates;
 };
 
@@ -64,42 +63,13 @@ std::string strategy_vector_to_string(const linalg::matrix_frc& vec)
     return out.str();
 }
 
-int infer_parse_status(const std::string& matrix_str)
-{
-    /*
-     * The shared parser currently returns only bool. This best-effort
-     * second pass recognizes some structural and dimension failures; every
-     * other parse failure is reported as an invalid value count.
-     */
-    constexpr size_t kMaxSafeDimension = 63;
-
-    const size_t hash_pos = matrix_str.find('#');
-    if (hash_pos == std::string::npos || hash_pos == 0 || hash_pos == matrix_str.length() - 1) {
-        return kStatusParseError;
-    }
-    if (matrix_str.find('#', hash_pos + 1) != std::string::npos) {
-        return kStatusParseError;
-    }
-
-    try {
-        const size_t n = std::stoull(matrix_str.substr(0, hash_pos));
-        if (n == 0 || n > kMaxSafeDimension) {
-            return kStatusDimensionOutOfRange;
-        }
-    } catch (const std::exception&) {
-        return kStatusParseError;
-    }
-
-    return kStatusInvalidValueCount;
-}
-
 NativeResult compute_matrix_impl(
     const std::string& matrix,
     bool include_candidates,
     bool exact,
     bool full_support,
     bool enable_logging,
-    int matrix_id)
+    std::int64_t matrix_id)
 {
     NativeResult result;
 
@@ -107,20 +77,26 @@ NativeResult compute_matrix_impl(
         linalg::matrix_frc parsed_matrix;
         bool is_cs = false;
 
-        if (!matrix_parser::parse_matrix_string(matrix, parsed_matrix, is_cs)) {
-            result.status = infer_parse_status(matrix);
+        try {
+            matrix_parser::parse_matrix_string(matrix, parsed_matrix, is_cs);
+        } catch (const std::invalid_argument& e) {
+            result.status = kStatusParseError;
             result.success = false;
-            result.error_message = "Failed to parse matrix input";
+            result.error_message = e.what();
             return result;
         }
 
-        // Match CLI timing: measure only analyzer construction and search.
-        const auto start = std::chrono::high_resolution_clock::now();
-        ::fracessa analyzer(parsed_matrix, is_cs, include_candidates, exact, full_support, enable_logging, matrix_id);
-        const auto end = std::chrono::high_resolution_clock::now();
+        std::unique_lock<std::mutex> logging_lock(logging_mutex, std::defer_lock);
+        if (enable_logging) {
+            logging_lock.lock();
+        }
 
-        result.elapsed_us = std::chrono::duration_cast<std::chrono::microseconds>(end - start).count();
-        result.ess_count = static_cast<int>(analyzer.ess_count_);
+        const auto start = std::chrono::steady_clock::now();
+        ::fracessa analyzer(parsed_matrix, is_cs, include_candidates, exact, full_support, enable_logging, matrix_id);
+        const auto end = std::chrono::steady_clock::now();
+
+        result.elapsed_ns = std::chrono::duration_cast<std::chrono::nanoseconds>(end - start).count();
+        result.ess_count = analyzer.ess_count_;
         result.status = kStatusOk;
         result.success = true;
 
@@ -164,7 +140,7 @@ py::dict compute_matrix(
     bool exact,
     bool full_support,
     bool enable_logging,
-    int matrix_id)
+    std::int64_t matrix_id)
 {
     NativeResult native;
     {
@@ -181,7 +157,7 @@ py::dict compute_matrix(
     out["success"] = native.success;
     out["error_message"] = native.error_message;
     out["ess_count"] = native.ess_count;
-    out["elapsed_us"] = native.elapsed_us;
+    out["elapsed_ns"] = native.elapsed_ns;
 
     py::list candidates;
     for (const auto& c : native.candidates) {
@@ -214,8 +190,6 @@ PYBIND11_MODULE(fracessa_core, m)
 
     m.attr("STATUS_OK") = kStatusOk;
     m.attr("STATUS_PARSE_ERROR") = kStatusParseError;
-    m.attr("STATUS_DIMENSION_OUT_OF_RANGE") = kStatusDimensionOutOfRange;
-    m.attr("STATUS_INVALID_VALUE_COUNT") = kStatusInvalidValueCount;
     m.attr("STATUS_EXEC_ERROR") = kStatusExecError;
     m.attr("STATUS_INTERNAL_ERROR") = kStatusInternalError;
 
@@ -227,13 +201,13 @@ PYBIND11_MODULE(fracessa_core, m)
         py::arg("exact") = false,
         py::arg("full_support") = false,
         py::arg("enable_logging") = false,
-        py::arg("matrix_id") = -1,
+        py::arg("matrix_id") = std::int64_t{-1},
         R"doc(
 Compute one matrix with native C++ core and return structured results.
 
 Returns a dict with keys:
 - status, success, error_message
-- ess_count, elapsed_us
+- ess_count, elapsed_ns
 - candidates (list of dict rows)
 )doc"
     );

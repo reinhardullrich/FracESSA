@@ -93,17 +93,6 @@ principal submatrix at `cpp/include/linalg/copositive_fraction.hpp:160`.
 Required outcome: generate fixed-cardinality masks on demand and stop at the
 first failure. Benchmark any destructive or move-based LU variant separately.
 
-### P2: CLI elapsed time uses a non-monotonic clock
-
-The CLI measures analyzer duration with `std::chrono::high_resolution_clock` at
-`cpp/src/main.cpp:63` and `cpp/src/main.cpp:65`. The C++ standard does not require
-that clock to be steady; on the current libstdc++ build it aliases a clock with
-`is_steady == false`. A wall-clock correction can therefore distort or even
-reverse an elapsed interval used for speed baselines.
-
-Required outcome: use `std::chrono::steady_clock` for elapsed CLI timing. This is
-a direct standard-library replacement with no new mechanism.
-
 ## Test Coverage
 
 ### P2: Two proof-critical exact branches lack focused regressions
@@ -125,15 +114,6 @@ Required outcome: add the nonsingular matrix `[[1,1,0],[1,1,1],[0,1,1]]` as a
 cover the branches directly.
 
 ## Build And Release
-
-### P1: CI runs only for release tags
-
-`.github/workflows/release.yml:3` has only a `v*` tag trigger. Pull requests and
-ordinary pushes to `main` can therefore merge correctness failures without any
-GitHub build or test signal.
-
-Required outcome: run build plus fast tests on pushes and pull requests; keep
-artifact publication restricted to release tags.
 
 ### P2: C++ tests cannot be disabled
 
@@ -172,19 +152,19 @@ Linux and macOS artifacts as portable standalone executables.
 
 - Current local Release build: successful.
 - Core/CLI CTests: 10/10 passed.
-- Wrapper tests: 23/23 passed.
-- Full matrix CTests: 52/52 passed, including normalization IDs 38-39.
+- Wrapper tests: see `PYBIND_REVIEW.md` and `PYTHON_REVIEW.md`.
 - The single parser preserves 18-digit direct values and arbitrary-precision
-  values, and the former signed-overflow input passes ASan/UBSan exactly.
-- All active fast and full verification matrices pass. Reference IDs 45-47
-  remain outside active fixtures because unsafe mode is known to fail them.
-- The current standard library reports `high_resolution_clock::is_steady ==
-  false` and `steady_clock::is_steady == true`.
+  values, rejects dimensions outside 1-63, and reports failures through
+  `std::invalid_argument`.
 - Production DFS/FKM generators retain no complete support frontier or
   cardinality layer. An independent order-insensitive comparison matched all
-  mathematical candidate rows and ESS results across the 52 active matrices.
+  mathematical candidate rows and ESS results across the former 52-matrix
+  verification corpus.
+- The canonical SQLite snapshot stores 29,114 candidate representatives whose
+  multipliers recover 65,962 candidates and 63,369 ESS.
 - A fixed-seed audit generated 20,000 exact 4-by-4 integer matrices; all 19,890
   nonsingular cases satisfied `A * inverse(A) == I` exactly.
 - The most recent full sanitizer suite passed its existing tests.
-- The current implementation is uncommitted on `choice-one-candidate-filter`;
-  no GitHub Actions run exists for this diff.
+- Ordinary pushes and pull requests run the same three-platform build and fast
+  test matrix as tags; artifact packaging and publication remain tag-only.
+- No SQLite matrix-verification runner is currently wired into CTest or CI.
