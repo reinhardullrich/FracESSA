@@ -1,0 +1,120 @@
+<?xml version="1.0" encoding="UTF-8" standalone="yes" ?>
+<CodeBlocks_project_file>
+	<FileVersion major="1" minor="6" />
+	<Project>
+		<Option title="REF" />
+		<Option pch_mode="2" />
+		<Option compiler="gcc" />
+		<Build>
+			<Target title="Debug">
+				<Option output="bin/Debug/REF" prefix_auto="1" extension_auto="1" />
+				<Option object_output="obj/Debug/" />
+				<Option type="1" />
+				<Option compiler="gcc" />
+				<Compiler>
+					<Add option="-g" />
+					<Add option="-std=c++11" />
+					<Add directory="include" />
+				</Compiler>
+			</Target>
+			<Target title="Release">
+				<Option output="bin/Release/REF" prefix_auto="1" extension_auto="1" />
+				<Option object_output="obj/Release/" />
+				<Option type="1" />
+				<Option compiler="gcc" />
+				<Compiler>
+					<Add option="-O3" />
+					<Add option="-std=c++11" />
+					<Add directory="include" />
+				</Compiler>
+			</Target>
+		</Build>
+		<Compiler>
+			<Add option="-Wall" />
+			<Add option="-std=c++11" />
+			<Add option="-fexceptions" />
+			<Add option="-static" />
+			<Add option="-static-libgcc" />
+			<Add option="-static-libstdc++" />
+		</Compiler>
+		<Unit filename="include/EssFinder.h" />
+		<Unit filename="include/Helper.h" />
+		<Unit filename="include/MatrixTemplate.h" />
+		<Unit filename="include/VectorInformation.h" />
+		<Unit filename="include/argtable3.h" />
+		<Unit filename="include/boost/multiprecision/concepts/mp_number_archetypes.hpp" />
+		<Unit filename="include/boost/multiprecision/cpp_bin_float.hpp" />
+		<Unit filename="include/boost/multiprecision/cpp_bin_float/io.hpp" />
+		<Unit filename="include/boost/multiprecision/cpp_bin_float/transcendental.hpp" />
+		<Unit filename="include/boost/multiprecision/cpp_dec_float.hpp" />
+		<Unit filename="include/boost/multiprecision/cpp_int.hpp" />
+		<Unit filename="include/boost/multiprecision/cpp_int/add.hpp" />
+		<Unit filename="include/boost/multiprecision/cpp_int/bitwise.hpp" />
+		<Unit filename="include/boost/multiprecision/cpp_int/checked.hpp" />
+		<Unit filename="include/boost/multiprecision/cpp_int/comparison.hpp" />
+		<Unit filename="include/boost/multiprecision/cpp_int/cpp_int_config.hpp" />
+		<Unit filename="include/boost/multiprecision/cpp_int/divide.hpp" />
+		<Unit filename="include/boost/multiprecision/cpp_int/import_export.hpp" />
+		<Unit filename="include/boost/multiprecision/cpp_int/limits.hpp" />
+		<Unit filename="include/boost/multiprecision/cpp_int/literals.hpp" />
+		<Unit filename="include/boost/multiprecision/cpp_int/misc.hpp" />
+		<Unit filename="include/boost/multiprecision/cpp_int/multiply.hpp" />
+		<Unit filename="include/boost/multiprecision/cpp_int/serialize.hpp" />
+		<Unit filename="include/boost/multiprecision/cpp_int/value_pack.hpp" />
+		<Unit filename="include/boost/multiprecision/debug_adaptor.hpp" />
+		<Unit filename="include/boost/multiprecision/detail/big_lanczos.hpp" />
+		<Unit filename="include/boost/multiprecision/detail/bitscan.hpp" />
+		<Unit filename="include/boost/multiprecision/detail/default_ops.hpp" />
+		<Unit filename="include/boost/multiprecision/detail/digits.hpp" />
+		<Unit filename="include/boost/multiprecision/detail/dynamic_array.hpp" />
+		<Unit filename="include/boost/multiprecision/detail/et_ops.hpp" />
+		<Unit filename="include/boost/multiprecision/detail/float_string_cvt.hpp" />
+		<Unit filename="include/boost/multiprecision/detail/functions/constants.hpp" />
+		<Unit filename="include/boost/multiprecision/detail/functions/pow.hpp" />
+		<Unit filename="include/boost/multiprecision/detail/functions/trig.hpp" />
+		<Unit filename="include/boost/multiprecision/detail/generic_interconvert.hpp" />
+		<Unit filename="include/boost/multiprecision/detail/integer_ops.hpp" />
+		<Unit filename="include/boost/multiprecision/detail/min_max.hpp" />
+		<Unit filename="include/boost/multiprecision/detail/no_et_ops.hpp" />
+		<Unit filename="include/boost/multiprecision/detail/number_base.hpp" />
+		<Unit filename="include/boost/multiprecision/detail/number_compare.hpp" />
+		<Unit filename="include/boost/multiprecision/detail/rebind.hpp" />
+		<Unit filename="include/boost/multiprecision/detail/ublas_interop.hpp" />
+		<Unit filename="include/boost/multiprecision/detail/utype_helper.hpp" />
+		<Unit filename="include/boost/multiprecision/float128.hpp" />
+		<Unit filename="include/boost/multiprecision/gmp.hpp" />
+		<Unit filename="include/boost/multiprecision/integer.hpp" />
+		<Unit filename="include/boost/multiprecision/logged_adaptor.hpp" />
+		<Unit filename="include/boost/multiprecision/miller_rabin.hpp" />
+		<Unit filename="include/boost/multiprecision/mpfi.hpp" />
+		<Unit filename="include/boost/multiprecision/mpfr.hpp" />
+		<Unit filename="include/boost/multiprecision/number.hpp" />
+		<Unit filename="include/boost/multiprecision/random.hpp" />
+		<Unit filename="include/boost/multiprecision/rational_adaptor.hpp" />
+		<Unit filename="include/boost/multiprecision/tommath.hpp" />
+		<Unit filename="include/boost/multiprecision/traits/explicit_conversion.hpp" />
+		<Unit filename="include/boost/multiprecision/traits/extract_exponent_type.hpp" />
+		<Unit filename="include/boost/multiprecision/traits/is_backend.hpp" />
+		<Unit filename="include/boost/multiprecision/traits/is_byte_container.hpp" />
+		<Unit filename="include/boost/multiprecision/traits/is_restricted_conversion.hpp" />
+		<Unit filename="include/config.h" />
+		<Unit filename="main.cpp" />
+		<Unit filename="src/EssFinder.cpp" />
+		<Unit filename="src/Helper.cpp" />
+		<Unit filename="src/argtable3.c">
+			<Option compilerVar="CC" />
+		</Unit>
+		<Unit filename="src/config.cpp" />
+		<Extensions>
+			<AutoVersioning>
+				<Scheme minor_max="10" build_max="0" rev_max="0" rev_rand_max="10" build_times_to_increment_minor="100" />
+				<Settings autoincrement="1" date_declarations="1" use_define="0" update_manifest="1" do_auto_increment="0" ask_to_increment="0" language="C++" svn="0" svn_directory="" header_path="version.h" />
+				<Changes_Log show_changes_editor="0" app_title="released version %M.%m.%b of %p" changeslog_path="ChangesLog.txt" />
+				<Code header_guard="VERSION_H" namespace="AutoVersion" prefix="" />
+			</AutoVersioning>
+			<code_completion />
+			<envvars />
+			<debugger />
+		</Extensions>
+	</Project>
+</CodeBlocks_project_file>

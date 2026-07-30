@@ -46,6 +46,31 @@ Last verified: 2026-07-30
 
 Generated or local-only paths include `cpp/build*/`, `python/results/`, raw
 Callgrind output, and experiment `builds/`, `sources/`, and `logs/` directories.
+`zzz_legacy/` is the tracked collection of preserved REF/EFR predecessors.
+Its six top-level folders are `EFR`, `REF_2016-10-06`, `REF_2016-11-16`,
+`REF_2016-11-20-Werner`, `REF_2019-09-20`, and `REF_R`. They are preserved historical
+material, not active project source. `EFR/` contains the four selected C# timeline snapshots
+`EFR_2016-04`, `EFR_2016-09`, `EFR_2018-03`, and `EFR_2019-08`, plus the sole
+`NewRational.2.1` version as `NewRational`. These project directories were moved
+directly from their former locations without copying. The other two
+byte-identical `NewRational.2.1` copies are in the desktop Trash.
+The duplicate April and September 2016 timeline trees and both copies of the
+skipped intermediate September 2016 port are in the desktop Trash.
+`REF_2016-10-06` is the source-only GMP/hybrid milestone, `REF_2016-11-16` is
+the last source-only version before circular-symmetry optimization,
+`REF_2016-11-20-Werner` is the Werner circular-symmetry version, and `REF_2019-09-20`
+is the substantial 2019 rewrite with its minor December 2025 timing and build
+changes retained. `REF_R` contains one copy of each preserved research script
+and the newest EFR test driver, dated October 21, 2016. The former mixed-history
+tree and its duplicate, intermediate, generated, profiling, IDE, and unrelated
+material are in the desktop Trash.
+The collection is intentionally storage-cleaned rather than independently
+buildable in every folder: `REF_2019-09-20/dependencies/` retains the verified
+Boost 1.71 tarball through Git LFS, and the canonical Boost 1.62 tree remains under
+`REF_2016-11-20-Werner/include/boost`. Redundant extracted Boost trees and
+generated `build*`/`obj` directories are not retained.
+The legacy collection intentionally contains no nested Git-control metadata;
+its former `.git` directories were removed from the collection.
 
 ## Product Surface
 

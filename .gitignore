@@ -67,7 +67,6 @@ __pycache__/
 *.zip
 zzz_altes_zeug.tar.gz
 old_code_backup.tar.gz
-zzz_old/
 
 # OS files
 .DS_Store
