@@ -49,12 +49,59 @@ void fracessa::check_stability()
         candidate_.is_ess = true;
         return;
     }
-    
-    // Positive definiteness is stronger than the required cone condition and is
-    // therefore a sufficient shortcut. Rational LDL^T makes it an exact certificate.
+
+    // K=J\I contains best replies that receive zero probability in p. Its coordinates are the only sign-constrained coordinates in Bomze's cone.
+    const bitset64 kay = bs64::subtract(candidate_.extended_support, candidate_.support);
+    const size_t kay_size = bs64::count_set_bits(kay);
+
+    /*
+     * Reuse the reduced Hessian already factored by find_candidate_exact.
+     *
+     * The exact candidate solve chose the same reference m and formed
+     *
+     *     H = Z^T A_I Z,
+     *
+     * where the columns of Z are e_i-e_m for i in I\{m}. For a symmetric game, Bomze's Bee formula (1992, equation (18)) gives, on those
+     * unrestricted support coordinates,
+     *
+     *     B[I\{m}, I\{m}] = -2H.
+     *
+     * Theorem 3.2 allows every support coordinate to have either sign. Theorem 3.3 therefore requires this principal block to be positive definite
+     * before any outside best-reply coordinate can matter. Equivalently, H must be negative definite.
+     *
+     * This yields two complete exact decisions without constructing Bee:
+     *
+     *   1. If H is not negative definite, choosing all K coordinates as zero already violates strict cone positivity, so p is not an ESS even when
+     *      the extended support is larger than the support.
+     *   2. If H is negative definite and J=I, there are no constrained outside coordinates left. Bee is exactly -2H and p is an ESS.
+     *
+     * Only H<0 with J strictly larger than I reaches the original Bee, partial-copositivity, and copositivity implementation below.
+     */
+    if (!find_candidate_exact_.reduced_hessian_is_negative_definite()) {
+        if (kay_size <= 1) {
+            if (conf_with_log_)
+                logger_->info("Reason: false_not_posdef_and_kay_0_1 (from reduced Hessian)");
+            candidate_.stability = "F_not_pd_kay_0_1";
+        } else {
+            if (conf_with_log_)
+                logger_->info("Reason: false_not_partial_copositive (from reduced Hessian)");
+            candidate_.stability = "F_not_part_copos";
+        }
+        candidate_.is_ess = false;
+        return;
+    }
+
+    if (candidate_.extended_support == candidate_.support) {
+        if (conf_with_log_)
+            logger_->info("Reason: true_posdef_frc (from reduced Hessian)");
+        candidate_.stability = "T_pd_frc";
+        candidate_.is_ess = true;
+        return;
+    }
+
+    // Positive definiteness is stronger than the required cone condition and is therefore a sufficient shortcut. Rational LDL^T makes it an exact certificate.
     uint8_t reduced_indices[bs64::kMaxBitsetDimension];
-    const size_t bee_size = bs64::extract_set_indices(
-        extended_support_reduced, dimension_, reduced_indices);
+    const size_t bee_size = bs64::extract_set_indices(extended_support_reduced, dimension_, reduced_indices);
     if (bee_matrix_.rows() != bee_size) {
         bee_matrix_ = linalg::matrix_frc(bee_size, bee_size);
     }
@@ -90,10 +137,6 @@ void fracessa::check_stability()
         candidate_.is_ess = true;
         return;
     }
-
-    // K=J\I contains best replies that receive zero probability in p.
-    bitset64 kay = bs64::subtract(candidate_.extended_support, candidate_.support);
-    size_t kay_size = bs64::count_set_bits(kay);
 
     if (conf_with_log_)
         logger_->info("kay: {}", bs64::to_bitstring(kay, dimension_));

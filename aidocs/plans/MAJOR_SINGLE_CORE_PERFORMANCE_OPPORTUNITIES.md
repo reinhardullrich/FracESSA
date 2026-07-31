@@ -160,9 +160,8 @@ and typical determinant bounds fit fixed width.
 
 ### 3. Solve the candidate and classify the common stability case with one factorization
 
-The bordered candidate matrix is currently stored with opposite signs in its
-last row and column. Multiplying the normalization row by `-1` gives the
-symmetric KKT matrix
+**Implemented in the rational exact kernel.** The original bordered candidate
+system can be written as the symmetric KKT matrix
 
 $$
 K_S=
@@ -177,28 +176,39 @@ K_S
 \begin{bmatrix}0\\-1\end{bmatrix}.
 $$
 
-One symmetric congruence factorization can provide all of the following:
+Rather than factor the larger bordered matrix directly, production now chooses
+one reference strategy $m$, writes every normalized support vector as
+$x=e_m+Zy$, and eliminates the payoff and normalization border:
+
+$$
+Hy=r,\qquad H=Z^TA_SZ,\qquad r=-Z^TA_Se_m.
+$$
+
+This reduces a support of size $k$ from a $(k+1)$-dimensional bordered
+system to one symmetric $(k-1)$-dimensional system. One exact
+congruence-preserving $LDL^T$ factorization, with 1-by-1 pivots and the exact
+zero-diagonal 2-by-2 pivot when required, now provides all of the following:
 
 1. nonsingularity of the exact candidate system;
 2. the exact solution;
-3. the inertia of $K_S$.
+3. the inertia of $H$.
 
-Let $Z$ span the tangent space $\{d:\mathbf1^Td=0\}$ on the support. The Bee
-matrix used by stability is congruent to $-2Z^TA_SZ$. When the exact outside
-check gives extended support equal to support, the candidate is an ESS exactly
-when $Z^TA_SZ$ is negative definite. By the bordered-Hessian inertia relation,
-this information is already encoded in a congruence factorization of $K_S$;
-there is no mathematical need to construct Bee and perform a second exact
-factorization.
+The Bee support block is exactly $-2H$. Therefore a candidate cannot be an
+ESS when $H$ is not negative definite, regardless of outside best replies;
+when $H$ is negative definite and extended support equals support, the
+candidate is an ESS without constructing Bee or factoring a second exact
+matrix. Only $H\prec0$ with outside best replies reaches the unchanged Bomze
+partial-copositivity and copositivity fallback.
 
-The retained data make this unusually relevant: 98.95% of represented
-candidates have `extended_support == support`. The existing Bomze path remains
-the fallback for the other 1.05%.
+The retained data make this unusually relevant: 49,064 of 49,157 stored
+candidate representatives (99.811%) have `extended_support == support`.
+Weighted by circular multipliers, the corresponding share is 98.95%.
 
-A correct implementation needs an exact symmetric-indefinite factorization
-whose permutations are congruences, not the current row-only Gaussian pivoting.
-It should be designed together with the integer/fraction-free kernel above.
-Doing the two projects independently would duplicate linear-algebra work.
+The first implementation deliberately retains the existing `fraction` type and
+does not introduce a second linear-algebra abstraction. Replacing its rational
+inner loop with the integer/fraction-free FLINT kernel discussed above remains
+a separate measured optimization; the mathematical reduction and stability
+reuse do not need to change.
 
 ### 4. Strict-concavity fast path: one equilibrium, no support enumeration
 
@@ -395,10 +405,11 @@ memory ownership again.
 
 ## Recommended Research Sequence
 
-1. Prototype the integer/fraction-free symmetric KKT solve against the current
-   exact candidate kernel. This is broad, exact, and uses an existing dependency.
-2. Extend that factorization to return inertia and bypass Bee when
-   `extended_support == support`.
+1. **Implemented:** reduce the bordered candidate system to $H=Z^TA_SZ$, solve
+   it with exact symmetric $LDL^T$, return inertia, and bypass Bee whenever
+   that inertia decides stability.
+2. Benchmark an integer/fraction-free FLINT replacement for the retained
+   rational $LDL^T$ arithmetic without changing the reduction or public flow.
 3. Add exact recognition for the complete-multipartite/graph family that
    dominates retained time, using the narrowest theorem-backed detector.
 4. Test the global strict-concavity and automatic full-support fast paths.

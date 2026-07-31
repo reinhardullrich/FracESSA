@@ -44,7 +44,10 @@ Last verified: 2026-07-31
 7. Performance samples must cover the affected modes, small and large games,
    and both circular and non-circular matrices. Include dimensions around 20
    and 23 when feasible. A synthetic kernel result alone is not sufficient.
-8. Keep numerical code human-readable. Prefer a small reuse or two-buffer
+8. Keep dimension-2 matrices in the canonical test data and correctness
+   verification, but exclude them from performance benchmark runs, tables, and
+   aggregate performance statistics. Dimension 3 remains benchmarked for now.
+9. Keep numerical code human-readable. Prefer a small reuse or two-buffer
    change when it is measurably faster, but do not add custom allocators, pools,
    generic workspace frameworks, or extensive plumbing merely to reduce
    allocations.
@@ -174,12 +177,19 @@ Important implementation points:
 - `find_candidate_very_unsafe` owns the direct, unnormalized binary64
   conversion and historical bordered solve. It intentionally retains the old
   pivot cutoff and margins that can reject exact candidates.
-- `find_candidate_exact` owns the reusable exact bordered system and constructs
-  the authoritative candidate in `candidate_`.
+- `find_candidate_exact` eliminates the normalization/payoff border, constructs
+  the symmetric reduced Hessian $H=Z^T A_S Z$ and reduced right-hand side in
+  reusable exact storage, then solves them with a congruence-preserving rational
+  $LDL^T$ factorization using exact 1-by-1 or 2-by-2 pivots. The same
+  factorization proves singularity and records the inertia needed by stability.
 - `fracessa` owns one exact game. All four concrete candidate classes store a
   reference to it, so no game matrix is copied between procedures.
 - Exact arithmetic uses FLINT `fmpq_t` through `linalg::fraction`.
-- Stability uses exact rational positive-definiteness; a binary64 result is not
+- Stability reuses the exact reduced-Hessian inertia. A non-negative-definite
+  support Hessian rejects ESS immediately; a negative-definite Hessian proves
+  ESS immediately when extended support equals support. Only the rare
+  negative-definite case with outside best replies constructs Bee and enters
+  the retained Bomze reduction/copositivity path. A binary64 result is never
   accepted as a final mathematical certificate.
 - `correctness/DOUBLE_PD_FALSE_POSITIVES.md` documents the concrete failures and
   proves why tolerance tuning cannot recover an exact PD certificate.
@@ -207,8 +217,8 @@ Key files:
   `cpp/src/find_candidate_very_unsafe.cpp`: historical raw-double class,
   unnormalized conversion, and heuristic solve.
 - `cpp/include/fracessa/find_candidate_exact.hpp` and
-  `cpp/src/find_candidate_exact.cpp`: exact class, bordered-system construction,
-  exact Gaussian elimination, and candidate construction.
+  `cpp/src/find_candidate_exact.cpp`: exact class, border elimination,
+  block-pivoted rational $LDL^T$, inertia, and candidate construction.
 - `cpp/include/fracessa/fracessa.hpp` and `cpp/src/fracessa.cpp`: exact game
   ownership, mode coordination, support search, and candidate lifecycle.
 - `cpp/src/checkstab.cpp`: stability classification.
@@ -252,8 +262,6 @@ strict floating-point semantics, contraction disabled, and IPO/LTO disabled.
 One centralized availability function combines compiler support with the
 runtime binary64, round-to-nearest, and subnormal checks. An unsupported build
 still provides exact and unsafe modes, but refuses verified search.
-Do not run verification IDs 33 or 34 with `--mode exact` without Reinhard's
-separate approval.
 When sandboxing blocks the normal ccache directory, rerun the build with
 escalated filesystem access rather than disabling or redirecting ccache.
 
@@ -298,7 +306,7 @@ non-circular matrices. Same-property alternatives formerly stored at IDs 12
 and 21 were removed; the former contents of IDs 18 and 26 were replaced by the
 published vectors.
 
-The timing snapshot has one CPU-2 session with a one-second target and 348
+The timing snapshot has one CPU-2 session with a one-second target and 592
 persistent-Pybind median rows. Current unsafe, verified, and exact use one
 Release/native/LTO binary at algorithm revision `34e003168607`; historical
 default, very unsafe uses raw-double algorithm revision `32f61679da64` with a
@@ -308,6 +316,35 @@ regression IDs 45-47, and current verified and exact match all 87. Timing
 reports include matrix dimension, circularity, and the derived paper-style
 lower bound `gamma_lower_bound = expected_ess ** (1 / dimension)` without
 storing it in SQLite.
+
+The first `reduced-hessian-ldlt` benchmark measured 85 matrices; IDs 33-34 were
+not included in that run. All 85 ESS counts match. Against `current-main` on
+the same matrices, summed exact
+medians fall from 1,386.743 to 1,184.045 seconds (14.62%), and the median
+per-matrix ratio is 0.6842. Eighty-two matrices are faster. IDs 45 and 47 are
+material regressions at 168.882 versus 74.655 seconds and 132.230 versus 72.686
+seconds; excluding those two adversarial cases, summed time improves by 28.76%.
+ID 46 is 3.8 milliseconds slower (13.4%); its absolute effect is small, but a
+repeat would be needed before classifying it as signal or timing noise.
+
+The isolated integer-solver experiment under
+`experiments/exact_integer_solver_comparison_2026-07-31/` compares the old
+bordered rational Gaussian solver, current reduced-Hessian rational $LDL^T$,
+integer bordered FFLU, a complete FFLU-plus-candidate-$LDL^T$ hybrid, and
+an FFLU-plus-fraction-free-reduced-Hessian hybrid, as well as rational
+fraction-free FFLU. Its CPU-2 one-second sweep covers 82 matrices;
+IDs 45, 47, 65, 66, and 90 are excluded because current reduced-Hessian exact
+time exceeds two minutes. IDs 33-34 are ordinary included rows. All candidate
+contracts match. The fraction-free reduced-Hessian kernel matches current
+exact inertia in detailed candidate comparisons and in the 74-row
+cross-procedure portion of the sweep. Its summed medians are 83.198 seconds
+versus 326.256 seconds for current $LDL^T$ (74.50% lower) and only 0.30% above
+candidate-only FFLU. It loses all 26 dimension-2-to-8 rows, wins 26 of 28
+dimension-9-to-16 rows, and wins 27 of 28 dimension-17-to-25 rows; the large
+exception is ID 51, whose 20 visited supports are all candidates. This supports
+an integer-FFLU screening experiment for substantive searches, followed by
+the exact fraction-free reduced-Hessian test only for candidates; it does not
+support an unconditional replacement on tiny searches.
 
 The former JSON/CSV verification, baseline-generation, speed-benchmark, and
 Callgrind runners were removed. There is no replacement matrix-verification
