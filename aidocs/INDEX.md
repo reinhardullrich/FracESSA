@@ -47,6 +47,9 @@
 - `plans/MAJOR_SINGLE_CORE_PERFORMANCE_OPPORTUNITIES.md`: research review of
   theorem-backed and algorithmic routes to material single-core speedups; no
   listed idea is implemented or benchmarked by that document.
+- `reference/ELIMINATING_THE_BORDERED_CANDIDATE_SYSTEM.md`: introductory
+  mathematical derivation of the equivalent symmetric $(k-1)\times(k-1)$
+  candidate system, including reconstruction and singularity equivalence.
 - `reference/FIND_POS_FIRST_SET_BIT_CALL_CHAIN.md`: compact production-only
   bit-scanning call chain requested for hot-path work.
 
