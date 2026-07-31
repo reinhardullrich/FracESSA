@@ -12,7 +12,7 @@ remove a finding after its fix and regression coverage are complete.
 
 ## Current Validation State
 
-- All 54 PyFracESSA tests passed against the combined Release native module
+- All 56 PyFracESSA tests passed against the combined Release native module
   with PyArrow available.
 - The former JSON/CSV verification, baseline-generation, subprocess benchmark,
   and JSON-fed Callgrind paths have been removed. Their small replacement timing
@@ -45,8 +45,8 @@ remove a finding after its fix and regression coverage are complete.
 - `run_multiprocessing` keeps the same parameter order as `run` and adds only a
   final optional `MPConfig`; `MPConfig()` defaults to the CPUs available to the
   Python process.
-- `RunConfig()` selects verified search by default; `unsafe=True` selects the
-  heuristic and `exact=True` selects exact search.
+- `RunConfig()` selects verified search by default; its single `mode` field
+  selects exact, normalized unsafe, or historical very unsafe search.
 - Multiprocessing serializes results inside workers before queueing them, so a
   return-trip serialization failure exits the worker instead of hanging.
 - Multiprocessing uses one shared matrix queue and one shared result queue, yields

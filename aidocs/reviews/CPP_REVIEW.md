@@ -65,10 +65,8 @@ shows a new runtime bottleneck.
 
 ### Exact solution scratch: neutral, do not change
 
-Current code creates a local `matrix_frc solution` at
-`cpp/src/find_candidate_exact.cpp:60`, and `solve_linear_frc()` creates its
-`n`-entry result at `cpp/include/linalg/linear_solver.hpp:71` for every
-nonsingular support.
+Current code creates the `n`-entry local `matrix_frc solution` at
+`cpp/src/find_candidate_exact.cpp:105` for every nonsingular support.
 
 The readable prototype added `matrix_frc::resize()`, kept one `solution_` member
 in `find_candidate_exact`, and resized only when its row count changed. A second

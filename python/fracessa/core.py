@@ -138,11 +138,10 @@ def compute_matrix(matrix: Matrix, config: RunConfig, run_id: str) -> dict:
     native_out = native.compute_matrix(
         matrix=matrix_cli,
         include_candidates=config.include_candidates,
-        exact=config.exact,
+        mode=config.mode,
         full_support=config.full_support,
         enable_logging=config.enable_logging,
         matrix_id=matrix_id,
-        unsafe=config.unsafe,
     )
 
     candidates = [

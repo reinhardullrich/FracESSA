@@ -36,8 +36,8 @@ must be part of a larger authored manual.
 
 ```text
 Matrix(matrix_id: int, matrix: str, metadata: dict | None = None)
-RunConfig(exact=False, full_support=False, include_candidates=False,
-          enable_logging=False, unsafe=False)
+RunConfig(mode="verified", full_support=False, include_candidates=False,
+          enable_logging=False)
 MPConfig(workers=<available CPUs>, prefetch_per_worker=128, queue_maxsize=4096,
          start_method="spawn")
 ```
@@ -61,10 +61,10 @@ A matrix may use full CLI form (`"3#4,13/2,..."`) or values only when
 
 The default uses verified candidate search, which rejects a support only after
 a rigorous one-sided proof and otherwise falls back to exact arithmetic.
-`unsafe=True` selects the faster heuristic that can miss candidates and ESS
-results; `exact=True` bypasses both numerical procedures. Exact and unsafe
-together return `EXEC_ERROR`. Matrix input always uses the validating native
-parser.
+`mode="unsafe"` selects the normalized heuristic, and `mode="very_unsafe"`
+selects the historical raw-double heuristic without normalization. Both can
+miss candidates and ESS results. `mode="exact"` bypasses every floating-point
+candidate procedure. Matrix input always uses the validating native parser.
 
 `elapsed_ns` is always the native analyzer duration measured with a monotonic
 clock. There is deliberately no computation timeout.
@@ -83,7 +83,8 @@ build without loading two `fracessa_core` modules into one interpreter:
 PYTHONPATH=python python3 -m fracessa.timing run \
   --backend pybind --module-dir cpp/build \
   --build-label main --source-ref main --revision "$(git rev-parse HEAD)" \
-  --mode safe --mode unsafe --mode exact --cpu 2 --comment "before candidate change"
+  --mode verified --mode unsafe --mode exact --mode very_unsafe \
+  --cpu 2 --comment "before candidate change"
 
 PYTHONPATH=python python3 -m fracessa.timing report latest --baseline main
 ```
@@ -105,8 +106,8 @@ no-flag mode is unsafe and whose second output line is seconds, use
 `--unsafe-default --cli-unit s`. A safe-by-default CLI instead uses
 `--safe-default`. CLI runs start one child process per sample and must not be
 mixed with persistent-Pybind microbenchmarks. Old builds have only `unsafe` and
-`exact` rows. Pybind safe mode is accepted only when that extension exposes the
-native `unsafe` argument.
+`exact` rows. Verified mode is accepted only when the extension exposes either
+the current `mode` argument or the former native `unsafe` argument.
 Reports include the iteration count and actual measured wall duration, compare
 observed ESS counts with the expected database count, and retain mismatching
 unsafe timings visibly. Each result row also includes the matrix dimension,

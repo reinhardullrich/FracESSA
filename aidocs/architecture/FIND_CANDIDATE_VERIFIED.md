@@ -3,10 +3,10 @@
 Status: implemented and locally verified on 2026-07-30. The body retains the
 mathematical design; the source ownership and completion record are current.
 
-Explicit
-`--unsafe` continues to select the already-implemented heuristic, and `--exact`
-continues to bypass both numerical rejection procedures. Unsafe code must not
-enter or weaken the strict proof kernel described here.
+Explicit `--mode unsafe` continues to select the normalized heuristic,
+`--mode very_unsafe` selects the historical unnormalized heuristic, and
+`--mode exact` bypasses every numerical rejection procedure. Unsafe code must
+not enter or weaken the strict proof kernel described here.
 
 ## Objective
 
@@ -24,7 +24,7 @@ EXACT_REQUIRED   -> run the unchanged exact rational candidate solve
 It never accepts a candidate numerically. Singular systems, overflow,
 non-finite values, failed bounds, and every interval touching a decision
 boundary must return `EXACT_REQUIRED`. Unsupported build or runtime
-floating-point behavior disables default mode before support enumeration and
+floating-point behavior disables verified mode before support enumeration and
 requires an explicit exact or unsafe selection.
 
 Priorities remain:
@@ -86,7 +86,7 @@ Translation by `c` and positive scaling by `s` preserve candidate supports,
 extended supports, payoff comparisons, and ESS decisions. If `s == 0`, disable
 `find_candidate_verified` for that analyzer and use exact arithmetic.
 
-Initialization is lazy so `--exact` never allocates or prepares binary64
+Initialization is lazy so `--mode exact` never allocates or prepares binary64
 candidate-rejection state.
 
 ### 2. Rigorous rational enclosures
@@ -412,7 +412,7 @@ all verification-matrix correctness tests
 ASan/UBSan core and CLI checks
 ```
 
-Do not run verification matrix 33 or 34 with `--exact` without Reinhard's
+Do not run verification matrix 33 or 34 with `--mode exact` without Reinhard's
 separate approval for that run.
 
 ### Strict-build inspection
@@ -436,7 +436,7 @@ instrumentation requires a separate measured reason and separate approval.
 The implementation is acceptable only when:
 
 1. All included verification matrices match their exact candidate baselines.
-2. `--exact` does not initialize or allocate `find_candidate_verified` state.
+2. `--mode exact` does not initialize or allocate `find_candidate_verified` state.
 3. The normal support path performs no per-support heap allocation except the
    existing scratch resize when support size changes.
 4. No-flag behavior becomes Choice 1, explicit unsafe remains available, and
@@ -462,20 +462,21 @@ Their matrices, expected counts, and exact candidate rows live in the
 The current worktree implements only Choice 1. No Choice 2, diagnostics, exact
 solver rewrite, support-generator change, or parser change was added.
 
-- No flag selects verified search; `--unsafe` selects the preserved
-  heuristic; `--exact` bypasses both. The same selector is exposed by pybind and
-  `RunConfig`, and exact plus unsafe is rejected.
-- Verified, unsafe, and exact candidate search are concrete state-owning classes
+- Omitting `--mode` selects verified search; the single mode value selects
+  exact, normalized unsafe, or historical very unsafe search. Pybind and
+  `RunConfig` expose the same string selector.
+- Verified, unsafe, very unsafe, and exact candidate search are concrete state-owning classes
   with matching HPP/CPP files. `fracessa` owns one exact game and each class
   stores a reference to it; the former `MatrixServer` and `findeq.cpp` are gone.
 - The verified proof source is a separate object target compiled without fast-math,
   floating-point contraction, or IPO/LTO. One centralized build/runtime check
-  refuses unavailable default mode before enumeration; exact and unsafe remain
+  refuses unavailable verified mode before enumeration; exact and unsafe remain
   explicit alternatives.
 - Verification IDs 45-47 are active in the maintained SQLite database.
-- Release passed 11/11 core/CLI tests and 53/53 wrapper tests. A complete
-  verified-mode sweep matched all 87 retained ESS counts, and ASan/UBSan passed
-  all 11 core/CLI tests.
+- Release passed 11/11 core/CLI tests and 56/56 wrapper tests. A complete
+  verified-mode sweep matched all 87 retained ESS counts. The explicit
+  very-unsafe mode matches 85 and reproduces exactly the two historical misses,
+  IDs 38-39. The earlier ASan/UBSan run passed all 11 core/CLI tests.
 - On the historical pinned-CPU persistent-process set (IDs 1-33 and 35), summed
   bounded-error medians were 2,108.563 ms. This is 10.03x faster than the saved
   pre-generator Choice 1 run and 81.25x faster than the saved full-exact run;

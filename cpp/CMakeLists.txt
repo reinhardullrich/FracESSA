@@ -181,6 +181,7 @@ target_compile_definitions(fracessa_find_candidate_verified PRIVATE
 add_library(fracessa_lib
     src/fracessa.cpp
     src/find_candidate_unsafe.cpp
+    src/find_candidate_very_unsafe.cpp
     src/find_candidate_exact.cpp
     src/checkstab.cpp
     $<TARGET_OBJECTS:fracessa_find_candidate_verified>

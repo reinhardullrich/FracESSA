@@ -120,22 +120,28 @@ def _pybind_arguments(
     matrix: str,
     matrix_id: int,
     mode: str,
-    supports_safe_mode: bool,
+    interface: str,
 ) -> dict:
     """Return native keyword arguments for one named numerical mode."""
 
-    if mode == "safe" and not supports_safe_mode:
-        raise ValueError("this Pybind build does not expose safe mode")
     arguments = {
         "matrix": matrix,
         "include_candidates": False,
-        "exact": mode == "exact",
         "full_support": False,
         "enable_logging": False,
         "matrix_id": matrix_id,
     }
-    if supports_safe_mode:
+    if interface == "mode":
+        arguments["mode"] = mode
+    elif interface == "booleans":
+        if mode == "very_unsafe":
+            raise ValueError("this Pybind build does not expose very_unsafe mode")
+        arguments["exact"] = mode == "exact"
         arguments["unsafe"] = mode == "unsafe"
+    else:
+        if mode == "verified":
+            raise ValueError("this legacy Pybind build does not expose verified mode")
+        arguments["exact"] = mode == "exact"
     return arguments
 
 
@@ -158,13 +164,19 @@ def _pybind_runner(module_dir: Path | None) -> tuple[Callable, Path]:
         raise RuntimeError(
             f"loaded {module_path}, not a fracessa_core module from {module_dir}"
         )
-    supports_safe_mode = "unsafe:" in (native.compute_matrix.__doc__ or "")
+    native_doc = native.compute_matrix.__doc__ or ""
+    if "mode:" in native_doc:
+        interface = "mode"
+    elif "unsafe:" in native_doc:
+        interface = "booleans"
+    else:
+        interface = "legacy"
 
     def run(matrix_id: int, matrix: str, mode: str) -> tuple[int, int]:
         """Run one matrix through the loaded extension."""
 
         result = native.compute_matrix(
-            **_pybind_arguments(matrix, matrix_id, mode, supports_safe_mode)
+            **_pybind_arguments(matrix, matrix_id, mode, interface)
         )
         if result["status"] != 0:
             raise RuntimeError(result["error_message"] or "native computation failed")
@@ -208,14 +220,24 @@ def _cli_runner(
         """Run one matrix through the selected CLI executable."""
 
         del matrix_id
-        if mode == "safe":
-            if not safe_default:
-                raise ValueError("safe CLI mode requires --safe-default")
-            mode_arguments = []
-        elif mode == "unsafe":
-            mode_arguments = [] if unsafe_default else ["-u"]
+        if safe_default:
+            if mode == "verified":
+                mode_arguments = []
+            elif mode == "unsafe":
+                mode_arguments = ["-u"]
+            elif mode == "exact":
+                mode_arguments = ["-e"]
+            else:
+                raise ValueError("this legacy CLI does not expose very_unsafe mode")
+        elif unsafe_default:
+            if mode in {"unsafe", "very_unsafe"}:
+                mode_arguments = []
+            elif mode == "exact":
+                mode_arguments = ["-e"]
+            else:
+                raise ValueError("this legacy CLI does not expose verified mode")
         else:
-            mode_arguments = ["-e"]
+            mode_arguments = [] if mode == "verified" else ["--mode", mode]
 
         completed = subprocess.run(
             [str(executable), "-t", *mode_arguments, matrix],
@@ -519,7 +541,10 @@ def _parser() -> argparse.ArgumentParser:
     run.add_argument("--source-ref", required=True)
     run.add_argument("--revision", required=True)
     run.add_argument(
-        "--mode", action="append", choices=("safe", "unsafe", "exact"), required=True
+        "--mode",
+        action="append",
+        choices=("verified", "exact", "unsafe", "very_unsafe"),
+        required=True,
     )
     run.add_argument("--session")
     run.add_argument("--comment", default="")

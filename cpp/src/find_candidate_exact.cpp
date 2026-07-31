@@ -2,8 +2,6 @@
 
 #include <cstdint>
 
-#include <linalg/linear_solver.hpp>
-
 namespace candidate_search {
 
 /*
@@ -57,8 +55,68 @@ bool find_candidate_exact::find(
     linear_system_(support_size, support_size) = fraction::zero();
     linear_system_(support_size, system_dimension) = fraction::one();
 
+    // Solve the bordered system in place by exact Gaussian elimination.
+    auto& M = linear_system_;
+    const size_t n = M.rows();
+
+    // Exact arithmetic has no rounding-instability problem, so any nonzero pivot
+    // is valid. Taking the first one avoids a full magnitude scan in every column.
+    for (size_t k = 0; k < n - 1; ++k) {
+        size_t max_row = k;
+
+        if (M(k, k).is_zero()) {
+            bool found = false;
+            for (size_t i = k + 1; i < n; ++i) {
+                if (!M(i, k).is_zero()) {
+                    max_row = i;
+                    found = true;
+                    break;
+                }
+            }
+            if (!found) return false;
+        }
+
+        if (max_row != k) {
+            M.swap_rows(k, max_row);
+        }
+
+        const fraction& pivot = M(k, k);
+
+        for (size_t i = k + 1; i < n; ++i) {
+            if (M(i, k).is_zero()) continue;
+
+            fraction factor;
+            fraction::div(factor, M(i, k), pivot);
+
+            for (size_t j = k + 1; j <= n; ++j) {
+                M(i, j).submul(factor, M(k, j));
+            }
+
+            M(i, k) = fraction::zero();
+        }
+    }
+
+    if (M(n - 1, n - 1).is_zero()) {
+        return false;
+    }
+
+    // Allocate the result only after elimination has shown that the system is
+    // nonsingular. This avoids allocating the solution for rejected supports.
     linalg::matrix_frc solution;
-    if (!linalg::solve_linear_frc(linear_system_, solution)) return false;
+    solution = linalg::matrix_frc(n, 1);
+    for (size_t i = n; i-- > 0; ) {
+        fraction sum = M(i, n);
+
+        for (size_t j = i + 1; j < n; ++j) {
+            sum.submul(M(i, j), solution(j, 0));
+        }
+
+        fraction::div(solution(i, 0), sum, M(i, i));
+        // The final component is u; only the preceding support weights must be positive.
+        if (i < n - 1 && solution(i, 0).sgn() <= 0) {
+            return false;
+        }
+    }
 
     const fraction payoff = solution(support_size, 0);
     result.extended_support = support;

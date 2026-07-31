@@ -1,51 +1,50 @@
 #include <gtest/gtest.h>
-#include <linalg/linear_solver.hpp>
 
-using namespace linalg;
+#include <fracessa/find_candidate_exact.hpp>
 
 /*
- * Exact linear solver tests for bordered systems used in candidate search.
+ * Exact Gaussian-elimination tests through the candidate procedure that owns it.
  */
 
-TEST(LinearSolverFractionTest, SimpleSystem) {
-    matrix_frc Ab(2, 3);
-    Ab(0, 0) = fraction::two(); Ab(0, 1) = fraction::one(); Ab(0, 2) = fraction(5);
-    Ab(1, 0) = fraction::one(); Ab(1, 1) = fraction::neg_one(); Ab(1, 2) = fraction::one();
+TEST(LinearSolverFractionTest, SimpleCandidate) {
+    linalg::matrix_frc game(2, 2);
+    game(0, 0) = fraction::zero(); game(0, 1) = fraction::one();
+    game(1, 0) = fraction::one();  game(1, 1) = fraction::zero();
 
-    matrix_frc x;
-    EXPECT_TRUE(solve_linear_frc(Ab, x));
-    EXPECT_EQ(x(0, 0), fraction::two());
-    EXPECT_EQ(x(1, 0), fraction::one());
+    candidate result;
+    candidate_search::find_candidate_exact finder(game);
+    ASSERT_TRUE(finder.find(0b11, 2, result, true));
+    EXPECT_EQ(result.vector(0, 0), fraction(1, 2));
+    EXPECT_EQ(result.vector(1, 0), fraction(1, 2));
+    EXPECT_EQ(result.payoff, fraction(1, 2));
 }
 
 TEST(LinearSolverFractionTest, AllowsNegativePayoffVariable) {
-    matrix_frc Ab(3, 4);
-    Ab(0, 0) = fraction::one();  Ab(0, 1) = fraction::zero(); Ab(0, 2) = fraction::zero(); Ab(0, 3) = fraction(1, 4);
-    Ab(1, 0) = fraction::zero(); Ab(1, 1) = fraction::one();  Ab(1, 2) = fraction::zero(); Ab(1, 3) = fraction(3, 4);
-    Ab(2, 0) = fraction::zero(); Ab(2, 1) = fraction::zero(); Ab(2, 2) = fraction::one();  Ab(2, 3) = fraction(-2);
+    linalg::matrix_frc game(1, 1);
+    game(0, 0) = fraction(-2);
 
-    matrix_frc x;
-    ASSERT_TRUE(solve_linear_frc(Ab, x));
-    EXPECT_EQ(x(0, 0), fraction(1, 4));
-    EXPECT_EQ(x(1, 0), fraction(3, 4));
-    EXPECT_EQ(x(2, 0), fraction(-2));
+    candidate result;
+    candidate_search::find_candidate_exact finder(game);
+    ASSERT_TRUE(finder.find(0b1, 1, result, false));
+    EXPECT_EQ(result.payoff, fraction(-2));
 }
 
 TEST(LinearSolverFractionTest, RejectsNonPositiveSupportVariable) {
-    matrix_frc Ab(3, 4);
-    Ab(0, 0) = fraction::one();  Ab(0, 1) = fraction::zero(); Ab(0, 2) = fraction::zero(); Ab(0, 3) = fraction::zero();
-    Ab(1, 0) = fraction::zero(); Ab(1, 1) = fraction::one();  Ab(1, 2) = fraction::zero(); Ab(1, 3) = fraction::one();
-    Ab(2, 0) = fraction::zero(); Ab(2, 1) = fraction::zero(); Ab(2, 2) = fraction::one();  Ab(2, 3) = fraction(-1);
+    linalg::matrix_frc game(2, 2);
+    game(0, 0) = fraction::one(); game(0, 1) = fraction::zero();
+    game(1, 0) = fraction::zero(); game(1, 1) = fraction::zero();
 
-    matrix_frc x;
-    EXPECT_FALSE(solve_linear_frc(Ab, x));
+    candidate result;
+    candidate_search::find_candidate_exact finder(game);
+    EXPECT_FALSE(finder.find(0b11, 2, result, false));
 }
 
 TEST(LinearSolverFractionTest, RejectsSingularSystem) {
-    matrix_frc Ab(2, 3);
-    Ab(0, 0) = fraction::one(); Ab(0, 1) = fraction::one(); Ab(0, 2) = fraction::one();
-    Ab(1, 0) = fraction::two(); Ab(1, 1) = fraction::two(); Ab(1, 2) = fraction::two();
+    linalg::matrix_frc game(2, 2);
+    game(0, 0) = fraction::one(); game(0, 1) = fraction::one();
+    game(1, 0) = fraction::one(); game(1, 1) = fraction::one();
 
-    matrix_frc x;
-    EXPECT_FALSE(solve_linear_frc(Ab, x));
+    candidate result;
+    candidate_search::find_candidate_exact finder(game);
+    EXPECT_FALSE(finder.find(0b11, 2, result, false));
 }

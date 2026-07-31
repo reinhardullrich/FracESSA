@@ -66,21 +66,15 @@ std::string strategy_vector_to_string(const linalg::matrix_frc& vec)
 NativeResult compute_matrix_impl(
     const std::string& matrix,
     bool include_candidates,
-    bool exact,
+    const std::string& mode_name,
     bool full_support,
     bool enable_logging,
-    std::int64_t matrix_id,
-    bool unsafe)
+    std::int64_t matrix_id)
 {
     NativeResult result;
 
     try {
-        if (exact && unsafe) {
-            result.status = kStatusExecError;
-            result.success = false;
-            result.error_message = "exact and unsafe modes cannot be used together";
-            return result;
-        }
+        const analysis_mode mode = parse_analysis_mode(mode_name);
 
         linalg::matrix_frc parsed_matrix;
         bool is_cs = false;
@@ -101,8 +95,8 @@ NativeResult compute_matrix_impl(
 
         const auto start = std::chrono::steady_clock::now();
         ::fracessa analyzer(
-            parsed_matrix, is_cs, include_candidates, exact, full_support,
-            enable_logging, matrix_id, unsafe);
+            parsed_matrix, is_cs, include_candidates, mode, full_support,
+            enable_logging, matrix_id);
         const auto end = std::chrono::steady_clock::now();
 
         result.elapsed_ns = std::chrono::duration_cast<std::chrono::nanoseconds>(end - start).count();
@@ -147,19 +141,18 @@ NativeResult compute_matrix_impl(
 py::dict compute_matrix(
     const std::string& matrix,
     bool include_candidates,
-    bool exact,
+    const std::string& mode,
     bool full_support,
     bool enable_logging,
-    std::int64_t matrix_id,
-    bool unsafe)
+    std::int64_t matrix_id)
 {
     NativeResult native;
     {
         // compute_matrix_impl touches no Python objects and may run for hours.
         py::gil_scoped_release release;
         native = compute_matrix_impl(
-            matrix, include_candidates, exact, full_support,
-            enable_logging, matrix_id, unsafe);
+            matrix, include_candidates, mode, full_support,
+            enable_logging, matrix_id);
     }
 
     // The release object above has restored the GIL; Python allocation is safe.
@@ -209,13 +202,14 @@ PYBIND11_MODULE(fracessa_core, m)
         &compute_matrix,
         py::arg("matrix"),
         py::arg("include_candidates") = false,
-        py::arg("exact") = false,
+        py::arg("mode") = "verified",
         py::arg("full_support") = false,
         py::arg("enable_logging") = false,
         py::arg("matrix_id") = std::int64_t{-1},
-        py::arg("unsafe") = false,
         R"doc(
 Compute one matrix with native C++ core and return structured results.
+
+mode: verified, exact, unsafe, or very_unsafe.
 
 Returns a dict with keys:
 - status, success, error_message
