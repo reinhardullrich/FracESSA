@@ -9,6 +9,15 @@ class TypesTests(unittest.TestCase):
     def test_run_config_has_no_timeout_field(self):
         cfg = RunConfig()
         self.assertFalse(hasattr(cfg, "timeout_s"))
+        self.assertEqual(cfg.mode, "verified")
+
+    def test_run_config_validates_mode(self):
+        for mode in ("verified", "exact", "unsafe", "very_unsafe"):
+            self.assertEqual(RunConfig(mode=mode).mode, mode)
+        with self.assertRaisesRegex(TypeError, "mode must be a str"):
+            RunConfig(mode=1)
+        with self.assertRaisesRegex(ValueError, "verified, exact, unsafe, or very_unsafe"):
+            RunConfig(mode="unknown")
 
     def test_status_codes(self):
         self.assertEqual(int(StatusCode.OK), 0)

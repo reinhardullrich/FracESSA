@@ -5,6 +5,7 @@
 #include <vector>
 #include <memory>
 #include <optional>
+#include <string_view>
 
 #include <spdlog/spdlog.h>
 #include <spdlog/sinks/rotating_file_sink.h>
@@ -14,7 +15,17 @@
 #include <fracessa/bitset64.hpp>
 #include <fracessa/find_candidate_exact.hpp>
 #include <fracessa/find_candidate_unsafe.hpp>
+#include <fracessa/find_candidate_very_unsafe.hpp>
 #include <fracessa/find_candidate_verified.hpp>
+
+enum class analysis_mode {
+    verified,
+    exact,
+    unsafe,
+    very_unsafe,
+};
+
+analysis_mode parse_analysis_mode(std::string_view name);
 
 /*
  * Runs the complete ESS search for one payoff matrix.
@@ -25,14 +36,16 @@
  *    candidate on S, including its extended support;
  * 3) exact positive-definiteness and copositivity tests decide ESS stability.
  *
- * Verified mode returns false only after a rigorous one-sided proof. Explicit
- * unsafe mode retains the faster heuristic, while exact mode bypasses both.
- * True from either preliminary search means "continue with the exact test."
+ * Verified mode returns false only after a rigorous one-sided proof. Unsafe
+ * mode retains the normalized heuristic, very-unsafe mode restores the older
+ * raw-double heuristic, and exact mode bypasses every preliminary search.
  */
 class fracessa
 {
 public:
-    fracessa(const linalg::matrix_frc& matrix, bool is_cs, bool with_candidates = false, bool exact = false, bool full_support = false, bool with_log = false, std::int64_t matrix_id = -1, bool unsafe = false);
+    fracessa(const linalg::matrix_frc& matrix, bool is_cs, bool with_candidates = false,
+             analysis_mode mode = analysis_mode::verified, bool full_support = false,
+             bool with_log = false, std::int64_t matrix_id = -1);
     fracessa(const fracessa&) = delete;
     fracessa& operator=(const fracessa&) = delete;
     fracessa(fracessa&&) = delete;
@@ -48,16 +61,16 @@ private:
     linalg::matrix_frc game_matrix_;
     candidate_search::find_candidate_verified find_candidate_verified_;
     candidate_search::find_candidate_unsafe find_candidate_unsafe_;
+    candidate_search::find_candidate_very_unsafe find_candidate_very_unsafe_;
     candidate_search::find_candidate_exact find_candidate_exact_;
     linalg::matrix_frc bee_matrix_;
 
     size_t dimension_;
 
     bool conf_with_candidates_;
-    bool conf_exact_;
+    analysis_mode mode_;
     bool conf_full_support_;
     bool conf_with_log_;
-    bool conf_unsafe_;
 
     candidate candidate_;
 

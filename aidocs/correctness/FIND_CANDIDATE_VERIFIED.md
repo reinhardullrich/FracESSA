@@ -604,7 +604,7 @@ Correctness must be established before speed is considered.
 
 ### Required Correctness Checks
 
-1. Compare every result against the current `--exact` path.
+1. Compare every result against the current `--mode exact` path.
 2. During development, independently run the exact candidate solver for every
    `PROVEN_REJECT` and assert that it really rejects.
 3. Keep verification matrices 38 and 39 as scale/translation regressions.
@@ -632,7 +632,7 @@ PROVEN_REJECT.
 Measure at least:
 
 1. current default runtime as an incorrect speed reference;
-2. current `--exact` runtime as the correctness reference;
+2. current `--mode exact` runtime as the correctness reference;
 3. exact normalization with the existing unsafe double procedure, for isolated
    overhead;
 4. normalized `find_candidate_verified`;

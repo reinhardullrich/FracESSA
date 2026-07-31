@@ -49,18 +49,26 @@ class RunConfig:
     """Configure native analysis for sequential or multiprocessing execution.
 
     Attributes:
-        exact: Use exact rather than floating-point analysis.
+        mode: Candidate-search mode; verified is the default.
         full_support: Request full-support analysis from the native engine.
         include_candidates: Include candidate dictionaries in each result.
         enable_logging: Enable native logging for sequential execution only.
-        unsafe: Use heuristic candidate rejection instead of verified search.
     """
 
-    exact: bool = False
+    mode: Literal["verified", "exact", "unsafe", "very_unsafe"] = "verified"
     full_support: bool = False
     include_candidates: bool = False
     enable_logging: bool = False
-    unsafe: bool = False
+
+    def __post_init__(self) -> None:
+        """Reject unknown native analysis modes."""
+
+        if not isinstance(self.mode, str):
+            raise TypeError("RunConfig.mode must be a str")
+        if self.mode not in {"verified", "exact", "unsafe", "very_unsafe"}:
+            raise ValueError(
+                "RunConfig.mode must be verified, exact, unsafe, or very_unsafe"
+            )
 
 
 @dataclass(slots=True)

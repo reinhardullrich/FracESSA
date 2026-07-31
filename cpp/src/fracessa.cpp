@@ -14,27 +14,40 @@
  * stability classification. Confirmed ESS supports trigger superset pruning.
  */
 
-fracessa::fracessa(const linalg::matrix_frc& matrix, bool is_cs, bool with_candidates, bool exact,
-                   bool full_support, bool with_log, std::int64_t matrix_id, bool unsafe)
+analysis_mode parse_analysis_mode(std::string_view name)
+{
+    if (name == "verified") return analysis_mode::verified;
+    if (name == "exact") return analysis_mode::exact;
+    if (name == "unsafe") return analysis_mode::unsafe;
+    if (name == "very_unsafe") return analysis_mode::very_unsafe;
+    throw std::invalid_argument(
+        "Unknown analysis mode '" + std::string(name) +
+        "'; expected verified, exact, unsafe, or very_unsafe");
+}
+
+fracessa::fracessa(const linalg::matrix_frc& matrix, bool is_cs, bool with_candidates,
+                   analysis_mode mode, bool full_support, bool with_log,
+                   std::int64_t matrix_id)
     : game_matrix_(matrix)
     , find_candidate_verified_(game_matrix_)
     , find_candidate_unsafe_(game_matrix_)
+    , find_candidate_very_unsafe_(game_matrix_)
     , find_candidate_exact_(game_matrix_)
     , dimension_(matrix.rows())
     , conf_with_candidates_(with_candidates)
-    , conf_exact_(exact)
+    , mode_(mode)
     , conf_full_support_(full_support)
     , conf_with_log_(with_log)
-    , conf_unsafe_(unsafe)
     , candidate_()
     , logger_()
 {
-    if (!conf_exact_ && !conf_unsafe_) {
+    if (mode_ == analysis_mode::verified) {
         if (const char* reason = candidate_search::unavailable_reason()) {
             throw std::runtime_error(
                 std::string("Verified candidate search is unavailable: ") + reason +
-                ". Run with --exact for correct exact analysis or --unsafe for "
-                "heuristic rejection that may miss candidates or ESS results.");
+                ". Run with --mode exact for correct exact analysis, or --mode "
+                "unsafe or --mode very_unsafe for heuristic rejection that may "
+                "miss candidates or ESS results.");
         }
     }
 
@@ -58,9 +71,11 @@ fracessa::fracessa(const linalg::matrix_frc& matrix, bool is_cs, bool with_candi
         logger_->info("game matrix:\n{}", game_matrix_.to_log_string());
     }
 
-    if (!conf_exact_ && conf_unsafe_ &&
+    if (mode_ == analysis_mode::unsafe &&
         !find_candidate_unsafe_.normalize_game_matrix()) {
-        conf_exact_ = true;
+        mode_ = analysis_mode::exact;
+    } else if (mode_ == analysis_mode::very_unsafe) {
+        find_candidate_very_unsafe_.convert_game_matrix();
     }
 
     if (conf_full_support_) {
@@ -108,10 +123,18 @@ fracessa::fracessa(const linalg::matrix_frc& matrix, bool is_cs, bool with_candi
 }
 
 bool fracessa::analyze_support(bitset64 support, size_t support_size) {
-    if (!conf_exact_) {
-        if (conf_unsafe_) {
-            if (!find_candidate_unsafe_.find(support, support_size)) return false;
-        } else if (!find_candidate_verified_.find(support, support_size)) return false;
+    switch (mode_) {
+    case analysis_mode::verified:
+        if (!find_candidate_verified_.find(support, support_size)) return false;
+        break;
+    case analysis_mode::unsafe:
+        if (!find_candidate_unsafe_.find(support, support_size)) return false;
+        break;
+    case analysis_mode::very_unsafe:
+        if (!find_candidate_very_unsafe_.find(support, support_size)) return false;
+        break;
+    case analysis_mode::exact:
+        break;
     }
     const bool needs_candidate_vector = conf_with_candidates_ || conf_with_log_;
     if (!find_candidate_exact_.find(

@@ -121,7 +121,9 @@ def main() -> int:
         fracessa_exe, [unsafe_counterexample], "default_verified_success"
     )
     explicit_unsafe_result = assert_success_with_ess_output(
-        fracessa_exe, ["--unsafe", unsafe_counterexample], "explicit_unsafe_success"
+        fracessa_exe,
+        ["--mode", "unsafe", unsafe_counterexample],
+        "explicit_unsafe_success",
     )
     if first_non_empty_line(default_result.stdout) != "1":
         raise AssertionError(f"verified mode missed matrix 46 ESS: {default_result.stdout.strip()}")
@@ -133,26 +135,43 @@ def main() -> int:
 
     # Numerical mode and parser behavior
     exact_result = assert_success_with_ess_output(
-        fracessa_exe, ["--exact", "2#0,1,0"], "exact_success"
+        fracessa_exe, ["--mode", "exact", "2#0,1,0"], "exact_success"
     )
-    if "unsafe numerical mode" in exact_result.stderr.lower():
+    if "heuristic candidate search" in exact_result.stderr.lower():
         raise AssertionError("exact mode unexpectedly printed the unsafe warning")
 
     assert_failure_with_stderr(
         fracessa_exe,
-        ["--exact", "--unsafe", "2#0,1,0"],
-        "cannot be used together",
-        "exact_unsafe_conflict",
+        ["--mode", "unknown", "2#0,1,0"],
+        "Unknown analysis mode",
+        "unknown_mode_rejected",
     )
 
-    # Affine normalization restores the exact result for both historical cases.
+    # Affine normalization restores both historical raw-double failures. The
+    # explicit very-unsafe mode deliberately preserves those old rejections.
     for case_name, matrix in (
         ("normalized_scale", "2#0,1/100000000000000000000,0"),
         ("normalized_translation", "2#100000000000000000000,100000000000000000001,100000000000000000000"),
     ):
-        result = assert_success_with_ess_output(fracessa_exe, [matrix], case_name)
-        if first_non_empty_line(result.stdout) != "1":
-            raise AssertionError(f"{case_name}: expected one ESS, got {result.stdout.strip()}")
+        verified_result = assert_success_with_ess_output(
+            fracessa_exe, [matrix], f"{case_name}_verified"
+        )
+        unsafe_result = assert_success_with_ess_output(
+            fracessa_exe, ["--mode", "unsafe", matrix], f"{case_name}_unsafe"
+        )
+        very_unsafe_result = assert_success_with_ess_output(
+            fracessa_exe,
+            ["--mode", "very_unsafe", matrix],
+            f"{case_name}_very_unsafe",
+        )
+        if first_non_empty_line(verified_result.stdout) != "1":
+            raise AssertionError(f"{case_name}: verified mode missed the ESS")
+        if first_non_empty_line(unsafe_result.stdout) != "1":
+            raise AssertionError(f"{case_name}: normalized unsafe mode missed the ESS")
+        if first_non_empty_line(very_unsafe_result.stdout) != "0":
+            raise AssertionError(f"{case_name}: very-unsafe mode did not preserve the historical rejection")
+        assert_unsafe_warning(unsafe_result, f"{case_name}_unsafe_warning")
+        assert_unsafe_warning(very_unsafe_result, f"{case_name}_very_unsafe_warning")
 
     # Other success paths
     assert_success_with_ess_output(fracessa_exe, ["5#1,3"], "circular_success")
@@ -178,7 +197,7 @@ def main() -> int:
     )
     assert_failure_with_stderr(
         fracessa_exe,
-        ["--unsafe", "64#1"],
+        ["--mode", "unsafe", "64#1"],
         "supports dimensions in [1, 63]",
         "numerical_unsafe_uses_dimension_guard",
     )

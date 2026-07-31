@@ -51,7 +51,7 @@ class NativeIntegrationTests(unittest.TestCase):
         )
         unsafe = run(
             matrix,
-            RunConfig(include_candidates=True, unsafe=True),
+            RunConfig(include_candidates=True, mode="unsafe"),
             run_id="native_unsafe",
         )
 
@@ -60,12 +60,31 @@ class NativeIntegrationTests(unittest.TestCase):
         self.assertEqual(verified["ess_count"], 1)
         self.assertEqual(unsafe["ess_count"], 0)
 
-    def test_exact_and_unsafe_are_rejected(self):
-        result = run(
-            Matrix(matrix_id=1, matrix="2#0,1,0"),
-            RunConfig(exact=True, unsafe=True),
-            run_id="native_mode_conflict",
+    def test_very_unsafe_preserves_raw_double_failure(self):
+        database = Path(__file__).resolve().parents[3] / "testdata/fracessa_testdata.sqlite3"
+        with closing(sqlite3.connect(database)) as connection:
+            dimension, values = connection.execute(
+                "SELECT dimension, matrix FROM matrices WHERE matrix_id = 38"
+            ).fetchone()
+        matrix = Matrix(matrix_id=38, matrix=f"{dimension}#{values}")
+
+        verified = run(matrix, RunConfig(), run_id="native_verified_raw_regression")
+        unsafe = run(
+            matrix, RunConfig(mode="unsafe"), run_id="native_unsafe_raw_regression"
         )
+        very_unsafe = run(
+            matrix,
+            RunConfig(mode="very_unsafe"),
+            run_id="native_very_unsafe_raw_regression",
+        )
+
+        self.assertEqual(verified["ess_count"], 1)
+        self.assertEqual(unsafe["ess_count"], 1)
+        self.assertEqual(very_unsafe["ess_count"], 0)
+
+    def test_unknown_native_mode_is_rejected(self):
+        native = load_native_module()
+        result = native.compute_matrix("2#0,1,0", mode="unknown")
 
         self.assertFalse(result["success"])
         self.assertEqual(result["status"], 4)
@@ -111,7 +130,7 @@ class NativeIntegrationTests(unittest.TestCase):
     def test_circular_native_returns_one_weighted_representative(self):
         result = run(
             Matrix(matrix_id=2, matrix="5#1,3"),
-            RunConfig(include_candidates=True, exact=True),
+            RunConfig(include_candidates=True, mode="exact"),
             run_id="native_circular",
         )
 

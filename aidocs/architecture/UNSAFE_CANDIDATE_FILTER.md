@@ -4,8 +4,10 @@ Status: implemented; local correctness and performance verification recorded
 below.
 
 Current status: this document records the completed temporary-default phase.
-Verified candidate search is now the no-flag default; this heuristic remains
-available only through explicit `--unsafe`. See
+Verified candidate search is now the default. The normalized heuristic is
+available through `--mode unsafe`, while the older raw-double algorithm from
+before normalization is available through `--mode very_unsafe`. The remainder
+of this document is the historical record of the temporary phase. See
 `FIND_CANDIDATE_VERIFIED.md` for the current routing and validation record.
 
 Branch: `choice-one-candidate-filter`

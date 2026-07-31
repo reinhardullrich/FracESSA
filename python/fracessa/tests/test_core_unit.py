@@ -42,13 +42,13 @@ class CoreUnitTests(unittest.TestCase):
     def test_compute_matrix_uses_cli_string_if_already_prefixed(self):
         fake = _FakeNative()
         matrix = Matrix(matrix_id=11, matrix="2#0,1,0")
-        cfg = RunConfig(include_candidates=True, unsafe=True)
+        cfg = RunConfig(include_candidates=True, mode="unsafe")
 
         with mock.patch("fracessa.core.load_native_module", return_value=fake):
             result = core.compute_matrix(matrix=matrix, config=cfg, run_id="unit")
 
         self.assertEqual(fake.last_kwargs["matrix"], "2#0,1,0")
-        self.assertTrue(fake.last_kwargs["unsafe"])
+        self.assertEqual(fake.last_kwargs["mode"], "unsafe")
         self.assertEqual(result["matrix_id"], 11)
         self.assertEqual(result["ess_count"], 2)
         self.assertEqual(result["elapsed_ns"], 1234)

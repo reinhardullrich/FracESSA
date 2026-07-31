@@ -480,12 +480,20 @@ TEST(find_candidate_verified_availability_test, UnavailableEnvironmentDisablesOn
         message = error.what();
     }
 
-    EXPECT_NO_THROW({ ::fracessa analyzer(game, false, false, true); });
-    EXPECT_NO_THROW({ ::fracessa analyzer(game, false, false, false, false, false, -1, true); });
+    EXPECT_NO_THROW({
+        ::fracessa analyzer(game, false, false, analysis_mode::exact);
+    });
+    EXPECT_NO_THROW({
+        ::fracessa analyzer(game, false, false, analysis_mode::unsafe);
+    });
+    EXPECT_NO_THROW({
+        ::fracessa analyzer(game, false, false, analysis_mode::very_unsafe);
+    });
 
     if (runtime_failure_needed) ASSERT_EQ(std::fesetround(original_rounding), 0);
-    EXPECT_NE(message.find("--exact"), std::string::npos);
-    EXPECT_NE(message.find("--unsafe"), std::string::npos);
+    EXPECT_NE(message.find("--mode exact"), std::string::npos);
+    EXPECT_NE(message.find("--mode unsafe"), std::string::npos);
+    EXPECT_NE(message.find("--mode very_unsafe"), std::string::npos);
 }
 
 TEST_F(supported_find_candidate_verified_test, NeverRejectsRandomExactCandidates)
