@@ -1,0 +1,1188 @@
+\documentclass[moor]{informs3}              % for a regular run
+
+\usepackage{latexsym}
+\usepackage{amsfonts}
+
+\setlength{\parskip}{\smallskipamount}
+\setlength{\parindent}{0pt}
+\usepackage{amssymb}
+\usepackage{amsfonts}
+\usepackage{xcolor,paralist}
+\usepackage{geometry}
+\usepackage{graphicx}
+\usepackage{enumitem}
+\usepackage{bm}
+\geometry{ margin=0.8in}
+
+\def\Biggg#1{{\hbox{$\left#1\vbox to 20pt{}\right.$}}}
+\def\Bigggl{\mathopen\Biggg}
+\def\Bigggr{\mathclose\Biggg}
+\newcommand{\rr}{{\mathbf{r}}}
+\newcommand{\EE}{{\rm I\!E\,}}
+\newcommand{\myreferences}{C:/Users/Bomze/Documents/papers/copos_current}
+\def\reff#1{(\ref{#1})}
+\def\EEE{\mathbb{E}}
+\def\PPP{\mathbb{P}}
+\def\irg#1#2{{ \in\! [{#1}\! : \! {#2}]}}
+\def\sirg#1#2{{ \in\kern-.5pt [{#1}\kern-.5pt : \kern-.5pt {#2}]}}
+\def\rg#1#2{{ [\kern-.5pt{#1}\kern-.5pt : \kern-.5pt {#2}\kern-.5pt]}}
+\definecolor{dgreen}{rgb}{0,.7,0}
+\def\cowe#1{{#1}} %dgreen
+\def\coma#1{{#1}}
+%\makeatletter
+\include{definitions}
+%\makeatother
+
+% Natbib setup for numeric style
+\usepackage{natbib}
+ \NatBibNumeric
+ \def\bibfont{\small}%
+ \def\bibsep{\smallskipamount}%
+ \def\bibhang{24pt}%
+ \def\BIBand{and}%
+ \def\newblock{\ }%
+ \bibpunct[, ]{[}{]}{,}{n}{}{,}%
+
+%% Hyperref setup
+%\usepackage[colorlinks=true,breaklinks=true,bookmarks=true,urlcolor=blue,
+%     citecolor=blue,linkcolor=blue,bookmarksopen=false,draft=false]{hyperref}
+%
+%\def\EMAIL#1{\href{mailto:#1}{#1}}% When hyperref is used, otherwise outcomment
+%\def\URL#1{\href{#1}{#1}}         % When hyperref is used, otherwise outcomment
+
+%% Setup of theorem styles. Outcomment only one.
+%% Preferred default is the first option.
+\TheoremsNumberedThrough     % Preferred (Theorem 1, Lemma 1, Theorem 2)
+%\TheoremsNumberedByChapter  % (Theorem 1.1, Lema 1.1, Theorem 1.2)
+
+%% Setup of the equation numbering system. Outcomment only one.
+%% Preferred default is the first option.
+\EquationsNumberedThrough    % Default: (1), (2), ...
+%\EquationsNumberedBySection % (1.1), (1.2), ...
+
+% In the reviewing and copyediting stage enter the manuscript number.
+%\MANUSCRIPTNO{} % When the article is logged in and DOI assigned to it,
+                 %   this manuscript number is no longer necessary
+
+%%%%%%%%%%%%%%%%
+\begin{document}
+%%%%%%%%%%%%%%%%
+
+% Outcomment only when entries are known. Otherwise leave as is and
+%   default values will be used.
+%\setcounter{page}{1}
+%\VOLUME{00}%
+%\NO{0}%
+%\MONTH{Xxxxx}% (month or a similar seasonal id)
+%\YEAR{0000}% e.g., 2005
+%\FIRSTPAGE{000}%
+%\LASTPAGE{000}%
+%\SHORTYEAR{00}% shortened year (two-digit)
+%\ISSUE{0000} %
+%\LONGFIRSTPAGE{0001} %
+%\DOI{10.1287/xxxx.0000.0000}%
+
+
+\RUNAUTHOR{Bomze, Schachinger, and Ullrich}
+\RUNTITLE{The complexity of simple models}
+
+\TITLE{The complexity of simple models -- \\ a study of worst and typical hard cases \\ for the Standard Quadratic Optimization Problem}
+\ARTICLEAUTHORS{%
+\AUTHOR{Immanuel M. Bomze, Werner, Schachinger and Reinhard Ullrich}
+\AFF{University of Vienna, Austria}
+}%
+
+\ABSTRACT{%
+In a Standard Quadratic Optimization Problem (StQP), a possibly indefinite quadratic form (the simplest nonlinear function) is extremized over the standard simplex, the simplest polytope. Despite this simplicity, the nonconvex instances of this problem class allow for remarkably rich patterns of coexisting local solutions, which are closely related to practical difficulties in solving StQPs globally. In this study, we improve on existing lower bounds for the number of strict local solutions by a new technique to construct instances with a rich solution structure. Furthermore we provide extensive case studies where the system of supports (the so-called pattern) of solutions are analyzed in detail. Note that by naive simulation, in accordance to theory, most of the interesting patterns would not be encountered, since random instances have, with a high probability, quite sparse solutions (with singleton or doubleton supports), and likewise their expected numbers are considerably lower than in the worst case. Hence instances with a rich solution pattern are rather rare. On the other hand, by concentrating on (thin) subsets of promising instances, we are able to give an empirical answer on the size distribution of supports of strict local solutions to the StQP and their patterns, complementing average-case analysis of this NP-hard problem class.
+}%
+
+% Fill in data. If unknown, outcomment the field
+%\KEYWORDS{Local Solutions; Quadratic Optimization; Evolutionary Stability; Global Optimization; Replicator Dynamics; Selection Stability}
+%\MSCCLASS{Primary: 90C20; secondary:90C26, 91A22, 92D25} 
+
+
+\maketitle
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+
+
+\section{Introduction.}
+
+\subsection{Background, motivation and organization of the paper.}
+
+We consider the \emph{Standard Quadratic Optimization Problem (StQP)} given by
+\begin{equation}\label{e:stqp}
+\max_{\x \in \simplex} \x \T \Ab \x
+\end{equation}
+where $\Ab$ is a symmetric $n \times n$-matrix and $\simplex$ is the standard-simplex
+$$
+\simplex=\left\{ \x\in\mathbb{R}^{n}:\sum_{i=1}^{n}x_{i}=1,\, x_{i}\geq0\quad\mbox{for all }i \in N \right\} \mbox{,}
+$$
+where $N=\left\{1,\dots,n \right\}$, also denoted as $\rg 1n$. \coma{By
+$${sol}(\Ab) :=\lk \bar\x\in \Delta : \bar\x\T\Ab\bar\x = \max_{\x \in \simplex} \x \T \Ab \x\rk$$
+we denote the set of all global solutions to~\eqref{e:stqp}.}
+
+Despite of its simplicity, this model is quite versatile. Applications are numerous, ranging from the famous Markowitz portfolio problem in Finance, Economics (evolutionary game theory) through Machine Learning (background-foreground clustering in image analysis) to life science applications, e.g. in Population Genetics (selection models) and Ecology (replicator dynamics). So it is not too surprising that the following questions are closely related (for detailed explanations and background see e.g.~\cite{Bomz02a,Hofb98,Sand10a,Weib95}):
+
+How many strict local solutions are there at most in a given StQP~?
+
+How many evolutionarily stable states ($ESS$s) can coexist in a given (partnership) game~?
+
+How many asymptotically stable fixed points can coexist for the replicator dynamics~?
+
+How many stable equilibria can coexist in a one-locus, multi-allelic system~?
+
+How many maximal cliques can coexist in an undirected graph~?
+
+The last question sheds light on an important aspect of StQPs, namely the discrete combinatorial structure of this problem class of continuous optimization models.
+Indeed, for the subclass of StQPs based upon an adjacency matrix $\Ab$ of an undirected graph, the answer to the last question is well known by the famous Moon/Moser bound~\cite{Moon65}: asymptotically ${\sqrt[3]{3}}^n\approx (1.4422)^n$, a number exponential in the order $n$ of the graph, and this bound is attained at the
+complete multipartite Tur\'an graph $T(3k,k)$ with $n=3k$.
+
+However, the Moon/Moser bound is not valid for general symmetric matrices $\Ab$ (with also non-binary entries). In this paper, we will push this exponential bound up,  improving, and building, upon earlier investigations~\cite{Broo93a} where the basis $\approx 1.4592$ was established, to a basis of $\approx 1.4933$, establishing a new world record, to the best of our knowledge. Note that a worst-case {\em upper} bound on the maximal number of strict {local} solutions is due to Sperner's theorem (see, e.g.~\cite[Section~6.3]{Bomz89a}), and asymptotically equals $\approx \frac{2^n}{1.25\sqrt n}$ (see \reff{Sperner} below), so that the basis necessarily is smaller than two. Relaxing further, one can establish without too much effort a sharp upper bound on the number of isolated critical points (satisfying the KKT condition, \coma{i.e., the first-order necessary condition for local optimality,  see~\eqref{nesequiv} below; note that no constraint qualifications on~\eqref{e:stqp} are needed as all constraints are linear}) which is $2^n-1$, the number of possible supports, an example being $\Ab=\Ib_n$, the $n\times n$ identity matrix: here, the barycenter of every face of $\Delta^n$ is a KKT point for~\reff{e:stqp}.
+
+To get the bound of $(15120)^{\frac n{24}}\approx (1.4933)^n$, we construct an instance with $n=24$ having 15,120 coexisting strict local solutions, and an accordingly rich pattern structure. The methods employed may serve as good examples of the interaction/feedback loop between experimental and theoretical work in Applied Mathematics. Whether one views the experimental parts rather as empirical work, remains a matter of personal taste, but for sure our experiments add to the empirical evidence on the complexity of StQPs, and as we hope, to a significant extent both from the worst-case and the typical-case point of view as (conditionally random) distributions of hard instances are investigated. In a sense, our experiments are similar to importance sampling technique in advanced simulation studies, in that the search (instance) space is swept thoroughly in interesting parts. See Subsection~\ref{avg} below.
+
+\coma{The paper is organized as follows: after setting the scene in the remainder of this section, the central theoretical development is presented in Section~\ref{theosec}. This starts with robustness investigations in Subsection~\ref{secrob}, then combines small instances to larger ones in Subsection~\ref{seccom}, introduces generating polynomials and perturbation methods in Subsections~\ref{secgenp} and~\ref{secpert} as key ingredients for our arguments, and finally collects the consequences for counting $ESS$s in Subsections~\ref{secspec} and~\ref{seccount}. The last two Subsections~\ref{Cyclically Symmetric Matrices} and \ref{Restricting the search space} deal with intricate search strategies without which it would have been quite hard (if possible at all) to detect interesting instances in a systematic way. Thereafter, Section~\ref{Worst case lower bounds} applies the developed theory in an algorithmic approach to generate interesting patterns for several matrix classes, including a discussion of the achieved improvements of the status quo. A detailed study on cyclically symmetric instances of orders exceeding most of the previously investigated cases, including descriptive statistics and illustrations is presented in Section~\ref{experistu}. These results shed some light on the ``complexity of complexity'' in this simplest class of hard optimization problems, and open a new perspective on the notion of an average case beyond naive random simulation.
+}
+
+\subsection{Looking over the fence; basic definitions and notation.}
+
+The above mentioned close relations between the different fields Optimization, game theory and population/selection dynamics; as explained in~\cite{Bomz02a}, the optimization problem~\reff{e:stqp} is closely related to an {\em evolutionary game} with strategy set $N$ in pairwise contests, with payoff matrix $\Ab$. If $\Ab=\Ab\T$, this means that the row and the column player share the payoff equally, a partnership game. Likewise, the symmetric matrix $\Ab =[a_{ij}]$ could also collect the (incremental) fitness values for the allelic combination $\lk i,j\rk\in N\times N$ where $N$ is the allele set for a single autosomal locus, an aspect we will not pursue further in this paper. Finally we may look a certain population dynamics called {\em replicator dynamics} defined as a system of coupled autonomous differential equations, a continuous-time dynamical system (a dot $\dot y$ signifies derivative w.r.t. time $t$) and perform the usual qualitative equilibrium analysis:
+\beq{rd}\dot x_i(t) = x_i(t)\left ( [\Ab\x(t)]_i - \qf {\x(t)}\Ab\right )\, ,\quad i\in N\, ,\quad \x(0)=\x_0\in \Delta^n\, ; \quad t\ge 0\,. \eeq
+We have the following equivalences for a point $\x\in \Delta ^n$, \coma{cf.~\cite{King61a,King88a}:}
+\beq{essequiv}\left .\bea{rrl} &\x&\mbox{ is a strict local maximizer of~\reff{e:stqp}, i.e. strictly maximizes population overall fitness}\\[0.2em]
+\Longleftrightarrow\quad &\x &\mbox{ is an evolutionary stable strategy ($ESS$) for payoff matrix }\Ab\\[0.2em]
+\Longleftrightarrow\quad &\x &\mbox{ is an asymptotically stable fixed point for the dynamics~\reff{rd}.}\ea\right \} \eeq
+For succinct proofs, we refer to~\cite[Theorem~10]{Bomz02a} where also equivalences for the weaker versions of solutions are stated and proved:
+\beq{nssequiv}\left .\bea{rrl} &\x&\mbox{ is a local maximizer of~\reff{e:stqp}, i.e. maximizes population overall fitness}\\[0.2em]
+\Longleftrightarrow\quad &\x &\mbox{ is a neutrally stable strategy ($NSS$) for payoff matrix }\Ab\\[0.2em]
+\Longleftrightarrow\quad &\x &\mbox{ is a Lyapunov stable fixed point for the dynamics~\reff{rd};}\ea\rk\eeq
+and
+\beq{nesequiv}\left .\bea{rrl} &\x&\mbox{ is a KKT point for~\reff{e:stqp}: \coma{$(\Ab\x)_i \le \qf\x\Ab$ for all $i\in N$ with equality if $x_i>0$}}\\[0.2em]
+\Longleftrightarrow\quad &\x &\mbox{ is a Nash equilibrium strategy ($NES$) for payoff matrix }\Ab\\[0.2em]
+\Longleftrightarrow\quad &\x &\mbox{ is a saturated fixed point for the dynamics~\reff{rd}.}\ea\rk\eeq
+For us relevant are the first two equivalences in~\reff{essequiv}, \reff{nssequiv} and \reff{nesequiv}, and in the following we will use both terms (strict local maximizer/$ESS$; local maximizer/$NSS$; KKT point/$NES$) interchangeably. For the readers' convenience, we will repeat the definitions of $ESS$, $NSS$, $NES$ below (note that these also apply to non-symmetric square matrices $\Ab\neq\Ab\T$, used for modeling non-partnership evolutionary games); to this end, we will introduce a bit of notation first: given any point $\x\in\Delta^n$, \coma{let
+$$BR_\Ab(\x) := \lk \y\in \Delta ^n : \y\T\Ab\x= \max_{\z\in \Delta^n} \z\T\Ab \x\rk $$
+be the set of best replies to $\x$ (the solution set of the LP $\max\lk \z\T\Ab \x : \z\in \Delta^n\rk $) and}
+$$I(\x)=\left\{i \in N :x_i>0 \right\}$$ be the \emph{support} of $\x$. The \emph{extended support} is given by
+$$J_{\Ab}(\x)=\left \lbrace i\in N: [\Ab \x]_i = \x \T \Ab \x \right \rbrace\,.$$
+
+A vector $\x \in \simplex$ is called a (symmetric) \emph{Nash Equilibrium State/Strategy} ($NES$), if $\x\T \Ab \x \geq \y \T \Ab \x$ for all $\y \in \Delta^n$, i.e., if $\x$ is a best reply to itself, \coma{$\x\in BR_\Ab(\x)$}. It is easy to see that this implies $I(\x)\subseteq J_{\Ab}(\x)$, and that the set \coma{of best} replies $\y$ to $\x$ is given by $BR_\Ab(\x)= \conv\lk \e_j : j\in J_{\Ab}(\x)\rk$, where $\e_j$ is the $j$-th column of $\Ib_n$. In other words, all pure strategies actually used by $\x$, namely all $i\in I(\x)$, must be alternative best replies.
+
+A {\em Neutrally Stable State/Strategy} ($NSS$) is a $NES$ which in addition satisfies $\x \T \Ab \y \ge \y \T \Ab \y$ for all $\y\in BR_\Ab(\x)$;
+in words, a state/strategy $\x$ is {\em neutrally stable} if it is at least as good a reply to any $\y$ than that $\y$ to itself, for any alternative best reply $\y$ to $\x$. Finally, an $NSS$ is called {\em Evolutionarily Stable State/Strategy} ($ESS$), if the last inequality is strict: $\x\T\Ab\y > \qf\y\Ab$ for all $\y\in BR_\Ab(\x)\setminus \lk \x\rk$: any alternative best reply $\y$ to $\x$ fares strictly worse against itself than the incumbent $\x$ performs against $\y$.
+
+We will use some more convenient notation:
+Given an $n\times n$ matrix $\Ab$, we denote by
+$$ESS(\Ab) :=\lk \x\in \Delta ^n : \x\mbox{ is an $ESS$ for }\Ab\rk$$
+the set of all strict local maximizers of~\reff{e:stqp} if $\Ab\T=\Ab$, cf.~\reff{essequiv};
+$$NSS(\Ab) :=\lk \x\in \Delta ^n : \x\mbox{ is an $NSS$ for }\Ab\rk$$
+the set of all local maximizers of~\reff{e:stqp} if $\Ab\T=\Ab$, cf.~\reff{nssequiv}; and
+$$NES(\Ab) :=\lk \x\in \Delta ^n : \x\mbox{ is an $NES$ for }\Ab\rk$$
+the set of all KKT points of~\reff{e:stqp} if $\Ab\T=\Ab$, cf.~\reff{nesequiv}.
+Obviously, $ESS(\Ab)\subseteq NSS(\Ab) \subseteq NES(\Ab)$. The last two sets are never empty, but they can be infinite, while the first one has to be always finite (but may be empty, e.g. for $\Ab=\Ob$). However, generically, the first two sets coincide~\cite[Corollary~14]{Bomz02a}, in which case they are both nonempty and finite.
+More precisely, for every $\Ab$ and any $I\subseteq N$ there is at most one $ESS$ $\x$ with $I(\x) = I$. This follows immediately from the following non-inclusion result, see, e.g.~\cite{Bish76}:
+\beq{non inclusion result}
+(\x,\p) \in NES(\Ab)\times ESS(\Ab) \quad \mbox{and} \quad  I(\x)\subseteq J_{\Ab}(\p) \qquad \Longrightarrow \qquad \x=\p\, .
+\eeq
+Hence we do not only know $|ESS(\Ab)|\le 2^n$ but rather, by Sperner's theorem about maximal antichains,
+\beq{Sperner}
+|ESS(\Ab)|\le  \binom{n} {\left \lfloor \frac{n}{2} \right \rfloor}\sim 2^n/\sqrt{\pi n} \, ,
+\eeq
+using Stirling's approximation formula; \coma{cf.~\cite{Bish76}.} This is a consequence of~\reff{non inclusion result}, as the {\em ($ESS$) pattern} of $\Ab$,
+$$\textup{pattern}(\Ab):=\lk I(\x) : \x\in ESS(\Ab)\rk$$
+forms an antichain w.r.t. set inclusion in the complete lattice of all subsets of $N$, which has $n$ elements.
+Instances with a rich such pattern (and thus many coexisting strict local solutions) will be the main focus of our paper, extending and improving upon previous studies~\cite{Broo93a,Broo94a,Broo96a,Cann88a,Vick88b,Vick88a}. Despite its discrete combinatorial nature, the pattern comprises all essential information on the solution set of the instance, at least generically; note that generically we have $ESS(\Ab) = NSS(\Ab)$. Indeed, given $I\in \textup{pattern}(\Ab)$, it is a mere matter of solving a linear equation system in $|I|$ variables to obtain the unique $ESS$ $\x$ such that $I(\x)=I$, see also Section \ref{Algorithmic details: finding all $ESS$s of a given matrix}.
+
+
+\subsection{Global solutions; worst-case complexity and average case results.}\label{avg}
+
+Generically, there is only one global solution, but there are instances exhibiting exponentially many different (strict) global solutions. Consider for instance the
+complete multipartite Tur\'an graph $T(3k,k)$ which has $3^k$ maximum cliques; if the matrix $\Ab$ is $\Ib_{3k}$ plus twice the adjacency matrix of $T(3k,k)$, then \eqref{e:stqp} has $3^k=(\sqrt[3]{3})^n$ strict global solutions, see~\cite{Bomz98}.
+
+Regarding the above equivalence results~\reff{essequiv} on coexistence of many solutions we may rephrase them as follows: There is a constant $c\in[\sqrt[3]{3},2]$ such that
+
+At least $\sim  c^n$ strict global solutions can coexist for an StQP in $n$ variables;
+
+At least $\sim  c^n$ distinct $ESS$s realize maximum welfare in a partnership game with $n$ strategies;
+
+At least $\sim  c^n$ distinct selection equilibria with $n$ alleles may yield maximum overall fitness in the population.
+
+W.r.t.~replicator dynamics in $n$ state variables, there may coexist at least $\sim  c^n$ asymptotically stable fixed points at which the Lyapunov function attains its global maximum.
+
+It is yet unknown whether the maximal number of strict global solutions grows at the same rate or at a slower rate than the number of strict local solutions. This problem calls
+for future investigations which are beyond the scope of this paper.
+
+Turning to classical worst-case complexity theory, while StQPs are NP-hard (e.g., by reduction to the maximum clique problem), they form a PTAS~\cite{Bomz02c}. While for general QPs, determining one local solution is already NP-hard~\cite{Pard91}, this effort is polynomial-time for the StQP, at least in the maximum-clique case as the greedy algorithm is
+${\mathcal O} (n)$; in practice, a very efficient local maximization algorithm for the general case was proposed in~\cite{Rota11a}. Obviously, determining {\em all} local solutions cannot be easier than solving the StQP. For a thorough discussion of these and related issues, we refer to~\cite{deKl08}.
+
+So what is a typical hard instance\,? Previous work on random instances of StQPs would discourage the naive random generation \coma{approach.
+%although this has been done in the past, for instance in \cite{Cann88a} for adjacency matrices $\Ab$ of directed graphs of small order.
+Already in 1988, Kingman observed~\cite{King88a} that very large polymorphisms (i.e. support sizes exceeding $C\sqrt n$) are atypical. More recently, in} a series of papers~\cite{Kont05,Kont09,Kont10}, Kontogiannis and Spirakis looked at several continuous (e.g. Gaussian or uniform) i.i.d. distributions of entries of $n\times n$ instances
+$\tilde \Ab$ and proved, among other results, that $\EEE \left [|\textup{pattern}(\tilde \Ab)|\right ] = \EEE \left [|ESS(\tilde \Ab)|\right ]$ does not grow faster than $\exp(0.138n)$ (which is way slower than e.g.~$\sqrt[3]{3}^n$),
+and that
+$$\PPP \left [\max \lk |I| : I \in  \textup{pattern}(\tilde \Ab)\rk \ge n^{2/3} \right ] \to 0 \quad\mbox{ as }n\to\infty\,. $$
+So instances with patterns of size $\sim c^n$ with $c\ge\sqrt[3]{3}$ exist, but they become increasingly rare as $n$ gets large. Interesting complex (and therefore large) patterns would likely be missed or occur too rarely in a naive random sampling approach. On a related question, Chen and Peng obtained very recently in~\cite{Chen15a,Chen13} even stronger probability bounds, again using i.i.d. continuous distributions of a certain type, including exponential, uniform and Gaussian distribution. \coma{Based upon their findings, we now derive probability bounds on the support size $|I(\x^*(\tilde \Ab))|$,}  denoting by $\x^*(\Ab)$ a (generically unique) global solution of~\reff{e:stqp}:
+
+\coma{\begin{prop}
+(a) Under the assumption of \cowe{\cite[Thm 5]{Chen15a}}, there is a constant $C>0$ (independent of $n$) such that
+$$\PPP \left [  |I(\x^*(\tilde \Ab))| =k \right ]\le e^{-C\,k\log k} \quad\mbox{for all }k\ge2\, .$$
+(b) Under the assumption of \cowe{\cite[Thm 9]{Chen15a} that $\tilde\Ab$ belongs to the Gaussian orthogonal ensemble GOE$(n)$,} there is a constant $K>0$ (independent of $n$) such that
+$$\PPP \left [  |I(\x^*(\tilde \Ab))| \ge 3 \right ]\le K\frac{(\log n)^2}n\, .$$
+\end{prop}}
+
+\coma{
+\bep
+(a) \cite[Thm 5]{Chen15a} yields for all $\bar k= k-1\ge 1$ the bound
+$$\PPP \left [  |I(\x^*(\tilde \Ab))| = k \right ] \le \frac{{\bar k}^{\bar k} 2^{\bar k}}{[\bar k !]^2} $$
+which does not depend on $n$. Stirling's formula gives constants $C', C''$ and finally $C>0$ such that
+$$\log \PPP \left [  |I(\x^*(\tilde \Ab))| =  k \right ]  \le C' + {\bar k} \log ( \frac {2e^2}{\bar k} ) + C'' \log \bar k \le - C\, k \log k\, .$$
+(b) Consider the estimate given by \cite[Thm 9]{Chen15a}, accumulated across all support sizes $k\ge 3$:
+$$\bea{rcl}
+\sum\limits_{k=3}^\infty \PPP \left [  |I(\x^*(\tilde \Ab))| = k\right ] &\le &\sum\limits_{k=3}^\infty \frac {(2 k-3)!}{(k-1)!} \, e^{-(k - 2)^2/4}\,\frac {\left (\eta^2 \log \frac n{k-1}\right )^{k-1}}{(n+1)^{k -2}}\\[0.2em]
+&\le &\eta^4 \frac{(\log n)^2}{n+1}\sum\limits_{r=0}^\infty \frac {(2r+3)!}{(r+2)(r+1)} \, e^{-(r+1)^2/4} \left [\frac {\eta^2 \log \frac n{r+2}}{n+1}\right ]^r\!\!/r!\\[0.2em]
+&\le &4\eta^4 \frac{(\log n)^2}{n+1}\sum\limits_{r=0}^\infty \left [\frac {K' \eta^2 \log \frac n{r+2}}{n+1}\right ]^r\!\!/r!\\[0.2em]
+&\le &4\eta^4 \frac{(\log n)^2}{n+1} e^{K''}\, ,
+\ea$$
+where $K'\ge \frac{\gamma_{r+1}}{\gamma_r}= (2r+3)(2r+2)e^{-(2r+3)/4}$ with $\gamma_r = (2r+1)!\, e^{-(r+1)^2/4}$ for all integer $r\ge 0$ and $K''\ge \cowe{K'}\eta^2 \frac {\log (n/2)}{n+1}$ for all integer $n\ge 1$.
+The result follows. \ep
+}
+
+Again, this shows that naive random sampling is not very promising; if we know that  the support of the global solution is at most a doubleton (and this happens with a high probability), we simply have to search among all such ${\mathcal O}(n^2)$ doubletons and singletons; such instances occur with a high probability, and are no challenge algorithmically. Note that due to~\reff{non inclusion result}, also the possible pattern structures are constrained as they cannot contain any supports containing a doubleton already detected as a member of the pattern. Therefore, the worst cases are hidden in regions of small probability, and we will explore that region more systematically than just random searching, exploiting structures guaranteeing complex patterns.
+
+\section{Constructing complex $ESS$ patterns.}\label{theosec}
+
+
+\subsection{Some robustness results.}\label{secrob}
+
+Denote by $\mathcal{S}^n$ all symmetric matrices of order $n$, and by $\mathcal{F}_n$ those $\Ab\in\mathcal{S}^n$ such that \eqref{e:stqp} has only strict local maximizers (and therefore finitely many):
+$$\mathcal{F}_n := \lk \Ab\in \csn : NSS(\Ab) = ESS(\Ab)\rk\, ;$$
+by $\mathcal{F}^d_{n}$ those matrices which remain in $\mathcal{F}_n$ upon sufficiently small diagonal perturbations:
+$$\mathcal{F}^d_{n} := \lk \Ab\in \mathcal{F}_n : \mbox{for some }\eps>0\, , \; \Ab+\textup{Diag}(\d)\in\mathcal{F}_n \mbox{ for all }\d\mbox{ with }\norm \d < \eps\rk\, ;$$
+and by $\mathcal{F}^r_{n}$ those $\Ab\in\mathcal{S}^n$ such that all $NES$s are quasistrict in the sense that $\e_i$ is an alternative best answer to $\x$ if and only if strategy $i$ is used in $\x$ with positive frequency/probability:
+$$\mathcal{F}^r_{n} := \lk \Ab\in \csn : I(\x)=J_{\Ab}(\x)\mbox{ for all }\x\in NES(\Ab)\rk\, .$$
+We have $\mathcal{F}^r_{n}\subseteq\mathcal{F}_n$ due to \cite[Thm.13]{Bomz02a}, and that $\mathcal{F}^r_{n}$ is dense in $\csn$~\cite[Cor.14]{Bomz02a}. Moreover, $\mathcal{F}^r_{n}$ is open in $\csn$; indeed, considering its complement, suppose that $(\Bb_\ell,\q_\ell)\to (\Ab,\q)\in \csn\times \Delta^n$ along a sequence, where $\Bb_\ell\in \csn \setminus\mathcal{F}^r_{n}$ and $\q_\ell\in NES (\Bb_\ell)$ such that $I(\q_\ell) = I \neq J = J_{\Bb_\ell}(\q_\ell)$ for all $\ell$ (and of course $I\subset J$). By continuity, we have for $\ell$ large enough,
+$I(\q)\subseteq  I(\q_\ell) = I \subset J = J_{\Bb_\ell}(\q_\ell) \subseteq J_\Ab(\q)$ and similarly
+ \beq{contnes}
+ \y\T\Ab\q = \lim\limits_{\ell \to\infty} \y\T\Bb_\ell \q_\ell \le \lim\limits_{\ell \to\infty} \qf{\q_\ell}{\Bb_\ell} = \qf\q\Ab\quad\mbox{for all }\y\in \Delta^n\, .
+ \eeq
+Hence $\q\in NES(\Ab)$ with $I(\q)\neq J_{\Ab}(\q)$, so $\Ab\in \csn\setminus \mathcal{F}^r_{n}$, and $\mathcal{F}^r_{n}$ is thus an open set in $\csn$.
+Therefore we arrive at the inclusions
+$$\mathcal{F}^r_{n}\subseteq\mathcal{F}^d_{n}\subseteq\mathcal{F}_n\, .$$
+However, the set $\mathcal{F}_n$ is not open for $n\ge 3$, as the following slight extension of Example~3 in \cite{Bomz02a} shows:
+\begin{exa}\label{ex1}
+\emph{Let $\Ab\!:=\!\left(\begin{smallmatrix}-\Eb_n&\o\\ \o\T&0\end{smallmatrix}\right)$ and
+$\Bb_\epsilon\!:=\!\left(\begin{smallmatrix}-\Eb_n&\o\\ \o\T&-\epsilon\end{smallmatrix}\right)$,
+where $\Eb_n$ is the all ones matrix of order $n$.
+Then $NSS(\Ab)\!=\!ESS(\Ab)\!=\!\left\{\!\left(\!\begin{smallmatrix}\o\\1\end{smallmatrix}\!\right)\!\right\}$, and for $\epsilon\!>\!0$ we have
+$NSS(\Bb_\epsilon)\!=\!\left\{\!\frac1{1+\epsilon}\!
+\left(\!\begin{smallmatrix}\epsilon\y\\ 1\end{smallmatrix}\!\right):\,\y\in\Delta^n \right\}$, an infinite set if $n\ge2$.}
+\end{exa}
+
+Let $\mathcal{F}:=\bigcup_{n\ge1}\mathcal{F}_n$, $\mathcal{F}^d:=\bigcup_{n\ge1}\mathcal{F}^d_{n}$, $\mathcal{F}^r:=\bigcup_{n\ge1}\mathcal{F}^r_{n}$ and $\mathcal{S}:=\bigcup_{n\ge1}\mathcal{S}^n$.
+
+\begin{lem}\label{pattern}
+(a) If $\Ab\in\mathcal{F}_n$, then
+for all $\Bb\in\mathcal{F}_n$
+sufficiently close to $\Ab$
+we have
+\begin{align}
+|\{K'\!\in\textup{pattern}(\Bb):\,K\subseteq K'\}|\ge1,&\quad \textup{ for all }K\in\textup{pattern}(\Ab),\label{ge1}\\
+|\{K\in\textup{pattern}(\Ab):\,K\subseteq K'\}|\le1,&\quad \textup{ for all }K'\!\in\textup{pattern}(\Bb),\label{le1}
+\end{align}
+which implies
+$$|\textup{pattern}(\Bb)|\ge |\textup{pattern}(\Ab)|.$$
+(b) If $\Ab\in\mathcal{F}^r_n$, then
+for all $\Bb\in\mathcal{F}_n$ sufficiently close to $\Ab$ we have $\Bb\in\mathcal{F}^r_n$ and
+$$\textup{pattern}(\Bb)=\textup{pattern}(\Ab)\, .$$
+\end{lem}
+
+\bep (a) For $\Ab\in\mathcal{F}_n$ let $f(\x)=\x\T\Ab\x$. For $\p\in \Delta^n$ define the set $U_\delta(\p)$ to be the connected component of $\{\x\in\Delta^n:f(\x)\ge f(\p)-\delta\}$ containing $\p$. \
+Let sets $\tilde U_\delta(\p)$ be defined analogously, but with $\tilde f(\x):=\x\T\Bb\x$ in place of $f$.
+For $\delta\ge0$ those sets are nonempty and they shrink towards $\lk \p\rk$ as $\delta\searrow 0$. Indeed,
+the family of sets $(U_\delta(\p))_{\delta>0}$ constitutes a neighborhood basis for $\p$. This is true in the more general setting of $\p$ being a strict local maximizer on $\Delta^n$ of a continuous function
+$f:\Delta^n\to\mathbb{R}$: To begin with, there is $\epsilon>0$ such that $f(\x)<f(\p)$ for all $\x\in\Delta^n$ satisfying $0<\|\x-\p\|\le\epsilon$. Then, for all $\eta\le\epsilon$ we are to find
+$\delta>0$, such that $U_\delta(\p)\subseteq N_\eta(\p):=\{\x\in\Delta^n:\|\x-\p\|<\eta\}$. Fix such $\eta$, define the compact set
+$A_\eta:=\{\x\in\Delta^n:\,\frac\eta2\le\|\x-\p\|\le\eta\}$ and observe $m_\eta:=\max_{\x\in A_\eta}f(\x)<f(\p)$.
+Now for any $\delta<f(\p)-m_\eta$, the set $\{\x\in\Delta^n:\,f(\x)\ge f(\p)-\delta\}$ is contained in the complement of $A_\eta$, which is the union of two disjoint connected components: $N_{\frac\delta2}$, and an unbounded one.
+Thus $U_\delta(\p)$, the connected component of $\{\x\in\Delta^n:\,f(\x)\ge f(\p)-\delta\}$ containing $\p$, satisfies $U_\delta(\p)\subseteq N_{\frac\delta2}\subseteq N_\delta$.
+Continuing with the proof, choose $\delta>0$ small enough such that $U_\delta(\p)\cap U_\delta(\q)=\{\}$ for all $\lk\p,\q\rk\subseteq ESS(\Ab)$ with $\p\ne\q$, and that
+$I(\x)=I(\p)$ for all $\x\in U_\delta(\p)$ with $I(\x)\subseteq I(\p)$. Since $\Delta^n$ is compact, for $\Bb$ close enough to $\Ab$ we have $\tilde U_{\frac\delta2}(\p)\subseteq U_\delta(\p)$ for every $\p\in ESS(\Ab)$, and
+$$\max_{\x \in \tilde U_{\frac\delta2}(\p)} \x \T \Bb \x \ge \p\T\Bb\p>\p\T\Bb\p-\frac\delta2=\y \T \Bb \y,$$
+for all \cowe{$\y \in \Delta^n\cap\partial\tilde U_{\frac\delta2}(\p)$}, %$\y \in \partial\Big(\Delta^n\setminus \tilde U_{\frac\delta2}(\p)\Big)$,
+so that any global maximizer $\tilde \p$ of the latter problem is a local maximizer of $\max_{\x \in \Delta^n} \x \T \Bb \x$. So by assumption of $\Bb\in\mathcal F$, we get $\tilde \p\in ESS(\Bb)$.
+Because of $\tilde U_{\frac\delta2}(\p)\cap F_{I(\p)}\subseteq U_{\delta}(\p)\cap F_{I(\p)}\subseteq \textup{relint}(F_{I(\p)})$,
+where $F_K:=\{\x\in\Delta^n: x_j=0\textup{ for }j\not\in K\}$ denotes a face of the standard simplex,
+we have $I(\p)\subseteq I(\tilde\p)$.
+With $K=I(\p)$ and $K'=I(\tilde\p)$ we have thus shown \eqref{ge1}. Next, for any $\rr\in ESS(\Bb)$, we cannot have two $\lk \p,\q\rk\subseteq ESS(\Ab)$ with $\p\ne\q$ such that $I(\p)\subseteq I(\rr)$ and $I(\q)\subseteq I(\rr)$. Otherwise, define $\v:=\p-\q\neq \o$ and observe that due to $\{\p,\q\}\subseteq ESS(\Ab)$ and $\rr\in ESS(\Bb)$ we have
+$$\frac {d^2}{dh^2}f(\q+h\v)=2\v\T\Ab\v>0\quad\textup{ and }\quad\frac {d^2}{dh^2}\tilde f(\rr+h\v)=2\v\T\Bb\v<0\, ,$$
+which is absurd if we choose $\Bb$ so close to $\Ab$ such that for all of the finitely many pairs $\lk\p,\q\rk\subseteq ESS (\Ab)$ with $\v=\p-\q\neq \o$, the strict inequality
+$\qf\v\Ab >0$ implies also $\qf\v\Bb>0$. This proves \eqref{le1} and completes the proof of part (a).
+
+(b) The first assertion follows because $\mathcal{F}^r$ is open.
+Next we show $\textup{pattern}(\Ab)\subseteq \textup{pattern}(\Bb)$ for $\Bb\in \mathcal{F}^r$ sufficiently close to $\Ab$.
+Indeed, the point $\tilde \p$ constructed in~(a) above satisfies $(\Bb\tilde \p)_i=\tilde\p\T\Bb\tilde \p$ for $i\in I(\p)$,
+because $I(\p)\subseteq I(\tilde\p)$ for $\delta>0$ small enough, and likewise
+$(\Bb\tilde \p)_i-\tilde\p\T\Bb\tilde \p<0$ for $i\not\in I(\p)$ follows from a continuity argument,
+since $(\Ab\p)_i-\p\T\Ab\p<0$ for $i\not\in I(\p)=J_{\Ab}(\p)$ by assumption. Therefore $I(\tilde\p)=I(\p)$, and $\textup{pattern}(\Ab)\subseteq \textup{pattern}(\Bb)$ follows.
+Finally, assume that there would be a sequence of matrices $\Bb_\ell\in\mathcal{F}^r$ converging to $\Ab$ with $\q_\ell\in ESS(\Bb_\ell)$ such that $I(\q_\ell) = J_{\Bb_\ell}(\q_\ell)= K\not\in\textup{pattern}(\Ab)$ for all $\ell$.
+By compactness, we may and do assume without loss of generality that $\lim\limits_{\ell\to\infty}\q_\ell = \q\in \Delta^n$  exists. It follows $I(\q) \subseteq I(\q_\ell) = J_{\Bb_\ell}(\q_\ell) \subseteq J_{\Ab}(\q)$ for all $\ell$ large enough. Now $\q\in NES(\Ab)$ by~\reff{contnes}, but
+since $\Ab\in \mathcal{F}^r$ by assumption, we have $I(\q)=J_{\Ab}(\q)$, and therefore $K=I(\q_\ell)=J_{\Bb_\ell}(\q_\ell)=I(\q)\in \textup{pattern}(\Ab)$ for $\ell$ large enough, which proves $\textup{pattern}(\Bb)=\textup{pattern}(\Ab)$. \ep
+
+We now give examples showing that in Lemma~\ref{pattern}(a) we can have strict inequalities in any of $\eqref{ge1}$ and $\eqref{le1}$, resulting in $|\textup{pattern}(\Bb)|> |\textup{pattern}(\Ab)|$, as well as strict inclusion $K\subset K'$ in \eqref{ge1} and \eqref{le1}.
+\begin{exa}
+\emph{(a) Let $\Ab\!:=\!\left(\begin{smallmatrix}-1&-2&0\\-2&-1&0\\0&0&0\end{smallmatrix}\right)$ and $\Bb_\epsilon\!:=\!\left(\begin{smallmatrix}-1&-2&0\\-2&-1&0\\0&0&-\epsilon\end{smallmatrix}\right)$.
+Then $NSS(\Ab)\!=\!ESS(\Ab)\!=\!\left\{\!\left(\!\begin{smallmatrix}0\\0\\1\end{smallmatrix}\!\right)\!\right\}$, and  for $\epsilon\!>\!0$ we have
+$ESS(\Bb_\epsilon)\!=\!\left\{\!\frac1{1+\epsilon}\!\!
+\left(\!\begin{smallmatrix}\epsilon\\0\\1\end{smallmatrix}\!\right)\!,\frac1{1+\epsilon}\!\!
+\left(\!\begin{smallmatrix}0\\ \epsilon\\1\end{smallmatrix}\!\right)\!\right\}$. For $K:=\{3\}\in\textup{pattern}(\Ab)$ the l.h.s.\ of \eqref{ge1} is $2$.
+\\[.1cm]
+(b) Let $\Ab\!:=\!\left(\begin{smallmatrix}-1&1&0\\1&-1&0\\0&0&1\end{smallmatrix}\right)$ and
+$\Bb_\epsilon\!:=\Ab+\epsilon\Ib_3$.
+Then $NSS(\Ab)\!=\!ESS(\Ab)\!=\!\left\{\!\left(\!\begin{smallmatrix}0\\0\\1\end{smallmatrix}\!\right)\!\right\}$, and
+$ESS(\Bb_\epsilon)\!=\!\left\{\!\left(\!\begin{smallmatrix}0\vphantom{/}\\0\vphantom{/}\\1\end{smallmatrix}\!\right)\!,
+\!\left(\!\begin{smallmatrix}1/2\\1/2\\0\end{smallmatrix}\!\right)\!\right\}$ holds for $\epsilon\!>\!0$.
+For $K':=\{1,2\}\in\textup{pattern}(\Bb_\epsilon)$ the l.h.s.\ of \eqref{le1} is $0$.\\[.1cm]
+(c) Let $\Ab\!:=\!\left(\begin{smallmatrix}-1&2&8\\2&-4&-16\\8&-16&-66\end{smallmatrix}\right)$ and $\Bb_\epsilon\!:=\!\Ab+\epsilon\Ib_3$.
+Then $NSS(\Ab)\!=\!ESS(\Ab)\!=\!\left\{\!\left(\!\begin{smallmatrix}2/3\\1/3\\0\end{smallmatrix}\!\right)\!\right\}$, and for $0\!<\!\epsilon\!\le\!\tfrac1{10}$ we have
+$ESS(\Bb_\epsilon)\!=\!\left\{\!\frac1{18-130\epsilon+3\epsilon^2}\!\!
+\left(\!\begin{smallmatrix}12-80\epsilon+\epsilon^2\\6-53\epsilon+\epsilon^2\\3\epsilon+\epsilon^2\end{smallmatrix}\!\right)\!\right\}$.
+Thus $K\subset K'$, with $K=\{1,2\}$ and $K'=\{1,2,3\}$.}
+\end{exa}
+
+
+\subsection{Pattern generation by combining matrices.}\label{seccom}
+
+We now are in a position to construct complex patterns based upon a collection of given symmetric matrices $\Ab, \Bb_1,\ldots,\Bb_n$ of orders $n,k_1,\ldots,k_n$. These will be used to construct a matrix of order $\bar n:=\sum_{i=1}^n k_i$.
+Define
+\beq{qmatdef}\Qb=
+\begin{pmatrix}
+\bm{\eta}_{k_1}\T	& \o\T	& \dots	 & \o\T      \\
+\o\T	& \bm{\eta}_{k_2}\T 	& \dots  & \o\T 	  \\
+\vdots	& \vdots 	& \ddots & \vdots \\
+\o\T & \o\T	& \dots	 & \bm{\eta}_{k_n}\T
+\end{pmatrix}
+\eeq
+where $\bm{\eta}_{k}$ is the all ones vector in $\mathbb{R}^k$, and $\o$ stands for the zero vector of appropriate dimension.
+Then both $\Ab_{\Qb}:=\Qb\T\Ab\Qb$ and $\Bb:=\textup{Diag}(\Bb_1,\ldots,\Bb_n)$ are symmetric matrices of order $\bar n$, and, thinking of $t$ as a large real parameter, we let
+$$\Gb_t=t\Ab_{\Qb}+\Bb\, .$$
+Note that special cases of this construction have been considered before: The case $\Ab=\left(\!\begin{smallmatrix}0&1\\1&0\end{smallmatrix}\!\right)$, $\Bb_1,\Bb_2$ arbitrary has been used in the proof of
+\cite[Thm.~1]{Broo93a}, and the case $\Ab$ arbitrary of order $n$, $\Bb_1=\Ib_2$, $\Bb_i=\Ib_1$ for $i\irg 2n$, has been used in the proof of \cite[Thm.~1]{Broo94a}.
+\begin{thm}\label{bloa}
+(a) Choose arbitrary but fixed $\bar\p_i\in {sol}(\Bb_i) \subseteq \Delta^{k_i}$.
+% Let $\bar b_i:=\max\limits_{\x\in\Delta^{k_i}}\x\T\Bb_i\x$ for $i\irg 1n$, \coma{and choose arbitrary but fixed $\bar\p_i\in {sol}(\Bb_i) \subseteq \Delta^{k_i}$,} so that $\bar b_i=\bar\p_i\T\Bb_i\bar\p_i$.
+Then we have $ESS(\Gb_t)=\bigcup\limits_{K\subseteq {\rg 1n}}\mathcal{E}_K$, where
+\begin{equation}\begin{aligned}\label{ek}
+\renewcommand*{\arraystretch}{.5}
+\mathcal{E}_K:=\Bigggl\{\begin{pmatrix}
+\alpha_1\p_1 \\
+\vdots \\
+\alpha_n\p_n
+\end{pmatrix}:{} &{} I(\bm{\alpha})=K,\ \p_i\in ESS(\Bb_i)\textup{ for }i\in K,\ \p_i=\bar\p_i\textup{ for }i\not\in K,\\[-.8cm]
+&\bm{\alpha}\in ESS(t\Ab+\textup{Diag}(\b)),\textup{ where }\coma{b_i:=\p_i\T\Bb_i\p_i\textup{ for }i\in N}
+\Bigggr\}\, .
+\end{aligned}\end{equation}
+(b) With the same assumptions as in (a), we have $NSS(\Gb_t) = \bigcup\limits_{K\subseteq {\rg 1n}}\mathcal{N}_K$, where
+\begin{equation}\begin{aligned}\label{nk}
+\renewcommand*{\arraystretch}{.5}
+\mathcal{N}_K:=\Bigggl\{\begin{pmatrix}
+\alpha_1\p_1 \\
+\vdots \\
+\alpha_n\p_n
+\end{pmatrix}:{} &{} I(\bm{\alpha})=K,\ \p_i\in NSS(\Bb_i)\textup{ for }i\in K,\ \p_i=\bar\p_i\textup{ for }i\not\in K,\\[-.8cm]
+&\bm{\alpha}\in NSS(t\Ab+\textup{Diag}(\b)),\textup{ where }\coma{b_i:=\p_i\T\Bb_i\p_i\textup{ for }i\in N}
+\Bigggr\}\, .
+\end{aligned}\end{equation}
+(c) With the same assumptions as in (a), we have $NES(\Gb_t) = \bigcup\limits_{K\subseteq {\rg 1n}}\mathcal{Q }_K$, where
+\begin{equation}\begin{aligned}    %\label{qk}
+\renewcommand*{\arraystretch}{.5}
+\mathcal{Q}_K:=\Bigggl\{\begin{pmatrix}
+\alpha_1\p_1 \\
+\vdots \\
+\alpha_n\p_n
+\end{pmatrix}:{} &{} I(\bm{\alpha})=K,\ \p_i\in NES(\Bb_i)\textup{ for }i\in K,\ \p_i=\bar\p_i\textup{ for }i\not\in K,\\[-.8cm]
+&\bm{\alpha}\in NES(t\Ab+\textup{Diag}(\b)),\textup{ where }\coma{b_i:=\p_i\T\Bb_i\p_i\textup{ for }i\in N}
+\Bigggr\}\, .
+\end{aligned}\end{equation}
+\coma{(d) We have ${sol}(\Gb_t) = \bigcup\limits_{K\subseteq {\rg 1n}}\mathcal{G }_K$, where
+\begin{equation}\begin{aligned}\label{qk}
+\renewcommand*{\arraystretch}{.5}
+\mathcal{G}_K:=\Bigggl\{\begin{pmatrix}
+\alpha_1\p_1 \\
+\vdots \\
+\alpha_n\p_n
+\end{pmatrix}:{} &{} I(\bm{\alpha})=K,\ \p_i\in {sol}(\Bb_i)\textup{ for }i\in N\, ,\\[-.8cm]
+&\bm{\alpha}\in {sol}(t\Ab+\textup{Diag}(\b)),\textup{ where }\coma{b_i:=\p_i\T\Bb_i\p_i\textup{ for }i\in N}
+\Bigggr\}\, .
+\end{aligned}\end{equation}
+}
+\end{thm}
+\bep We start with the observation that
+any $\y\in\Delta^{\bar n}$ can be written as $\renewcommand*{\arraystretch}{.5}\y=\begin{pmatrix}\alpha_1\p_1 \\ \vdots \\ \alpha_n\p_n \end{pmatrix}$,
+where $\bm{\alpha}\in\Delta^n$ and $\p_i\in\Delta^{k_i}$ for $i\irg 1n$. Further note that $\Qb\y= \bm{\alpha}$ and $\Bb\y = [\alpha_i\Bb_i\p_i]_i$ holds. \coma{Let $K=I(\Qb\y)=I(\bm{\alpha})$.}
+Next, %\cowe{assuming $I(\bm{\alpha})=K$,}
+\coma{observe that} for $\z=\renewcommand*{\arraystretch}{.5}\begin{pmatrix}\beta_1\q_1 \\ \vdots \\ \beta_n\q_n \end{pmatrix}$ we get
+\beq{zerlq}\bea{rcl}
+(\y-\z)\T{\Gb_t}\y &= &t(\Qb\y-\Qb\z)\T\Ab \bm{\alpha} + \sum\limits _{i{\sirg 1n}} \left[\alpha_i^2\qf{\p_i}{\Bb_i} - \alpha_i\beta_i{\q_i}\T{\Bb_i}\p_i\right ] \\[0.3em]
+&= &t(\bm{\alpha}-\bm{\beta})\T\Ab \bm{\alpha} + \sum\limits_{i\in K} {\alpha}_i (\alpha_i-\beta_i)\p_i\T\Bb_i\p_i + \sum\limits_{i\in K}\alpha_i\beta_i (\p_i-\q_i)\T \Bb_i \p_i \\[0.3em]
+&= & (\bm{\alpha}-\bm{\beta})\T [ t\Ab + \textup{Diag}(\b) ]\bm{\alpha} +  \sum\limits_{i\in K}\alpha_i\beta_i (\p_i-\q_i)\T \Bb_i \p_i\, ,
+\ea\eeq
+which is nonnegative for any $\z\in \Delta^{\bar n}$ if $\y\in {\mathcal Q}_K\coma{\supseteq {\mathcal N}_K \supseteq {\mathcal E}_K} $, and in a similar way,
+\beq{zerl}\qf\y{\Gb_t}-\qf\z{\Gb_t} = t\left [\qf{\bm{\alpha}}\Ab -  \qf{\bm{\beta}}\Ab\right] + \sum_{i{\sirg 1n}} \alpha_i^2\qf{\p_i}{\Bb_i} - \sum_{i{\sirg 1n}} \beta_i^2\qf{\q_i}{\Bb_i}\, .\eeq
+First suppose $\y\in \cowe{\mathcal{N}_K}$. If $\z\neq\y$ as above is close to $\y$, then
+$\q_i$ is close to $\p_i$ for all $i\in K$ while $\q_i\in\Delta^{k_i}$ is arbitrary for $i\not\in K$, and $\bm{\beta}$ is close to $\bm{\alpha}$. Further,
+\begin{align*}
+\y\T\Gb_t\y&=t\bm{\alpha}\T\Ab\bm{\alpha}+\sum_{i{\sirg 1n}}\alpha_i^2\p_i\T\Bb_i\p_i=t\bm{\alpha}\T\Ab\bm{\alpha}+\sum_{i\in K}\alpha_i^2\p_i\T\Bb_i\p_i+\sum_{i\not\in K}\alpha_i^2\bar\p_i\T\Bb_i\bar\p_i\\
+&\ge t\bm{\beta}\T\Ab\bm{\beta}+\sum_{i\in K}\beta_i^2\p_i\T\Bb_i\p_i+\sum_{i\not\in K}\beta_i^2\bar\p_i\T\Bb_i\bar\p_i
+\ge t\bm{\beta}\T\Ab\bm{\beta}+\sum_{i{\sirg 1n}}\beta_i^2\q_i\T\Bb_i\q_i=\z\T\Gb_t\z\, ,\end{align*}
+in case of (b), and where at least one of the inequalities is strict in case of (a), so that $\y$ is a (strict) local maximizer of $\qf\z{\Gb_t}$, and one inclusion is shown.
+To show the reverse inclusion, let again $K=I(\Qb\y)$ and put all $\q_i=\p_i$, \cowe{where $\p_i:=\bar\p_i$ for $i\not\in K$,} while $\bm{\beta}$ is close to $\bm{\alpha}$. Then obviously $\y$ is close to $\z$, and thus~\reff{zerl} yields
+$${\bm{\alpha}}\T\left({t\Ab+ \textup{Diag}(\b)}\right){\bm{\alpha}}- {\bm{\beta}}\T\left({t\Ab+ \textup{Diag}(\b)}\right){\bm{\beta}}= \qf\y{\Gb_t}-\qf\z{\Gb_t} \ge 0$$
+with strict inequality for $\bm{\beta}\neq\bm{\alpha}$ in case of (a), so that $\bm{\alpha}\in NSS(t\Ab+ \textup{Diag}(\b))$ in case~(b) or $\bm{\alpha}\in ESS(t\Ab+ \textup{Diag}(\b))$ in case (a) follows. Similarly, put $\bm{\beta}=\bm{\alpha}$ and all $\q_j=\p_j$ for all $j\in K\setminus\lk i\rk$ while $\q_i\neq \p_i$ is close to $\p_i$ for some fixed $i\in K$. In this case, \reff{zerl} implies
+$$\alpha_i^2 (\qf{\p_i}{\Bb_i}-\qf{\q_i}{\Bb_i}) =  \qf\y{\Gb_t}-\qf\z{\Gb_t} \ge 0$$
+with strict inequality in case of (a), hence the result on $\p_i$ follows. In a similar way, the remaining inclusions in (c) are shown by means of~\reff{zerlq}. \coma{Finally, (d) can be shown by a (much simpler) variant of above arguments.} This completes the proof.
+\ep
+
+
+\subsection{The use of generating polynomials.}\label{secgenp}
+
+For an $n\times n$ matrix $\Ab\in\mathcal{S}$ define the \emph{pattern generating} polynomial $p_{\Ab}$ and the \emph{support size generating} polynomial $q_{\Ab}$ by
+\begin{equation}\label{e:poly}
+p_{\Ab}(x_1,\ldots,x_n):=\sum_{I\in\textup{pattern}(\Ab)}\prod_{i\in I}x_i,\qquad \qquad
+q_{\Ab}(x):=\sum_{I\in\textup{pattern}(\Ab)}x^{|I|}=p_{\Ab}(x,\ldots,x).
+\end{equation}
+Then we have $|ESS(\Ab)|=q_{\Ab}(1)$, and the mean support size of $ESS(\Ab)$ is given by $\frac{q'_{\Ab}(1)}{q_{\Ab}(1)}$. Also, if $\Pb=(\e_{\pi(1)},\ldots,\e_{\pi(n)})$ is a permutation matrix,
+then for $\Ab':=\Pb\T\Ab\Pb$ we have $\p\in ESS(\Ab)\Leftrightarrow \Pb\T\p\in ESS(\Ab')$, and therefore $p_{\Ab'}(x_{\pi(1)},\ldots,x_{\pi(n)})=p_{\Ab}(x_1,\ldots,x_n)$ and $q_{\Ab'}(x)=q_{\Ab}(x)$.
+
+\begin{thm}\label{blob}
+(a) If $\lk\Ab, \Bb_1,\ldots,\Bb_n\rk\subset\mathcal{F}^r$, then
+for $t$ big enough, we have $\Gb_t\in\mathcal{F}^r$.\\
+Moreover, $p_{\Gb_t}(\x_1,\ldots,\x_n)=p_{\Ab}\big(p_{\Bb_1}(\x_1),\ldots,p_{\Bb_n}(\x_n)\big)$, where $\x_i=(x_{i,1},\ldots x_{i,k_i})$ for $i\irg 1n$, and
+$q_{\Gb_t}(x)=p_{\Ab}\big(q_{\Bb_1}(x),\ldots,q_{\Bb_n}(x)\big)$.
+In particular we have $|ESS(\Gb_t)|=p_{\Ab}\big(q_{\Bb_1}(1),\ldots,q_{\Bb_n}(1)\big)$.\\
+(b) If $\lk\Ab, \Bb_1,\ldots,\Bb_n\rk\subset\mathcal{F}^d$, then for $t$ big enough, we have $\Gb_t\in\mathcal{F}^d$ and
+$|ESS(\Gb_t)|\ge p_{\Ab}\big(q_{\Bb_1}(1),\ldots,q_{\Bb_n}(1)\big)$.
+\end{thm}
+\bep
+(a) There is a $T>0$ such that for all
+$\b\!\in\!\mathcal{B}\!:=\!\!\!\prod\limits_{i\sirg 1n}\left[\min\limits_{\x\in\Delta^{k_i}}\x\T\Bb_i\x,\max\limits_{\x\in\Delta^{k_i}}\x\T\Bb_i\x\right]$,
+we have $t\Ab+\textup{Diag}(\b)=t(\Ab+\tfrac1t\textup{Diag}(\b))\in \mathcal{F}^r$  for $t\ge T$, by Lemma~\ref{pattern}(b).
+Fix such a $t$ and let $\renewcommand*{\arraystretch}{.5}\y=\begin{pmatrix}\alpha_1\p_1 \\ \vdots \\ \alpha_n\p_n \end{pmatrix}\in NES(\Gb_t)$. Then $I(\y)\ne J_{\cowe{\Gb_t}}(\y)$ would imply
+$I(\bm{\alpha})\ne J_{\cowe{t\Ab+\textup{Diag}(\b)}}(\bm{\alpha})$
+or $I(\p_i)\ne J_{\cowe{\Bb_i}}(\p_i)$ for some $i\in I(\bm{\alpha})$. But this is a contradiction since $\bm{\alpha}$ resp.\ $\p_i$ are $NES$s of matrices in $\mathcal{F}^r$.
+Therefore $\Gb_t\in\mathcal{F}^r$.
+Again by Lemma~\ref{pattern}(b),  we have $\textup{pattern}(t\Ab+\textup{Diag}(\b))=\textup{pattern}(\Ab)$ for all $t\ge T$ and all  $\b\in\mathcal{B}$. For such $t$ we observe
+$ESS(\Gb_t)=\bigcup\limits_{K\subseteq \rg 1n}\mathcal{E}_K=\bigcup\limits_{L\in\textup{pattern}(\Ab)}\mathcal{E}_L $.
+It is now convenient to identify $\rg1{\bar n}$ with $\bigcup_{i\sirg 1n} \left (\lk i\rk \times \rg1{k_i}\right )$.
+For $\bm{\alpha}$ and $\y$ as above, we have
+$I(\y)=\{\{i\}\times I(\p_{i}): i\in I(\bm{\alpha} )\}$ and conclude
+\begin{align*}p_{\Gb_t}(\x_1,\ldots,\x_n)&=\sum\limits_{I\in\textup{pattern}(\Gb_t)}\prod\limits_{j\in I}x_j=\sum\limits_{L\in\textup{pattern}(\Ab)}\sum\limits_{I\in\{I(\y):\y\in\mathcal{E}_L\}}\prod\limits_{j\in I}x_j\\
+&=\sum\limits_{L\in\textup{pattern}(\Ab)}\prod\limits_{k\in L}\Bigg(\sum\limits_{S\in\textup{pattern}(\Bb_k)}\prod\limits_{\ell\in S}x_{k,\ell}\Bigg)=\sum\limits_{L\in\textup{pattern}(\Ab)}\prod\limits_{k\in L}p_{\Bb_k}(\x_k)\\
+&=p_{\Ab}\big(p_{\Bb_1}(\x_1),\ldots,p_{\Bb_n}(\x_n)\big)\, .
+\end{align*}
+(b) Using $\Bb_i\in\mathcal{F}^d$ for $i\irg 1n$, we fix an $\eps>0$
+such that for all
+$\renewcommand*{\arraystretch}{.5}\d=\begin{pmatrix}\d_1 \\ \vdots \\ \d_n \end{pmatrix}$ with $\norm \d\le \eps$ we have $\Bb_i+\textup{Diag}(\d_i)\in \mathcal{F}$ where $\d_i\in\mathbb{R}^{k_i}$ for $i\in N$.
+Let now
+$$\mathcal{\bar B}\!:=\!\!\!\prod\limits_{i{\sirg 1n}}\left[\min\limits_{\x\in\Delta^{k_i},\norm\d\le\eps}\x\T\Big(\Bb_i+\textup{Diag}(\d_i)\Big)\x\, , \,
+              \max\limits_{\x\in\Delta^{k_i},\norm\d\le\eps}\x\T\Big(\Bb_i+\textup{Diag}(\d_i)\Big)\x\right]\, .$$
+Then uniformly in $\b\!\in\!\mathcal{\bar B}$, $t\Ab+\textup{Diag}(\b)=t(\Ab+\tfrac1t\textup{Diag}(\b))\in \mathcal{F}$ holds for $t$ big enough, since $\Ab\in\mathcal{F}^d$.
+We fix such $t$ and assume $\bar\Gb_t:=t\Ab_\Qb+\Bb+\textup{Diag}(\d)\not\in\mathcal{F}$ for some $\d$ with $\norm \d\le\eps$. Then $\x\T\bar\Gb_t\x$ must have a non-strict local maximizer on $\Delta^{\bar n}$, in particular there have to be
+$\y,\z\subset\Delta^{\bar n}$, such that $\y\ne\z$ and all points $\x_\lambda:=(1-\lambda)\y+\lambda\z, 0\le\lambda\le1$, are local maximizers of $\x\T\bar\Gb_t\x$ on $\Delta^{\bar n}$.
+Write $\renewcommand*{\arraystretch}{.5}\y=\begin{pmatrix}\alpha_1\p_1 \\ \vdots \\ \alpha_n\p_n \end{pmatrix}$ and
+$\z=\renewcommand*{\arraystretch}{.5}\begin{pmatrix}\beta_1\q_1 \\ \vdots \\ \beta_n\q_n \end{pmatrix}$ (where $\lk\p_i,\q_i\rk \subseteq NSS(\Bb_i+\textup{Diag}(\d_i)) = ESS(\Bb_i+\textup{Diag}(\d_i))$ for $i\irg 1n$ and $\lk\bm{\alpha},\bm{\beta}\rk\subset\Delta^n$),
+and consider $\x_{\lambda,i}:=(1-\lambda)\alpha_i\p_i+\lambda\beta_i\q_i$. We claim that for some $\bar\p\in ESS(\Bb_i+\textup{Diag}(\d_i))$ we have $\{\x_{\lambda,i}:0\le\lambda\le1\}\subseteq LH(\bar\p)$, the linear hull of that $\bar\p$.
+This is clear if $\min(\alpha_i,\beta_i)=0$.
+For $0\le\lambda\le1$ and $\min(\alpha_i,\beta_i)>0$ we have
+$((1-\lambda)\alpha_i+\lambda\beta_i)^{-1}\x_{\lambda,i}\in ESS(\Bb_i+\textup{Diag}(\d_i))$, a finite set, whereas the left-hand side is continuous in $\lambda$ and therefore constant. This implies $\p_i=\q_i$ and
+$\{\x_{\lambda,i}:0\le\lambda\le1\}\subseteq LH(\p_i)$. So we may rewrite $\z$ as $\z=\renewcommand*{\arraystretch}{.5}\begin{pmatrix}\beta_1\p_1 \\ \vdots \\ \beta_n\p_n \end{pmatrix}$.
+But then $(1-\lambda)\bm{\alpha}+\lambda\bm{\beta}\in NSS(t\Ab+\textup{Diag}(\b))$ for $0\le\lambda\le1$, where $\b\in\mathcal{\bar B}$ and therefore $t\Ab+\textup{Diag}(\b)\in\mathcal{F}$.
+So $(1-\lambda)\bm{\alpha}+\lambda\bm{\beta}\in ESS(t\Ab+\textup{Diag}(\b))$, again a finite set, for $0\le\lambda\le1$. This is only possible if $\bm{\alpha}=\bm{\beta}$. So we have derived $\y=\z$, which is a contradiction.
+Therefore $\bar\Gb_t\in\mathcal{F}$ whenever $\norm\d\le\eps$, and thus $\Gb_t=t\Ab_\Qb+\Bb\in\mathcal{F}^d$.
+
+The last assertion of~(b) will be proved by demonstrating $|\mathcal{P}|\le|ESS(\Gb_t)|$, where
+\begin{equation}\label{e:P}
+\renewcommand*{\arraystretch}{.5}
+\mathcal{P}:=\Biggl\{\begin{pmatrix}
+\alpha_1\p_1 \\
+\vdots \\
+\alpha_n\p_n
+\end{pmatrix}:\, \bm{\alpha}\in ESS(\Ab),\ \p_i\in ESS(\Bb_i)\textup{ for }i\in I(\bm{\alpha}),\ \p_i=\bar\p_i\textup{ for }i\not\in I(\bm{\alpha})
+\Biggr\}.
+\end{equation}
+The set $\mathcal{P}$ need not coincide with $ESS(\Mb)$ for some matrix $\Mb$, but it satisfies $|\mathcal{P}|=p_{\Ab}\big(q_{\Bb_1}(1),\ldots,q_{\Bb_n}(1)\big)$,
+by~(a). By Lemma~\ref{pattern}(a), for $t$ big enough and uniformly in $\b\in\mathcal{B}$ the matrix
+$\Bb=\Bb_{t,\b}=\Ab+\tfrac1t\textup{Diag}(\b)$ will be close enough to $\Ab$ to ensure that
+\eqref{ge1} and \eqref{le1} hold for $(\Ab,\,\Bb)$. We fix such $t$.
+For $\renewcommand*{\arraystretch}{.5}
+\p=\begin{pmatrix}
+\alpha_1\p_1 \\
+\vdots \\
+\alpha_n\p_n
+\end{pmatrix}
+\in \mathcal{P}$ with $\bm{\alpha} \in ESS(\Ab)$, $I(\bm{\alpha})=K$ and $\b$ as in \eqref{ek}
+we observe that, by \eqref{ge1}, there is $\bm{\beta}\in ESS(t\Ab+\textup{Diag}(\b))$ such that $I(\bm{\alpha})\subseteq I(\bm{\beta})$,
+and $\renewcommand*{\arraystretch}{.5}
+\q:=\begin{pmatrix}
+\beta_1\p_1 \\
+\vdots \\
+\beta_n\p_n
+\end{pmatrix}
+\in ESS(\Gb_t)$ by~\eqref{ek}. Clearly $I(\p)\subseteq I(\q)$, and thus
+\begin{equation}\label{ggee11}
+|\{K'\!\in\textup{pattern}(\Gb_t):\,K\subseteq K'\}|\ge1,\quad \textup{ for all }K\in\{I(\p):\p\in\mathcal{P}\}.
+\end{equation}
+Now consider $\renewcommand*{\arraystretch}{.5}
+\q=\begin{pmatrix}
+\beta_1\q_1 \\
+\vdots \\
+\beta_n\q_n
+\end{pmatrix}
+\in ESS(\Gb_t)$. By Theorem~\ref{bloa}(a) we have $\bm{\beta}\in ESS(t\Ab+\textup{Diag}(\b'))$ for some $\b'\in\mathcal{B}$ defined as in the proof of~(a), and $\q_i\in ESS(\Bb_i)$ for $i\irg 1n$. But by~\reff{le1}, there is at most one $\bm{\alpha}\in ESS(\Ab)$ such that
+$I(\bm{\alpha})\subseteq I(\bm{\beta})$. If there exists such $\bm{\alpha}$, then
+$\renewcommand*{\arraystretch}{.5}
+\p=\begin{pmatrix}
+\alpha_1\p_1 \\
+\vdots \\
+\alpha_n\p_n
+\end{pmatrix}
+\in \mathcal{P}$, where $\p_i=\q_i$ for $i\in I(\bm{\alpha})$ and $\p_i=\bar\p_i$ for $i\not\in I(\bm{\alpha})$,
+satisfies $I(\p)\subseteq I(\q)$, and for any $\tilde\p\in\mathcal{P}$ with $\tilde\p\ne\p$ we have $I(\tilde\p)\not\subseteq I(\q)$ (otherwise $I(\tilde \p)\subseteq I(\p)$ implied
+$I(\tilde{\bm{\alpha}})\subseteq  I(\bm{\beta}) $ and $\tilde{\bm{\alpha}}\in ESS(\Ab)$). Therefore
+\begin{equation}\label{llee11}
+|\{K\in\{I(\p):\p\in\mathcal{P}\}:\,K\subseteq K'\}|\le1,\quad \textup{ for all }K'\!\in\textup{pattern}(\Gb_t)\, .
+\end{equation}
+Relations \eqref{ggee11} and \eqref{llee11} together culminate in $|\{I(\p):\p\in\mathcal{P}\}|\le|\textup{pattern}(\Gb_t)|$, which is equivalent to $|\mathcal{P}|\le|ESS(\Gb_t)|$, and thus the proof is complete.
+\ep
+
+An obvious modification of Theorem~\ref{blob} concerns dropping the $i$th row and column, i.e. considering the case $k_i=0$ in~\reff{qmatdef}; in this case, the term $p_{\Bb_i}$ in the formula for $p_{\Ab}$ should be replaced with zero.
+
+We can also replace some of the assumptions in Theorem~\ref{blob} by weaker variants; indeed, the following implications hold true for $t$ large enough:
+
+\noindent
+(a) $\Ab\in {\mathcal F}^r$ and $\Bb_i\in {\mathcal H}\;\Longrightarrow \;\Gb_t\in {\mathcal H}$, where ${\mathcal H}\in \lk {\mathcal F}^r,{\mathcal F}^d,{\mathcal F}\rk$;
+
+\noindent
+(b) $\Ab\in {\mathcal F}^d$ and $\Bb_i\in {\mathcal H}\;\Longrightarrow \; \Gb_t\in {\mathcal H}$, where ${\mathcal H}\in \lk  {\mathcal F}^d,{\mathcal F}\rk$;
+
+\noindent
+(c) $\Ab\in {\mathcal F}^r$ and $\Bb_i\in {\mathcal S}\;\Longrightarrow \; p_{\Gb_t} (\x_1, \ldots , \x_n)) = p_{\Ab} ( p_{\Bb_1}(\x_1), \ldots,  p_{\Bb_n}(\x_n))$;
+
+\noindent
+(d) $\Ab\in {\mathcal F}^d$ and $\Bb_i\in {\mathcal S}\;\Longrightarrow \; |ESS({\Gb_t})|\ge p_{\Ab} (q_{\Bb_1}(1), \ldots,  q_{\Bb_n}(1))$.
+
+However, Example~\ref{ex1} shows that $\lk \Ab,\Bb_i\rk\subset{\mathcal F}$ does {\em neither} imply $\Gb_t\in {\mathcal F}$ {\em nor} $|ESS({\Gb_t})|\ge p_{\Ab} (q_{\Bb_1}(1), \ldots,  q_{\Bb_n}(1))$ for all large $t$ in general.
+
+\cowe{Another modification builds upon the observation that for $\Ab\in\mathcal F$ the set $sol(\Ab)$ is finite. Being able to determine the cardinality of that set, or lower bounds for it, would again be desirable. More generally it makes sense to consider analogues of the polynomials $p_\Ab$ and $q_\Ab$ that deal with the supports of isolated members of $sol(\Ab)$. Define for $\Ab\in\mathcal S$ the sets $isol(\Ab):=sol(\Ab)\cap ESS(\Ab)$ and
+${\mathcal I}(\Ab) := \lk I(\x) : \x\in isol(\Ab)\rk$ as well as the following polynomials
+$$p^{sol}_{\Ab}(x_1,\ldots,x_n):=\sum_{I\in {\mathcal I}(\Ab)}\prod_{i\in I}x_i \qquad \mbox{and}\qquad q^{sol}_{\Ab}(x):=p^{sol}_{\Ab}(x,\ldots,x)\, .$$
+Then the following implications hold true for $t$ large enough:\\
+\noindent
+(c') $\Ab\in {\mathcal F}^r$ and $\Bb_i\in {\mathcal S}\;\Longrightarrow \; p^{sol}_{\Gb_t} (\x_1, \ldots , \x_n)  = p^{sol}_{\Ab} ( p^{sol}_{\Bb_1}(\x_1), \ldots,  p^{sol}_{\Bb_n}(\x_n))\textup{ and }|sol({\Gb_t})|=q^{sol}_{\Gb_t} (1)$;\\
+\noindent
+(d') $\Ab\in {\mathcal F}^d$ and $\Bb_i\in {\mathcal S}\;\Longrightarrow \; |sol({\Gb_t})|\ge p^{sol}_{\Ab} (q^{sol}_{\Bb_1}(1), \ldots,  q^{sol}_{\Bb_n}(1))$.
+}
+\subsection{Emergence of complex patterns by explicit perturbation.}\label{secpert}
+
+The following corollary deals with a case where an explicit lower bound for $t$ ensuring validity of the assertion of Theorem~\ref{blob}(a) can easily be constructed.
+\begin{cly}\label{corb}
+Let $\Ab=\Eb_n-\Ib_n$ and $\Bb_i\in\mathcal{F}_{k_i}$ for $i\irg 1n$, with $p_i:=|ESS(\Bb_i)|$. Let
+$b:=\max\limits_{i\sirg 1n}\max\limits_{\x\in\Delta^{k_i}}\x\T\Bb_i\x$. Then for $t>b$ the matrix $\Gb_t$ satisfies $\Gb_t\in\mathcal{F}$ and $|ESS(\Gb_t)|=\prod\limits_{i{\sirg 1n}}p_i$. If even $\Bb_i\in\mathcal{F}^r_{k_i}$ holds for $i\irg 1n$, then $\Gb_t\in\mathcal{F}^r$.
+\end{cly}
+\bep
+Consider $\y=\renewcommand*{\arraystretch}{.5}\begin{pmatrix}\alpha_1\p_1 \\ \vdots \\ \alpha_n\p_n \end{pmatrix}\in\Delta^{\bar n}$, where $\bm{\alpha}\in\Delta^n$, $\p_i\in\Delta^{k_i}$ for $i\irg 1n$, and $\bar n=\sum_{i=1}^nk_i$.
+Then we have
+\begin{equation}\label{e:cor1}
+\y\T\Gb_t\y=t-\sum_{i=1}^{n}\sigma_i\alpha_i^2=\bm{\alpha}\T\big(t\Eb_n-\textup{Diag}(\bm{\sigma})\big)\bm{\alpha}
+\end{equation}
+with $\sigma_i:= t-\p_i\T\Bb_i\p_i >0$, all $i\irg 1n$.
+This shows that $\y\in ESS(\Gb_t)$ if and only if, for every $i\irg 1n$,
+$\p_i\in ESS(\Bb_i)$, and for every choice of $(\p_1,\ldots,\p_n)$,
+$\bm{\alpha}$ is the unique $ESS$ of $t\Eb_n-\textup{Diag}(\bm{\sigma})$, namely given by $\alpha_i = \frac \mu{\sigma_i}$ with $\mu=(\sum \sigma_i^{-1})^{-1}>0$, hence $\bm{\alpha}$ has full support by the choice of $t$  which ensures $NSS(t\Eb_n-\textup{Diag}(\bm{\sigma}))=ESS(t\Eb_n-\textup{Diag}(\bm{\sigma}))= \lk \bm{\alpha}\rk$ by~\reff{non inclusion result}.
+Using now $NSS(\Bb_i)=ESS(\Bb_i)$ for $i\irg 1n$, we readily obtain $NSS(\Gb_t)=ESS(\Gb_t)$, i.e.~$\Gb_t\in \mathcal{F}$, from Theorem~\ref{bloa}(a),(b). We further observe that $\textup{pattern}(t\Eb_n-\textup{Diag}(\bm{\sigma}))=\textup{pattern}(\Ab)=\{\rg 1n\}$, and thus $t\Eb_n-\textup{Diag}(\bm{\sigma})\in\mathcal{F}^r$, holds for $t>b$. Finally, along the lines
+of the proof of Theorem~\ref{blob}(a), we deduce $|ESS(\Gb_t)|=\prod\limits_{i{\sirg 1n}}p_i$, and $\Gb_t\in \mathcal{F}^r$ in case of $\Bb_i\in\mathcal{F}^r_{k_i}$ for $i\irg 1n$.
+\ep
+
+\begin{exa}
+\emph{Let $\Ab\!:=\!\left(\begin{smallmatrix}0&1\\1&0\end{smallmatrix}\right)$, $\Bb_1\!:=\!\left(\begin{smallmatrix}1&0&3\\0&1&3\\3&3&0\end{smallmatrix}\right)$ and $\Bb_2\!:=\!\left(\begin{smallmatrix}1&0\\0&1\end{smallmatrix}\right)$,
+so that $ESS(\Bb_1)\!=\!\left\{\!\left(\!\begin{smallmatrix}3/5\\0\\2/5\end{smallmatrix}\!\right)\!,\!\left(\begin{smallmatrix}0\\3/5\\2/5\end{smallmatrix}\!\right)\!\right\}$.
+There is only one more $NES$ of $\Bb_1$, namely $\frac 1{11}(3,3,5)\T$ with full support, so that $\Bb_1\in {\mathcal F}^r_3 $. Likewise, $ESS(\Bb_2)\!=\!\left\{\!\left(\!\begin{smallmatrix}1\\0\end{smallmatrix}\!\right)\!,\!\left(\!\begin{smallmatrix}0\\1\end{smallmatrix}\!\right)\!\right\}$
+with only one more $NES$, namely $\frac 12 {\bm\eta}_2$, and $\Bb_2\in  {\mathcal F}^r_2 $. On the other hand, $NES(\Ab)=ESS(\Ab) = \lk \frac 12 {\bm\eta}_2\rk $ with full support, so also $\Ab\in  {\mathcal F}^r_2 $.
+Moreover $\max\limits_{\x\in\Delta^{3}}\x\T\Bb_1\x=\tfrac95$, $\max\limits_{\x\in\Delta^{2}}\x\T\Bb_2\x=1$ and $b:=\max(\tfrac95,1)=\tfrac95$. Then $t:=2>b$ yields
+$\Gb_2=\left(\begin{smallmatrix}1&0&3&2&2\\0&1&3&2&2\\3&3&0&2&2\\2&2&2&1&0\\2&2&2&0&1\end{smallmatrix}\right)$, and from Corollary~\ref{corb} we get $|ESS(\Gb_2)|=2\cdot2=4$.
+With $p_\Ab(x_1,x_2)=x_1x_2$, $p_{\Bb_1}(x_1,x_2,x_3)=x_1x_3+x_2x_3$, $q_{\Bb_1}(x)=2x^2$, $p_{\Bb_2}(x_1,x_2)=x_1+x_2$ and $q_{\Bb_2}(x)=2x$, Theorem~\ref{blob}(a) readily provides
+$p_{\Gb_2}(x_1,x_2,x_3,x_4,x_5)=(x_1x_3+x_2x_3)(x_4+x_5)$ and $q_{\Gb_2}(x)=2x^2\cdot2x=4x^3$, telling that $\Gb_2$ has 4 $ESS$s, each of support size 3.}
+\end{exa}
+The next corollary shows that $t=1$ is in some cases sufficiently large for the last assertion of Theorem~\ref{blob}(a) to hold, however $\Gb_1\in\mathcal{F}^r$ can not be guaranteed,
+even if we assume $\Ab\in\mathcal{F}^r$ and $\Bb_i\in\mathcal{F}^r$ for $i\irg 1n$, see Example~\ref{ex:cor0}(b) below.
+\begin{cly}\label{cor0}
+Let $\Ab\in\mathcal{F}_n$ and $\Bb_i\in\mathcal{F}_{k_i}$ for $i\irg 1n$, with $\p_i\T\Bb_i\p_i=0$ for every $i\irg 1n$ and every $\p_i\in ESS(\Bb_i)$.
+Then for any $t>0$ the matrix $\Gb_t$ satisfies $\Gb_t\in\mathcal{F}$ and $|ESS(\Gb_t)|=p_{\Ab}\big(q_{\Bb_1}(1),\ldots,q_{\Bb_n}(1)\big)$.\\
+If in addition $\p\T\Ab\p=0$ for every $\p\in ESS(\Ab)$, then this property is also shared by $\Gb_t$: $\q\T\Gb_t\q=0$ for every $\q\in ESS(\Gb_t)$.
+\end{cly}
+\bep
+Let $t>0$ and consider $\y$ as in the proof of Theorem~\ref{bloa}, and as above.
+By \eqref{ek}, we have $\y\in ESS(\Gb_{t})$
+only if $\p_i\in ESS(\Bb_i)$  for all $i\irg 1n$. Under the assumption of the corollary, we get, cf.~\reff{zerl},
+$\y\T\Gb_t\y=t\bm{\alpha}\T\Ab\bm{\alpha}$ with $\bm{\alpha}\in ESS(\Ab)$. Thus, in this case, $ESS(\Gb_t)=\mathcal{P}$, with $\mathcal{P}$ given in~\eqref{e:P}.
+Therefore $|ESS(\Gb_t)|=|\mathcal{P}|=p_{\Ab}\big(q_{\Bb_1}(1),\ldots,q_{\Bb_n}(1)\big)$.
+As we have $NSS(\Ab)=ESS(\Ab)$ and $NSS(\Bb_i)=ESS(\Bb_i)$ for $i\irg 1n$, we readily obtain $NSS(\Gb_t)=ESS(\Gb_t)$, i.e.~$\Gb_t\in \mathcal{F}$, from Theorem~\ref{bloa}(a),(b).
+Furthermore, the last assertion is a straightforward consequence of $\y\T\Gb_t\y=t\bm{\alpha}\T\Ab\bm{\alpha}$.
+\ep
+\begin{exa}\label{ex:cor0}
+\emph{(a) Let $\Ab\!:=\!\left(\begin{smallmatrix}-1&1\\1&-1\end{smallmatrix}\right)$, $\Bb_1\!:=\!\left(\begin{smallmatrix}0&-1&-1\\-1&0&-1\\-1&-1&0\end{smallmatrix}\right)$ and $\Bb_2\!:=\!\left(\begin{smallmatrix}0&-1\\-1&0\end{smallmatrix}\right)$. As in the previous example it can be checked that all three matrices belong to ${\mathcal F}^r$,
+that $ESS(\Ab) = \lk \frac 12 {\bm\eta}_2\rk$,
+$ESS(\Bb_1)\!=\!\left\{\!\left(\!\begin{smallmatrix}1\\0\\0\end{smallmatrix}\!\right)\!,\!\left(\begin{smallmatrix}0\\1\\0\end{smallmatrix}\!\right)\!,
+\!\left(\begin{smallmatrix}0\\0\\1\end{smallmatrix}\!\right)\right\}$ and
+$ESS(\Bb_2)\!=\!\left\{\!\left(\!\begin{smallmatrix}1\\0\end{smallmatrix}\!\right)\!,\!\left(\begin{smallmatrix}0\\1\end{smallmatrix}\!\right)\!\right\}.$
+All the local maximizers of the three corresponding StQPs are global maximizers, and the global maximum equals $0$ in all three cases. Therefore, by Corollary~\ref{cor0},
+all of the local maximizers (there are $p_\Ab(3,2)=3\cdot2=6$ of them)
+of the StQP corresponding to
+$G_1=\left(\begin{smallmatrix}-1&-2&-2&1&1\\-2&-1&-2&1&1\\-2&-2&-1&1&1\\1&1&1&-1&-2\\1&1&1&-2&-1\end{smallmatrix}\right)$
+are also global maximizers, and the global maximum equals $0$.\\
+(b) Let $\Ab\!:=\!\left(\begin{smallmatrix}0&-1\\-1&0\end{smallmatrix}\right)$ and $\Bb_1=\Bb_2:=2\Ab$.
+Then all three matrices belong to ${\mathcal F}^r$, and by Corollary~\ref{cor0} we have
+$|ESS(\Gb_1)|=p_{\Ab}\big(q_{\Bb_1}(1),\ldots,q_{\Bb_n}(1)\big)=2+2=4$.
+Still $\Gb_1\!=\!\left(\begin{smallmatrix}0&-2&-1&-1\\-2&0&-1&-1\\-1&-1&0&-2\\-1&-1&-2&0\end{smallmatrix}\right)\!\not\in\!\mathcal{F}^r$, since $\p\!=\!\left(\begin{smallmatrix}1/2\\1/2\\0\\0\end{smallmatrix}\right)\!\in\! NES(\Gb_1)$ satisfies
+$I(\p)=\{1,2\}\ne\{1,2,3,4\}=J_{\Gb_1}(\p)$. Clearly for $t$ large enough, $\Gb_t\in\mathcal{F}^r$ will hold.
+}
+\end{exa}
+
+
+\subsection{Special pattern classes.}\label{secspec}
+
+\begin{cly}\label{cor1}
+Let $\Ab\in\mathcal{F}^r_n$ and $\Bb_i\in\mathcal{F}^r_{k_i}$ for $i\irg 1n$ be given. Assume that each of these matrices has the property that its set of $ESS$ consists of points that all have the same support size, i.e., the
+support size generating polynomials of those matrices are monomials. Then $\Gb_t$ will have that same property if $t$ is large enough, and any of the following conditions is satisfied:
+\begin{enumerate}
+  \item [(a)] $q_\Ab(x)=x^n$,
+  \item [(b)] There are $m,p_1,\ldots,p_n\in\mathbb{N}$ such that $q_{\Bb_i}(x)=p_ix^m$ holds for $i\irg 1n$.
+\end{enumerate}
+\end{cly}
+\bep
+Let $p_i,m_i\in\mathbb{N}$ be such that $q_{\Bb_i}(x)=p_ix^{m_i}$ holds for $i\irg 1n$ and assume that $t$ is large enough to ensure validity of the assertion of Theorem~\ref{blob} (a). In case (a) we have $p_\Ab(x_1,\ldots,x_n)=\prod_{i=1}^nx_i$ and therefore
+$q_{\Gb_t}(x)=\prod_{i=1}^nq_{\Bb_i}(x)=\big(\prod_{i=1}^np_i\big)x^{\sum_{i=1}^nm_i}$, and in case (b) we have $q_\Ab(x)=rx^\ell$ for some $r,\ell\in\mathbb{N}$, which means that $p_\Ab$ is homogeneous of degree $\ell$,
+and therefore
+$q_{\Gb_t}(x)=p_\Ab(p_1x^m,p_2x^m,\ldots,p_nx^m)=p_\Ab(p_1,p_2,\ldots,p_n)x^{m\ell}$. As $q_{\Gb_t}(x)$ turns out to be a monomial in both cases, the proof is complete.
+\ep
+\begin{exa}
+\label{example:11}
+\emph{Let $\Ab=(a_{i,j})\in{\mathcal S}^9$ be defined by $a_{i,i}=0, a_{i,i\oplus1}=35, a_{i,i\oplus2}=12, a_{i,i\oplus3}=a_{i,i\oplus4}=20$, for $i\irg 19$, where $\oplus$ is addition modulo $9$, but with $0$ represented by $9$, so that e.g.~$2\oplus8\oplus8=9$. The matrix $\Ab$ is an instance of a \emph{cyclically symmetric matrix}, which are considered in detail in the next section. It can be checked that $\Ab\in{\mathcal F}^r_9$, and that
+$$\textup{pattern}(\Ab)=\{\{1,2,3,4,5\}\oplus i:i\irg 19\}\cup\{\{1,2,3,4,7\}\oplus i:i\irg 19\}
+\cup\{\{1,2,3,6,7\}\oplus i:i\irg 19\},$$
+where we denote $K\oplus i:=\{k\oplus i:k\in K\}$. So $|ESS(\Ab)|=27$, with all $ESS$s of the same support size~$5$, i.e.~$q_\Ab(x)=27x^5$. We want to construct
+a matrix $G_t\in{\mathcal F}^r_{12}$ having many $ESS$s with common support size~$5$, using for $\Bb_1,\ldots,\Bb_9$ the matrices $\Ib_1,\Ib_1,\Ib_1,\Ib_1,\Ib_1,\Ib_1,\Ib_2,\Ib_2,\Ib_2$ in some order. Thus  $q_{\Bb_i}(x)\in\{x,2x\}$,
+and so condition (b) of Corollary~\ref{cor1} is satisfied with $m=1$.
+As it turns out, for $t=3$ and the order specified above we have $\Gb_t\in\mathcal{F}^r$ and $104=p_{\Ab}(1,1,1,1,1,1,2,2,2)=
+\max\{p_{\Ab}(\x):\x\in\{1,2\}^9,\bm{\eta}_{9}\T\x=12\}$.
+Accordingly $q_{\Gb_t}(x)=104x^5$.}
+\end{exa}
+Knowing $q_\Ab(x)$ and $q_{\Bb_i}(1), q'_{\Bb_i}(1)$ for $i\irg 1n$ (but not $p_\Ab(x_1,\ldots,x_n)$), does in general not allow to determine $q_{\Gb_t}(1)$ and $q'_{\Gb_t}(1)$ for
+$t$ large enough. There are however some cases where we can obtain partial results, which we now present.
+\begin{cly}\label{corasrss}
+Let $\Ab\in\mathcal{F}^r_n$ and $\Bb_i\in\mathcal{F}^r_{k_i}$ for $i\irg 1n$ be given, and let $t$ large enough to ensure validity of the assertion of Theorem~\ref{blob}(a) for all matrices
+$\Gb_{t,\pi}:=t\Ab_\Qb+\textup{Diag}(\Bb_{\pi(1)},\ldots,\Bb_{\pi(n)})$, with $\pi\in\mathcal{S}_n$, where $\mathcal{S}_n$ is the set of permutations of $\rg 1n$, and $\Gb_t$ clearly is one of those $\Gb_{t,\pi}$.
+\begin{enumerate}
+  \item [(a)] Assume $q_\Ab(x)=x^n$. Then $q_{\Gb_t}(1)=\prod\limits_{i=1}^nq_{\Bb_i}(1)$ and
+  $\frac{q'_{\Gb_t}(1)}{q_{\Gb_t}(1)}=\sum\limits_{i=1}^n\frac{q'_{\Bb_i}(1)}{q_{\Bb_i}(1)}.$
+  \item [(b)] Assume that $q_\Ab(x)=rx^\ell$ for some $r,\ell\in\mathbb{N}$, and that there is $m>0$ such that $\frac{q'_{\Bb_i}(1)}{q_{\Bb_i}(1)}=m$ for all $i\irg 1n$.
+Then we have $\frac{q'_{\Gb_t}(1)}{q_{\Gb_t}(1)}=m\ell$.
+  \item [(c)] Assume that there are $a,b\in\mathbb{N}$ such that $q_{\Bb_i}(1)=a$ and $q'_{\Bb_i}(1)=b$ for $i\irg 1n$, and let $m:=\frac ba$.
+Then $q_{\Gb_t}(1)=q_\Ab(a)$ and $\frac{q'_{\Gb_t}(1)}{q_{\Gb_t}(1)}=m\frac{aq'_{\Ab}(a)}{q_{\Ab}(a)}\ge m\frac{q'_{\Ab}(1)}{q_{\Ab}(1)}.$
+  \item [(d)]
+  In general, there is $\pi\in\mathcal{S}_n$ such that
+$q_{\Gb_{t,\pi}}(1)\ge q_\Ab\left(\sqrt[n]{\prod_{i=1}^nq_{\Bb_i}(1)}\right)$.
+  \item [(e)] Assume that $q_\Ab(x)=rx^\ell$ for some $r,\ell\in\mathbb{N}$, and $q_{\Bb_1}(1)\ge\cdots\ge q_{\Bb_n}(1)$. Then there is $\pi\in\mathcal{S}_n$ such that
+$q_{\Gb_{t,\pi}}(1)\ge \lceil \frac{r\ell}n\rceil q_{\Bb_1}(1)\left({\prod_{i=2}^nq_{\Bb_i}(1)}\right)^{\frac{\ell-1}{n-1}}+
+\left(r-\lceil \frac{r\ell}n\rceil\right)\left({\prod_{i=2}^nq_{\Bb_i}(1)}\right)^{\frac{\ell}{n-1}}$.
+\end{enumerate}
+\end{cly}
+\bep
+For the proof of (a), note that $p_\Ab(\x)=\prod\limits_{i=1}^nx_i$, and therefore $q_{\Gb_t}(1)=\prod\limits_{i=1}^nq_{\Bb_i}(1)$.
+Moreover, $x_i\frac{\partial p_\Ab}{\partial x_i}(\x)=p_\Ab(\x)$ for $i\irg 1n$, and thus
+$$
+q'_{\Gb_t}(1)=\sum_{i=1}^n\frac{\partial p_\Ab}{\partial x_i}(q_{\Bb_1}(1),\ldots,q_{\Bb_n}(1))q'_{\Bb_i}(1)=p_\Ab(q_{\Bb_1}(1),\ldots,q_{\Bb_n}(1))\sum_{i=1}^n\frac{q'_{\Bb_i}(1)}{q_{\Bb_i}(1)}
+=q_{\Gb_t}(1)\sum_{i=1}^n\frac{q'_{\Bb_i}(1)}{q_{\Bb_i}(1)}.
+$$
+Regarding (b), recall that $p_\Ab$ is homogeneous of degree $\ell$, and we use that, together with $q'_{\Bb_i}(1)=m\,q_{\Bb_i}(1)$ for $i\irg 1n$, in
+\begin{align*}
+q'_{\Gb_t}(1)&{}=\sum_{i=1}^n\frac{\partial p_\Ab}{\partial x_i}(q_{\Bb_1}(1),\ldots,q_{\Bb_n}(1))q'_{\Bb_i}(1)
+=m\sum_{i=1}^n\frac{\partial p_\Ab}{\partial x_i}(q_{\Bb_1}(1),\ldots,q_{\Bb_n}(1))q_{\Bb_i}(1)\\
+&{}=m\,\ell\, p_\Ab(q_{\Bb_1}(1),\ldots,q_{\Bb_n}(1))=m\ell\,q_{\Gb_t}(1).
+\end{align*}
+For (c) we use $\sum_{i=1}^n\frac{\partial p_\Ab}{\partial x_i}(a,\ldots,a)=q'_{\Ab}(a)$, and the fact, that $\frac{aq'_{\Ab}(a)}{q_{\Ab}(a)}$ is increasing for $a\ge0$.
+We turn to (d), choose $\pi\in\mathcal{S}_n$ randomly according to the uniform distribution, and consider the random variable $q_{\Gb_{t,\pi}}(1)$.
+Fix $k$, let $Y$ be uniformly distributed on $\{\y\in\{0,1\}^n:\bm{\eta}_n\T\y=k\}$, and note that, by Jensen's inequality,
+\begin{align*}\EE \prod_{i=1}^kq_{\Bb_{\pi(i)}}(1)={}&\EE \prod_{i=1}^n\big(q_{\Bb_i}(1)\big)^{Y_i}=\EE \exp\left(\sum_{i=1}^nY_i\log\big(q_{\Bb_i}(1)\big)\right)\\
+\ge{}&\exp\left(\EE\sum_{i=1}^nY_i\log\big(q_{\Bb_i}(1)\big)\right)=\exp\left(\sum_{i=1}^n\frac kn\log\big(q_{\Bb_i}(1)\big)\right)=\left(\prod_{i=1}^nq_{\Bb_i}(1)\right)^{\frac kn}.\end{align*}
+Using now linearity of expectation in \eqref{e:poly}, we arrive at $E:=\EE q_{\Gb_{t,\pi}}(1)\ge q_\Ab\left(\sqrt[n]{\prod_{i=1}^nq_{\Bb_i}(1)}\right)$.
+Since clearly there has to be $\pi\in\mathcal{S}_n$ satisfying $q_{\Gb_{t,\pi}}(1)\ge E$, this finishes the proof of d).\\
+For the proof of (e), note that from $r\ell=\sum_{i=1}^n|\{s\in\textup{pattern}(\Ab):i\in s\}|$ we may deduce that there is $i^*\irg 1n$ that is contained in at least $\lceil \frac{r\ell}n\rceil$ elements of $\textup{pattern}(\Ab)$.
+Choose $\pi\in\{\tau\in\mathcal{S}_n:\tau(i^*)=1\}$ randomly according to the uniform distribution. Then, as before,
+$$\EE q_{\Gb_{t,\pi}}(1)\ge \sum_{i^*\in s\in\textup{pattern}(\Ab)}q_{\Bb_1}(1)\left({\prod_{i=2}^nq_{\Bb_i}(1)}\right)^{\frac{\ell-1}{n-1}}
++ \sum_{i^*\not\in s\in\textup{pattern}(\Ab)}\left({\prod_{i=2}^nq_{\Bb_i}(1)}\right)^{\frac{\ell}{n-1}},$$
+and putting everything together, (e) is proved.
+\ep
+\begin{exa}\label{e:21}
+\emph{Assume we are told that there is $\Ab\in{\mathcal F}^r_{10}$ satisfying $q_{\Ab}(x)=10x^8$, but $\textup{pattern}(\Ab)$ is not revealed.
+We want to use that information to infer the existence of a matrix $G_t\in{\mathcal F}^r_{21}$ having many $ESS$s with common support size~$8$.
+For $(\Bb_i)_{i\sirg 1{10}}$ we are going to use $\Ib_3$ and 9 copies of $\Ib_2$ in some order. From Corollary~\ref{corasrss}(e) we deduce that for $t$ large enough and some order of the matrices $\Bb_i$ we can have
+$|ESS(\Gb_t)|\ge8\cdot3\cdot2^7+2\cdot2^8=3584$.\\
+Now there is a cyclically symmetric matrix $\Ab\in{\mathcal F}^r_{10}$, defined by $a_{i,i}=0, a_{i,i\oplus1}=a_{i,i\oplus2}=a_{i,i\oplus3}=13, a_{i,i\oplus4}=a_{i,i\oplus5}=8$, for $i\irg 1{10}$. We have
+$\textup{pattern}(\Ab)=\{\rg 18\oplus i:\,i\irg 1{10}\}$ and moreover, for $t$ large enough,
+$p_{\Gb_t}(\x)=3584$ for any $\x\in\{2,3\}^{10}$, such that $\bm{\eta}_{10}\T\x=21$, which shows that the inequality in Corollary~\ref{corasrss}(e) can be sharp in some cases.
+}
+\end{exa}
+
+
+\subsection{Consequences for counting $ESS$s.}\label{seccount}
+
+While in Section~\ref{Worst case lower bounds} we will employ the results of this section to find matrices of orders $10$ to $24$ with very large numbers of $ESS$s,
+we use them now to obtain exponential growth (in $n$) of the maximal number of $ESS$s of matrices in certain subclasses of $\mathcal{F}$.
+
+We first recall some results from \cite{Broo93a}.
+Define $U_n$ to be the \emph{largest number of $ESS$s} that any $n \times n$-matrix can have:
+$$U_n := \max \lk |ESS(\Ab)| : \Ab\in \csn\rk$$
+where $\csn$ denotes the set of all symmetric $n\times n$ matrices.
+We are interested in lower bounds for $U_n$, and we will exploit the following theorem from \cite{Broo93a}.
+\begin{thm}
+\label{Broom_theorem}
+The sequence $\{U_n\}$ is such that $\lim_{n \rightarrow \infty} U^{\frac 1 n}_n$ exists. Furthermore, denoting this limit by $\gamma$, $U^{\frac 1 n}_n \leq \gamma$ for all $n$.
+\end{thm}
+\bep
+See \cite[Thm.~2]{Broo93a}.
+\ep
+The proof technique in~\cite{Broo93a} builds upon the inequality $U_{n+m}\ge U_nU_m$ and Fekete's Subadditivity Lemma (in its superadditive variant). It can also be used to establish the following results.
+\begin{thm}
+\label{exp_growth}
+Let
+\begin{align*}
+U_n^{(d)} &:= \max \lk |ESS(\Ab)| : \Ab\in \mathcal{F}_n^d\rk,\\
+ U_n^{(r)} &:= \max \lk |ESS(\Ab)| : \Ab\in \mathcal{F}_n^r\rk,\\
+ U_n^{(g)} &:= \max \lk |ESS(\Ab)| : \Ab\in \mathcal{F}_n^r, \textup{ every }\p\in ESS(\Ab)\textup{ is a global solution of }\eqref{e:stqp}\rk,\\
+ U_n^{(s)} &:= \max \lk |ESS(\Ab)| : \Ab\in \mathcal{F}_n^r, |\{|K|:\,K\in\textup{pattern}(\Ab)\}|=1\rk.
+\end{align*}
+(a) For any $\bullet\in\{d,r,g,s\}$ there is $\gamma^{(\bullet)}\le\gamma$ such that $\lim\limits_{n \rightarrow \infty} (U_n^{(\bullet)})^{\frac 1 n}=\gamma^{(\bullet)}$, and $(U_n^{(\bullet)})^{\frac 1 n}\le\gamma^{(\bullet)}$ holds for all $n$.\\
+(b) If $(U_n^{(\bullet)})^{\frac 1 n}\ge c$ for $n\in\{n_1,\ldots,n_k\}$, and for some $N$ every integer $\ge N$ is in the sumset $n_1\mathbb{N}_0+\cdots+n_k\mathbb{N}_0$, then $(U_n^{(\bullet)})^{\frac 1 n}\ge c$ for all $n\ge N$.
+\end{thm}
+\bep (a) To establish $U_{n+m}^{(\bullet)}\ge U_n^{(\bullet)}U_m^{(\bullet)}$ we choose $\Bb_1$ of order $n$ and $\Bb_2$ of order $m$ such that $|ESS(\Bb_1)|=U_n^{(\bullet)}$ and $|ESS(\Bb_2)|=U_m^{(\bullet)}$. Furthermore we let
+$\Ab=\Eb_2-2\Ib_2$ (with $\Ab\in\mathcal{F}^r$ and $p_\Ab(\x)=x_1x_2$), construct $\Gb_t$ of order $n+m$, and observe that for $t$ large enough we will have $U_{n+m}^{(\bullet)}\ge |ESS(\Gb_t)|\ge U_n^{(\bullet)}U_m^{(\bullet)}$, by invoking Theorem~\ref{blob}\,b) in case of $\bullet=d$, Theorem~\ref{blob}\,a) in case of $\bullet=r$, Corollary~\ref{cor0} in case of $\bullet=g$ (here we may w.l.o.g.~assume, by adding multiples of the all ones matrix to the matrices $\Bb_i$, that $\p\T\Bb_i\p=0$ for all $\p\in ESS(\Bb_i)$, also note that $\q=\left(\!\begin{smallmatrix}1\\1\end{smallmatrix}\!\right) $ is the only $ESS$ of $\Ab$ and satisfies $\q\T\Ab\q=0$), and Corollary~\ref{cor1} in case of $\bullet=s$. Now use Fekete's Subadditivity Lemma. Since the feasible sets in the maximization problems defining the constants $\gamma^{(\bullet)}$ are all subsets of $\mathcal{S}^n$, it is clear that we have $\gamma^{(\bullet)}\le\gamma$.\\
+(b) Let $n\ge N$. Then, for some $\ell_1,\ldots,\ell_k\in\mathbb{N}_0$ we have $n=\sum_{i=1}^k\ell_i n_i$. Denote $m:=\sum_{i=1}^k\ell_i$, let $\Ab:=\Eb_k-\Ib_k$ and let $\Bb_1,\ldots,\Bb_m$ consist of $\ell_i$ copies of
+$\Cb_i$ for $i\irg 1k$, where $\Cb_i$ is of order $n_i$ and satisfies $|ESS(\Cb_i)|\ge c^{n_i}$. Then, for $t$ large enough, $U_n^{(\bullet)}\ge|ESS(\Gb_t)|\ge \prod_{i=1}^k|ESS(\Cb_i)|^{\ell_i}\ge c^n$, by Theorem~\ref{blob}.
+\ep
+We remark that besides the obvious $\max(\gamma^{(g)},\gamma^{(s)})\le\gamma^{(r)}\le\gamma^{(d)}\le\gamma$ we do not know of further inequalities relating these constants, and in particular not, if any of the stated inequalities is strict.
+
+
+\subsection{Cyclically Symmetric Matrices.}
+\label{Cyclically Symmetric Matrices}
+
+We will employ symmetry transformations of the coordinates of vectors given by cyclic permutation (see also \cite{Bomz14a}, where this notation has been introduced), denoting by $a\oplus b$, $a\ominus b$ and $a \odot b$ the result of addition, subtraction and multiplication modulo $n$. To keep in line with standard notation, we consider the remainders $[1\!:\! n]$ instead of $[0\!:\! n-1]$, e.g. $1\oplus (n-1) = n$, see also Example~\ref{example:11}. To be more precise, let
+$\Pb_i$ be the square $n\times n$ permutation matrix which effects $\Pb_i\x = [x_{i\oplus j}]_{j\sirg 1n}$ for all $\x\in \R^n$ (for example, if $n=3$ then
+$\Pb_2\x = [x_3,x_1,x_2]\T$). Obviously $\Pb_i=(\Pb_1)^i$ for all  integers $i$ (recall $\Pb^{-3}$ is the inverse matrix of $\Pb\Pb\Pb$), $\Pb_i\T = \Pb_{n-i}= \Pb_i^{-1}$ and $\Pb_n= \Ib_n$. A {\em circulant matrix} $\Sb=\Cb(\a)$ based on a vector $\a\in \R^n$ (as its last column rather than the first)
+is given by
+$$\Sb=[\Pb_ {n-1}\a,\Pb_ {n-2}\a, \ldots, \Pb_ 1\a, \a]\, .$$
+If $\Sb=\Cb(\a)$ is symmetric it is called {\em cyclically symmetric}, and that holds whenever
+\beq{zysy}a_i=a_{n-i}\quad\mbox{for all }i\in[1\!:\! n-1]\, .\eeq
+
+It is easy to see that any circulant matrix $\Sb = \Cb(\a)$ satisfies $\Pb_i\T\Sb\Pb_i=\Sb$ for all $i\in [1\!:\! n]$, and this is the key to their use in finding matrices with many $ESS$s.
+
+\begin{lem}
+Let a problem $\max_{\x \in \simplex}\x\T\Sb\x$ be given and, let $\Mb$ be an arbitrary permutation matrix with  $\Mb\T\Sb\Mb=\Sb$. If $\x^*$ is a solution to the problem, then  $\Mb\x^*$ is also a solution of the problem. The two vectors  need not differ from each other, though, if additional symmetry prevails.
+\end{lem}
+\bep
+$(\Mb\x^*)\T\Sb(\Mb\x^*)=(\x^*)\T(\Mb\T\Sb\Mb)\x^*=(\x^*)\T\Sb\x^*$.
+\ep
+
+%$(\Mb\x^*)\T\Sb(\Mb\x^*)=(\x^*)\T(\Mb\T\Sb\Mb)\x^*=(\x^*)\T\Sb\x^*$.
+
+Due to the structure of the matrices $\Cb(\a)$ any found $ESS$ leads to potentially another $n-1$ $ESS$s, where the involved permutation matrices are $\Pb_1,\dots, \Pb_{n-1}$, if we are cautious enough to break above-mentioned symmetry. Then the number of $ESS$s found in a game with a cyclically symmetric matrix must be a sum of multiples of the prime factors of $n$ (or $0$ or $1$). When $n$ is prime, this leads to the nice property that the game has $0$,$1$ or a multiple of $n$ $ESS$s.
+We add here a result linking our construction of matrices $\Gb_t$ to cyclic symmetry.
+\begin{prop}\label{prop:cycsym}
+Let $\Ab\in\mathcal{F}^r_n$ and $\bar\Bb\in\mathcal{F}^r_{k}$, with $\Ab$, $\bar\Bb$ both cyclically symmetric, and let $\Bb_i:=\bar\Bb$ for $i\irg 1n$.
+Then $\Gb_t$ is congruent to a cyclically symmetric matrix via a permutation matrix.
+\end{prop}
+\bep
+Let $N:=nk$ and define the $N\times N$ matrix $\Mb:=\sum_{i=0}^{n-1}\sum_{j=0}^{k-1}\Eb_{1+ik+j,1+i+jn}$, where $\Eb_{\ell,m}:=\e_\ell\e_m\T$ has a single entry $1$ in row $\ell$ and column $m$ and $0$s elsewhere. Note that $\Mb$ is a permutation matrix, since
+$\{1+ik+j:\,i\irg 0{n-1},\,j\irg 0{k-1}\}=\{1+i+jn:\,i\irg 0{n-1},\,j\irg 0{k-1}\}=\rg 1N$.
+Let $\Hb_t:=\Mb\T\Gb_t\Mb$. Clearly, $\Hb_t$ is symmetric. $\Hb_t$ is indeed cyclically symmetric, since we can prove $(\Hb_t)_{\ell,m}=(\Hb_t)_{\ell\oplus{}_{N}1,m\oplus{}_{N}1}$ for any
+$\ell,m\irg 1N$, where $\oplus{}_m$ denotes addition modulo $m$ with remainders in $\rg 1m$: Let $\ell:=1+i+jn$ and $m:=1+\imath+\jmath n$, with $i,\imath\in[0:n-1]$ and $j,\jmath\in[0:k-1]$. Then
+\beq{zysygt}(\Hb_t)_{\ell,m}=\e\T_{1+i+jn}\Mb\T\Gb_t\Mb\e_{1+\imath+\jmath n}=\e\T_{1+ik+j}(t\Qb\T\Ab\Qb+\Bb)\e_{1+\imath k+\jmath}=t\e\T_{1+i}\Ab\e_{1+\imath}+\delta_{i,\imath}\e\T_{1+j}\bar\Bb\e_{1+\jmath},\eeq
+where $\delta_{\cdot,\cdot}$ denotes the Kronecker delta. We now distinguish three cases:\\
+a) $i\!<\!n\!-\!1,\imath\!<\!n\!-\!1$ implies $(\Hb_t)_{\ell+1,m+1}\!=\!t\e\T_{2+i}\Ab\e_{2+\imath}\!+\!\delta_{i,\imath}\e\T_{1+j}\bar\Bb\e_{1+\jmath}\!=\!(\Hb_t)_{\ell,m}$, because of cyclic symmetry of $\Ab$.\\
+b) $i\!=\!n\!-\!1,\imath\!<\!n\!-\!1$: In this case $\ell\!+\!1\!=\!1\!+\!0\!+\!(j\!+\!1)n$, $\delta_{i,\imath}\!=\! \delta_{0,\imath+1}\!=\!0$ and
+$(\Hb_t)_{\ell\oplus{}_N 1,m+1}\!=\!t\e\T_{2\oplus{}_n i}\Ab\e_{2+\imath}\!=\!(\Hb_t)_{\ell,m}$,
+again by cyclic symmetry of $\Ab$. The case $i<n-1,\imath=n-1$ is treated analogously.\\
+c) $i=\imath=n-1$ implies $(\Hb_t)_{\ell\oplus{}_N 1,m\oplus{}_N 1}\!=\!t\e\T_{2\oplus{}_n i}\Ab\e_{2\oplus{}_n \imath}\!+\!\e\T_{2\oplus{}_k j}\bar\Bb\e_{2\oplus{}_k \jmath}\!=\!(\Hb_t)_{\ell,m}$, because of cyclic symmetry of $\Ab$ and $\bar\Bb$.
+\ep
+Equation \eqref{zysygt} with $m=N$ and therefore $\imath=n-1,\jmath=k-1$ can be used to find the last column of the cyclically symmetric matrix $\Hb_t$, see the following example.
+\begin{exa}\emph{
+Let $\Ab:=\Cb([3,7,7,3,1]\T)$ and $\bar\Bb:=\Ib_3-\Eb_3=\Cb([-1,-1,0]\T)$. Then $\Gb_1$ and the cyclically symmetric matrix
+$\Hb_1\!=\!\Cb([3,7,7,3,1\!+\!(\!-1),3,7,7,3,1\!+\!(\!-1),3,7,7,3,1\!+\!0]\T)\!=\!\Cb([3,7,7,3,0,3,7,7,3,0,3,7,7,3,1]\T)$ have equal numbers of $ESS$. Verifying $\Ab,\bar\Bb\in\mathcal{F}^r$ as well as $q_\Ab(x)=5x^3,\,q_{\bar\Bb}(x)=3x$, and invoking Corollary~\ref{cor0}, we deduce
+$|ESS(\Hb_1)|=q_{\Gb_1}(1)=5\cdot3^3=135$.}
+\end{exa}
+In the vein of Theorem~\ref{exp_growth} we define
+$U_n^{(c)} := \max \lk |ESS(\Ab)| : \Ab\in \mathcal{F}_n^r, \Ab\textup{ is cyclically symmetric}\rk$,
+but unfortunately do not know, if $U_{n+m}^{(c)}\ge U_n^{(c)}U_m^{(c)}$ holds in general (we doubt it), or if $\lim\limits_{n \rightarrow \infty} (U_n^{(c)})^{\frac 1 n}$ exists.
+Still we can define $\gamma^{(c)}:=\limsup_{n\to\infty}(U_n^{(c)})^{\frac 1 n}$, which satisfies $\gamma^{(c)}\le\gamma$. Also, if $(U_k^{(c)})^{\frac 1 k}\ge \bar\gamma$ for some $k$, then $(U_n^{(c)})^{\frac 1 n}\ge \bar\gamma$ for all $n\in k\mathbb{N}$.
+
+
+\subsection{Restricting the search space.}
+\label{Restricting the search space}
+
+We started experimenting to search cyclically symmetric matrices $\Cb(\a)$ for $ESS$s on different $n$, where we set $a_n=0$ in every case. This reduces the degrees of freedom and does not do any harm, since multiples of $\Eb_n$ can be added to or subtracted from the game matrix without changing the game.
+So in total we have $\left \lfloor \frac{n}{2} \right \rfloor$ variables for every $n$, and for these variables we allowed integers.
+
+This approach leads to good results for smaller $n$ (say $\leq 12$), but for larger $n$ this procedure became prohibitively slow. For these instances, our idea is not only to exploit cyclic permutations inherent to the matrices $\Cb(\a)$, but to enforce  $\Mb\T\Cb(\a)\Mb=\Cb(\a)$ for one or more additional permutation matrices $\Mb$. This leads to more restrictions on the degrees of freedom for constructing the vector $\a$.
+
+Empirically for  $n\in [13:24]$ it turned out that using the following construction is a good choice.
+Define $n \times n$ matrices  $\Eb_{i,j}=\e_i \e_j\T$, let $k$ and $n$ be mutually prime and define
+\[
+\Mb_k =\sum_{i=1}^n \Eb_{k \odot i,i}.
+\]
+
+\begin{exa}\emph{
+For $n=5$ and $k=3$ we get
+$\Mb_3=
+\left(\begin{smallmatrix}
+0 & 1 & 0 & 0 & 0\\0 & 0 & 0 & 1 & 0\\1 & 0 & 0 & 0 & 0\\0 & 0 & 1 & 0 & 0\\0 & 0 & 0 & 0 & 1\\
+\end{smallmatrix}\right)$.
+}\end{exa}
+
+If we require $\Mb_k\T\Cb(\a)\Mb_k=\Cb(\a)$, then further restrictions on the $a_i$  result. Therefore, if too many restrictions are imposed, then $\a$ becomes trivial in that $a_i$ is constant across all $i \irg 1{n-1}$, and if we do not use enough restrictions by this construction, all $a_i$ may have different values.
+
+\begin{exa}\emph{
+\label{aufbau T}
+Consider $n=15$ and $\Mb_2$. By cyclical symmetry it is required that $a_i=a_{15-i}$ for $i\irg 1{14}$. Since $\Cb(\a)=\Mb_2\T\Cb(\a)\Mb_2$, we can calculate the further restrictions  $a_i=a_{2i}$ for $i\irg 1{14}$. These result in $\a=(a_1,a_1,a_3,a_1,a_5,a_3,a_1,a_1,a_3,a_5,a_1,a_3,a_1,a_1,0)\T$ by keeping the smallest indices.
+}\end{exa}
+
+A careful choice of these further restrictions was successfully applied to various cyclically symmetric matrices for different $n$, which lead to good results, see Subsection~\ref{secresu} for details.
+
+
+
+\section{Coexistence of many $ESS$s for several matrix classes.}
+\label{Worst case lower bounds}
+
+
+\subsection{The challenge to find all $ESS$s.}
+\label{Algorithmic details: finding all $ESS$s of a given matrix}
+
+An algorithm to detect all $ESS$s of a given game (i.e., matrix) was already sketched in \cite{Bomz92a}.
+We briefly summarize its implementation here, focusing on the necessary modifications.
+
+Since for every support set $I \in 2^{\rg 1n}  \setminus \emptyset$ there exists at most one $ESS$ $\x$ with $I(\x)=I$, the idea of the algorithm is to search for $ESS$s on (potentially) all the $2^{n}-1$ supports of the game. This is done exploiting equation (\ref{non inclusion result}), so a full support search only happens when the game does not exhibit any $ESS$s at all.
+
+On every searched support the following two steps are carried out:
+\begin{compactenum}
+\item FINDEQ - Find a serious candidate for a strict local maximizer.
+\item CHECKSTAB - Check if the candidate is really a strict local maximizer.
+\end{compactenum}
+
+The algorithm we implemented differs from the original approach in two points. The original algorithm suggests to search the whole power set of $\rg 1n$ by selecting sets $\Jcurly_{\min}$ and $\Jcurly_{\max}$, being minimal (maximal) with respect to the set inclusion, and this is done iteratively (see p.317 in \cite{Bomz92a}). From a computational point of view - especially when one expects to find many $ESS$s - it is faster to search only ``from the smallest supports upwards'' (i.e. neglecting the $\Jcurly_{\max}$-sets), since it is cheaper to run FINDEQ on small supports. The second difference is the way the sets are chosen - not by them being minimal with respect to the set inclusion - but by them having the minimal number of elements.
+
+We coded this algorithm as multi-threaded for rational matrices using exact arithmetics, thus avoiding any roundoff errors.  Our system setup is an Intel i7-4930K CPU with 6 kernels, 16GB RAM and a SSD hard disk, where the output of the algorithm is stored in a database.
+
+Note that this implementation has been utilized in the literature before, see \cite{Bomz14a} and \cite{Bomz14b}, although in a slightly different context.
+
+To give an estimate, this setup can search and record up to $5000$ matrices of order $n=9$ per second, but this depends largely on the complexity of the rational numbers and on the pattern of the game.
+
+\subsection*{FINDEQ - Finding a serious candidate for an $ESS$}
+The question is how to find a suitable candidate for an $ESS$. Admitting \emph{all} $NES$ as candidates is too much (since there could be infinitely many), and also from a computational point of view it is wise to restrict the set of candidates of a game-matrix $\Ab$, denoted $K(\Ab)$, such that $ESS(\Ab)\subseteq K(\Ab) \subseteq NES(\Ab)$.
+
+In the original paper \cite{Bomz92a} the characterization of extremal equilibria with the help of polyhedra is used. To this end the vertices of a polyhedron have to be found, which can be accomplished by linear programming techniques.
+This original method is far too slow for  practical applications, so we adapted it by introducing Proposition~\ref{critical point in a support}, admitting every $NES$ as candidate for an $ESS$, if it is the only $NES$ on the currently considered support.
+
+Define the restriction of a matrix $\Ab$ on an index set $I$ as $\Ab_I$, i.e.\ $\Ab_I=(a_{ij})$ for $i,j \in I$, and  analogously the restriction of a vector $\x$ on $I$ is defined as $\x_I$.
+
+\begin{prop}
+\label{critical point in a support}
+Let a $n \times n$ game-matrix $\Ab$ and a support $I\subseteq\rg 1n$ be given.
+\begin{enumerate}[label=(\alph*)]
+\item
+ Then $\p \in NES(\Ab)$ with $I(\p)=I$ if and only if $(\p_I,\p \T \Ab \p)$ is a solution to the linear system
+\begin{equation}
+\label{findeq}
+\begin{split}
+\Ab_I \x_I -v\bm{\eta}_{|I|}=0 \\
+\bm{\eta}_{|I|}\T\x_I=1
+\end{split}
+\end{equation}
+in variables $(\x_I,v)\in \R^{|I|}\times\R$, that also satisfies the inequalities
+\begin{equation}
+\begin{aligned}
+\label{findeq2}
+x_i&>0 \quad \forall i \in I \quad \mbox{ as well as } \\
+(\Ab \x)_j &\leq v \quad \forall j \irg 1n \setminus I \mbox{.}
+\end{aligned}\end{equation}
+\item If $\p\in ESS(\Ab)$ with $I(\p)=I$, then the solution to equation (\ref{findeq}) is unique.
+\end{enumerate}
+\end{prop}
+
+\bep
+(a) Recall that $\x \in \simplex$ with $I(\x)=I$ is a $NES$ if and only if $(\Ab\x)_i=\x \T \Ab \x \ \ \forall i \in I$ and $(\Ab\x)_i \leq \x\T \Ab \x \ \ \forall i \irg 1n\setminus I$, then (a) is just a reformulation of this statement.\\
+(b) Applying the non inclusion result of  (\ref{non inclusion result}) it is clear that existence of a unique solution of the system of equations (\ref{findeq}) and inequalities (\ref{findeq2}) is a necessary condition for there being an $ESS$ $\p$ with $I(\p)=I$. It remains to show that it is impossible to happen that the system of equations (\ref{findeq}) has infinitely many solutions which then get reduced to exactly one by inequalities (\ref{findeq2}).
+
+\cowe{Let $\mathcal{L}_I\subseteq\R^{|I|}$ denote the set of $\x_I$ such that $(\x_I,v)$ is a solution of equations (\ref{findeq}) for some $v\in\R$. Assuming that $\mathcal{L}_I$ is infinite implies $|I|>1$. For} an $ESS$ $\p$ with $I(\p)=I$ there are only two possibilities: either $\mathcal{L}_I\cap\cowe{\Delta^{|I|}}=\{\cowe{\p_I}\}$ or $|\mathcal{L}_I\cap\cowe{\Delta^{|I|}}|=\infty$.
+In the first case every neighborhood of $\cowe{\p_I}$ would contain further points of $\mathcal{L}_I\cap\cowe{\Delta^{|I|}}$ contradicting $|\mathcal{L}_I\cap\cowe{\Delta^{|I|}}|=1$. In the second case there will be a line segment $L$ such that $\cowe{\p_I}\in L\subseteq\mathcal{L}_I\cap\cowe{\Delta^{|I|}}$, and there will be $v\in\R$ such that $\q\T\cowe{\Ab_I}\q=v$ for all $\q\in L$,
+which means that $\p$ is not a strict local maximizer, contradicting $\p\in ESS(\Ab)$.
+\ep
+
+Proposition~\ref{critical point in a support} gives us an efficient method to find the candidates in $K(\Ab)$: for the considered support set solve the linear system in (\ref{findeq}), if there exists a unique solution check the inequalities, if they hold then the solution is in $K(\Ab)$. If there is no unique solution to the system (\ref{findeq}) then there exists no (reasonable) candidate for an ESS with support $I$.
+
+Note that whenever for all nonempty $I\subseteq \rg 1n$  the determinant of system (24) is nonzero, then $A \in {\mathcal F}^d$.
+
+\subsection*{CHECKSTAB - Checking which candidates are really $ESS$s}
+\label{stability selection}
+Verification of the $ESS$ property of the candidates is a quite cumbersome task, since it potentially involves checks for copositivity \cite[Section 3]{Bomz92a}. It is interesting to note that empirically only a very small percentage of $ESS$s are detected by copositivity checks, a check for positive definiteness is sufficient in almost all cases, see Section~\ref{descriptive}. This is in line with genericity (i.e.\ the considered matrix being $\in \mathcal{F}_n $), but since we are working on discrete data, it is not straightforward.
+
+One remark from a computational point of view: for generic matrices, the method of \cite[Thm.3.3]{Bomz92a} is a recursive version of Sylvester's minorant criterion. This approach gets very slow for large $n$, so it is advantageous to use a Cholesky decomposition instead for checking positive definiteness in these cases.
+
+
+\subsection{Methods and results.}\label{secresu}
+
+A first lower bound for $\gamma$, as defined in Theorem~\ref{Broom_theorem}, has been given in~\cite{Hofb88} (due to the above mentioned connection with the Moon/Moser result~\cite{Moon65}) with $\gamma \geq 3^\frac 1 3$, and it was conjectured that this holds with equality. However, it was shown in \cite{Vick88b} that this is not the case: a $7 \times 7$-\emph{cyclically symmetric} matrix (see Section \ref{Cyclically Symmetric Matrices}) was found which showed $14$ $ESS$s instead of $12$ predicted by the conjecture.
+
+The latest improvement of the lower bound (to our knowledge) is $\gamma \geq 30^\frac 1 9$ and was stated in \cite{Broo93a}, there a $9\times 9$ principal submatrix of an $11\times 11$-cyclically symmetric matrix with $30$ $ESS$s was presented.
+
+
+\begin{table}[ht]
+\caption{Results of using the algorithm on cyclically symmetric matrices.}
+\label{tab:ergebnisse}
+\setlength{\tabcolsep}{4.5pt}
+\begin{minipage}{\textwidth}
+\begin{center}{
+\begin{tabular}{|rlrcc|rlrcc|}
+\hline
+$n$ & $\x$ & \!\!\!\!$U_n \geq$ & $\gamma \geq$ &$|I|$& $n$ & $\x$ & $U_n \geq$ & $\gamma \geq$ &$|I|$\\
+\hline
+5 & 1,3 & 5 & 1.37973  & 3 & 15 & 9,9,5,9,3,5,9 & 360 & 1.48054  & 7 \\
+6 & 1,-1,1 & 9 & 1.44225  & 2 & 16 & 7,5,4,4,4,5,7,-1 & 512 & 1.47683 & 6 \\
+7 & 1,5,8 & 14 & 1.45792  & 3 & 17 & $\alpha,\beta,\gamma,\delta,\gamma,\beta,\alpha,\epsilon$~\footnote{where $(\alpha,\beta,\gamma,\delta,\epsilon)=(1302, 831, 1222, 860, 518)$.} & 493 & 1.44013  & 9 \\
+8 & 5,5,13,11 & 20 & 1.45422  & 4 & 18 & 8,7,5,5,5,5,7,8,-1 & 1152 & 1.47938  & 7 \\
+9 & 1,5,10,13 & 30 & 1.45923  & 3 & 19 & 13,31,31,27,31,27,13,13,27 & 1444 & 1.46654  & 7 \\
+10 & 13,19,25,7,5 & 50 & 1.47876  & 4 & 20 & 13,13,13,8,8,8,13,13,13,-1 & 2560 & 1.48051  & 8 \\
+11 & 1,4,6,6,5 & 66 & 1.46357  & 5 & 21 & 15,15,7,15,15,7,7,15,7,15 & 4410 & 1.49123  & 9 \\
+12 & 293,64,179,196,64,262 & 105 & 1.47378  & 4 & 22 & 2,2,4,4,5,5,4,4,2,2,-1 & 5632 & 1.48076  & 9 \\
+13 & 7,18,18,10,7,10 & 143 & 1.46486  & 5 & 23 & $a,b,c,d,e,e,d,c,b,a,f$~\footnote{where $(a,b,c,d,e,f)=(27478, 22664, 10976, 25676, 18552, 17939)$.} & 2507 & 1.40537  & 13 \\
+14 & 4,3,2,2,3,4,-1 & 224 & 1.47189 & 5 & 24 & 15,15,7,15,15,7,15,7,7,15,15,7 & 15120 & 1.4933  & 10 \\
+\hline
+\end{tabular}}
+\end{center}
+\end{minipage}
+\end{table}
+
+We used the methods described in Section~\ref{Restricting the search space} on cyclically symmetric matrices, and the results for $n \in [5:24]$ can be found in Table \ref{tab:ergebnisse}. The first three columns show the maximal number of $ESS$s we found together with the smallest vector $\x$ which generates the matrix $\Cb(\a)$ for every $n$, in the sense that $a_i=x_i$ for $i \in [1:\left \lfloor \frac{n}{2} \right \rfloor]$. The remaining $a_i$ are generated by $a_i=a_{n-i}$ for all $i\irg 1{n-1}$ and $a_n=0$. The term \emph{smallest} here is defined as the one minimizing $||\cdot ||_{\infty}$ from all found vectors. If there was more than one smallest vector $\x$, we chose one of them arbitrarily.
+
+The fourth column gives the lower bound for $\gamma$ implied by the stated matrix.
+
+The column $|I|$ states the support size of all found $ESS$s. An entry $k$ for some matrix $\Mb$ means that we have $|I(\p)|=k$ for all $\p\in ESS(\Mb)$. Interestingly for all matrices listed in Table~\ref{tab:ergebnisse} only one support size occurs, also for $n$ which are not prime. One would assume that the support sizes for the best results are around $\left \lfloor \frac{n}{2} \right \rfloor$, but enough instances deviate from that, especially when $n$ gets larger. We can only conjecture that either we did not find the matrices with the largest number of $ESS$s possible, or that additional properties of the game matrices restrict the support-patterns further.
+
+Note that we did not spend an equal amount of computation time on each $n$, nor was the number of searched matrices the same for every $n$. In that sense the results among different $n$ are not comparable.
+
+
+\subsection{Discussion and consequences.}\label{secdisc}
+
+The best lower bound for $\gamma$ we obtained (for cyclically symmetric matrices) by finding  $24\times 24$-matrices with $15120$ $ESS$s.
+Then $\gamma \geq 15120^\frac 1 {24} \approx 1.4933 > 30^\frac 1 9 \approx 1.4592$, the best value known in the literature before. Note that also the cases $n\in \{10, 11, 12, 13, 14, 15, 16, 18, 19, 20, 21, 22\}$ would beat this value.
+
+For the case $n=7$ we are able to provide smaller integers than stated in \cite{Vick88b}.
+
+As it can be seen, for $9\times 9$-matrices it is not necessary to take the principal submatrix of a cyclically symmetric $11\times 11$-matrix as done in \cite{Broo93a}, the use of a $9 \times 9$-cyclically symmetric matrix is sufficient, which also exhibits much smaller values then the one in \cite{Broo93a}.
+
+While for $n\le12$ we put no further restrictions on the entries of cyclically symmetric matrices of order $n$ (for $n=12$ we investigated the neighborhood of the matrix
+$\Cb([69,14,42,46,14,62,14,46,42,14,69,0]\T)$ with 93 $ESS$s and luckily found the one listed in the table), we took different routes for $n\ge13$. Our best matrix for $n=15$ satisfies $\Cb(\a)=\Mb_2\T\Cb(\a)\Mb_2$, and was found by restricting the search to a three parameter family, as explained in Example~\ref{aufbau T}.
+Similarly, for $n\in\{13,19,21,24\}$ our best matrices obey corresponding symmetries expressed by permutation matrices $\Mb_5,\Mb_7,\Mb_2$ and $\Mb_5$, respectively, with additional further constraints for $n\in\{21,24\}$ to restrict the search to two parameter families. For $n\in\{14,16,18,20,22\}$ we searched for matrices $\Ab$ of order $k\in\{7,8,9,10,11\}$ satisfying $q_\Ab(x)=kx^{k-2}$. Such matrices are known to exist for any $k\ge3$, see \cite[Thm.\,5]{Broo93a}, but we needed such matrices with integer entries. Then Corollary~\ref{cor0} is applied with $\Bb_i=\Ib_2-\Eb_2$ for $i\irg 1k$, and $t=1$, yielding a matrix $\Gb_1$ of order $2k$ satisfying $|ESS(\Gb_1)|=q_{\Gb_1}(1)=k2^{k-2}$, and then Proposition~\ref{prop:cycsym} yields a cyclically symmetric matrix of that same number of $ESS$s, which we list in the table. Neither method worked sufficiently well for the primes $n\in\{17,23\}$. So we tried to mimic what gave good results for $n\in\{14,16,18,20,22\}$ by enforcing symmetry also within the first and second half of the vector $\a$ (i.e.~within the vector $\x$), disregarding the two middle elements of $\a$. What we were able to obtain is still not overwhelming, but we have included the results for the sake of completeness. We do not know of any better alternatives for these orders.
+
+Summarizing this, cyclically symmetric matrices are a good starting point to find matrices with many local maximizers. For many $n$ our matrices give lower bounds for $\gamma$ that are better than the ones in the existing literature.
+
+Note that $U_5\geq 5$ is not the best \coma{known} lower bound, symmetric $5 \times 5$-matrices are known which yield $U_5 \geq 6$, e.g.~the matrix from Example~\ref{ex:cor0}(a).
+
+\begin{table}[ht]
+%\centering
+%\begin{center}{
+\caption{Base matrices $\Cb_i$ and symmetric matrices improving upon Table~\ref{tab:ergebnisse}}
+\label{tab:ergebnisse noncircular}
+\begin{tabular}{|crlcc|rlrcc|}
+  \hline
+matrix & $n$ & $\x$ & $|ESS(\Cb_i)|$ & $|I|$& $n$ & matrix & $U_n \geq$ &$\gamma \geq$ & $|I|$\\
+  \hline
+  $\Cb_1$ & 10 & 13,19,25,7,5 & 50  &  4 & 11 & $\Gb(\Cb_1,1_92_1)$ 					 & 70 & 1.47142  & 4\\
+  \hline
+  $\Cb_2$ & 9 & 35,12,20,20 & 27  &  5 & 13 & $\Gb(\Cb_2,1_52_4)$ 							 & 157 & 1.47542  & 5 \\
+  \hline
+  $\Cb_3$ & 10 & 93,35,53,53,53 & 35  &  6 & 14 & $\Gb(\Cb_3,1_62_4)$ 						 & 233 & 1.47604  & 6 \\
+  &&&&&16 & $\Gb(\Cb_3,1_42_6)$ 						 & 536 & 1.48106  & 6 \\
+  &&&&&17 & $\Gb(\Cb_3,1_32_7)$ 						 & 784 & 1.47997  & 6 \\
+  \hline
+  $\Cb_4$ & 15 & 9,9,5,9,3,5,9 & 360  & 7 &18 & $\Gb(\Cb_4,1_{12}2_3)$ 				 & 1164 & 1.48024  & 7 \\
+  &&&&&19 & $\Gb(\Cb_4,1_{11}2_4)$ 				 & 1694 & 1.47891  & 7 \\
+  \hline
+  $\Cb_5$ & 21 & 15,15,7,15,15,7,7,15,7,15 & 4410  & 9 & 22 & $\Gb(\Cb_5,1_{20}2_1)$ 						 & 6300 & 1.48832  & 9 \\
+  &&&&&23 & $\Gb(\Cb_5,1_{19}2_2)$ 						 & 9060 & 1.4861  & 9 \\
+     \hline
+\end{tabular}
+%}\end{center}
+\end{table}
+
+Also for some other $n$ we can do better than in Table~\ref{tab:ergebnisse} by dropping the requirement of cyclic symmetry, as will be shown now. We take an $n\times n$ matrix $\Ab$ from a small set of promising cyclically symmetric ``base'' matrices found by computer search (such as those listed in
+the left half of Table~\ref{tab:ergebnisse noncircular}, promising meaning ``a lot of $ESS$s'', or ``quite a lot of $ESS$s of large support size''),
+with $\Bb_i\in\{\Ib_1-\Eb_1,\Ib_2-\Eb_2,\Ib_3-\Eb_3\}$ for $i\irg 1n$, or $\Ab$ from the set $\{\Eb_n-n\Ib_n:n\ge2\}$, with $\Bb_i$ ``record holders'' of smaller order. \coma{For general symmetric matrices, we applied Theorem~\ref{blob}; for matrices $\Ab$ with $\mathrm sol (\Ab) = ESS(\Ab)$, we applied Corollary~\ref{cor0}; and for cyclically symmetric matrices, we applied Proposition~\ref{prop:cycsym}.} The improvements we found for
+symmetric matrices of orders $n\in[6:24]$ are listed in the right half of Table~\ref{tab:ergebnisse noncircular}.
+They are all in the spirit of Examples~\ref{ex:cor0}(a) and \ref{example:11}, where by $\Gb(\Ab,1_\ell 2_m)$ we denote $\Gb_t$ in case that
+$t=1$, and that $\Bb_i=\Ib_1-\Eb_1$ for $i\irg 1\ell$ and $\Bb_i=\Ib_2-\Eb_2$ for $i\in[\ell\!+\!1\!:\!\ell\!+\!m]$.
+For all the listed orders we got best results by grouping the matrices $\Bb_i=\Ib_2-\Eb_2$ at the end of the diagonal, but we do not believe that this is a general principle.
+To illustrate our approach a bit more, we consider the order $n=21$ in more detail. Had we not found the matrix with $4410$ $ESS$s, our best result in Table~\ref{tab:ergebnisse} would have been a matrix congruent to $\Gb_t$ with $\Ab=\Eb_3-3\Ib_3$ and $\Bb_1=\Bb_2=\Bb_3$ equal to the matrix of order 7 in Table~\ref{tab:ergebnisse} yielding $14^3=2744$ $ESS$s. Good results for Table~\ref{tab:ergebnisse noncircular} would have been $\Gb_t$ with $\Ab=\Eb_2-2\Ib_2$ and $\Bb_1,\Bb_2$ equal to the matrices of order 10 and 11 in Table~\ref{tab:ergebnisse} yielding $50\cdot66=3300$ $ESS$s, and the matrix from Example~\ref{e:21} with 3584 $ESS$s.\\
+All the matrices from Tables~\ref{tab:ergebnisse} and \ref{tab:ergebnisse noncircular} are contained in $\mathcal{F}$. We checked a stronger condition than that, namely if
+the system of linear equations in Proposition \ref{critical point in a support} has at most one solution. This was done for all $2^n-1$ support sets per matrix. That way we verified that all matrices $\Cb_i$ from Table~\ref{tab:ergebnisse noncircular} and all matrices from Table~\ref{tab:ergebnisse}, with the possible exception of the matrices of orders $n\in\{14,16\}$, are contained in $\mathcal{F}^d$.
+Containment of the remaining matrices ($n\in\{14,16\}$ from Table~\ref{tab:ergebnisse} and right half of Table~\ref{tab:ergebnisse noncircular}) in $\mathcal{F}$ was inferred via Corollary~\ref{cor0} from $\{\Cb([4,3,2,2,3,4,0]),\Cb([7,5,4,4,4,5,7,0]),\Cb_1,\ldots,\Cb_5\}\subset\mathcal{F}$. As regards our record holder of order $24$: we checked that it belongs to $\mathcal{F}^r$.\\
+Among the symmetric matrices with the most $ESS$s that we found for orders $5$ to $24$ there are some with only global maximizers of the corresponding StQP. These are the matrices of orders $n\in\{5,6,15,18,19,20,24\}$ given in Example~\ref{ex:cor0}(a) and listed in Tables~\ref{tab:ergebnisse} and \ref{tab:ergebnisse noncircular}.\\
+We now provide some conclusions that we can draw from Theorem~\ref{exp_growth} and Tables~\ref{tab:ergebnisse} and \ref{tab:ergebnisse noncircular}.
+\begin{cly}\begin{enumerate}
+  \item[(a)] $\min(\gamma,\gamma^{(r)},\gamma^{(d)},\gamma^{(g)},\gamma^{(s)},\gamma^{(c)})\ge\sqrt[24]{15120}\approx1.4933$,
+  \item[(b)] $U_n\ge\Big(\sqrt[12]{105}\cdot\sqrt[13]{157}\Big)^{\frac n2}$ for $n\ge13$, where $\Big(\sqrt[12]{105}\cdot\sqrt[13]{157}\Big)^{\frac 12}\approx1.4746$,
+  \item[(c)] $U_n\ge(\sqrt[22]{6300})^{n}$ for $n\ge420$, where $\sqrt[22]{6300}\approx1.4883$.
+\end{enumerate}\end{cly}
+
+
+\section{Detailed study on cyclically symmetric matrices.}\label{experistu}
+
+\subsection{General experimental setup.}
+
+The theory detailed before enables us ``more than just educated guesses'' on the solution complexity of StQPs, which were impossible to obtain by naive random sampling or brute force enumeration: indeed, by these methods, it is highly unlikely to encounter even one of the interesting instances. To gain insight how a large and representative number of matrices with a potentially complex solution structure behave, we therefore developed the resulting refined mathematical experiments which provide an illustration and a statistical evaluation for cyclically symmetric matrices for three different $n$, namely $n \in \{6,7,19\}$.
+
+All the matrices we generated and tested are of the form $\Cb(\a)$ where
+\begin{equation}
+\bea{rcll}
+\a &= &(a,b,c,b,a,0)\T \quad &\mbox{ for }n=6\, ,\\
+\a &= &(a,b,c,c,b,a,0)\T \quad &\mbox{ for }n=7\, ,\mbox{ and }\\
+\a &= &(a,b,b,c,b,c,a,a,c,c,a,a,c,b,c,b,b,a,0)\T\quad &\mbox{ for }n=19\,.
+\ea
+\end{equation}
+
+We chose these three $n$ primarily because they all have three degrees of freedom, $n \in \{6,7\}$ naturally, and for $n=19$ by using the restrictions described in Section \ref{Restricting the search space}; note that $\Mb_7\T\Cb(\a)\Mb_7=\Cb(\a)$. We wanted to include the larger order $n=19$ since such evaluation has (to our knowledge) never been published before.
+
+Since multiplying a matrix with a positive factor does not change the number of $ESS$s and their structure, just the direction and not the length of $\a$ is important. Therefore we used points on the unit sphere as input for $\a$, employing the following procedure: take a Lambert-projection of the unit sphere, which is an equal-area projection (to prevent graphical biases in the following illustrations) with $\theta \in [-\pi,\pi]$ on the horizontal and $\sin(\phi) \in [-1,1]$ on the vertical axis, where $( \theta,\phi)$ are polar-coordinates of the form $x=\cos(\phi)\cos(\theta), y=\cos(\phi)\sin(\theta), z=\sin(\phi)$.
+
+We performed another coordinate transformation, building an orthonormal system such that the north pole of the sphere points into direction $\left(\begin{smallmatrix} 1\\1\\1 \end{smallmatrix} \right)$, i.e.
+\[
+\left(\begin{smallmatrix} a\\b\\c \end{smallmatrix} \right)=
+\frac{1}{\sqrt{6}}
+\left(\begin{smallmatrix}
+\sqrt{3}&1&\sqrt{2}\\
+-\sqrt{3}&1&\sqrt{2}\\
+0&-2&\sqrt{2}
+\end{smallmatrix}\right)
+\left(\begin{smallmatrix} x\\y\\z \end{smallmatrix} \right)\mbox{.}
+\]
+
+The reason for this transformation lies in a remarkable symmetry  around direction $\left( \begin{smallmatrix} 1\\1\\1 \end{smallmatrix} \right)$ for $n \in \{7,19\}$.
+Just note that in both cases the transformation $\Mb_2\T\Cb(\a)\Mb_2$, while not leaving $\Cb(\a)$ invariant, has the same effect on $\Cb(\a)$ as cyclically permuting $a\to b\to c\to a$.
+
+To approximate a uniform distribution on the sphere we generated
+regularly spaced data points on the $\theta$-$\sin(\phi)$-plane, giving $1201 \times 401$ data points.
+Note that points on the left and right boundary are calculated twice due to periodicity, and also we need only half of the points on the top and bottom boundary. After correcting for that, we end up with exactly 480000 data points. Moreover, in the case $n \in \{7,19\}$, we only need to consider one third of those points, due to the above mentioned symmetry. The sets of $ESS$s and patterns of the others can be inferred from the ones of that one third. Still we actually did not make use of the latter fact, and took all 480000 points into consideration. ``Rounding'' these points to points with rational coordinates is the explanation for not every entry in Table~\ref{tab: distribution} corresponding to $n\in\{7,19\}$ being divisible by 3.
+
+
+\begin{figure} [ht]
+\FIGURE
+{\includegraphics[width=1  \textwidth]{output_1}}
+{Whole search space for $n=6$.\label{fig: plot 6}}
+{}
+\end{figure}
+
+
+\begin{figure} [ht]
+\FIGURE
+{\includegraphics[width=1  \textwidth]{output_2}}
+{Whole search space and zoom-in for $n=7$. \label{fig: plot 7}}
+{}
+\end{figure}
+
+
+\begin{figure} [ht]
+\FIGURE
+{\includegraphics[width=1  \textwidth]{output_3}}
+{Whole search space and zoom-in for $n=19$. \label{fig: plot 19}}
+{}
+\end{figure}
+
+Figure \ref{fig: plot 6} shows $ESS$s and support-patterns for $n=6$ plotted on the $\theta$-$\sin(\phi)$-map. The legend must be read like that: $2$-$135.246$ means $2$ $ESS$s with pattern $\left\{\{1,3,5\},\{2,4,6\}\right\}$. The regions with many $ESS$s (meaning $8$ and $9$) take a quite large part in the middle of the map, that distinguishes them from the following plots, where only small regions for matrices with many $ESS$s can be found. There are some symmetries noticeable, but we will not pursue them further.
+
+Figure \ref{fig: plot 7} shows the support structure for $n=7$, while Figure \ref{fig: plot 19} shows the number of $ESS$s for $n=19$. Here the number of different occurring patterns would be too large to illustrate them in a meaningful way. Both figures illustrate the whole search space on the left side, while the right side ``zooms'' into the plot to magnify an interesting region.
+
+It is interesting to see that all the regions for the different patterns are clearly separated (for all $n$), and they are connected for all patterns, except for zero $ESS$s. The regions with one $ESS$ lie in the positive orthant (w.r.t. the standard basis) for all $n\in\{6,7,19\}$. The regions with zero $ESS$s have measure zero on the unit sphere, they form arcs and isolated points on the $\theta$-$\sin(\phi)$-plane. But these points are rarely hit due to the construction of the data, see also Section \ref{descriptive}. Isolated points of zero $ESS$s can be seen in the plots upon a very close look.
+
+The zoom-in in Figure \ref{fig: plot 7} magnifies the top left region with $14$ $ESS$s, in the sense that we want to analyze the structure of this region in more detail. We generated $1015 \times 501$ data points in the interval $\theta \in [-0.75\pi,-0.65\pi]$ and $\sin(\phi) \in [0.765,0.92]$, which again simulates a uniform distribution. The separation of the different support patterns is clearly visible, with an outstanding point at approximately $(-0.68\pi,0.88)$ where many of the separated regions meet. It would be an interesting further task to analyze the structure of such extraordinary points in detail, since we encountered them also for $n=19$ as well as when experimenting with two and four degrees of freedom.
+
+The zoom-in in Figure \ref{fig: plot 19} again magnifies the top left region with many $ESS$s, but with a far higher magnification than in Figure \ref{fig: plot 7}, using $\theta \in [-0.9010867\pi,-0.90108655\pi]$ and $\sin(\phi) \in [0.95118965,0.95118975]$. Only approximately $50 000$ data points were generated because the runtime increased heavily due to the high magnification. Our best result, $1444$ $ESS$s, has not been found when scanning the whole search space, it is only visible in the zoom-in on the right side. Again it can be seen that many separated regions are
+meeting at one point.
+
+
+\subsection{A quantitative evaluation.}
+\label{descriptive}
+
+\begin{table}[ht]
+\caption{Distribution of pattern sizes}
+\label{tab: distribution}
+\footnotesize
+%\centering
+\begin{tabular}{|rl|rl|rlrlrlrl|}
+\hline
+\multicolumn{2}{|c|}{$n=6$} & \multicolumn{2}{|c|} {$n=7$} & \multicolumn{8}{|c|} {$n=19$} \\
+\hline
+$|ESS|$ & count & $|ESS|$ & count & $|ESS|$ & count & $|ESS|$ & count & $|ESS|$ & count & $|ESS|$ & count\\
+\hline
+0 & 1 & 0 & 3 & 0 & 1 & 133 & 2073 & 304 & 453 & 646 & 3\\1 & 16078 & 1 & 12804 & 1 & 4968 & 152 & 38181 & 323 & 564 & 760 & 9\\2 & 115617 & 7 & 465897 & 19 & 65106 & 171 & 609 & 342 & 3 & 874 & 3\\3 & 89006 & 14 & 1296 & 38 & 220787 & 190 & 1458 & 361 & 60 & 1102 & 3\\5 & 43985 & & & 57 & 89343 & 209 & 234 & 418 & 3 & & \\6 & 165105 & & & 76 & 1062 & 228 & 306 & 437 & 6 & & \\8 & 16167 & & & 95 & 54510 & 247 & 24 & 475 & 9 & & \\9 & 34041 & & & 114 & 207 & 285 & 12 & 532 & 3 & & \\
+\hline
+\end{tabular}
+\end{table}
+
+Table \ref{tab: distribution} shows the frequency of each pattern size, summarized from the $480000$ data points generated for each $n$ as described above.
+
+For $n=6$ it is clear that the number of $ESS$s must be the sum of multiples of $2$ and $3$, since they are the prime factors. The distribution peaks at pattern size $6$, while also many matrices where found with $2$ and $3$ $ESS$s. The frequency of the largest pattern size ($|ESS|=9$), is also high compared to the $n\in\{7,19\}$ ($|ESS|=14$ and $|ESS|=1102$).
+
+For prime numbers $n=7$ and and $n=19$ the number of $ESS$s is a multiple of $n$ (or $0$ or $1$), leading to a quite limited spectrum of pattern sizes. For $n=7$ the distribution concentrates most of its weight on pattern size $7$, all other entries are almost neglectable. For $n=19$ the spectrum has more variety. The distribution peaks at pattern size $38$, and further spikes at pattern sizes $19$, $57$,  $95$ and $152$ are noticeable, but every entry above $152$ has almost no mass in the distribution.
+
+For pattern size $1$ the frequency is quite the same for $n=\{6,7\}$ while it drops more than $50\%$ for $n=19$.
+
+\begin{figure}
+\FIGURE
+{\includegraphics[width=1  \textwidth]{output_5}}
+{Distribution of the support size.\label{fig: ess support size percentage}}
+{}
+\end{figure}
+
+Figure \ref{fig: ess support size percentage} shows the distribution of the support size grouped by the number of $ESS$s.
+Interestingly, for the largest pattern sizes the support size is less than the expected $\binom{n} {\left \lfloor \frac{n}{2} \right \rfloor}$. This leads to the conjecture that either we did not find the maximal number of $ESS$s possible or that there are structural restrictions such that $\binom{n} {\left \lfloor \frac{n}{2} \right \rfloor}$ is not optimal.
+
+For $n=19$ support sizes $7$ and $6$ dominate for large pattern sizes, showing that for more than half of the different bins only these two support sizes are present.
+
+\begin{figure}
+\FIGURE
+{\includegraphics[width=1  \textwidth]{output_6}}
+{Distribution of the results of CHECKSTAB. \label{fig: checkstab percentage}}
+{}
+\end{figure}
+
+Figure \ref{fig: checkstab percentage} sheds light on the outcome of CHECKSTAB from Section \ref{Algorithmic details: finding all $ESS$s of a given matrix} grouped by the support size.
+
+The most interesting feature in our opinion is the lack of $ESS$s verified by  copositivity checks, all generated matrices are contained in $\mathcal{F}_n$. We never found any matrices $\notin \mathcal{F}_n$ in our experiments for $n\in \{6,7\}$, but for $n=19$ they exist, e.g. set $\left(\begin{smallmatrix} a\\b\\c \end{smallmatrix} \right)=\left(\begin{smallmatrix} 1\\2\\2 \end{smallmatrix} \right)$ then the resulting matrix has $19$ $ESS$s all verified by copositivity.
+
+Another interesting topic is the ratio of ``True'' and ``False'' regarding the different $n$ and different support sizes. Almost all candidates of matrices of order $7$ are verified as $ESS$s, while the opposite is true for $n=19$. There support size $7$ is an exception, more than half of the candidates are $ESS$s - an interesting fact considering the prevalence of support size $7$ in matrices with many $ESS$s.
+
+It is known that the number of $ESS$s with support size $n-1$ is $\leq 2$, see \cite{Vick88a}, and this is the reason that for $n=6$ support size $5$ does not occur, since $5$ and $6$ are coprime. The same holds true for $n=7$ with support size $6$.
+
+
+\section{Conclusion.}
+In this study, we improved upon existing lower bounds for the number of strict local solutions of the simplest problem class of NP-hard instances, the Standard Quadratic Optimization Problem, which is a central class with manifold direct applications.
+
+We achieved this by new techniques to construct instances with a rich solution structure. Furthermore we provide extensive case studies where the systems of supports (the so-called patterns) of solutions are analyzed in detail. While by naive simulation most of the interesting patterns would not be encountered, since random instances have, with a high probability, quite sparse solutions, and likewise their expected numbers are considerably lower than in the worst case, we detected rather rare instances with a rich solution pattern. \coma{While our motivation was to shed some light on hard instances in view of worst-case analysis, an interesting and highly nontrivial research question -- beyond the scope of the current paper -- would be to investigate which applications suggest structures on the instances similar to those studied here.}
+
+Concentrating on these subsets of promising instances, we are able to give an empirical answer on the size distribution of supports of strict local solutions to the StQP and their patterns, complementing classical average-case analysis and enabling a new perspective on this notion.
+
+\section*{Acknowledgments.}
+The authors want to thank two anonymous referees and an anonymous Associate Editor for their valuable comments which helped to improve the paper. Reinhard Ullrich was supported by the High-Potential Fellowship Programme for Doctoral Candidates {\tt uni:docs} at the University of Vienna.
+
+
+\bibliographystyle{informs2014}
+\bibliography{Literaturverzeichnis}
+
+\end{document} 
