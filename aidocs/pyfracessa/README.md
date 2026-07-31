@@ -91,17 +91,22 @@ PYTHONPATH=python python3 -m fracessa.timing report latest --baseline main
 `source_ref` records a moving name such as `main`; `revision` records the exact
 commit measured, and the module or executable SHA-256 is captured automatically.
 The default selection is the `small` matrix class. Each matrix/mode starts with
-one pilot. A pilot taking at least the one-second target is stored directly;
-faster cases use it as warmup, divide the target by one measured call's wall
-time, and store the average native duration across that measured batch. Use
-repeated `--matrix-id`, `--size-class`, and `--target-seconds` to change the
-selection or calibration duration.
+one native sample. Its returned `elapsed_ns` chooses
+`ceil(target / elapsed_ns)` total samples and remains part of the sample; a
+duration at or above the one-second target chooses one run. The stored result is
+the median returned native duration. The Pybind module stays loaded for every
+selected mode and matrix in that invocation. Python wall time is recorded as
+metadata only and does not select the sample count or result. Use repeated
+`--matrix-id`, `--size-class`, and `--target-seconds` to change the selection
+or calibration duration.
 
 Current Pybind builds supply nanoseconds directly. For a legacy CLI whose
 no-flag mode is unsafe and whose second output line is seconds, use
 `--unsafe-default --cli-unit s`. A safe-by-default CLI instead uses
-`--safe-default`. Old builds have only `unsafe` and `exact` rows. Pybind safe
-mode is accepted only when that extension exposes the native `unsafe` argument.
+`--safe-default`. CLI runs start one child process per sample and must not be
+mixed with persistent-Pybind microbenchmarks. Old builds have only `unsafe` and
+`exact` rows. Pybind safe mode is accepted only when that extension exposes the
+native `unsafe` argument.
 Reports include the iteration count and actual measured wall duration, compare
 observed ESS counts with the expected database count, and retain mismatching
 unsafe timings visibly. Each result row also includes the matrix dimension,

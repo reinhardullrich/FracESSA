@@ -173,7 +173,6 @@ add_library(fracessa_lib
     src/find_candidate_unsafe.cpp
     src/find_candidate_exact.cpp
     src/checkstab.cpp
-    src/matrix_parser.cpp
     $<TARGET_OBJECTS:fracessa_find_candidate_verified>
 )
 set_target_properties(fracessa_lib PROPERTIES POSITION_INDEPENDENT_CODE ON)

@@ -7,12 +7,40 @@ and the release workflow. The native Python binding is reviewed separately in
 `PYBIND_REVIEW.md`. Frozen experiment source copies are excluded except where a
 dated result is cited as evidence.
 
-Correctness is ranked before speed. This file contains unresolved findings only;
-remove a finding after its fix and regression coverage are complete.
+Correctness is ranked before speed. This file records unresolved findings first,
+then explicit reassessment decisions so closed or conditional findings do not
+silently reappear in later reviews. Remove an unresolved finding after its fix
+and regression coverage are complete.
+
+## Correctness And Resource Safety
+
+### P1: Copositivity materializes all subsets before early rejection
+
+`CopositivityCheckerV3::is_strictly_copositive()` builds every nonempty subset
+at `cpp/include/linalg/copositive_fraction.hpp:150` before testing the first
+principal submatrix at `cpp/include/linalg/copositive_fraction.hpp:160`.
+
+This is not merely a speed problem. A supported dimension-63 game can produce a
+62-by-62 copositivity matrix whose first diagonal entry is already negative. A
+streaming implementation would reject its first 1-by-1 principal submatrix
+immediately, whereas the current implementation first attempts to reserve and
+store up to `2^62 - 1` masks. The resulting allocation failure makes a valid
+input impossible to analyze.
+
+The retained `supports_` member also makes a checker unsafe to reuse directly:
+`resize(n)` does not clear surviving inner vectors, so a later call can repeat
+old masks or retain masks containing indices outside a smaller matrix. The
+production wrapper currently constructs a fresh checker for every call, but
+streaming removes this latent state problem as well.
+
+Required outcome: generate fixed-cardinality masks one at a time and stop at
+the first rejection. Do not add another generic support-generator abstraction;
+the small local mask loop is sufficient. Remove `supports_` and the then-unused
+`binomial_coefficient()` helper.
 
 ## Speed
 
-### P1: The exact candidate path materializes its full vector too early
+### P2: The exact candidate path materializes its full vector too early
 
 The exact path fills `result.vector` at `cpp/src/find_candidate_exact.cpp:65`
 before outside-support validation beginning at
@@ -41,7 +69,7 @@ loops and reuse the fixed index array. Benchmark before retaining the change.
 ### P2: Partial copositivity retains every reduction matrix
 
 `check_stability()` allocates full histories for masks, sizes, and matrices at
-`cpp/src/checkstab.cpp:98`. Each iteration needs only the previous and current
+`cpp/src/checkstab.cpp:123`. Each iteration needs only the previous and current
 matrices plus current scalar mask state.
 
 Required outcome: use two rolling matrix buffers and scalar current-state
@@ -57,15 +85,6 @@ multiply-adds.
 
 Required outcome: store one permutation-index array and apply it by direct
 indexing.
-
-### P2: Copositivity materializes all subsets before early rejection
-
-`CopositivityCheckerV3::is_strictly_copositive()` builds every nonempty subset
-at `cpp/include/linalg/copositive_fraction.hpp:150` before testing the first
-principal submatrix at `cpp/include/linalg/copositive_fraction.hpp:160`.
-
-Required outcome: generate fixed-cardinality masks on demand and stop at the
-first failure. Benchmark any destructive or move-based LU variant separately.
 
 ## Test Coverage
 
@@ -87,12 +106,33 @@ Required outcome: add the nonsingular matrix `[[1,1,0],[1,1,1],[0,1,1]]` as a
 `[[1,-1],[-1,1]]` as a strict-copositivity rejection. These two small tests
 cover the branches directly.
 
+## Mathematical Documentation
+
+### P3: The singular Hadeler explanation contradicts the implemented branch
+
+The comment at `cpp/include/linalg/copositive_fraction.hpp:119` says that under
+the theorem's proper-principal-submatrix precondition, a singular matrix cannot
+have the positive-adjugate rejecting pattern. The proposed regression matrix
+
+```text
+[[1, -1],
+ [-1, 1]]
+```
+
+is a direct counterexample to that sentence: both proper principal submatrices
+are positive, its determinant is zero, and its adjugate is entrywise positive.
+The implementation correctly rejects it because the quadratic form vanishes at
+`(1,1)`; only the explanation is wrong.
+
+Required outcome: correct the comment when adding the focused singular Hadeler
+regression above. Do not change the rejecting branch.
+
 ## Build And Release
 
 ### P2: C++ tests cannot be disabled
 
 `cpp/CMakeLists.txt:45` declares all four FetchContent projects unconditionally,
-`cpp/CMakeLists.txt:74` fetches them together, and `cpp/CMakeLists.txt:212` always
+`cpp/CMakeLists.txt:74` fetches them together, and `cpp/CMakeLists.txt:210` always
 adds tests. `BUILD_TESTING=OFF` is not wired, so every build fetches and builds
 GoogleTest and the test targets.
 
@@ -110,22 +150,56 @@ assertions and compiles production optimization flags.
 Required outcome: let CMake's standard build-type flags provide optimization
 and `NDEBUG`; scope only FracESSA-specific throughput flags to Release builds.
 
-### P2: Linux and macOS release executables are not self-contained
+## Ponytail Simplification Findings
 
-CMake prefers `.so`/`.dylib` over static archives at `cpp/CMakeLists.txt:85` and
-`cpp/CMakeLists.txt:87`, and the workflow uploads only the executable at
-`.github/workflows/release.yml:130`. The runner installs FLINT, MPFR, and GMP,
-but an end user still needs ABI-compatible libraries; the macOS binary also
-records a Homebrew library path.
+`cpp/include/fracessa/supports.hpp:236-371`: delete: the 136-line experimental
+`CircularSupportGeneratorV2` has no caller or test. Delete it and its private
+`cpp/include/fracessa/bitset64.hpp:75-82` `rot_left()` helper; nothing replaces
+them.
 
-Required outcome: either publish a documented system-dependency package or
-bundle/link the mathematical runtime consistently. Do not describe the current
-Linux and macOS artifacts as portable standalone executables.
+`cpp/include/fracessa/bitset64.hpp:140-157`: delete:
+`is_smallest_representation()` is used only by its own test at
+`cpp/tests/test_bitset64.cpp:161-168`. Delete both; nothing replaces them.
+
+`cpp/include/linalg/matrix_double.hpp:26` and
+`cpp/include/linalg/matrix_fraction.hpp:51`: delete: the mutable matrix `data()`
+accessors have no caller. Nothing replaces them.
+
+Net: approximately 172 production and self-testing lines can be deleted.
+
+## Reassessed Non-Findings
+
+- Keeping `find_candidate_exact`, `find_candidate_verified`, and
+  `find_candidate_unsafe` as three concrete classes is justified. Each owns
+  different reusable scratch state for a distinct algorithm; another shared
+  interface or a return to one large `fracessa` implementation would add
+  coupling rather than remove it.
+- The proof-helper declarations in `find_candidate_verified.hpp` are justified
+  by focused tests of the rounding, factorization, residual, error-bound, and
+  rejection steps. Splitting the 727-line proof kernel into more classes or
+  files would not make the mathematical flow smaller.
+- Moving MatrixParser's unchanged implementation into
+  `cpp/include/fracessa/matrix_parser.hpp` is behavior-preserving. Its symbols
+  have the required inline linkage, and the parser and CLI tests pass.
+- Linux and macOS release executables still dynamically depend on FLINT, MPFR,
+  and GMP, but `README.md` now documents those dependencies and explicitly says
+  the binaries are not universal standalone artifacts. Packaging is therefore
+  not a current defect. Reopen it only if portable download-and-run binaries
+  become an actual release goal.
+- A complete SQLite verification sweep in every ordinary CI run is not required.
+  The focused C++/CLI suite is the intended fast gate; long database validation
+  remains an explicit manual check.
 
 ## Current Validation State
 
-- The combined Release build passed all 11 C++/CLI tests, and a complete
-  verified-mode sweep matched the stored ESS count for all 88 SQLite matrices.
+- A warning-enabled Release build using `-Wall`, `-Wextra`, `-Wpedantic`,
+  `-Wconversion`, and `-Wshadow` passed all 11 C++/CLI tests. It found no new
+  FracESSA production warning; the remaining diagnostics are test-only
+  conversions/bracing and bundled spdlog/fmt diagnostics.
+- The latest complete verified-mode sweep matched the stored ESS count for all
+  87 retained SQLite matrices. That long sweep and ASan/UBSan were not rerun for
+  this reassessment because the current C++ working-tree change only relocates
+  MatrixParser into its header.
 - Wrapper tests: see `PYBIND_REVIEW.md` and `PYTHON_REVIEW.md`.
 - The single parser preserves 18-digit direct values and arbitrary-precision
   values, rejects dimensions outside 1-63, and reports failures through
@@ -134,8 +208,8 @@ Linux and macOS artifacts as portable standalone executables.
   cardinality layer. An independent order-insensitive comparison matched all
   mathematical candidate rows and ESS results across the former 52-matrix
   verification corpus.
-- The canonical SQLite snapshot stores 49,158 candidate representatives whose
-  multipliers recover 86,153 candidates and 83,378 ESS across 88 matrices.
+- The canonical SQLite snapshot stores 49,157 candidate representatives whose
+  multipliers recover 86,152 candidates and 83,377 ESS across 87 matrices.
 - A fixed-seed audit generated 20,000 exact 4-by-4 integer matrices; all 19,890
   nonsingular cases satisfied `A * inverse(A) == I` exactly.
 - ASan/UBSan passed all 11 C++/CLI tests on the combined tree.

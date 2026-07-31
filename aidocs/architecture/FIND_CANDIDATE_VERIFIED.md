@@ -474,7 +474,7 @@ solver rewrite, support-generator change, or parser change was added.
   explicit alternatives.
 - Verification IDs 45-47 are active in the maintained SQLite database.
 - Release passed 11/11 core/CLI tests and 53/53 wrapper tests. A complete
-  verified-mode sweep matched all 88 stored ESS counts, and ASan/UBSan passed
+  verified-mode sweep matched all 87 retained ESS counts, and ASan/UBSan passed
   all 11 core/CLI tests.
 - On the historical pinned-CPU persistent-process set (IDs 1-33 and 35), summed
   bounded-error medians were 2,108.563 ms. This is 10.03x faster than the saved

@@ -10,7 +10,7 @@ from fracessa import timing
 
 
 class TimingTests(unittest.TestCase):
-    def test_cli_seconds_are_normalized_and_adaptively_averaged(self):
+    def test_cli_seconds_are_normalized_and_adaptively_sampled(self):
         with tempfile.TemporaryDirectory() as directory:
             root = Path(directory)
             database = root / "timing.sqlite3"
@@ -37,14 +37,7 @@ class TimingTests(unittest.TestCase):
                 mock.patch("fracessa.timing._restore_affinity"),
                 mock.patch(
                     "fracessa.timing.perf_counter_ns",
-                    side_effect=[
-                        0,
-                        100_000,
-                        200_000,
-                        300_000,
-                        800_000,
-                        1_200_000,
-                    ],
+                    side_effect=[0, 1_200_000],
                 ),
                 redirect_stdout(output),
             ):
@@ -89,17 +82,17 @@ class TimingTests(unittest.TestCase):
                     "cli",
                     "unsafe",
                     1_000_000,
-                    17,
-                    1_000_000,
+                    9,
+                    1_200_000,
                     123_000,
                     4,
                     "main",
                     "abc123",
                 ),
             )
-            self.assertIn("iterations=17 average_ns=123000", output.getvalue())
+            self.assertIn("iterations=9 median_ns=123000", output.getvalue())
 
-    def test_measurement_at_target_uses_only_the_pilot(self):
+    def test_native_measurement_at_target_uses_one_run(self):
         calls = []
 
         def runner(matrix_id, matrix, mode):
@@ -107,14 +100,29 @@ class TimingTests(unittest.TestCase):
             return 7, 1_100_000_000
 
         with mock.patch(
-            "fracessa.timing.perf_counter_ns", side_effect=[0, 1_100_000_000]
+            "fracessa.timing.perf_counter_ns", side_effect=[0, 5]
         ):
             result = timing._measure_target(
                 runner, 3, "2#0,1,0", "exact", 1_000_000_000
             )
 
-        self.assertEqual(result, (7, 1_100_000_000, 1, 1_100_000_000))
+        self.assertEqual(result, (7, 1_100_000_000, 1, 5))
         self.assertEqual(len(calls), 1)
+
+    def test_native_duration_sizes_sample_and_result_is_median(self):
+        elapsed = iter([100, 1_000, 90, 100])
+
+        def runner(matrix_id, matrix, mode):
+            return 7, next(elapsed)
+
+        with mock.patch(
+            "fracessa.timing.perf_counter_ns", side_effect=[0, 10_000]
+        ):
+            result = timing._measure_target(
+                runner, 3, "2#0,1,0", "exact", 400
+            )
+
+        self.assertEqual(result, (7, 100, 4, 10_000))
 
     def test_pybind_modes_use_explicit_safe_and_unsafe_flags(self):
         safe = timing._pybind_arguments("2#0,1,0", 1, "safe", True)

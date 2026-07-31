@@ -12,13 +12,13 @@ remove a finding after its fix and regression coverage are complete.
 
 ## Current Validation State
 
-- All 53 PyFracESSA tests passed against the combined Release native module
+- All 54 PyFracESSA tests passed against the combined Release native module
   with PyArrow available.
 - The former JSON/CSV verification, baseline-generation, subprocess benchmark,
   and JSON-fed Callgrind paths have been removed. Their small replacement timing
-  tool measures one build and matrix at a time on a pinned CPU, calibrates fast
-  cases to about one second, and stores average native nanoseconds in the
-  canonical SQLite database.
+  tool keeps one build loaded on a pinned CPU, sizes each matrix/mode sample
+  from its first returned native duration, and stores the median returned
+  nanoseconds in the canonical SQLite database.
 - Generic JSON input requires its configured key, a row list, and object rows;
   malformed schemas fail instead of silently producing no work.
 - `Matrix` validates built-in string/dictionary fields and signed 64-bit
@@ -27,14 +27,15 @@ remove a finding after its fix and regression coverage are complete.
 - The unused input pass-through iterator and its collection imports have been
   deleted.
 - `testdata/fracessa_testdata.sqlite3` passes SQLite integrity and foreign-key
-  checks and contains 88 matrices and 49,158 representatives whose multipliers
-  recover 86,153 candidates and 83,378 ESS. Dimensions 2-25 each have at least
+  checks and contains 87 matrices and 49,157 representatives whose multipliers
+  recover 86,152 candidates and 83,377 ESS. Dimensions 2-25 each have at least
   one circular and one non-circular matrix, and every distinct matrix from the
   two published Bomze-Schachinger-Ullrich result tables is present once.
-- Its current timing session covers the 85 pre-existing matrices in unsafe and
-  exact mode with 170 adaptive measurements and no ESS-count mismatch. Restored
-  regression IDs 45-47 have no samples in that historical session. Report rows include
-  dimension, circularity, and the derived lower bound
+- Its current timing session has 348 persistent-Pybind median rows: all 87
+  matrices in current unsafe, verified, and exact modes plus historical default,
+  very unsafe. Historical very unsafe mismatches IDs 38-39, current unsafe
+  mismatches IDs 45-47, and verified and exact match all matrices. Report rows
+  include dimension, circularity, and the derived lower bound
   `gamma_lower_bound = expected_ess ** (1 / dimension)`.
 - Sequential and multiprocessing paths use one flat result dictionary;
   CSV, JSON, and Parquet are the only output sinks.

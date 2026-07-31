@@ -10,7 +10,7 @@ result="$here/results/paired_${target_seconds}s.tsv"
 mkdir -p "$here/results/raw"
 printf 'dimension\tbracelets\tfkm_ns\tdirect_ns\tchange_percent\n' > "$result"
 
-for dimension in $(seq 1 24); do
+for dimension in $(seq 2 24); do
   variants=(fkm direct)
   if (( dimension % 2 == 0 )); then
     variants=(direct fkm)
