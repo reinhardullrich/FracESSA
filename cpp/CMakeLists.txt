@@ -6,6 +6,8 @@ project(fracessa
     LANGUAGES CXX C
 )
 
+include(CTest)
+
 # ==============================================================================
 # 1. Compiler Settings & Optimization
 # ==============================================================================
@@ -13,31 +15,36 @@ set(CMAKE_CXX_STANDARD 17)
 set(CMAKE_CXX_STANDARD_REQUIRED ON)
 set(CMAKE_CXX_EXTENSIONS OFF)
 set(CMAKE_POSITION_INDEPENDENT_CODE ON)
-option(FRACESSA_NATIVE_ARCH "Enable local CPU-specific optimizations with -march=native" ON)
+option(FRACESSA_NATIVE_ARCH "Enable -march=native in Release builds" ON)
 
 if(MSVC)
     set(CMAKE_MSVC_RUNTIME_LIBRARY "MultiThreaded$<$<CONFIG:Debug>:Debug>")
-    add_compile_options(/O2 /Oi /Ot /GL /fp:fast /DNDEBUG)
-    add_link_options(/LTCG)
+    add_compile_options(
+        $<$<CONFIG:Release>:/Oi>
+        $<$<CONFIG:Release>:/Ot>
+        $<$<CONFIG:Release>:/GL>
+        $<$<CONFIG:Release>:/fp:fast>
+    )
+    add_link_options($<$<CONFIG:Release>:/LTCG>)
     # Suppress noisy warnings from GMP/FLINT headers on Windows
     add_compile_options(/wd4244 /wd4146 /wd4101)
     # Ensure the linker finds all static dependencies correctly
     add_link_options(/NODEFAULTLIB:MSVCRT /NODEFAULTLIB:MSVCRTD)
 else()
-    add_compile_options(-O3 -funroll-loops -DNDEBUG)
+    add_compile_options($<$<CONFIG:Release>:-funroll-loops>)
     if(FRACESSA_NATIVE_ARCH)
-        add_compile_options(-march=native)
+        add_compile_options($<$<CONFIG:Release>:-march=native>)
     endif()
 
     include(CheckIPOSupported)
     check_ipo_supported(RESULT IPO_SUPPORTED)
     if(IPO_SUPPORTED)
-        set(CMAKE_INTERPROCEDURAL_OPTIMIZATION TRUE)
+        set(CMAKE_INTERPROCEDURAL_OPTIMIZATION_RELEASE TRUE)
     endif()
 endif()
 
 # ==============================================================================
-# 2. Dependencies (spdlog, argparse)
+# 2. Dependencies
 # ==============================================================================
 include(FetchContent)
 
@@ -49,14 +56,16 @@ FetchContent_Declare(argparse
     GIT_REPOSITORY https://github.com/p-ranav/argparse.git
     GIT_TAG v2.9
 )
-FetchContent_Declare(googletest
-    GIT_REPOSITORY https://github.com/google/googletest.git
-    GIT_TAG v1.14.0
-)
 FetchContent_Declare(pybind11
     GIT_REPOSITORY https://github.com/pybind/pybind11.git
     GIT_TAG v3.0.4
 )
+if(BUILD_TESTING)
+    FetchContent_Declare(googletest
+        GIT_REPOSITORY https://github.com/google/googletest.git
+        GIT_TAG v1.14.0
+    )
+endif()
 
 # Use the same `python3` selected by project scripts unless explicitly overridden.
 if(NOT Python3_EXECUTABLE)
@@ -65,14 +74,14 @@ endif()
 find_package(Python3 3.14 COMPONENTS Interpreter Development.Module REQUIRED)
 set(PYBIND11_FINDPYTHON ON CACHE BOOL "Use CMake FindPython for pybind11" FORCE)
 
-# MSVC-specific settings for FetchContent
-if(MSVC)
-    set(gtest_force_shared_crt OFF CACHE BOOL "" FORCE)
+FetchContent_MakeAvailable(spdlog argparse pybind11)
+if(BUILD_TESTING)
+    # Keep GoogleTest's runtime choice aligned with the static MSVC build.
+    if(MSVC)
+        set(gtest_force_shared_crt OFF CACHE BOOL "" FORCE)
+    endif()
+    FetchContent_MakeAvailable(googletest)
 endif()
-
-FetchContent_MakeAvailable(spdlog argparse googletest pybind11)
-
-enable_testing()
 
 # ==============================================================================
 # 3. Math Dependencies (GMP, MPFR, FLINT)
@@ -145,6 +154,7 @@ add_library(fracessa_find_candidate_verified OBJECT
 )
 set_target_properties(fracessa_find_candidate_verified PROPERTIES
     INTERPROCEDURAL_OPTIMIZATION FALSE
+    INTERPROCEDURAL_OPTIMIZATION_RELEASE FALSE
     POSITION_INDEPENDENT_CODE ON
 )
 target_include_directories(fracessa_find_candidate_verified PRIVATE
@@ -207,4 +217,6 @@ target_link_libraries(fracessa_core PRIVATE fracessa_lib)
 
 install(TARGETS fracessa RUNTIME DESTINATION bin)
 
-add_subdirectory(tests)
+if(BUILD_TESTING)
+    add_subdirectory(tests)
+endif()

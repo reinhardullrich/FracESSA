@@ -31,6 +31,17 @@ Last verified: 2026-07-31
    direct integer construction and larger values use exact FLINT text conversion.
 5. Use the Ponytail skill for code work: understand the complete path, then use
    the smallest correct implementation.
+6. Treat allocation counts and ordinary kilobyte/megabyte memory reductions as
+   diagnostics, not as performance goals. Retain an allocation optimization
+   only when real end-to-end benchmarks show a repeatable speed improvement;
+   lower memory use does not justify slower or more complicated code.
+7. Performance samples must cover the affected modes, small and large games,
+   and both circular and non-circular matrices. Include dimensions around 20
+   and 23 when feasible. A synthetic kernel result alone is not sufficient.
+8. Keep numerical code human-readable. Prefer a small reuse or two-buffer
+   change when it is measurably faster, but do not add custom allocators, pools,
+   generic workspace frameworks, or extensive plumbing merely to reduce
+   allocations.
 
 ## Repository
 
@@ -208,17 +219,19 @@ FetchContent downloads:
 
 - `spdlog`: optional rotating diagnostic logs.
 - `argparse`: the cross-platform CLI parser.
-- `googletest`: ten C++ unit-test executables only; it is not linked into the
-  production executable.
+- `googletest`: C++ unit-test executables only; it is fetched only when
+  `BUILD_TESTING=ON` and is not linked into the production executable.
 - `pybind11` v3.0.4: the native Python module.
 
-These four dependencies are currently fetched unconditionally, so a clean
-configure needs network access unless the FetchContent sources are cached.
-CMake also builds the tests unconditionally; `BUILD_TESTING=OFF` is not wired
-up yet.
+`BUILD_TESTING` uses CMake's standard `CTest` option and defaults to `ON`.
+Configure with `-DBUILD_TESTING=OFF` to skip GoogleTest and every C++/CLI test
+target. The other three FetchContent dependencies remain part of production, so
+a clean configure still needs network access unless their sources are cached.
 
-Local non-MSVC builds default to `FRACESSA_NATIVE_ARCH=ON` (`-march=native`).
-Release CI sets it to `OFF`. IPO/LTO is enabled only when CMake confirms support.
+Local non-MSVC Release builds default to `FRACESSA_NATIVE_ARCH=ON`
+(`-march=native`); Release CI sets it to `OFF`. Debug and other configurations
+use CMake's standard flags without FracESSA's throughput options. IPO/LTO is
+enabled only for Release and only when CMake confirms support.
 The `find_candidate_verified` object target overrides normal throughput flags with
 strict floating-point semantics, contraction disabled, and IPO/LTO disabled.
 One centralized availability function combines compiler support with the
