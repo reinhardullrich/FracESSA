@@ -31,6 +31,17 @@ Last verified: 2026-07-31
    direct integer construction and larger values use exact FLINT text conversion.
 5. Use the Ponytail skill for code work: understand the complete path, then use
    the smallest correct implementation.
+6. Treat allocation counts and ordinary kilobyte/megabyte memory reductions as
+   diagnostics, not as performance goals. Retain an allocation optimization
+   only when real end-to-end benchmarks show a repeatable speed improvement;
+   lower memory use does not justify slower or more complicated code.
+7. Performance samples must cover the affected modes, small and large games,
+   and both circular and non-circular matrices. Include dimensions around 20
+   and 23 when feasible. A synthetic kernel result alone is not sufficient.
+8. Keep numerical code human-readable. Prefer a small reuse or two-buffer
+   change when it is measurably faster, but do not add custom allocators, pools,
+   generic workspace frameworks, or extensive plumbing merely to reduce
+   allocations.
 
 ## Repository
 
@@ -71,6 +82,11 @@ changes retained. `REF_R` contains one copy of each preserved research script
 and the newest EFR test driver, dated October 21, 2016. The former mixed-history
 tree and its duplicate, intermediate, generated, profiling, IDE, and unrelated
 material are in the desktop Trash.
+The backed-up private Werner download page was last updated on November 19,
+2016, matching the email that directed Werner to the new circular-symmetry
+release and his confirmation that it worked. The downloaded source archive's
+algorithm files match `REF_2016-11-20-Werner`; the 2019 Werner correspondence
+contains no later executable or download.
 The collection is intentionally storage-cleaned rather than independently
 buildable in every folder: `REF_2019-09-20/dependencies/` retains the verified
 Boost 1.71 tarball through Git LFS, and the canonical Boost 1.62 tree remains under
@@ -203,17 +219,19 @@ FetchContent downloads:
 
 - `spdlog`: optional rotating diagnostic logs.
 - `argparse`: the cross-platform CLI parser.
-- `googletest`: ten C++ unit-test executables only; it is not linked into the
-  production executable.
+- `googletest`: C++ unit-test executables only; it is fetched only when
+  `BUILD_TESTING=ON` and is not linked into the production executable.
 - `pybind11` v3.0.4: the native Python module.
 
-These four dependencies are currently fetched unconditionally, so a clean
-configure needs network access unless the FetchContent sources are cached.
-CMake also builds the tests unconditionally; `BUILD_TESTING=OFF` is not wired
-up yet.
+`BUILD_TESTING` uses CMake's standard `CTest` option and defaults to `ON`.
+Configure with `-DBUILD_TESTING=OFF` to skip GoogleTest and every C++/CLI test
+target. The other three FetchContent dependencies remain part of production, so
+a clean configure still needs network access unless their sources are cached.
 
-Local non-MSVC builds default to `FRACESSA_NATIVE_ARCH=ON` (`-march=native`).
-Release CI sets it to `OFF`. IPO/LTO is enabled only when CMake confirms support.
+Local non-MSVC Release builds default to `FRACESSA_NATIVE_ARCH=ON`
+(`-march=native`); Release CI sets it to `OFF`. Debug and other configurations
+use CMake's standard flags without FracESSA's throughput options. IPO/LTO is
+enabled only for Release and only when CMake confirms support.
 The `find_candidate_verified` object target overrides normal throughput flags with
 strict floating-point semantics, contraction disabled, and IPO/LTO disabled.
 One centralized availability function combines compiler support with the
@@ -239,8 +257,8 @@ is no longer wired as one CTest per matrix.
 
 `testdata/fracessa_testdata.sqlite3` is the canonical matrix, expected-result,
 and timing store. Its strict schema is in `testdata/schema.sql`; the current
-snapshot has 88 matrices and 49,158 stored candidate representatives. Nullable
-multipliers recover weighted totals of 86,153 candidates and 83,378 ESS:
+snapshot has 87 matrices and 49,157 stored candidate representatives. Nullable
+multipliers recover weighted totals of 86,152 candidates and 83,377 ESS:
 circular rows store one smallest dihedral representative and its orbit count,
 while non-circular rows store null. Candidate IDs and row order remain
 reproducibility checks; complete weighted candidate sets and ESS
@@ -265,14 +283,16 @@ non-circular matrices. Same-property alternatives formerly stored at IDs 12
 and 21 were removed; the former contents of IDs 18 and 26 were replaced by the
 published vectors.
 
-The current timing snapshot has one complete current-build Pybind session for
-the 85 matrices present before IDs 45-47 were restored: 85 unsafe and 85 exact
-measurements, all matching the stored ESS counts. The restored regressions have
-no samples in that historical session. Fast cases target one measured second;
-calls already at or above that target use one iteration. Timing reports include
-matrix dimension, circularity, and the derived paper-style lower bound
-`gamma_lower_bound = expected_ess ** (1 / dimension)` without storing it in
-SQLite.
+The timing snapshot has one CPU-2 session with a one-second target and 348
+persistent-Pybind median rows. Current unsafe, verified, and exact use one
+Release/native/LTO binary at algorithm revision `34e003168607`; historical
+default, very unsafe uses raw-double algorithm revision `32f61679da64` with a
+temporary normal-parser/nanosecond Pybind adapter. Every mode covers all 87
+matrices. Historical very unsafe mismatches IDs 38-39, current unsafe mismatches
+regression IDs 45-47, and current verified and exact match all 87. Timing
+reports include matrix dimension, circularity, and the derived paper-style
+lower bound `gamma_lower_bound = expected_ess ** (1 / dimension)` without
+storing it in SQLite.
 
 The former JSON/CSV verification, baseline-generation, speed-benchmark, and
 Callgrind runners were removed. There is no replacement matrix-verification
@@ -282,11 +302,16 @@ CPU, and writes normalized nanosecond samples to the same database. Reusing a
 session name groups separately invoked builds. Each row records `source_ref`
 (for a moving name such as `main`), its immutable `revision`, the binary hash,
 backend, mode, CPU, comment, observed ESS count, target and measured wall time,
-iteration count, and average native elapsed time. A pilot taking at least the
-target is stored as one iteration; faster cases use the pilot as warmup and run
-an adaptively sized measured batch targeting one second by default. Dated
-material under `experiments/` and `aidocs/experiments/` remains immutable
-historical evidence.
+iteration count, and median native elapsed time. One Pybind process stays open
+for every selected mode and matrix in a build. The first returned native
+duration chooses `ceil(target / duration)` total samples and remains in the
+sample; a duration at or above the target chooses one run. The stored result is
+the median returned `elapsed_ns`. Measured wall time is metadata only and
+never chooses or determines the reported timing. The CLI backend remains
+available for legacy inspection but starts a child process per sample and must
+not be mixed with persistent-Pybind microbenchmarks. Dated material under
+`experiments/` and `aidocs/experiments/` remains immutable historical
+evidence.
 
 Database IDs 45-47 preserve the known unsafe-filter correctness regressions
 tracked in `reviews/CPP_REVIEW.md`. The wrapper integration suite checks ID 46

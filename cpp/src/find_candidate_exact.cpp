@@ -25,7 +25,8 @@ find_candidate_exact::find_candidate_exact(const linalg::matrix_frc& game_matrix
 bool find_candidate_exact::find(
     const bitset64& support,
     size_t support_size,
-    candidate& result)
+    candidate& result,
+    bool materialize_vector)
 {
     const size_t system_dimension = support_size + 1;
     if (linear_system_.rows() != system_dimension) {
@@ -62,16 +63,6 @@ bool find_candidate_exact::find(
     const fraction payoff = solution(support_size, 0);
     result.extended_support = support;
 
-    if (result.vector.rows() != dimension_ || result.vector.cols() != 1) {
-        result.vector = linalg::matrix_frc(dimension_, 1);
-    }
-    for (size_t i_pos = 0; i_pos < non_support_count; ++i_pos) {
-        result.vector(non_support_indices[i_pos], 0) = fraction::zero();
-    }
-    for (size_t i_pos = 0; i_pos < support_count; ++i_pos) {
-        result.vector(support_indices[i_pos], 0) = solution(i_pos, 0);
-    }
-
     for (size_t i_pos = 0; i_pos < non_support_count; ++i_pos) {
         const size_t i = non_support_indices[i_pos];
         fraction rowsum = fraction::zero();
@@ -91,6 +82,18 @@ bool find_candidate_exact::find(
     result.payoff_dbl = payoff.to_dbl();
     result.extended_support_size =
         bs64::count_set_bits(result.extended_support);
+
+    if (materialize_vector) {
+        if (result.vector.rows() != dimension_ || result.vector.cols() != 1) {
+            result.vector = linalg::matrix_frc(dimension_, 1);
+        }
+        for (size_t i_pos = 0; i_pos < non_support_count; ++i_pos) {
+            result.vector(non_support_indices[i_pos], 0) = fraction::zero();
+        }
+        for (size_t i_pos = 0; i_pos < support_count; ++i_pos) {
+            result.vector(support_indices[i_pos], 0) = solution(i_pos, 0);
+        }
+    }
     return true;
 }
 

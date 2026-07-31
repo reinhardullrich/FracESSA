@@ -2,7 +2,9 @@
 #define RATIONAL_LINALG_LU_FACTOR_FRACTION_HPP
 
 #include <linalg/matrix_fraction.hpp>
+#include <numeric>
 #include <stdexcept>
+#include <vector>
 
 namespace linalg {
 
@@ -27,13 +29,14 @@ public:
         m_n = n;
         m_L.set_identity(n);
         m_U = A;
-        m_P.set_identity(n);
+        m_permutation.resize(n);
+        std::iota(m_permutation.begin(), m_permutation.end(), size_t{0});
         m_swap_count = 0;
         m_is_singular = false;
 
         if (n == 0) return;
 
-        // Build unit-lower-triangular L, upper-triangular U, and permutation P.
+        // Build L and U; permutation[i] tracks the original row now at row i.
         for (size_t k = 0; k < n - 1; ++k) {
             // Choose the largest absolute entry in the active column.
             size_t max_row = k;
@@ -51,7 +54,7 @@ public:
             
             if (max_row != k) {
                 m_U.swap_rows(k, max_row);
-                m_P.swap_rows(k, max_row);
+                std::swap(m_permutation[k], m_permutation[max_row]);
                 if (k > 0) {
                     for (size_t j = 0; j < k; ++j) {
                         std::swap(m_L(k, j), m_L(max_row, j));
@@ -108,11 +111,7 @@ public:
         // P*A=L*U gives L*U*x=P*b: permute b, then solve the two triangular systems.
         matrix_frc bp(m_n, 1);
         for (size_t i = 0; i < m_n; ++i) {
-            fraction sum = fraction::zero();
-            for (size_t j = 0; j < m_n; ++j) {
-                sum.addmul(m_P(i, j), b(j, 0));
-            }
-            bp(i, 0) = sum;
+            bp(i, 0) = b(m_permutation[i], 0);
         }
         
         matrix_frc y(m_n, 1);
@@ -139,7 +138,8 @@ public:
 
 private:
     size_t m_n;
-    matrix_frc m_L, m_U, m_P;
+    matrix_frc m_L, m_U;
+    std::vector<size_t> m_permutation;
     bool m_is_singular = false;
     int m_swap_count = 0;
 };

@@ -55,6 +55,38 @@ TEST(LUFactorFractionTest, Solve) {
     EXPECT_EQ(x(1, 0), fraction::one());
 }
 
+TEST(LUFactorFractionTest, PivotAfterEarlierElimination) {
+    matrix_frc A(3, 3);
+    A(0, 0) = fraction::one();  A(0, 1) = fraction::one(); A(0, 2) = fraction::zero();
+    A(1, 0) = fraction::one();  A(1, 1) = fraction::one(); A(1, 2) = fraction::one();
+    A(2, 0) = fraction::zero(); A(2, 1) = fraction::one(); A(2, 2) = fraction::one();
+
+    matrix_frc b(3, 1);
+    b(0, 0) = fraction(3);
+    b(1, 0) = fraction(6);
+    b(2, 0) = fraction(5);
+
+    LU_Factorization lu(A);
+    EXPECT_FALSE(lu.isSingular());
+    EXPECT_EQ(lu.determinant(), fraction::neg_one());
+
+    const matrix_frc x = lu.solve(b);
+    EXPECT_EQ(x(0, 0), fraction::one());
+    EXPECT_EQ(x(1, 0), fraction::two());
+    EXPECT_EQ(x(2, 0), fraction(3));
+
+    const matrix_frc inverse = lu.inverse();
+    for (size_t row = 0; row < 3; ++row) {
+        for (size_t column = 0; column < 3; ++column) {
+            fraction product = fraction::zero();
+            for (size_t k = 0; k < 3; ++k) {
+                product.addmul(A(row, k), inverse(k, column));
+            }
+            EXPECT_EQ(product, row == column ? fraction::one() : fraction::zero());
+        }
+    }
+}
+
 TEST(LUFactorFractionTest, SingularDeterminantAndFlag) {
     matrix_frc A(2, 2);
     A(0, 0) = fraction::one(); A(0, 1) = fraction::two();

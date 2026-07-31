@@ -70,6 +70,12 @@ TEST(CopositivityTest, ThreeByThreeNotCopositive) {
     EXPECT_FALSE(is_strictly_copositive(A));
 }
 
+TEST(CopositivityTest, LargeMatrixRejectsBeforeEnumeratingAllSubsets) {
+    matrix_frc A(62, 62);
+    A(0, 0) = fraction::neg_one();
+    EXPECT_FALSE(is_strictly_copositive(A));
+}
+
 TEST(CopositivityTest, MemoizationCache) {
     matrix_frc A;
     A.set_identity(3);
@@ -99,6 +105,13 @@ TEST(CopositivityTest, HadelerCriterionNegativeDeterminant) {
     matrix_frc A(2, 2);
     A(0, 0) = fraction::neg_one(); A(0, 1) = fraction::two();
     A(1, 0) = fraction::two(); A(1, 1) = fraction::neg_one();
+    EXPECT_FALSE(is_strictly_copositive(A));
+}
+
+TEST(CopositivityTest, HadelerCriterionSingularPositiveAdjugate) {
+    matrix_frc A(2, 2);
+    A(0, 0) = fraction::one();     A(0, 1) = fraction::neg_one();
+    A(1, 0) = fraction::neg_one(); A(1, 1) = fraction::one();
     EXPECT_FALSE(is_strictly_copositive(A));
 }
 

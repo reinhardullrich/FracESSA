@@ -11,7 +11,6 @@ matrix_id	dimension	gosper_byte_identical	adaptive_byte_identical	candidate_coun
 37	4	yes	yes	2	0
 38	2	yes	yes	1	1
 39	2	yes	yes	1	1
-40	1	yes	yes	1	1
 41	2	yes	yes	1	1
 42	2	yes	yes	1	1
 43	2	yes	yes	2	0

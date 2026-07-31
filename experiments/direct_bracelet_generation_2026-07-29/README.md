@@ -24,7 +24,7 @@ bracelet experiments were changed.
 
 ## Correctness
 
-For every dimension `1..24` and every support size `1..n`, the two generators'
+For every dimension `2..24` and every support size `1..n`, the two generators'
 outputs were reduced to their smallest rotation/reflection representative only
 for untimed comparison. Every orbit matched and the direct output contained no
 duplicates. At dimension 24 both methods generated exactly `352,697` bracelet
@@ -57,7 +57,6 @@ rotation/reflection orbit.
 
 | n | Bracelets | FKM + reflection (us) | Direct (us) | Change |
 |---:|---:|---:|---:|---:|
-| 1 | 1 | 0.050 | 0.139 | +179.78% |
 | 2 | 2 | 0.070 | 0.126 | +80.59% |
 | 3 | 3 | 0.097 | 0.146 | +50.79% |
 | 4 | 5 | 0.161 | 0.104 | -35.20% |

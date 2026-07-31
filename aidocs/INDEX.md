@@ -44,6 +44,9 @@
 - `plans/SUPPORT_GENERATORS.md`: implemented DFS/FKM support-generator design,
   circular bracelet reduction, orbit-aware exact-candidate pruning, correctness
   proofs, experimental evidence, and future benchmark gates.
+- `plans/MAJOR_SINGLE_CORE_PERFORMANCE_OPPORTUNITIES.md`: research review of
+  theorem-backed and algorithmic routes to material single-core speedups; no
+  listed idea is implemented or benchmarked by that document.
 - `reference/FIND_POS_FIRST_SET_BIT_CALL_CHAIN.md`: compact production-only
   bit-scanning call chain requested for hot-path work.
 

@@ -1,4 +1,3 @@
-verified n=1 bracelets=1
 verified n=2 bracelets=2
 verified n=3 bracelets=3
 verified n=4 bracelets=5

@@ -3,6 +3,7 @@
 #include <linalg/copositive_fraction.hpp>
 #include <linalg/matrix_fraction.hpp>
 #include <stdexcept>
+#include <utility>
 
 /*
  * Exact stability test for a candidate equilibrium p.
@@ -120,56 +121,43 @@ void fracessa::check_stability()
         throw std::runtime_error("Invariant violation: r != candidate_.support_size - 1");
     }
 
-    std::vector<bitset64> kay_vee(r + 1);
-    std::vector<size_t> kay_vee_size(r + 1);
-    std::vector<bitset64> jay_without_kay_vee(r + 1);
-    std::vector<linalg::matrix_frc> bee_vee(r + 1);
-
-    // State v=0 is the original reduced problem. Despite the historical name
-    // `kay_vee`, it stores the current index set, initially all of J;
-    // `jay_without_kay_vee` stores the unrestricted coordinates still to remove.
-    kay_vee[0] = jay;
-    kay_vee_size[0] = extended_support_size_reduced;
-    jay_without_kay_vee[0] = jay_minus_kay;
-    bee_vee[0] = Bee;
+    // State v=0 is the original reduced problem. The current index set initially
+    // contains all of J, and the remaining mask contains I\{m}, the unrestricted
+    // coordinates still to remove. Only the previous reduction is needed to form
+    // the next one, so two rolling matrices replace the full reduction history.
+    bitset64 current_indices = jay;
+    bitset64 remaining_unrestricted = jay_minus_kay;
+    size_t current_size = extended_support_size_reduced;
+    linalg::matrix_frc previous_matrix = Bee;
 
     if (conf_with_log_) {
         logger_->info("Partial Copositivity Check:");
-        logger_->info("v=0: kay_vee={}, size={}, jay\\kay={}, r={}",
-                    bs64::to_bitstring(kay_vee[0], dimension_),
-                    kay_vee_size[0],
-                    bs64::to_bitstring(jay_without_kay_vee[0], dimension_),
-                    r);
-        logger_->info("bee_vee[0]:\n{}", bee_vee[0].to_log_string());
+        logger_->info("v=0: kay_vee={}, size={}, jay\\kay={}, r={}", bs64::to_bitstring(current_indices, dimension_), current_size, bs64::to_bitstring(remaining_unrestricted, dimension_), r);
+        logger_->info("bee_vee[0]:\n{}", previous_matrix.to_log_string());
     }
 
     // Eliminate the r unrestricted coordinates one at a time. What remains is
     // indexed only by K, where the ordinary nonnegative copositivity test applies.
     for (size_t v = 1; v <= r; ++v) {
-        const size_t iv_pos = bs64::find_pos_first_set_bit(jay_without_kay_vee[v-1]);
-        
-        jay_without_kay_vee[v] = bs64::subtract(jay_without_kay_vee[v-1], bs64::single_bit_at_pos(iv_pos));
-        kay_vee[v] = bs64::subtract(kay_vee[v-1], bs64::single_bit_at_pos(iv_pos));
-        kay_vee_size[v] = kay_vee_size[v-1] - 1;
-        
+        const size_t iv_pos = bs64::find_pos_first_set_bit(remaining_unrestricted);
+
         // iv_pos is an original strategy index. The matrix is compact, so count
         // surviving lower indices to find the corresponding row and column.
-        const bitset64 bits_before_iv = bs64::bits_before_pos(kay_vee[v-1], iv_pos);
+        const bitset64 bits_before_iv = bs64::bits_before_pos(current_indices, iv_pos);
         const size_t pivot_pos = bs64::count_set_bits(bits_before_iv);
-        
+
+        const size_t previous_size = current_size;
+        remaining_unrestricted = bs64::subtract(remaining_unrestricted, bs64::single_bit_at_pos(iv_pos));
+        current_indices = bs64::subtract(current_indices, bs64::single_bit_at_pos(iv_pos));
+        --current_size;
+
         if (conf_with_log_) {
-            logger_->info("v={}: kay_vee={}, size={}, jay\\kay={}, iv_pos={}, pivot_pos={}",
-                        v,
-                        bs64::to_bitstring(kay_vee[v], dimension_),
-                        kay_vee_size[v],
-                        bs64::to_bitstring(jay_without_kay_vee[v], dimension_),
-                        static_cast<unsigned int>(iv_pos),
-                        static_cast<unsigned int>(pivot_pos));
+            logger_->info("v={}: kay_vee={}, size={}, jay\\kay={}, iv_pos={}, pivot_pos={}", v, bs64::to_bitstring(current_indices, dimension_), current_size, bs64::to_bitstring(remaining_unrestricted, dimension_), static_cast<unsigned int>(iv_pos), static_cast<unsigned int>(pivot_pos));
         }
-        
+
         // A positive diagonal pivot is condition (a) of Bomze's recurrence. A
         // nonpositive one proves that the required cone positivity has failed.
-        const fraction& pivot = bee_vee[v-1](pivot_pos, pivot_pos);
+        const fraction& pivot = previous_matrix(pivot_pos, pivot_pos);
         if (pivot <= fraction::zero()) {
             if (conf_with_log_) {
                 logger_->info("Reason: false_not_partial_copositive (pivot={} at pos={})", pivot.to_string(), pivot_pos);
@@ -178,7 +166,7 @@ void fracessa::check_stability()
             candidate_.is_ess = false;
             return;
         }
-        
+
         /*
          * Equation (20) in Bomze (1992). A positive pivot permits removal of
          * this unrestricted coordinate. Multiplying the Schur complement by
@@ -187,15 +175,14 @@ void fracessa::check_stability()
          *     B_new(i,j) = pivot*B_old(i,j)
          *                  - B_old(i,pivot)*B_old(pivot,j).
          */
-        bee_vee[v] = linalg::matrix_frc(kay_vee_size[v], kay_vee_size[v]);
-        const size_t n_old = kay_vee_size[v-1];
-        const auto& B_old = bee_vee[v-1];
-        auto& B_new = bee_vee[v];
-        
+        linalg::matrix_frc next_matrix(current_size, current_size);
+        const auto& B_old = previous_matrix;
+        auto& B_new = next_matrix;
+
         // Copy the compact result while omitting the eliminated row and column.
-        for (size_t i_old = 0, i_new = 0; i_old < n_old; ++i_old) {
+        for (size_t i_old = 0, i_new = 0; i_old < previous_size; ++i_old) {
             if (i_old == pivot_pos) continue;
-            for (size_t j_old = 0, j_new = 0; j_old < n_old; ++j_old) {
+            for (size_t j_old = 0, j_new = 0; j_old < previous_size; ++j_old) {
                 if (j_old == pivot_pos) continue;
                 fraction::mul(B_new(i_new, j_new), pivot, B_old(i_old, j_old));
                 B_new(i_new, j_new).submul(B_old(i_old, pivot_pos), B_old(pivot_pos, j_old));
@@ -203,17 +190,18 @@ void fracessa::check_stability()
             }
             ++i_new;
         }
-        
+
         if (conf_with_log_) {
-            logger_->info("bee_vee[{}]:\n{}", v, bee_vee[v].to_log_string());
+            logger_->info("bee_vee[{}]:\n{}", v, next_matrix.to_log_string());
         }
-    }    
+        previous_matrix = std::move(next_matrix);
+    }
 
     if (conf_with_log_)
         logger_->info("Copositivity Check:");
 
     // All unrestricted coordinates are gone; decide positivity for nonzero y>=0 on K.
-    if (linalg::is_strictly_copositive(bee_vee[r])) {
+    if (linalg::is_strictly_copositive(previous_matrix)) {
         if (conf_with_log_)
             logger_->info("Reason: true_copositive");
         candidate_.stability = "T_copos";

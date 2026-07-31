@@ -3,8 +3,8 @@
 `fracessa_testdata.sqlite3` is the canonical store for test matrices and their
 complete expected candidate results.
 
-The current snapshot contains 88 matrices and 49,158 stored candidate
-representatives. Their multipliers represent 86,153 candidates and 83,378 ESS.
+The current snapshot contains 87 matrices and 49,157 stored candidate
+representatives. Their multipliers represent 86,152 candidates and 83,377 ESS.
 It contains each distinct matrix from Tables 1 and 2 of the
 Bomze-Schachinger-Ullrich ESS-growth paper exactly once. IDs 18 and 26 hold the
 exact published Table 1 matrices that replaced same-property alternatives;
@@ -17,10 +17,13 @@ matrix. IDs 45-47 preserve the unsafe-filter, LU-boundary, and failed-proof
 verified-search regressions. No complete SQLite matrix suite is currently wired
 into CTest.
 
-The timing table contains one complete current-build Pybind session for the 85
-matrices present before IDs 45-47 were restored: both unsafe and exact modes,
-for 170 adaptive measurements with no ESS-count mismatch. The three restored
-regressions have no observations in that historical session.
+The timing table contains one CPU-2 persistent-Pybind median session with a
+one-second target and all 87 matrices in four modes. Current unsafe, verified,
+and exact use one Release/native/LTO binary at algorithm revision
+`34e003168607`; historical default, very unsafe uses raw-double algorithm
+revision `32f61679da64` with a temporary normal-parser/nanosecond Pybind
+adapter. Historical very unsafe mismatches IDs 38-39, current unsafe mismatches
+IDs 45-47, and verified and exact match all 87 matrices.
 
 ## Tables
 
@@ -69,7 +72,7 @@ session may contain several builds, but each build is measured by a separate
 runner invocation. Rows record the machine and pinned CPU, human build label,
 moving source reference such as `main`, immutable revision, binary SHA-256,
 Pybind or CLI backend, numerical mode, target and measured wall durations,
-iteration count, average native duration in nanoseconds, observed ESS count,
+iteration count, median native duration in nanoseconds, observed ESS count,
 and an optional comment.
 
 The observed count remains separate from the expected count in `matrices`, so a
@@ -83,13 +86,15 @@ have no `safe` rows.
 
 `python -m fracessa.timing` reads matrices from this database and writes timing
 observations back to `timings`. It is deliberately a sequential, Linux
-CPU-affinity runner, not part of the multiprocessing wrapper. One pilot at or
-above the target is the complete measurement. Faster cases use the pilot as a
-warmup and choose enough measured iterations for about the requested wall
-duration, one second by default; the stored result is their average native
-duration. The tool supports the current Pybind timer and legacy CLI timers whose
-output unit is supplied on the command line. No active matrix-verification
-runner is wired into CTest yet.
+CPU-affinity runner, not part of the multiprocessing wrapper. One Pybind process
+stays open for all selected modes and matrices in a build. The first returned
+C++ duration chooses `ceil(target / duration)` total samples and remains part
+of the sample; a duration at or above the target chooses one run. The stored
+result is the median returned `elapsed_ns`. Wall time is recorded as metadata
+but does not choose the sample count or result. The tool also supports legacy
+CLI timers whose output unit is supplied on the command line, but those
+fresh-process rows must not be mixed with persistent-Pybind microbenchmarks. No
+active matrix-verification runner is wired into CTest yet.
 
 The schema is defined in `schema.sql`. The C++ runtime does not read this
 database; the timing tool uses Python's standard `sqlite3` module.

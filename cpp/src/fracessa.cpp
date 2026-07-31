@@ -113,7 +113,9 @@ bool fracessa::analyze_support(bitset64 support, size_t support_size) {
             if (!find_candidate_unsafe_.find(support, support_size)) return false;
         } else if (!find_candidate_verified_.find(support, support_size)) return false;
     }
-    if (!find_candidate_exact_.find(support, support_size, candidate_))
+    const bool needs_candidate_vector = conf_with_candidates_ || conf_with_log_;
+    if (!find_candidate_exact_.find(
+            support, support_size, candidate_, needs_candidate_vector))
         return false;
 
     candidate_.support_size = support_size;

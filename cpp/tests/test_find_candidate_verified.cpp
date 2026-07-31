@@ -443,6 +443,28 @@ TEST(find_candidate_verified_fallback_test, ConstantMatrixFallsBack)
     EXPECT_TRUE(constant.find(bitset64{1}, 1));
 }
 
+TEST(find_candidate_exact_test, BuildsVectorOnlyForRequestedSuccessfulCandidate)
+{
+    const matrix_frc game =
+        make_symmetric_2x2(fraction::zero(), fraction::one(), fraction::zero());
+    find_candidate_exact exact(game);
+
+    candidate rejected;
+    EXPECT_FALSE(exact.find(bitset64{1}, 1, rejected, true));
+    EXPECT_EQ(rejected.vector.rows(), 0);
+
+    candidate without_vector;
+    ASSERT_TRUE(exact.find(bitset64{3}, 2, without_vector, false));
+    EXPECT_EQ(without_vector.vector.rows(), 0);
+
+    candidate with_vector;
+    ASSERT_TRUE(exact.find(bitset64{3}, 2, with_vector, true));
+    ASSERT_EQ(with_vector.vector.rows(), 2);
+    ASSERT_EQ(with_vector.vector.cols(), 1);
+    EXPECT_EQ(with_vector.vector(0, 0), fraction(1, 2));
+    EXPECT_EQ(with_vector.vector(1, 0), fraction(1, 2));
+}
+
 TEST(find_candidate_verified_availability_test, UnavailableEnvironmentDisablesOnlyDefaultMode)
 {
     const matrix_frc game =
@@ -494,7 +516,7 @@ TEST_F(supported_find_candidate_verified_test, NeverRejectsRandomExactCandidates
             if (verified.find(support, support_size)) continue;
 
             candidate result;
-            EXPECT_FALSE(exact.find(support, support_size, result))
+            EXPECT_FALSE(exact.find(support, support_size, result, false))
                 << "sample=" << sample << " support=" << support;
         }
     }

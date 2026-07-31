@@ -238,51 +238,30 @@ def _measure_target(
     mode: str,
     target_ns: int,
 ) -> tuple[int, int, int, int]:
-    """Measure one matrix for about ``target_ns`` and return its native average.
+    """Measure one matrix for about ``target_ns`` and return its native median.
 
-    A pilot taking at least the target is the sole measurement. Faster calls
-    use the pilot as warmup, then divide the target by one measured call's wall
-    time to choose the batch size.
+    The first native duration chooses the iteration count and remains part of
+    the sample. Wall time is recorded only as metadata.
     """
 
-    pilot_started = perf_counter_ns()
-    pilot_ess, pilot_elapsed_ns = runner(matrix_id, matrix, mode)
-    pilot_wall_ns = max(1, perf_counter_ns() - pilot_started)
-    if pilot_elapsed_ns < 0:
-        raise RuntimeError("native timing cannot be negative")
-    if pilot_wall_ns >= target_ns:
-        return pilot_ess, pilot_elapsed_ns, 1, pilot_wall_ns
-
     measured_started = perf_counter_ns()
-    ess_count, elapsed_ns = runner(matrix_id, matrix, mode)
-    first_wall_ns = max(1, perf_counter_ns() - measured_started)
-    if ess_count != pilot_ess:
-        raise RuntimeError("ESS count changed between timing iterations")
-    if elapsed_ns < 0:
-        raise RuntimeError("native timing cannot be negative")
+    ess_count, first_elapsed_ns = runner(matrix_id, matrix, mode)
+    if first_elapsed_ns <= 0:
+        raise RuntimeError("native timing must be positive")
 
-    iterations = max(1, (target_ns + first_wall_ns - 1) // first_wall_ns)
-    total_elapsed_ns = elapsed_ns
-    completed = 1
-    while True:
-        while completed < iterations:
-            current_ess, current_elapsed_ns = runner(matrix_id, matrix, mode)
-            if current_ess != ess_count:
-                raise RuntimeError("ESS count changed between timing iterations")
-            if current_elapsed_ns < 0:
-                raise RuntimeError("native timing cannot be negative")
-            total_elapsed_ns += current_elapsed_ns
-            completed += 1
+    iterations = max(1, (target_ns + first_elapsed_ns - 1) // first_elapsed_ns)
+    samples = [first_elapsed_ns]
+    for _ in range(1, iterations):
+        current_ess, current_elapsed_ns = runner(matrix_id, matrix, mode)
+        if current_ess != ess_count:
+            raise RuntimeError("ESS count changed between timing iterations")
+        if current_elapsed_ns <= 0:
+            raise RuntimeError("native timing must be positive")
+        samples.append(current_elapsed_ns)
 
-        measured_wall_ns = max(1, perf_counter_ns() - measured_started)
-        if measured_wall_ns >= target_ns:
-            break
-        average_wall_ns = max(1, measured_wall_ns // iterations)
-        remaining_ns = target_ns - measured_wall_ns
-        iterations += (remaining_ns + average_wall_ns - 1) // average_wall_ns
-
-    average_ns = (total_elapsed_ns + iterations // 2) // iterations
-    return ess_count, average_ns, iterations, measured_wall_ns
+    measured_wall_ns = max(1, perf_counter_ns() - measured_started)
+    median_ns = round(median(samples))
+    return ess_count, median_ns, iterations, measured_wall_ns
 
 
 def _validate_run(arguments: argparse.Namespace) -> None:
@@ -389,7 +368,7 @@ def _run(arguments: argparse.Namespace) -> int:
                     status = "ok" if ess_count == expected_ess else "mismatch"
                     print(
                         f"{mode} matrix={matrix_id} iterations={iterations} "
-                        f"average_ns={elapsed_ns} "
+                        f"median_ns={elapsed_ns} "
                         f"measured_s={measured_wall_ns / 1_000_000_000:.6f} "
                         f"ess={ess_count} expected={expected_ess} {status}",
                         flush=True,
@@ -402,7 +381,7 @@ def _run(arguments: argparse.Namespace) -> int:
 
 
 def _report(arguments: argparse.Namespace) -> int:
-    """Print average timings and correctness for one stored session."""
+    """Print median timings and correctness for one stored session."""
 
     database = arguments.database.resolve()
     if not database.is_file():
@@ -437,7 +416,7 @@ def _report(arguments: argparse.Namespace) -> int:
     print(f"session={session}")
     builds = {}
     measurements = []
-    averages = {}
+    medians = {}
     for row in rows:
         build, backend, source_ref, revision, digest, machine, cpu, comment = row[:8]
         (
@@ -470,7 +449,7 @@ def _report(arguments: argparse.Namespace) -> int:
                 expected_ess,
             )
         )
-        averages[build, mode, matrix_id] = elapsed_ns
+        medians[build, mode, matrix_id] = elapsed_ns
 
     for build, metadata in builds.items():
         backend, source_ref, revision, digest, machine, cpu, comment = metadata
@@ -482,7 +461,7 @@ def _report(arguments: argparse.Namespace) -> int:
 
     print(
         "build\tmode\tmatrix_id\tis_cs\tdimension\ttarget_s\titerations\t"
-        "measured_s\taverage_ns\tess\texpected\tgamma_lower_bound\tstatus"
+        "measured_s\tmedian_ns\tess\texpected\tgamma_lower_bound\tstatus"
     )
     for measurement in sorted(measurements):
         (
@@ -512,8 +491,8 @@ def _report(arguments: argparse.Namespace) -> int:
         if arguments.baseline not in builds:
             raise ValueError(f"unknown baseline build: {arguments.baseline}")
         ratios = defaultdict(list)
-        for (build, mode, matrix_id), value in averages.items():
-            baseline = averages.get((arguments.baseline, mode, matrix_id))
+        for (build, mode, matrix_id), value in medians.items():
+            baseline = medians.get((arguments.baseline, mode, matrix_id))
             if build != arguments.baseline and baseline:
                 ratios[(build, mode)].append(value / baseline)
         print("build\tmode\tshared_matrices\tmedian_ratio_to_baseline")

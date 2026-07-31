@@ -112,12 +112,12 @@ direct table saves or wastes work.
 
 ## Complete Official-Matrix Split
 
-A final paired three-second pass covered all 44 verification matrices that
+A final paired three-second pass covered all 43 retained verification matrices that
 existed at that point and verified byte-identical candidate output afterward.
 The exact per-matrix table is stored in
-`experiments/support_frontier_2026-07-29/results/gosper_jump_byte_all44_3s.tsv`.
+`experiments/support_frontier_2026-07-29/results/gosper_jump_byte_all43_3s.tsv`.
 
-The 17 ordinary full-matrix fixtures have dimensions only 1 through 5. Their
+The 16 ordinary full-matrix fixtures have dimensions only 2 through 5. Their
 changes ranged from `-6.15%` to `+0.77%`, but every absolute median was below
 11 microseconds, so this is primarily fixed-overhead variation. The larger
 generated non-circular corpus remains the relevant evidence for that path.
@@ -195,7 +195,7 @@ not justified by the measurements.
 ## Correctness Result
 
 The final adaptive executable produced byte-identical candidate output to the
-production executable for all 44 official matrices and all 35 generated
+production executable for all 43 retained official matrices and all 35 generated
 non-circular matrices. Candidate counts and IDs therefore remained unchanged.
 
 ## Build Note
@@ -232,7 +232,7 @@ removing the matrix-specific work.
 
 After circular games received a separate bracelet experiment, production,
 byte-indexed Gosper, and pure fixed-cardinality DFS were compared again on all
-24 active non-circular matrices. Complete candidate output was byte-identical
+23 retained non-circular matrices. Complete candidate output was byte-identical
 for every variant and matrix. Each timing targeted three seconds on performance
 CPU 2; dimensions 15-24 use the mean of two independent run medians. Times are
 microseconds.
@@ -251,7 +251,6 @@ microseconds.
 | 37 | 4 | 9.199 | 9.189 | 9.236 |
 | 38 | 2 | 2.885 | 2.887 | 2.927 |
 | 39 | 2 | 4.410 | 4.333 | 4.370 |
-| 40 | 1 | 0.433 | 0.406 | 0.437 |
 | 41 | 2 | 1.429 | 1.397 | 1.443 |
 | 42 | 2 | 1.246 | 1.205 | 1.247 |
 | 43 | 2 | 1.314 | 1.283 | 1.338 |
@@ -331,7 +330,7 @@ not `2^n`.
 The experimental header is
 `experiments/support_frontier_2026-07-29/sources/gosper_candidate_scan/include/fracessa/supports.hpp`.
 Production source was not changed. Complete CLI candidate output was
-byte-identical to production for all 25 active non-circular matrices, including
+byte-identical to production for all 24 retained non-circular matrices, including
 candidate IDs, vectors, supports, stability labels, and payoffs.
 The four existing `Supports` unit tests passed against the experimental header,
 and the exhaustive/random jump-sequence check passed under ASan and UBSan.
@@ -355,7 +354,6 @@ faster; times are microseconds.
 | 37 | 4 | 2 | 9.224 | 9.160 | -0.69% |
 | 38 | 2 | 1 | 2.907 | 2.870 | -1.27% |
 | 39 | 2 | 1 | 4.440 | 4.392 | -1.07% |
-| 40 | 1 | 1 | 0.439 | 0.403 | -8.30% |
 | 41 | 2 | 1 | 1.457 | 1.411 | -3.15% |
 | 42 | 2 | 1 | 1.266 | 1.226 | -3.11% |
 | 43 | 2 | 2 | 1.326 | 1.334 | +0.60% |
@@ -369,8 +367,8 @@ faster; times are microseconds.
 | 54 | 24 | 23 | 295,925.674 | 259,021.275 | -12.47% |
 | 55 | 20 | 1 | 426,528.905 | 427,318.300 | +0.19% |
 
-The candidate scan won 18 of 25 rows. Across all rows its geometric-mean
-change was `-9.01%`, its median change was `-1.27%`, and the sum of the row
+The candidate scan won 17 of 24 rows. Across all rows its geometric-mean
+change was `-9.04%`, its median change was `-1.19%`, and the sum of the row
 medians changed by `-2.92%`. For the eight dimensions 15-24, the geometric
 mean was `-22.82%`; four won and four were effectively neutral or about 1%
 slower.
