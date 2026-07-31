@@ -1,6 +1,6 @@
 # `find_pos_first_set_bit` Production Call Chain
 
-Last verified: 2026-07-27
+Last verified: 2026-07-31
 
 Scope: production C++ under `cpp/include/` and `cpp/src/`; tests are excluded.
 
@@ -16,11 +16,12 @@ is defined for zero.
 
 | Location | Caller | Purpose |
 |---|---|---|
-| `cpp/src/checkstab.cpp:24` | `fracessa::check_stability` | Select the Bee pivot index `m`. |
-| `cpp/src/checkstab.cpp:103` | `fracessa::check_stability` | Select the next reduction coordinate. |
-| `cpp/include/linalg/copositive_fraction.hpp:103` | `CopositivityCheckerV3::is_copositive_hadeler` | Handle a one-dimensional subset. |
-| `cpp/include/linalg/copositive_fraction.hpp:111` | same | Start principal-submatrix row iteration. |
-| `cpp/include/linalg/copositive_fraction.hpp:113` | same | Start principal-submatrix column iteration. |
+| `cpp/src/checkstab.cpp:30` | `fracessa::check_stability` | Select the Bee pivot index `m`. |
+| `cpp/src/checkstab.cpp:149` | `fracessa::check_stability` | Select the next reduction coordinate. |
+| `cpp/include/linalg/copositive_fraction.hpp:94` | `CopositivityCheckerV3::is_copositive_hadeler` | Handle a one-dimensional subset. |
+
+`find_pos_next_set_bit()` now has no production caller. Copositivity extracts
+each larger subset once and indexes its fixed array directly.
 
 ## Analyzer Call Graph
 
@@ -43,12 +44,13 @@ main / fracessa_core.compute_matrix
 dimension, then repeatedly executes `ctz64(bits)` and `bits &= bits - 1`.
 Production callers are:
 
+- `cpp/include/linalg/copositive_fraction.hpp:100`
 - `cpp/src/find_candidate_verified.cpp:618`
 - `cpp/src/find_candidate_verified.cpp:621`
 - `cpp/src/find_candidate_unsafe.cpp:74`
 - `cpp/src/find_candidate_unsafe.cpp:77`
-- `cpp/src/find_candidate_exact.cpp:39`
-- `cpp/src/find_candidate_exact.cpp:42`
+- `cpp/src/find_candidate_exact.cpp:40`
+- `cpp/src/find_candidate_exact.cpp:43`
 - `cpp/src/checkstab.cpp:55`
 
 Regenerate the occurrence list with:

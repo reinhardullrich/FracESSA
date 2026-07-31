@@ -13,7 +13,12 @@ public:
     explicit find_candidate_exact(const linalg::matrix_frc& game_matrix) noexcept;
 
     // True means an exact candidate was found and written to result.
-    bool find(const bitset64& support, size_t support_size, candidate& result);
+    // The dense vector is optional because stability does not use it.
+    bool find(
+        const bitset64& support,
+        size_t support_size,
+        candidate& result,
+        bool materialize_vector);
 
 private:
     const linalg::matrix_frc& game_frc_;

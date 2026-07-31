@@ -4,9 +4,7 @@
 #include <linalg/matrix_fraction.hpp>
 #include <linalg/lu_factor_fraction.hpp>
 #include <fracessa/bitset64.hpp>
-#include <fracessa/supports.hpp>
 #include <cstddef>
-#include <vector>
 
 namespace linalg {
 
@@ -23,8 +21,6 @@ namespace linalg {
  */
 class CopositivityCheckerV3 {
 private:
-    std::vector<std::vector<bitset64>> supports_;
-
     // Compute adj(A) from cofactors when A is singular and A^-1 is unavailable.
     matrix_frc adjugate(const matrix_frc& A) {
         const size_t n = A.rows();
@@ -99,17 +95,15 @@ private:
             return A(idx, idx) > fraction::zero();
         }
 
-        // Copy the principal submatrix A[mask,mask] into compact row/column order.
+        // Extract the selected matrix indices once, then copy the principal submatrix.
+        uint8_t subset_indices[bs64::kMaxBitsetDimension];
+        bs64::extract_set_indices(mask, A.rows(), subset_indices);
+
         matrix_frc subMat(current_dim, current_dim);
-        {
-            size_t row = 0;
-            for (size_t i = bs64::find_pos_first_set_bit(mask); i < 64; i = bs64::find_pos_next_set_bit(mask, i)) {
-                size_t col = 0;
-                for (size_t j = bs64::find_pos_first_set_bit(mask); j < 64; j = bs64::find_pos_next_set_bit(mask, j)) {
-                    subMat(row, col) = A(i, j);
-                    ++col;
-                }
-                ++row;
+        for (size_t row = 0; row < current_dim; ++row) {
+            for (size_t column = 0; column < current_dim; ++column) {
+                subMat(row, column) =
+                    A(subset_indices[row], subset_indices[column]);
             }
         }
 
@@ -119,10 +113,9 @@ private:
         if (det <= fraction::zero()) {
             /*
              * With all proper principal submatrices already passed, Hadeler's
-             * rejecting pattern is det(A) < 0 and adj(A) > 0 entrywise. The code
-             * enters for det(A) == 0 as well because a singular matrix has no
-             * inverse; under the theorem's precondition its adjugate cannot
-             * match the rejecting pattern.
+             * rejecting pattern is det(A) <= 0 and adj(A) > 0 entrywise. In the
+             * singular case, a positive adjugate gives a positive null direction,
+             * so the quadratic form is not strictly positive there.
              */
             matrix_frc adj;
             if (lu.isSingular()) {
@@ -144,25 +137,18 @@ private:
 public:
     bool is_strictly_copositive(const matrix_frc& A) {
         size_t n = A.rows();
+        const bitset64 limit = bs64::two_to_the_power_of(n);
 
-        // Each nonempty mask selects one principal submatrix. Grouping by size
-        // establishes the proper-submatrix precondition used by the criterion.
-        supports_.resize(n);
-        for (size_t i = 0; i < n; ++i) {
-            supports_[i].reserve(binomial_coefficient(n, i + 1));
-        }
-        for (uint64_t bits = 1ULL; bits < bs64::two_to_the_power_of(n); ++bits) {
-            bitset64 support = bits;
-            supports_[bs64::count_set_bits(support) - 1].push_back(support);
-        }
-
-        // Stop at the first principal submatrix that is not strictly copositive.
+        // Cardinality order establishes Hadeler's proper-submatrix precondition.
+        // Gosper's algorithm streams each layer and permits immediate rejection.
         for (size_t subset_size = 1; subset_size <= n; ++subset_size) {
-            const auto& subsets_of_size = supports_[subset_size - 1];
-            for (bitset64 subset : subsets_of_size) {
+            bitset64 subset = bs64::set_all_n_bits(subset_size);
+            while (subset < limit) {
                 if (!is_copositive_hadeler(A, subset, subset_size)) {
                     return false;
                 }
+
+                subset = bs64::next_same_cardinality(subset);
             }
         }
 

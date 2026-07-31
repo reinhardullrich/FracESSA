@@ -214,6 +214,11 @@ TEST(Bitset64Test, LowestSetBitZero) {
     EXPECT_EQ(lowest, 0ULL);
 }
 
+TEST(Bitset64Test, GosperNextSameCardinality) {
+    EXPECT_EQ(bs64::next_same_cardinality(0b00111), 0b01011u);
+    EXPECT_EQ(bs64::next_same_cardinality(0b01110), 0b10011u);
+}
+
 TEST(Bitset64Test, FindNextSetBitAtTopBit) {
     bitset64 bits = 0ULL;
     bits = bs64::set_bit_at_pos(bits, 63);

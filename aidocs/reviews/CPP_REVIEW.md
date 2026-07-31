@@ -12,59 +12,7 @@ then explicit reassessment decisions so closed or conditional findings do not
 silently reappear in later reviews. Remove an unresolved finding after its fix
 and regression coverage are complete.
 
-## Correctness And Resource Safety
-
-### P1: Copositivity materializes all subsets before early rejection
-
-`CopositivityCheckerV3::is_strictly_copositive()` builds every nonempty subset
-at `cpp/include/linalg/copositive_fraction.hpp:150` before testing the first
-principal submatrix at `cpp/include/linalg/copositive_fraction.hpp:160`.
-
-This is not merely a speed problem. A supported dimension-63 game can produce a
-62-by-62 copositivity matrix whose first diagonal entry is already negative. A
-streaming implementation would reject its first 1-by-1 principal submatrix
-immediately, whereas the current implementation first attempts to reserve and
-store up to `2^62 - 1` masks. The resulting allocation failure makes a valid
-input impossible to analyze.
-
-The retained `supports_` member also makes a checker unsafe to reuse directly:
-`resize(n)` does not clear surviving inner vectors, so a later call can repeat
-old masks or retain masks containing indices outside a smaller matrix. The
-production wrapper currently constructs a fresh checker for every call, but
-streaming removes this latent state problem as well.
-
-Required outcome: generate fixed-cardinality masks one at a time and stop at
-the first rejection. Do not add another generic support-generator abstraction;
-the small local mask loop is sufficient. Remove `supports_` and the then-unused
-`binomial_coefficient()` helper.
-
 ## Speed
-
-### P2: The exact candidate path materializes its full vector too early
-
-The exact path fills `result.vector` at `cpp/src/find_candidate_exact.cpp:65`
-before outside-support validation beginning at
-`cpp/src/find_candidate_exact.cpp:75`. It also does
-this when candidate output and logging are both disabled; stability itself does
-not consume the vector.
-
-Required outcome: validate first and materialize a full vector only for a
-successful candidate that will be output or logged.
-
-### P2: Copositivity rescans set indices for every row
-
-Candidate search now extracts each stage's support partition once and reuses it
-for matrix construction and validation. Bee construction uses the later
-`extended_support_reduced`, so it cannot share those earlier partitions. Within
-`is_copositive_hadeler()`, however, the same subset mask is rescanned from its
-first bit for every row at
-`cpp/include/linalg/copositive_fraction.hpp:106` and
-`cpp/include/linalg/copositive_fraction.hpp:108`. One fixed index array removes
-those nested scans. The direct bit-scanning locations are listed in
-`../reference/FIND_POS_FIRST_SET_BIT_CALL_CHAIN.md`.
-
-Required outcome: extract the current subset once before its nested matrix
-loops and reuse the fixed index array. Benchmark before retaining the change.
 
 ### P2: Partial copositivity retains every reduction matrix
 
@@ -85,47 +33,6 @@ multiply-adds.
 
 Required outcome: store one permutation-index array and apply it by direct
 indexing.
-
-## Test Coverage
-
-### P2: Two proof-critical exact branches lack focused regressions
-
-All durable LU tests in `cpp/tests/test_lu.cpp` use 2-by-2 matrices. None forces
-a row swap after an earlier elimination step, which is the only case that must
-swap already-computed columns of `L` at
-`cpp/include/linalg/lu_factor_fraction.hpp:55`. An independent randomized exact
-audit passed, but it is not a repository regression.
-
-The copositivity suite exercises singular acceptance with the all-ones matrix,
-but not the singular Hadeler rejection at
-`cpp/include/linalg/copositive_fraction.hpp:127` where `det(A) == 0` and
-`adj(A) > 0` entrywise.
-
-Required outcome: add the nonsingular matrix `[[1,1,0],[1,1,1],[0,1,1]]` as a
-3-by-3 LU solve/inverse case; it pivots after column zero. Add the exact matrix
-`[[1,-1],[-1,1]]` as a strict-copositivity rejection. These two small tests
-cover the branches directly.
-
-## Mathematical Documentation
-
-### P3: The singular Hadeler explanation contradicts the implemented branch
-
-The comment at `cpp/include/linalg/copositive_fraction.hpp:119` says that under
-the theorem's proper-principal-submatrix precondition, a singular matrix cannot
-have the positive-adjugate rejecting pattern. The proposed regression matrix
-
-```text
-[[1, -1],
- [-1, 1]]
-```
-
-is a direct counterexample to that sentence: both proper principal submatrices
-are positive, its determinant is zero, and its adjugate is entrywise positive.
-The implementation correctly rejects it because the quadratic form vanishes at
-`(1,1)`; only the explanation is wrong.
-
-Required outcome: correct the comment when adding the focused singular Hadeler
-regression above. Do not change the rejecting branch.
 
 ## Build And Release
 
@@ -157,7 +64,7 @@ and `NDEBUG`; scope only FracESSA-specific throughput flags to Release builds.
 `cpp/include/fracessa/bitset64.hpp:75-82` `rot_left()` helper; nothing replaces
 them.
 
-`cpp/include/fracessa/bitset64.hpp:140-157`: delete:
+`cpp/include/fracessa/bitset64.hpp:148-165`: delete:
 `is_smallest_representation()` is used only by its own test at
 `cpp/tests/test_bitset64.cpp:161-168`. Delete both; nothing replaces them.
 
@@ -165,7 +72,13 @@ them.
 `cpp/include/linalg/matrix_fraction.hpp:51`: delete: the mutable matrix `data()`
 accessors have no caller. Nothing replaces them.
 
-Net: approximately 172 production and self-testing lines can be deleted.
+`cpp/include/fracessa/bitset64.hpp:105-112`: delete:
+`find_pos_next_set_bit()` has no production caller after copositivity switched
+to one fixed index array. Delete its self-focused tests at
+`cpp/tests/test_bitset64.cpp:44-108` and `:222-229`; production set iteration
+already uses `extract_set_indices()`.
+
+Net: approximately 250 production and self-testing lines can be deleted.
 
 ## Reassessed Non-Findings
 
@@ -189,6 +102,13 @@ Net: approximately 172 production and self-testing lines can be deleted.
 - A complete SQLite verification sweep in every ordinary CI run is not required.
   The focused C++/CLI suite is the intended fast gate; long database validation
   remains an explicit manual check.
+- The repeated copositivity index scan is closed. Each subset is now extracted
+  once into a fixed stack array. Three alternating CPU-2 Release/LTO runs, each
+  using the median of 21 hot samples on the strictly copositive, non-positive-
+  definite matrix with diagonal 1 and off-diagonal 2, changed by -0.11%,
+  +0.19%, +0.37%, and +0.24% at dimensions 4, 6, 8, and 10, respectively. That
+  is neutral within measurement noise; the shorter loop is retained without
+  claiming a speedup.
 
 ## Current Validation State
 
@@ -196,10 +116,15 @@ Net: approximately 172 production and self-testing lines can be deleted.
   `-Wconversion`, and `-Wshadow` passed all 11 C++/CLI tests. It found no new
   FracESSA production warning; the remaining diagnostics are test-only
   conversions/bracing and bundled spdlog/fmt diagnostics.
+- Streaming Gosper enumeration, the 62-by-62 immediate-rejection regression,
+  the singular Hadeler rejection, and the late-pivot 3-by-3 LU solve/inverse
+  regression pass all 11 C++/CLI tests. All 54 wrapper tests also pass.
+- Exact candidate search now validates outside-support strategies before dense
+  vector construction and skips that construction when neither output nor
+  logging needs it; the focused requested/successful-vector regression passes.
 - The latest complete verified-mode sweep matched the stored ESS count for all
   87 retained SQLite matrices. That long sweep and ASan/UBSan were not rerun for
-  this reassessment because the current C++ working-tree change only relocates
-  MatrixParser into its header.
+  the current local source and regression-test changes.
 - Wrapper tests: see `PYBIND_REVIEW.md` and `PYTHON_REVIEW.md`.
 - The single parser preserves 18-digit direct values and arbitrary-precision
   values, rejects dimensions outside 1-63, and reports failures through

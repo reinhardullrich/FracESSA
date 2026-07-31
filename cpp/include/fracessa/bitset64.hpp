@@ -131,6 +131,14 @@ inline bitset64 lowest_set_bit_as_bit(bitset64 bits) noexcept {
   return bits & (0ULL - bits);
 }
 
+// Gosper's algorithm: return the next larger bit pattern with the same number
+// of set bits. Caller guarantees bits != 0 and complete enumeration uses n < 64.
+inline bitset64 next_same_cardinality(bitset64 bits) noexcept {
+  const bitset64 lowest = lowest_set_bit_as_bit(bits);
+  const bitset64 ripple = bits + lowest;
+  return ripple | (((ripple ^ bits) >> 2) / lowest);
+}
+
 // Keep members whose original strategy index is below pos. Counting them maps
 // an original strategy index to its row in a compact support-indexed matrix.
 inline bitset64 bits_before_pos(bitset64 bits, size_t pos) noexcept {
