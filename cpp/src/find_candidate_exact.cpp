@@ -1,230 +1,168 @@
 #include <fracessa/find_candidate_exact.hpp>
 
-#include <array>
+#include <flint/fmpq_mat.h>
+
+#include <cassert>
 #include <cstdint>
-#include <utility>
 
 namespace candidate_search {
 namespace {
 
-using permutation_array = std::array<uint8_t, bs64::kMaxBitsetDimension>;
-
-struct ldlt_result {
-    bool nonsingular;
-    bool negative_definite;
-};
-
-/*
- * The exact LDL^T factorization below stores only the lower triangle:
- *
- *   - entries strictly below a completed pivot block belong to the unit-lower triangular matrix L;
- *   - a 1x1 block of D is stored on the diagonal;
- *   - a 2x2 block of D is stored in its two diagonal positions and the one lower off-diagonal position.
- *
- * The upper triangle is not read. Accessing the active symmetric Schur complement through this helper therefore keeps every update in one place.
- */
-fraction& lower_entry(linalg::matrix_frc& matrix, size_t row, size_t column)
+const fmpq* raw_fraction(const fraction& value) noexcept
 {
-    return row >= column ? matrix(row, column) : matrix(column, row);
-}
-
-/*
- * Apply one symmetric permutation to the partially factored matrix.
- *
- * A row-only swap would destroy symmetry and would not preserve inertia. The same two indices must therefore be exchanged as both rows and columns.
- * The already completed columns contain L rather than the Schur complement, so their two row entries are swapped separately. The active lower
- * triangle is then permuted as a symmetric matrix, and the right-hand side receives the matching row permutation.
- */
-void swap_symmetric_indices(linalg::matrix_frc& system, size_t dimension, size_t completed_columns, size_t first, size_t second)
-{
-    if (first == second) return;
-
-    for (size_t column = 0; column < completed_columns; ++column) {
-        std::swap(system(first, column), system(second, column));
-    }
-
-    std::swap(system(first, dimension), system(second, dimension));
-    std::swap(system(first, first), system(second, second));
-
-    // The entry joining first and second is unchanged by exchanging both of its indices. Every other active entry touching either index is swapped.
-    for (size_t index = completed_columns; index < dimension; ++index) {
-        if (index == first || index == second) continue;
-        std::swap(lower_entry(system, first, index), lower_entry(system, second, index));
-    }
-}
-
-/*
- * Factor and solve one exact symmetric reduced system in place.
- *
- * On entry, the lower n-by-n triangle is the reduced Hessian H and column n is the right-hand side r. On successful return, that column contains
- * the solution in the current permuted order, while permutation[position] gives the original reduced coordinate represented by that position.
- *
- * Exact arithmetic removes the numerical reason for Bunch-Kaufman threshold choices, but symmetric indefinite matrices still need pivoting for
- * algebraic correctness. At each step:
- *
- *   1. Any nonzero diagonal entry is a valid 1x1 pivot.
- *   2. If every remaining diagonal is zero, any nonzero off-diagonal entry forms the nonsingular block [[0,a],[a,0]].
- *   3. If neither exists, the remaining Schur complement is the zero matrix, so H is singular.
- *
- * These symmetric permutations and block eliminations are congruences. By Sylvester's law of inertia, H is negative definite exactly when every
- * 1x1 D pivot is negative and no 2x2 block occurs. A zero-diagonal 2x2 block always has one positive and one negative eigenvalue.
- */
-ldlt_result factor_and_solve_reduced_system(linalg::matrix_frc& system, size_t dimension, permutation_array& permutation)
-{
-    // A value of 1 or 2 marks the first position of a D block; zero marks the second position of a 2x2 block.
-    std::array<uint8_t, bs64::kMaxBitsetDimension> block_sizes{};
-    for (size_t i = 0; i < dimension; ++i) {
-        permutation[i] = static_cast<uint8_t>(i);
-    }
-
-    bool negative_definite = true;
-    size_t pivot_position = 0;
-
-    while (pivot_position < dimension) {
-        // Prefer a 1x1 pivot. Magnitude comparisons are unnecessary because every operation and every zero test is exact.
-        size_t diagonal_pivot = dimension;
-        for (size_t i = pivot_position; i < dimension; ++i) {
-            if (!system(i, i).is_zero()) {
-                diagonal_pivot = i;
-                break;
-            }
-        }
-
-        if (diagonal_pivot != dimension) {
-            swap_symmetric_indices(system, dimension, pivot_position, pivot_position, diagonal_pivot);
-            std::swap(permutation[pivot_position], permutation[diagonal_pivot]);
-
-            block_sizes[pivot_position] = 1;
-            const fraction pivot = system(pivot_position, pivot_position);
-            if (pivot.sgn() >= 0) negative_definite = false;
-
-            // L(i,k)=H(i,k)/D(k,k). Compute every multiplier before the trailing Schur complement overwrites its source column.
-            for (size_t row = pivot_position + 1; row < dimension; ++row) {
-                system(row, pivot_position).div_inplace(pivot);
-            }
-
-            // H_next = H_trailing - L(:,k)*D(k,k)*L(:,k)^T.
-            fraction scaled_column_entry;
-            for (size_t row = pivot_position + 1; row < dimension; ++row) {
-                for (size_t column = pivot_position + 1; column <= row; ++column) {
-                    fraction::mul(scaled_column_entry, pivot, system(column, pivot_position));
-                    system(row, column).submul(system(row, pivot_position), scaled_column_entry);
-                }
-            }
-
-            ++pivot_position;
-            continue;
-        }
-
-        // Every remaining diagonal is zero. A nonzero off-diagonal entry is therefore the only possible nonsingular symmetric pivot.
-        size_t first_pivot = dimension;
-        size_t second_pivot = dimension;
-        for (size_t row = pivot_position + 1; row < dimension && first_pivot == dimension; ++row) {
-            for (size_t column = pivot_position; column < row; ++column) {
-                if (!system(row, column).is_zero()) {
-                    first_pivot = column;
-                    second_pivot = row;
-                    break;
-                }
-            }
-        }
-
-        if (first_pivot == dimension) {
-            return {false, false};
-        }
-
-        swap_symmetric_indices(system, dimension, pivot_position, pivot_position, first_pivot);
-        std::swap(permutation[pivot_position], permutation[first_pivot]);
-
-        swap_symmetric_indices(system, dimension, pivot_position, pivot_position + 1, second_pivot);
-        std::swap(permutation[pivot_position + 1], permutation[second_pivot]);
-
-        block_sizes[pivot_position] = 2;
-        block_sizes[pivot_position + 1] = 0;
-        negative_definite = false;
-
-        // The selected D block is [[0,a],[a,0]], whose inverse is [[0,1/a],[1/a,0]]. Multiplication by that inverse exchanges the two entries
-        // in every active row and divides both by a.
-        const fraction off_diagonal_pivot = system(pivot_position + 1, pivot_position);
-        for (size_t row = pivot_position + 2; row < dimension; ++row) {
-            const fraction first_entry = system(row, pivot_position);
-            const fraction second_entry = system(row, pivot_position + 1);
-            fraction::div(system(row, pivot_position), second_entry, off_diagonal_pivot);
-            fraction::div(system(row, pivot_position + 1), first_entry, off_diagonal_pivot);
-        }
-
-        // Subtract L_block*D_block*L_block^T from the trailing matrix. Because D has only the two off-diagonal entries a, each update has exactly
-        // the two cross-products written below.
-        fraction scaled_column_entry;
-        for (size_t row = pivot_position + 2; row < dimension; ++row) {
-            for (size_t column = pivot_position + 2; column <= row; ++column) {
-                fraction::mul(scaled_column_entry, off_diagonal_pivot, system(column, pivot_position + 1));
-                system(row, column).submul(system(row, pivot_position), scaled_column_entry);
-
-                fraction::mul(scaled_column_entry, off_diagonal_pivot, system(column, pivot_position));
-                system(row, column).submul(system(row, pivot_position + 1), scaled_column_entry);
-            }
-        }
-
-        pivot_position += 2;
-    }
-
-    /*
-     * Solve L*z=P^T*r by forward substitution. The lower off-diagonal entry inside a 2x2 pivot belongs to D, not L, and must be skipped. The
-     * right-hand side column is overwritten with z because its earlier entries are never needed again in their original form.
-     */
-    for (size_t row = 0; row < dimension; ++row) {
-        for (size_t column = 0; column < row; ++column) {
-            if (block_sizes[column] == 2 && row == column + 1) continue;
-            system(row, dimension).submul(system(row, column), system(column, dimension));
-        }
-    }
-
-    // Solve D*w=z one pivot block at a time, again in the right-hand side column. Every pivot is known to be nonsingular from the factorization.
-    for (size_t block = 0; block < dimension; ) {
-        if (block_sizes[block] == 1) {
-            system(block, dimension).div_inplace(system(block, block));
-            ++block;
-            continue;
-        }
-
-        const fraction first_rhs = system(block, dimension);
-        const fraction second_rhs = system(block + 1, dimension);
-        const fraction& off_diagonal_pivot = system(block + 1, block);
-        fraction::div(system(block, dimension), second_rhs, off_diagonal_pivot);
-        fraction::div(system(block + 1, dimension), first_rhs, off_diagonal_pivot);
-        block += 2;
-    }
-
-    // Solve L^T*y=w backwards. As in the forward solve, skip the one stored D entry inside every 2x2 block. The result remains in permuted coordinates.
-    for (size_t row = dimension; row-- > 0; ) {
-        for (size_t column = row + 1; column < dimension; ++column) {
-            if (block_sizes[row] == 2 && column == row + 1) continue;
-            system(row, dimension).submul(system(column, row), system(column, dimension));
-        }
-    }
-
-    return {true, negative_definite};
+    return const_cast<fraction&>(value).data();
 }
 
 } // namespace
 
 /*
- * Exact candidate construction for a proposed support S.
+ * Exact candidate solver for a symmetric payoff matrix.
  *
- * A mixed strategy x with support S is a symmetric Nash equilibrium when
+ * The constructor clears the rational denominators once for the whole game:
  *
- *   A_S x = u*1,          every used strategy earns the same payoff u,
- *   1^T x = 1,            probabilities sum to one,
- *   x_i > 0 for i in S,   S is the actual support,
- *   (A x)_i <= u outside S.
+ *     integer_game = game_denominator * game.
+ *
+ * The denominator is positive, so this scaling preserves every equality, inequality, and inertia sign used by candidate search and stability.
+ * Each support can therefore stay in integer arithmetic until a successful candidate is written to the public rational result.
  */
-find_candidate_exact::find_candidate_exact(const linalg::matrix_frc& game_matrix) noexcept
-    : game_frc_(game_matrix)
-    , dimension_(game_matrix.rows())
+find_candidate_exact::find_candidate_exact(const linalg::matrix_frc& game_matrix)
+    : dimension_(game_matrix.rows())
+    , ffldlt_workspace_(dimension_)
 {
+    fmpq_mat_t rational_game;
+    fmpq_mat_init(rational_game, static_cast<slong>(dimension_), static_cast<slong>(dimension_));
+    fmpz_mat_init(integer_game_, static_cast<slong>(dimension_), static_cast<slong>(dimension_));
+    fmpz_init(game_denominator_);
+
+    for (size_t row = 0; row < dimension_; ++row) {
+        for (size_t column = 0; column < dimension_; ++column) {
+            fmpq_set(fmpq_mat_entry(rational_game, static_cast<slong>(row), static_cast<slong>(column)), raw_fraction(game_matrix(row, column)));
+        }
+    }
+    fmpq_mat_get_fmpz_mat_matwise(integer_game_, game_denominator_, rational_game);
+    fmpq_mat_clear(rational_game);
+
+    fmpz_mat_init(reduced_system_, 0, 0);
+    fmpz_mat_init(right_hand_side_, 0, 0);
+    fmpz_mat_init(solution_numerators_, 0, 0);
+    fmpz_init(solution_denominator_);
+    fmpz_init(reference_numerator_);
+    fmpz_init(payoff_numerator_);
+    fmpz_init(payoff_denominator_);
+    fmpz_init(outside_payoff_numerator_);
 }
 
+find_candidate_exact::~find_candidate_exact()
+{
+    fmpz_clear(outside_payoff_numerator_);
+    fmpz_clear(payoff_denominator_);
+    fmpz_clear(payoff_numerator_);
+    fmpz_clear(reference_numerator_);
+    fmpz_clear(solution_denominator_);
+    fmpz_mat_clear(solution_numerators_);
+    fmpz_mat_clear(right_hand_side_);
+    fmpz_mat_clear(reduced_system_);
+    fmpz_clear(game_denominator_);
+    fmpz_mat_clear(integer_game_);
+}
+
+fmpz* find_candidate_exact::reduced_entry(size_t row, size_t column) noexcept
+{
+    return fmpz_mat_entry(reduced_system_, static_cast<slong>(row), static_cast<slong>(column));
+}
+
+fmpz* find_candidate_exact::right_hand_side_entry(size_t row) noexcept
+{
+    return fmpz_mat_entry(right_hand_side_, static_cast<slong>(row), 0);
+}
+
+fmpz* find_candidate_exact::solution_entry(size_t row) noexcept
+{
+    return fmpz_mat_entry(solution_numerators_, static_cast<slong>(row), 0);
+}
+
+const fmpz* find_candidate_exact::solution_entry(size_t row) const noexcept
+{
+    return fmpz_mat_entry(solution_numerators_, static_cast<slong>(row), 0);
+}
+
+const fmpz* find_candidate_exact::game_entry(size_t row, size_t column) const noexcept
+{
+    return fmpz_mat_entry(integer_game_, static_cast<slong>(row), static_cast<slong>(column));
+}
+
+void find_candidate_exact::resize_reduced_system(size_t reduced_dimension)
+{
+    if (reduced_dimension_ == reduced_dimension) return;
+
+    fmpz_mat_clear(solution_numerators_);
+    fmpz_mat_clear(right_hand_side_);
+    fmpz_mat_clear(reduced_system_);
+
+    reduced_dimension_ = reduced_dimension;
+    const slong size = static_cast<slong>(reduced_dimension_);
+    fmpz_mat_init(reduced_system_, size, size);
+    fmpz_mat_init(right_hand_side_, size, 1);
+    fmpz_mat_init(solution_numerators_, size, 1);
+}
+
+/*
+ * Eliminate the normalization and payoff border before factorization.
+ *
+ * Let m be the first strategy in support S and let Z have columns e_i-e_m for every other i in S. Every normalized support vector has the unique
+ * form x=e_m+Z*y. Multiplying A_S*x=u*1 by Z^T eliminates u and gives
+ *
+ *     H*y = r,       H = Z^T*A_S*Z,       r = -Z^T*A_S*e_m.
+ *
+ * The stored integer game is d*A for one positive d. We therefore build d*H and d*r below. This integer system has the same solution and inertia
+ * as the rational system, and H is nonsingular exactly when the original bordered candidate matrix is nonsingular.
+ */
+void find_candidate_exact::build_reduced_system(const uint8_t* support_indices, size_t reduced_dimension)
+{
+    const size_t reference = support_indices[0];
+    const fmpz* reference_diagonal = game_entry(reference, reference);
+
+    for (size_t row = 0; row < reduced_dimension; ++row) {
+        const size_t i = support_indices[row + 1];
+        fmpz_sub(right_hand_side_entry(row), reference_diagonal, game_entry(i, reference));
+
+        // The symmetric fraction-free factorization reads only the lower triangle.
+        for (size_t column = 0; column <= row; ++column) {
+            const size_t j = support_indices[column + 1];
+            fmpz* value = reduced_entry(row, column);
+            fmpz_set(value, game_entry(i, j));
+            fmpz_sub(value, value, game_entry(i, reference));
+            fmpz_sub(value, value, game_entry(reference, j));
+            fmpz_add(value, value, reference_diagonal);
+        }
+    }
+}
+
+void find_candidate_exact::calculate_integer_payoff(fmpz* value, size_t strategy, size_t reference, const uint8_t* support_indices,
+                                                     size_t reduced_dimension)
+{
+    fmpz_mul(value, game_entry(strategy, reference), reference_numerator_);
+    for (size_t position = 0; position < reduced_dimension; ++position) {
+        fmpz_addmul(value, game_entry(strategy, support_indices[position + 1]), solution_entry(position));
+    }
+}
+
+void find_candidate_exact::ensure_candidate_vector(candidate& result) const
+{
+    if (result.vector.rows() != dimension_ || result.vector.cols() != 1) result.vector = linalg::matrix_frc(dimension_, 1);
+}
+
+/*
+ * A mixed strategy x with support S is a symmetric Nash equilibrium exactly when
+ *
+ *     A_S*x = u*1,          every used strategy earns the same payoff u,
+ *     1^T*x = 1,            probabilities sum to one,
+ *     x_i > 0 for i in S,   S is the actual support,
+ *     (A*x)_i <= u outside S.
+ *
+ * The fraction-free LDL^T solve proves nonsingularity, returns all probabilities with one common denominator, and records the exact inertia of H.
+ * A failed test returns immediately; rational candidate fields are materialized only after every exact candidate condition succeeds.
+ */
 bool find_candidate_exact::find(const bitset64& support, size_t support_size, candidate& result, bool materialize_vector)
 {
     reduced_hessian_is_negative_definite_ = false;
@@ -234,125 +172,69 @@ bool find_candidate_exact::find(const bitset64& support, size_t support_size, ca
     const size_t support_count = bs64::extract_set_indices(support, dimension_, support_indices);
     const bitset64 complement = bs64::set_all_n_bits(dimension_) & ~support;
     const size_t non_support_count = bs64::extract_set_indices(complement, dimension_, non_support_indices);
+    assert(support_count == support_size);
+    static_cast<void>(support_size); // Support generators guarantee this invariant when assertions are disabled.
 
-    if (support_solution_.rows() != support_size) {
-        support_solution_ = linalg::matrix_frc(support_size, 1);
-    }
-
-    /*
-     * Eliminate the border before factorization.
-     *
-     * Let m be the first strategy in S and let Z have columns e_i-e_m for all other i in S. Every normalized support vector has the unique form
-     *
-     *     x = e_m + Z*y.
-     *
-     * Multiplying A_S*x=u*1 by Z^T eliminates the unknown payoff u and gives
-     *
-     *     H*y = r,       H = Z^T*A_S*Z,       r = -Z^T*A_S*e_m.
-     *
-     * In entries, for i,j in S without m,
-     *
-     *     H(i,j) = A(i,j)-A(i,m)-A(m,j)+A(m,m),
-     *     r(i)   = A(m,m)-A(i,m).
-     *
-     * H has size (|S|-1)-by-(|S|-1), is symmetric, and is nonsingular exactly when the original bordered candidate matrix is nonsingular. Thus the
-     * reduction loses neither solutions nor the singularity decision.
-     */
-    const size_t reference_index = support_indices[0];
-    const size_t reduced_dimension = support_size - 1;
+    const size_t reference = support_indices[0];
+    const size_t reduced_dimension = support_count - 1;
 
     if (reduced_dimension == 0) {
-        // The tangent space of a pure support has dimension zero. Its reduced Hessian is therefore vacuously negative definite, normalization fixes
-        // the sole probability at one, and no factorization is necessary.
-        support_solution_(0, 0) = fraction::one();
+        // A pure support has no tangent direction. Its reduced Hessian is vacuously negative definite and normalization fixes its probability at one.
+        fmpz_one(solution_denominator_);
+        fmpz_one(reference_numerator_);
         reduced_hessian_is_negative_definite_ = true;
     } else {
-        if (reduced_system_.rows() != reduced_dimension) {
-            // The final column holds r and is reused for all three triangular solves. The lower square triangle holds H and then its LDL^T.
-            reduced_system_ = linalg::matrix_frc(reduced_dimension, reduced_dimension + 1);
+        resize_reduced_system(reduced_dimension);
+        build_reduced_system(support_indices, reduced_dimension);
+
+        linalg::fraction_free_ldlt_inertia inertia;
+        if (!linalg::fmpz_mat_solve_ffldlt_inplace(solution_numerators_, solution_denominator_, reduced_system_, right_hand_side_, inertia,
+                                                    ffldlt_workspace_)) return false;
+        reduced_hessian_is_negative_definite_ = inertia.positive == 0;
+
+        // FLINT rationals require a positive denominator. Negating both sides leaves every exact solution value unchanged.
+        if (fmpz_sgn(solution_denominator_) < 0) {
+            fmpz_neg(solution_denominator_, solution_denominator_);
+            fmpz_mat_neg(solution_numerators_, solution_numerators_);
         }
 
-        const fraction& reference_diagonal = game_frc_(reference_index, reference_index);
-        for (size_t row = 0; row < reduced_dimension; ++row) {
-            const size_t i = support_indices[row + 1];
-
-            reduced_system_(row, reduced_dimension) = reference_diagonal;
-            reduced_system_(row, reduced_dimension) -= game_frc_(i, reference_index);
-
-            // Only the lower triangle is needed by the symmetric factorization.
-            for (size_t column = 0; column <= row; ++column) {
-                const size_t j = support_indices[column + 1];
-                fraction& value = reduced_system_(row, column);
-                value = game_frc_(i, j);
-                value -= game_frc_(i, reference_index);
-                value -= game_frc_(reference_index, j);
-                value += reference_diagonal;
-            }
-        }
-
-        permutation_array permutation{};
-        const ldlt_result factorization = factor_and_solve_reduced_system(reduced_system_, reduced_dimension, permutation);
-        if (!factorization.nonsingular) return false;
-        reduced_hessian_is_negative_definite_ = factorization.negative_definite;
-
-        /*
-         * The solved y values are in the symmetric permutation order chosen by LDL^T. Put them back into the original support order, then reconstruct
-         * the eliminated reference probability from normalization:
-         *
-         *     x_m = 1 - sum(y).
-         */
-        fraction reference_probability = fraction::one();
+        // The solved entries are the probabilities for S without the reference. Recover the reference probability from x_m=1-sum(y).
+        fmpz_set(reference_numerator_, solution_denominator_);
         for (size_t position = 0; position < reduced_dimension; ++position) {
-            const size_t original_reduced_position = permutation[position];
-            const fraction& probability = reduced_system_(position, reduced_dimension);
-            if (probability.sgn() <= 0) return false;
-
-            support_solution_(original_reduced_position + 1, 0) = probability;
-            reference_probability -= probability;
+            const fmpz* numerator = solution_entry(position);
+            if (fmpz_sgn(numerator) <= 0) return false;
+            fmpz_sub(reference_numerator_, reference_numerator_, numerator);
         }
-        if (reference_probability.sgn() <= 0) return false;
-        support_solution_(0, 0) = std::move(reference_probability);
+        if (fmpz_sgn(reference_numerator_) <= 0) return false;
     }
 
-    // The reduction eliminated u. Recover it from the reference row of A_S*x; the reduced equations prove that every other support row has the same sum.
-    fraction payoff = fraction::zero();
-    for (size_t position = 0; position < support_count; ++position) {
-        payoff.addmul(game_frc_(reference_index, support_indices[position]), support_solution_(position, 0));
-    }
+    // Recover the common support payoff from the reference row. Its denominator is game_denominator*solution_denominator.
+    calculate_integer_payoff(payoff_numerator_, reference, reference, support_indices, reduced_dimension);
 
     result.extended_support = support;
-
-    // Exact outside-support inequalities finish the Nash equilibrium check and collect every unused pure strategy tying the equilibrium payoff.
-    for (size_t i_pos = 0; i_pos < non_support_count; ++i_pos) {
-        const size_t i = non_support_indices[i_pos];
-        fraction rowsum = fraction::zero();
-        for (size_t j_pos = 0; j_pos < support_count; ++j_pos) {
-            rowsum.addmul(game_frc_(i, support_indices[j_pos]), support_solution_(j_pos, 0));
-        }
-
-        if (rowsum > payoff) return false;
-        if (rowsum == payoff) {
-            result.extended_support = bs64::set_bit_at_pos(result.extended_support, i);
-        }
+    for (size_t position = 0; position < non_support_count; ++position) {
+        const size_t outside_strategy = non_support_indices[position];
+        calculate_integer_payoff(outside_payoff_numerator_, outside_strategy, reference, support_indices, reduced_dimension);
+        const int comparison = fmpz_cmp(outside_payoff_numerator_, payoff_numerator_);
+        if (comparison > 0) return false;
+        if (comparison == 0) result.extended_support = bs64::set_bit_at_pos(result.extended_support, outside_strategy);
     }
 
-    result.payoff = payoff;
-    result.payoff_dbl = payoff.to_dbl();
+    fmpz_mul(payoff_denominator_, game_denominator_, solution_denominator_);
+    fmpq_set_fmpz_frac(result.payoff.data(), payoff_numerator_, payoff_denominator_);
+    result.payoff_dbl = result.payoff.to_dbl();
     result.extended_support_size = bs64::count_set_bits(result.extended_support);
 
-    // Stability uses only the support, extended support, payoff, and the stored reduced-Hessian sign. Materialize the dense n-vector only for requested
-    // candidate output or logging.
+    // Stability does not consume the dense probability vector. Build it only when candidate output or logging requested it.
     if (materialize_vector) {
-        if (result.vector.rows() != dimension_ || result.vector.cols() != 1) {
-            result.vector = linalg::matrix_frc(dimension_, 1);
-        }
-        for (size_t i_pos = 0; i_pos < non_support_count; ++i_pos) {
-            result.vector(non_support_indices[i_pos], 0) = fraction::zero();
-        }
-        for (size_t i_pos = 0; i_pos < support_count; ++i_pos) {
-            result.vector(support_indices[i_pos], 0) = support_solution_(i_pos, 0);
+        ensure_candidate_vector(result);
+        for (size_t position = 0; position < non_support_count; ++position) result.vector(non_support_indices[position], 0) = fraction::zero();
+        fmpq_set_fmpz_frac(result.vector(reference, 0).data(), reference_numerator_, solution_denominator_);
+        for (size_t position = 0; position < reduced_dimension; ++position) {
+            fmpq_set_fmpz_frac(result.vector(support_indices[position + 1], 0).data(), solution_entry(position), solution_denominator_);
         }
     }
+
     return true;
 }
 

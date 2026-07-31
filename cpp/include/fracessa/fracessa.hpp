@@ -56,8 +56,8 @@ public:
     std::vector<candidate> candidates_;
 
 private:
-    // The exact game is owned once. Each candidate procedure stores a reference
-    // to it and owns only its own reusable work matrices.
+    // fracessa owns the rational game used by stability and the three floating-point procedures.
+    // The exact procedure owns one integer-scaled copy.
     linalg::matrix_frc game_matrix_;
     candidate_search::find_candidate_verified find_candidate_verified_;
     candidate_search::find_candidate_unsafe find_candidate_unsafe_;

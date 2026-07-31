@@ -160,7 +160,7 @@ and typical determinant bounds fit fixed width.
 
 ### 3. Solve the candidate and classify the common stability case with one factorization
 
-**Implemented in the rational exact kernel.** The original bordered candidate
+**Implemented in the integer fraction-free exact kernel.** The original bordered candidate
 system can be written as the symmetric KKT matrix
 
 $$
@@ -185,9 +185,9 @@ Hy=r,\qquad H=Z^TA_SZ,\qquad r=-Z^TA_Se_m.
 $$
 
 This reduces a support of size $k$ from a $(k+1)$-dimensional bordered
-system to one symmetric $(k-1)$-dimensional system. One exact
-congruence-preserving $LDL^T$ factorization, with 1-by-1 pivots and the exact
-zero-diagonal 2-by-2 pivot when required, now provides all of the following:
+system to one symmetric $(k-1)$-dimensional system. The game denominators are
+cleared once, after which one exact fraction-free congruence factorization of
+the integer-scaled system provides all of the following:
 
 1. nonsingularity of the exact candidate system;
 2. the exact solution;
@@ -204,11 +204,12 @@ The retained data make this unusually relevant: 49,064 of 49,157 stored
 candidate representatives (99.811%) have `extended_support == support`.
 Weighted by circular multipliers, the corresponding share is 98.95%.
 
-The first implementation deliberately retains the existing `fraction` type and
-does not introduce a second linear-algebra abstraction. Replacing its rational
-inner loop with the integer/fraction-free FLINT kernel discussed above remains
-a separate measured optimization; the mathematical reduction and stability
-reuse do not need to change.
+The reusable FLINT-style kernel keeps Bareiss updates in `fmpz_t`. A nonzero
+active diagonal gives a 1-by-1 pivot. If every active diagonal is zero but the
+matrix is nonsingular, one unimodular symmetric coordinate addition creates a
+nonzero diagonal without changing determinant or inertia; the solve undoes that
+coordinate change before returning. Production constructs `fraction` values
+only after every candidate condition succeeds.
 
 ### 4. Strict-concavity fast path: one equilibrium, no support enumeration
 
@@ -408,8 +409,9 @@ memory ownership again.
 1. **Implemented:** reduce the bordered candidate system to $H=Z^TA_SZ$, solve
    it with exact symmetric $LDL^T$, return inertia, and bypass Bee whenever
    that inertia decides stability.
-2. Benchmark an integer/fraction-free FLINT replacement for the retained
-   rational $LDL^T$ arithmetic without changing the reduction or public flow.
+2. **Implemented:** replace rational $LDL^T$ arithmetic with the measured
+   fraction-free FLINT-style integer kernel without changing the reduction or
+   public flow.
 3. Add exact recognition for the complete-multipartite/graph family that
    dominates retained time, using the narrowest theorem-backed detector.
 4. Test the global strict-concavity and automatic full-support fast paths.

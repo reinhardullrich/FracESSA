@@ -1,6 +1,6 @@
 # Project Knowledge
 
-Last verified: 2026-07-31
+Last verified: 2026-08-01
 
 ## Source-Code Approval Gate
 
@@ -177,14 +177,18 @@ Important implementation points:
 - `find_candidate_very_unsafe` owns the direct, unnormalized binary64
   conversion and historical bordered solve. It intentionally retains the old
   pivot cutoff and margins that can reject exact candidates.
-- `find_candidate_exact` eliminates the normalization/payoff border, constructs
-  the symmetric reduced Hessian $H=Z^T A_S Z$ and reduced right-hand side in
-  reusable exact storage, then solves them with a congruence-preserving rational
-  $LDL^T$ factorization using exact 1-by-1 or 2-by-2 pivots. The same
-  factorization proves singularity and records the inertia needed by stability.
-- `fracessa` owns one exact game. All four concrete candidate classes store a
-  reference to it, so no game matrix is copied between procedures.
-- Exact arithmetic uses FLINT `fmpq_t` through `linalg::fraction`.
+- `find_candidate_exact` clears the game's rational denominators once, eliminates
+  the normalization/payoff border, and constructs the integer-scaled symmetric
+  reduced system $dH y=dr$ in reusable FLINT storage. One fraction-free
+  $LDL^T$-style factorization solves the candidate, proves singularity, and
+  records the exact inertia needed by stability. Rational values are constructed
+  only for successful public candidate output.
+- `fracessa` owns the rational game used by stability. The three floating-point
+  procedures refer to it, while `find_candidate_exact` owns one integer-scaled
+  copy for all exact candidate solves.
+- Exact candidate factorization and validation use FLINT `fmpz_t` integers;
+  public rational results and the retained Bomze stability fallback use FLINT
+  `fmpq_t` through `linalg::fraction`.
 - Stability reuses the exact reduced-Hessian inertia. A non-negative-definite
   support Hessian rejects ESS immediately; a negative-definite Hessian proves
   ESS immediately when extended support equals support. Only the rare
@@ -218,7 +222,10 @@ Key files:
   unnormalized conversion, and heuristic solve.
 - `cpp/include/fracessa/find_candidate_exact.hpp` and
   `cpp/src/find_candidate_exact.cpp`: exact class, border elimination,
-  block-pivoted rational $LDL^T$, inertia, and candidate construction.
+  integer candidate validation, and candidate construction.
+- `cpp/include/linalg/flint_style_fraction_free_ldlt.hpp`: reusable in-place
+  fraction-free symmetric solve, exact inertia, and zero-diagonal coordinate
+  handling.
 - `cpp/include/fracessa/fracessa.hpp` and `cpp/src/fracessa.cpp`: exact game
   ownership, mode coordination, support search, and candidate lifecycle.
 - `cpp/src/checkstab.cpp`: stability classification.
@@ -342,9 +349,17 @@ versus 326.256 seconds for current $LDL^T$ (74.50% lower) and only 0.30% above
 candidate-only FFLU. It loses all 26 dimension-2-to-8 rows, wins 26 of 28
 dimension-9-to-16 rows, and wins 27 of 28 dimension-17-to-25 rows; the large
 exception is ID 51, whose 20 visited supports are all candidates. This supports
-an integer-FFLU screening experiment for substantive searches, followed by
-the exact fraction-free reduced-Hessian test only for candidates; it does not
-support an unconditional replacement on tiny searches.
+the fraction-free reduced-Hessian solver used by production. The original
+experiment remains the immutable comparison against the former rational kernel.
+
+The first production comparison against preserved rational revision `799be715`
+used one persistent Pybind process per build, native nanosecond medians, a
+one-second target, CPU 2, and nine circular/non-circular matrices spanning
+dimensions 3 through 23. The fraction-free exact path improved the median
+per-matrix time by 78.33% and the arithmetic mean percentage by 56.32%. The
+only regression was the dimension-4 circular ID 69, from 0.792 to 0.833
+microseconds. Substantive cases improved by 61.48% to 94.84%; ID 51 improved
+by 2.42% because its 20 visited supports are all candidates.
 
 The former JSON/CSV verification, baseline-generation, speed-benchmark, and
 Callgrind runners were removed. There is no replacement matrix-verification

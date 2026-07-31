@@ -319,17 +319,16 @@ Equality and overlap with zero require the exact solver.
 
 ## Production Source Ownership
 
-`fracessa` owns the exact game once and coordinates four stages. The three
-candidate procedures are concrete classes. Each stores a reference to that
-exact game and owns only its own reusable matrices; no matrix is copied between
-the classes.
+`fracessa` owns the rational game and coordinates four candidate procedures.
+The three floating-point procedures refer to that game. The exact procedure
+owns one denominator-cleared integer copy and its reusable solve matrices.
 
 | File | Responsibility |
 | --- | --- |
 | `cpp/include/fracessa/fracessa.hpp`, `cpp/src/fracessa.cpp` | Own the game, mode objects, candidate lifecycle, search, and final output. |
 | `cpp/include/fracessa/find_candidate_verified.hpp`, `cpp/src/find_candidate_verified.cpp` | Own lazy rigorous bounds and strict proof scratch; return false only for a proven non-candidate. |
 | `cpp/include/fracessa/find_candidate_unsafe.hpp`, `cpp/src/find_candidate_unsafe.cpp` | Own unsafe normalization and heuristic solve scratch. |
-| `cpp/include/fracessa/find_candidate_exact.hpp`, `cpp/src/find_candidate_exact.cpp` | Own exact bordered scratch and construct the exact candidate. |
+| `cpp/include/fracessa/find_candidate_exact.hpp`, `cpp/src/find_candidate_exact.cpp` | Own the integer-scaled game and fraction-free reduced-system scratch; construct the exact candidate and inertia. |
 | `cpp/src/checkstab.cpp` | Build and reuse the exact Bee matrix stored by `fracessa`, then classify stability. |
 
 The former `MatrixServer` and mixed `findeq.cpp` no longer exist. Stability
@@ -466,8 +465,9 @@ solver rewrite, support-generator change, or parser change was added.
   exact, normalized unsafe, or historical very unsafe search. Pybind and
   `RunConfig` expose the same string selector.
 - Verified, unsafe, very unsafe, and exact candidate search are concrete state-owning classes
-  with matching HPP/CPP files. `fracessa` owns one exact game and each class
-  stores a reference to it; the former `MatrixServer` and `findeq.cpp` are gone.
+  with matching HPP/CPP files. `fracessa` owns the rational game; the three
+  floating-point procedures refer to it and the exact procedure owns one
+  integer-scaled copy. The former `MatrixServer` and `findeq.cpp` are gone.
 - The verified proof source is a separate object target compiled without fast-math,
   floating-point contraction, or IPO/LTO. One centralized build/runtime check
   refuses unavailable verified mode before enumeration; exact and unsafe remain
