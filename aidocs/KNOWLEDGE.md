@@ -17,6 +17,12 @@ Last verified: 2026-07-31
    Reinhard's direct review and acceptance before continuing with further code
    changes.
 
+## Line Width
+
+1. Use 120 columns as a soft line-width target for C++, Python, comments, and Markdown.
+2. Do not wrap lines merely to satisfy the traditional 80-column limit.
+3. Exceed 120 columns when splitting a formula, command, URL, matrix, or readable expression would make it harder to understand.
+
 ## Priorities
 
 1. Correctness is absolute; speed is second. Other concerns are secondary.
@@ -50,6 +56,7 @@ Last verified: 2026-07-31
 - Main implementation: `cpp/`
 - Python API: `python/`
 - Canonical test data: `testdata/fracessa_testdata.sqlite3`
+- Research papers: `research/papers/`
 - Historical benchmark material: `experiments/`
 - Inactive historical tooling: `archive/`
 - Agent documentation: `aidocs/`
