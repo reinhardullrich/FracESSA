@@ -521,3 +521,8 @@ check confirmed fewer instructions, branches, and cycles. Disabling strict alias
 reduced, but did not remove, the gap, isolating compiler code generation as the source and alias optimization as one contributor;
 no mathematical algorithm or storage-copy operation changed. The canonical database now contains 400 timing rows and passes
 integrity and foreign-key checks.
+236. Fixed one canonical compiler configuration for performance comparisons:
+documented the exact Release/native/LTO Ninja build through the system ccache compiler wrappers, prohibited method-specific and
+unrequested floating-point, aliasing, sanitizer, profiling, debug, or optimization flags, and required both revisions in a source
+comparison to use the same clean toolchain and dependency environment. Toolchain changes now start a separately recorded benchmark
+lineage; only explicitly requested and labelled experiments may deviate from the canonical configuration.

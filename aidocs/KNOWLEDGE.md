@@ -265,6 +265,30 @@ directly.
 When sandboxing blocks the normal ccache directory, rerun the build with
 escalated filesystem access rather than disabling or redirecting ccache.
 
+### Canonical Performance Build
+
+Unless the user explicitly requests a compiler experiment, every stored performance benchmark and every build compared with it
+must use this configuration:
+
+```bash
+CC=/usr/lib64/ccache/cc CXX=/usr/lib64/ccache/c++ cmake -S cpp -B cpp/build-benchmark -G Ninja \
+    -DCMAKE_BUILD_TYPE=Release -DBUILD_TESTING=OFF -DFRACESSA_NATIVE_ARCH=ON
+cmake --build cpp/build-benchmark --target fracessa fracessa_core --parallel
+```
+
+The CMake configuration is the source of truth; do not reproduce or amend its flags by hand. On the current Fedora/GCC toolchain
+it produces `-O3 -DNDEBUG -funroll-loops -march=native` plus IPO/LTO (`-flto=auto -fno-fat-lto-objects`). A configure where CMake's
+IPO check fails is not a canonical benchmark build. Do not add floating-point, aliasing, sanitizer, profiling, debug, or alternate
+optimization flags. In particular, fast, safe, and test are runtime methods in the same `fracessa_core` binary and must never be
+compiled with method-specific settings.
+
+Both sides of a comparison must be clean revisions built afresh with the same compiler executable and version, CMake version,
+generator, dependency versions, and command above. The current reference toolchain is GCC 16.1.1, CMake 4.3.0, and Ninja 1.13.2.
+A toolchain upgrade starts a new benchmark lineage and must be recorded in the timing comment; it must not be presented as a
+source-only comparison with older rows. Canonical timing then uses the existing CPU-2, persistent-Pybind, one-second native-median
+protocol. An explicitly requested compiler experiment must be labelled as an experiment, record every deviation, and must not
+replace canonical rows.
+
 `cmake --install cpp/build` installs the CLI target only. It does not install
 GMP, MPFR, or FLINT.
 
