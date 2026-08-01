@@ -122,7 +122,7 @@ def compute_matrix(method: SearchMethod, matrix: Matrix, config: RunConfig, run_
     dictionary is the canonical result shape consumed by every file sink.
 
     Args:
-        method: Required candidate-search method, ``"fast"`` or ``"safe"``.
+        method: Required candidate-search method: ``"fast"``, ``"safe"``, or experimental ``"test"``.
         matrix: Validated matrix input.
         config: Native analysis options.
         run_id: Identifier attached to the result and candidate rows.

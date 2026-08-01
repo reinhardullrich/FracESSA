@@ -18,7 +18,8 @@ search_method parse_search_method(std::string_view name)
 {
     if (name == "fast") return search_method::fast;
     if (name == "safe") return search_method::safe;
-    throw std::invalid_argument("Unknown search method '" + std::string(name) + "'; expected fast or safe");
+    if (name == "test") return search_method::test;
+    throw std::invalid_argument("Unknown search method '" + std::string(name) + "'; expected fast, safe, or test");
 }
 
 fracessa::fracessa(search_method method, const linalg::matrix_frc& matrix, bool is_cs, bool with_candidates,
@@ -27,6 +28,7 @@ fracessa::fracessa(search_method method, const linalg::matrix_frc& matrix, bool 
     : game_matrix_(matrix)
     , find_candidate_fast_(game_matrix_)
     , find_candidate_safe_(game_matrix_)
+    , find_candidate_test_(game_matrix_)
     , dimension_(matrix.rows())
     , conf_with_candidates_(with_candidates)
     , method_(method)
@@ -56,8 +58,11 @@ fracessa::fracessa(search_method method, const linalg::matrix_frc& matrix, bool 
     }
 
     if (method_ == search_method::fast) {
-        find_candidate_fast_.convert_game_matrix();
-        if (find_candidate_fast_.input_warnings()) method_ = search_method::safe;
+        find_candidate_fast_.convert_game_matrix(find_candidate_safe_);
+        if (find_candidate_fast_.requires_safe_fallback()) method_ = search_method::safe;
+    } else if (method_ == search_method::test) {
+        find_candidate_test_.convert_game_matrix(find_candidate_safe_);
+        if (find_candidate_test_.requires_safe_fallback()) method_ = search_method::safe;
     }
 
     if (conf_full_support_) {
@@ -106,6 +111,7 @@ fracessa::fracessa(search_method method, const linalg::matrix_frc& matrix, bool 
 
 bool fracessa::analyze_support(bitset64 support, size_t support_size) {
     if (method_ == search_method::fast && !find_candidate_fast_.find(support, support_size)) return false;
+    if (method_ == search_method::test && !find_candidate_test_.find(support, support_size)) return false;
     const bool needs_candidate_vector = conf_with_candidates_ || conf_with_log_;
     if (!find_candidate_safe_.find(
             support, support_size, candidate_, needs_candidate_vector))

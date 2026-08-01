@@ -7,11 +7,12 @@ Fast ESS analysis for symmetric games with exact rational verification.
 
 FracESSA is a C++17 command-line tool for Evolutionary Stable Strategy (ESS) search on symmetric payoff matrices.
 It is designed for raw speed in large support-space scans, with an exact-only
-safe method and a faster heuristic method.
+safe method, a faster heuristic method, and an isolated experimental copy of that heuristic.
 
 ## Why FracESSA
 - Required method choice: `fast` uses binary64 rejection before exact checks;
   `safe` uses exact FLINT arithmetic from the start.
+- Experimental `test` independently copies `fast` so proposed numerical guards can be measured without changing production fast search.
 - Bitset-based support enumeration over a `2^n` search space.
 - Optimized for many repeated operations on small/medium matrix dimensions.
 - Circular-symmetric and general symmetric matrix input support.
@@ -48,7 +49,7 @@ syntax. The 64-bit mask is storage, not support for a dimension-64 search.
 
 ## CLI Flags
 
-The first positional argument is required and must be `fast` or `safe`; there
+The first positional argument is required and must be `fast`, `safe`, or experimental `test`; there
 is no default method.
 
 - `-c, --candidates` include candidate rows in output.
@@ -57,11 +58,12 @@ is no default method.
 - `-t, --timing` print analyzer timing in nanoseconds.
 - `-m, --matrixid` optional signed 64-bit matrix ID for logging/verification runs.
 
-`fast` uses the historical raw-double heuristic without normalization and can
-miss exact candidates and ESS results. If any of its six exact-to-double input
-checks detects a risky conversion, fast filtering is bypassed for the whole
-matrix and candidate search proceeds safely. `safe` bypasses floating-point
-candidate rejection and uses exact arithmetic for every support.
+`fast` uses an unnormalized binary64 matrix and bordered Gaussian solve. One exact integer precision-span check switches the
+whole matrix to safe search when $P\geq10^9$, and a pivot below $10^{-12}$ sends that support to exact checking. The remaining
+probability and outside-payoff rejections are heuristic, so `fast` is not a mathematical correctness certificate. `safe`
+bypasses floating-point candidate rejection and uses exact arithmetic for every support.
+
+`test` is an independent source copy of `fast` for numerical experiments. It currently has the same behavior as `fast`.
 
 Output format:
 - line 1: ESS count

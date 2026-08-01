@@ -22,7 +22,7 @@ int main(int argc, char *argv[])
     program.add_argument("-f", "--fullsupport").help("search full support directly").implicit_value(true).default_value(false);
     program.add_argument("-t", "--timing").help("output computation time in nanoseconds").implicit_value(true).default_value(false);
     program.add_argument("-m", "--matrixid").help("optional matrix ID").scan<'i', std::int64_t>().default_value(std::int64_t{-1});
-    program.add_argument("method").help("candidate search method: fast or safe");
+    program.add_argument("method").help("candidate search method: fast, safe, or test");
     program.add_argument("matrix").help("the matrix to compute");
 
     try { program.parse_args(argc, argv); }

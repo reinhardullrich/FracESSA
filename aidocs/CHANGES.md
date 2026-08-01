@@ -470,3 +470,37 @@ when any of the six one-time exact-to-double conversion checks triggers, the ana
 removed the verified proof implementation and its strict floating-point build target; renamed raw `find_candidate_unsafe` to `find_candidate_fast` and exact `find_candidate_exact` to `find_candidate_safe`; and replaced the old mode enum, flags, defaults, and `RunConfig.mode` with a required first `fast` or `safe` argument in the CLI, Pybind, sequential Python, and multiprocessing APIs. Fast retains its six matrix-wide safe-fallback checks and exact confirmation of every surviving support; safe starts directly with exact candidate solving. The timing tool now accepts `--method`, maps those two choices onto historical binary interfaces only inside the benchmark adapter, and preserves the SQLite column name while allowing new labels. Werner default and the preserved pre-mode default rows were relabeled `fast`, and Werner exact rows were relabeled `safe`; the later three-mode snapshot retains its historical labels. Release passed all 10 C++/CLI tests and all 56 Python tests; SQLite integrity and foreign keys pass.
 227. Benchmarked the committed current fast method:
 rebuilt revision `8697ebaf`, kept one Pybind process pinned to CPU 2, and measured every retained matrix with dimension at least 3 using the one-second target and median native nanoseconds. All 78 observed ESS counts match the canonical database. Dimension-2 matrices were excluded by benchmark policy. The stored module SHA-256 is `dfe70370e674c5e766067ab65526a5e3b58c484f581db36ed52d280c8c169b9f`; SQLite integrity passes.
+228. Documented a current fast false rejection:
+constructed an exact symmetric three-strategy game whose full-support candidate $(1/3,1/3,1/3)$ is an ESS, while the raw-double elimination produces a $7.5\times10^{-13}$ pivot and rejects it against the retained $10^{-12}$ cutoff. The matrix passes all six matrix-wide input checks, separating this failure from the input-conversion regressions at IDs 38-39 and the retired normalized-heuristic regressions at IDs 45-47. The exact proof and CLI reproduction are preserved in `correctness/FAST_CANDIDATE_FALSE_REJECTION.md`; the matrix is not yet in canonical SQLite data.
+229. Completed the fast false-rejection construction for the remaining candidate conditions:
+after changing only small pivots to safe fallback in an isolated Release build, constructed one exact three-strategy ESS whose
+strictly positive $10^{-10}$ probability is computed as negative and one exact four-strategy ESS whose outside strategy is
+strictly worse by $10^{-4}$ but is computed above the fast rejection margin. Branch-isolated runs recover each ESS only when its
+corresponding probability or outside-payoff rejection is changed to safe fallback. All three exact constructions and
+reproductions are preserved in `correctness/FAST_CANDIDATE_FALSE_REJECTION.md`; production source and canonical SQLite data remain
+unchanged.
+230. Added an independent experimental test candidate search:
+copied fast double matrix storage, bordered Gaussian elimination, probability test, and outside-payoff test into new
+`find_candidate_test` HPP/CPP files so experiments cannot change or share production fast behavior. Test search replaces fast's
+six conversion checks with the exact integer precision span $P=M/m$ after clearing the matrix's least common positive
+denominator, selects matrix-wide safe fallback before double conversion when $P\geq10^9$, and sends a support to exact checking
+when either bordered pivot is below $10^{-12}$. The CLI, native binding, and maintained Python
+execution APIs accept required method `test`; the canonical timing schema and stored database remain unchanged. Boundary tests
+cover $P<10^9$, $P=10^9$, tiny values, and close large values. The three documented fast false-rejection games produce ESS
+counts fast/test/safe of 0/1/1, 0/1/1, and 1/2/2. All 10 C++/CLI tests and all 56 Python tests pass.
+231. Added all three current fast false-rejection counterexamples to canonical test data:
+stored the pivot-cutoff, positive-probability, and outside-payoff games as non-circular IDs 91-93 with their complete exact
+candidate rows. Their fast/test/safe ESS counts are `0/1/1`, `0/1/1`, and `1/2/2`. The database now contains 90 distinct
+matrices, 49,161 candidate representatives, 86,156 weighted candidates, and 83,381 weighted ESS. SQLite integrity, foreign keys,
+summary counts, support-size structures, and freshly recomputed safe candidate contracts pass. No timing rows were added.
+232. Removed duplicate exact matrix preparation from experimental test search:
+the precision-span decision now reads the safe solver's existing integer-scaled game and common denominator instead of allocating
+another rational matrix, integer matrix, and denominator and repeating FLINT's denominator clearing. Matrix 11 remains correct at
+14 ESS; five alternating one-second CPU-2 batches measured fast at 5.833 microseconds and test at 6.125 microseconds, leaving a
+5.00% test overhead instead of the earlier roughly 15-17%. All 10 C++/CLI tests and all 56 Python tests pass, and the three fast
+false-rejection regressions still produce the expected test ESS counts 1, 1, and 2.
+233. Promoted the experimental test candidate logic to production fast search:
+fast now uses the safe solver's existing integer game for the exact $P\geq10^9$ matrix-wide fallback, converts directly to the
+unnormalized binary64 matrix otherwise, and treats every pivot below $10^{-12}$ as inconclusive so exact arithmetic decides that
+support. Test remains an independent source copy and is currently behaviorally identical to fast. All 10 C++/CLI tests and all 56
+Python tests pass. Regression IDs 91-93 now produce fast/test/safe ESS counts `1/1/1`, `1/1/1`, and `2/2/2`.

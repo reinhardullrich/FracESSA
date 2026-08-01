@@ -2,8 +2,10 @@
 
 #include <flint/fmpq_mat.h>
 
+#include <algorithm>
 #include <cassert>
 #include <cstdint>
+#include <vector>
 
 namespace candidate_search {
 namespace {
@@ -89,6 +91,59 @@ const fmpz* find_candidate_safe::solution_entry(size_t row) const noexcept
 const fmpz* find_candidate_safe::game_entry(size_t row, size_t column) const noexcept
 {
     return fmpz_mat_entry(integer_game_, static_cast<slong>(row), static_cast<slong>(column));
+}
+
+/*
+ * Let d be the least common positive denominator of the game and Z=d*A its integer matrix. The exact precision span is
+ *
+ *     P = M/m,
+ *     M = max(d, max |Z_ij|),
+ *     m = min(d, nonzero |Z_ij|, nonzero |Z_ij-Z_kl|).
+ *
+ * The scale d represents the 1 and -1 entries in the bordered double system. After sorting the symmetric upper triangle, only
+ * adjacent distinct integers need to be compared to find the smallest nonzero pairwise difference.
+ */
+bool find_candidate_safe::precision_span_at_least(unsigned long limit) const
+{
+    const size_t entry_count = dimension_ * (dimension_ + 1) / 2;
+    std::vector<const fmpz*> entries(entry_count);
+
+    size_t position = 0;
+    for (size_t row = 0; row < dimension_; ++row) {
+        for (size_t column = row; column < dimension_; ++column) {
+            entries[position++] = game_entry(row, column);
+        }
+    }
+    std::sort(entries.begin(), entries.end(), [](const fmpz* left, const fmpz* right) { return fmpz_cmp(left, right) < 0; });
+
+    fmpz_t maximum;
+    fmpz_t minimum;
+    fmpz_t difference;
+    fmpz_t scaled_minimum;
+    fmpz_init_set(maximum, game_denominator_);
+    fmpz_init_set(minimum, game_denominator_);
+    fmpz_init(difference);
+    fmpz_init(scaled_minimum);
+
+    for (const fmpz* entry : entries) {
+        if (fmpz_is_zero(entry)) continue;
+        if (fmpz_cmpabs(entry, maximum) > 0) fmpz_abs(maximum, entry);
+        if (fmpz_cmpabs(entry, minimum) < 0) fmpz_abs(minimum, entry);
+    }
+    for (size_t index = 1; index < entries.size(); ++index) {
+        if (fmpz_equal(entries[index - 1], entries[index])) continue;
+        fmpz_sub(difference, entries[index], entries[index - 1]);
+        if (fmpz_cmp(difference, minimum) < 0) fmpz_set(minimum, difference);
+    }
+
+    fmpz_mul_ui(scaled_minimum, minimum, static_cast<ulong>(limit));
+    const bool result = fmpz_cmp(maximum, scaled_minimum) >= 0;
+
+    fmpz_clear(scaled_minimum);
+    fmpz_clear(difference);
+    fmpz_clear(minimum);
+    fmpz_clear(maximum);
+    return result;
 }
 
 void find_candidate_safe::resize_reduced_system(size_t reduced_dimension)

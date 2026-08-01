@@ -124,10 +124,12 @@ the exact fractions. Support masks have 64 storage bits, but complete
 enumeration requires the exclusive `2^n` bound, so dimension 64 is not
 supported.
 
-Every entry surface requires one of two search methods before the matrix; there is no default. `safe` uses exact arithmetic for
-every candidate decision. `fast` first uses the historical raw-double heuristic without normalization and then confirms every
-surviving support exactly. Six one-time exact-to-double input checks switch the whole matrix from `fast` to `safe`; otherwise the
-heuristic can still reject exact candidates and ESS results.
+Every entry surface requires one of three search methods before the matrix; there is no default. `safe` uses exact arithmetic for
+every candidate decision. `fast` uses the unnormalized raw-double heuristic only after an exact integer precision-span check and
+then confirms every surviving support exactly. A matrix with $P\geq10^9$ switches entirely to `safe`, and a support with a pivot
+below $10^{-12}$ reaches exact checking. Its remaining probability and outside-payoff rejections are heuristic. Experimental
+`test` is an independent source copy of `fast`, not a wrapper around it; it currently has identical behavior and can be changed
+without changing production fast search.
 
 ## Computation Flow
 
@@ -136,7 +138,7 @@ CLI or pybind input
   -> matrix_parser
   -> fracessa constructor
   -> support generation and pruning
-  -> optional find_candidate_fast heuristic
+  -> optional find_candidate_fast or find_candidate_test heuristic
   -> find_candidate_safe
   -> check_stability
   -> ESS/candidate output
@@ -162,17 +164,21 @@ Important implementation points:
 - Newly found exact candidates are pending until the next cardinality, keeping
   each generator layer's pruning rules stable. Stability is irrelevant to this
   pruning rule: every exact equilibrium support forbids later strict supersets.
-- `find_candidate_fast` owns the direct, unnormalized binary64 conversion and historical bordered solve. Six one-time input
-  checks select matrix-wide safe fallback for risky conversions. Otherwise it intentionally retains the old pivot cutoff and
-  margins that can reject exact candidates.
+- `find_candidate_fast` owns the direct, unnormalized binary64 conversion and bordered solve. One exact matrix-wide precision-span
+  test reads the safe solver's already prepared integer game and common denominator. A matrix with $P\geq10^9$ switches to safe
+  search before double allocation or conversion. Every pivot below $10^{-12}$ is inconclusive and reaches exact checking. Its
+  probability and outside-payoff branches remain heuristic, so `fast` is not a correctness certificate.
+- `find_candidate_test` intentionally duplicates fast double storage and the candidate kernel without sharing its implementation
+  or double state. It currently has the same precision-span, pivot, probability, and outside-payoff decisions as fast.
 - `find_candidate_safe` clears the game's rational denominators once, eliminates
   the normalization/payoff border, and constructs the integer-scaled symmetric
   reduced system $dH y=dr$ in reusable FLINT storage. One fraction-free
   $LDL^T$-style factorization solves the candidate, proves singularity, and
   records the exact inertia needed by stability. Rational values are constructed
   only for successful public candidate output.
-- `fracessa` owns the rational game used by stability. `find_candidate_fast` refers to it, while `find_candidate_safe` owns one
-  integer-scaled copy for all exact candidate solves.
+- `fracessa` owns the rational game used by stability. `find_candidate_fast` and `find_candidate_test` refer to it for their double
+  matrices, while `find_candidate_safe` owns the one integer-scaled copy used by all exact candidate solves and both one-time
+  precision-span decisions.
 - Exact candidate factorization and validation use FLINT `fmpz_t` integers;
   public rational results and the retained Bomze stability fallback use FLINT
   `fmpq_t` through `linalg::fraction`.
@@ -184,11 +190,15 @@ Important implementation points:
   accepted as a final mathematical certificate.
 - `correctness/DOUBLE_PD_FALSE_POSITIVES.md` documents the concrete failures and
   proves why tolerance tuning cannot recover an exact PD certificate.
+- `correctness/FAST_CANDIDATE_FALSE_REJECTION.md` gives exact ESS counterexamples for all three former fast per-support rejection
+  rules. Current fast recovers the cutoff example through per-support pivot fallback and recovers the probability and
+  outside-payoff examples because their precision spans select matrix-wide safe search. These fallbacks are heuristics, not a
+  general correctness proof.
 - `safe` does not initialize or allocate any double candidate-search state, and all final stability decisions use exact rational
   arithmetic.
-- `fast` uses the raw-double algorithm at revision `32f61679da64` only when six one-time input checks pass. IDs 38-39 trigger
-  matrix-wide safe fallback. The retained pivot cutoff remains heuristic for other inputs. The retired normalized heuristic fixed
-  IDs 38-39 but introduced misses on IDs 45-47 and is not a production method.
+- The raw-double algorithm at revision `32f61679da64` used six one-time input checks and rejected small pivots. Current fast instead
+  uses the exact precision-span gate and treats small pivots as inconclusive. The retired normalized heuristic fixed IDs 38-39 but
+  introduced misses on IDs 45-47 and is not a production method.
 
 Key files:
 
@@ -197,8 +207,10 @@ Key files:
 - `cpp/include/linalg/fraction.hpp`: FLINT rational wrapper.
 - `cpp/include/linalg/copositive_fraction.hpp`: exact copositivity checks.
 - `cpp/include/fracessa/find_candidate_fast.hpp` and
-  `cpp/src/find_candidate_fast.cpp`: historical raw-double class, unnormalized conversion, safe-fallback input checks,
-  heuristic solve, and reusable scratch.
+  `cpp/src/find_candidate_fast.cpp`: production raw-double class, exact precision-span gate, small-pivot fallback, heuristic
+  inequalities, and reusable scratch.
+- `cpp/include/fracessa/find_candidate_test.hpp` and
+  `cpp/src/find_candidate_test.cpp`: independent experimental copy of fast search.
 - `cpp/include/fracessa/find_candidate_safe.hpp` and
   `cpp/src/find_candidate_safe.cpp`: exact class, border elimination,
   integer candidate validation, and candidate construction.
@@ -264,8 +276,8 @@ is no longer wired as one CTest per matrix.
 
 `testdata/fracessa_testdata.sqlite3` is the canonical matrix, expected-result,
 and timing store. Its strict schema is in `testdata/schema.sql`; the current
-snapshot has 87 matrices and 49,157 stored candidate representatives. Nullable
-multipliers recover weighted totals of 86,152 candidates and 83,377 ESS:
+snapshot has 90 matrices and 49,161 stored candidate representatives. Nullable
+multipliers recover weighted totals of 86,156 candidates and 83,381 ESS:
 circular rows store one smallest dihedral representative and its orbit count,
 while non-circular rows store null. Candidate IDs and row order remain
 reproducibility checks; complete weighted candidate sets and ESS
@@ -281,6 +293,13 @@ counterexample, the LU-boundary fallback case, and the failed-proof exact-fallba
 Hilbert, Hadamard, Paley conference, MINIJ, Fiedler, deterministic random
 families, and a dense weighted-Laplacian game with one full-support ESS.
 
+IDs 91-93 are exact non-circular false-rejection regressions for the former fast rules covering all three per-support candidate
+conditions. ID 91 has a
+nonsingular full-support ESS but produces a $7.5\times10^{-13}$ double pivot below the $10^{-12}$ cutoff. ID 92 has an exact
+positive probability $10^{-10}$ that the double solve computes as negative. ID 93 has an outside payoff exactly $10^{-4}$ below
+the equilibrium payoff that the double solve computes above its rejection margin. Current fast and test recover them through the
+small-pivot or matrix-wide precision-span fallback; their fast/test/safe ESS counts are `1/1/1`, `1/1/1`, and `2/2/2`.
+
 Every distinct matrix in Tables 1 and 2 of the Bomze-Schachinger-Ullrich
 ESS-growth paper is present exactly once. IDs 18 and 26 are the exact published
 Table 1 matrices for dimensions 12 and 17. IDs 80-81 are the two previously
@@ -294,8 +313,9 @@ preserved pre-mode default are stored as `fast`; Werner's exact run is stored as
 equivalents. The later `current-main` three-mode snapshot retains historical `safe`, `unsafe`, and `exact` labels because its
 `safe` rows are the removed verified proof rather than today's exact safe method. Build label and revision disambiguate them. The
 raw historical build mismatches IDs 38-39, the retired normalized heuristic mismatches IDs 45-47, and the removed verified proof
-and exact search match all 87. The committed current `fast` build at revision `8697ebaf` has 78 rows covering every matrix with
-dimension at least 3; all observed ESS counts match. Timing
+and exact search match all 87 matrices in that timing snapshot. The historical `fast` build at revision `8697ebaf` has 78
+rows covering every matrix with dimension at least 3 that existed when it was measured; all observed ESS counts match. New IDs
+91-93 have no stored timings yet. Timing
 reports include matrix dimension, circularity, and the derived paper-style
 lower bound `gamma_lower_bound = expected_ess ** (1 / dimension)` without
 storing it in SQLite.
@@ -357,9 +377,9 @@ not be mixed with persistent-Pybind microbenchmarks. Dated material under
 `experiments/` and `aidocs/experiments/` remains immutable historical
 evidence.
 
-Database IDs 45-47 preserve the retired normalized-heuristic correctness regressions tracked in `reviews/CPP_REVIEW.md`. The
-wrapper integration suite checks IDs 38 and 46 through fast and safe routes, but no complete SQLite matrix suite is currently
-wired into `./test.sh` or release CI.
+Database IDs 45-47 preserve the retired normalized-heuristic correctness regressions tracked in `reviews/CPP_REVIEW.md`, and IDs
+91-93 preserve the three former fast per-support false rejections. The wrapper integration suite checks IDs 38 and 46 through
+fast and safe routes, but no complete SQLite matrix suite is currently wired into `./test.sh` or release CI.
 
 ## Pybind Boundary
 
@@ -418,9 +438,9 @@ No production wrapper or matrix workflow imposes a per-matrix computation
 timeout. A matrix may legitimately run for hours. Worker-liveness handling must
 not be implemented as a computation timeout.
 
-`RunConfig()` contains only analysis options. `run`, `run_multiprocessing`, and `compute_matrix` require `"fast"` or `"safe"` as
-their first argument; there is no default method. Fast can miss candidates and ESS results, while safe bypasses every
-floating-point candidate procedure.
+`RunConfig()` contains only analysis options. `run`, `run_multiprocessing`, and `compute_matrix` require `"fast"`, `"safe"`, or
+experimental `"test"` as their first argument; there is no default method. Fast and test can miss candidates and ESS results,
+while safe bypasses every floating-point candidate procedure.
 
 `run` and `run_multiprocessing` are the only public execution functions. Both
 accept a required method followed by one `Matrix` or an iterable and accept an optional sink. One matrix

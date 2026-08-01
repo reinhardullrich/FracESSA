@@ -10,11 +10,15 @@ namespace candidate_search {
 
 class find_candidate_safe;
 
-class find_candidate_fast {
+/*
+ * Independent copy of the fast candidate prefilter for numerical experiments. Changes belong here until measurements justify
+ * moving them into production fast search.
+ */
+class find_candidate_test {
 public:
-    explicit find_candidate_fast(const linalg::matrix_frc& game_matrix) noexcept;
+    explicit find_candidate_test(const linalg::matrix_frc& game_matrix) noexcept;
 
-    // Reuse the safe solver's exact integer game to decide whether the whole matrix must use safe search, then convert to binary64.
+    // Reuse the safe solver's exact integer game to decide whether this matrix must use safe search, then convert to binary64.
     void convert_game_matrix(const find_candidate_safe& safe_search);
     bool requires_safe_fallback() const noexcept { return requires_safe_fallback_; }
 

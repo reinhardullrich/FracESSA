@@ -15,10 +15,12 @@
 #include <fracessa/bitset64.hpp>
 #include <fracessa/find_candidate_safe.hpp>
 #include <fracessa/find_candidate_fast.hpp>
+#include <fracessa/find_candidate_test.hpp>
 
 enum class search_method {
     fast,
     safe,
+    test,
 };
 
 search_method parse_search_method(std::string_view name);
@@ -27,13 +29,14 @@ search_method parse_search_method(std::string_view name);
  * Runs the complete ESS search for one payoff matrix.
  *
  * For each support S, the analyzer performs up to three stages:
- * 1) fast search may heuristically reject an invalid support;
+ * 1) fast or experimental test search may heuristically reject an invalid support;
  * 2) exact rational arithmetic constructs and verifies a symmetric Nash
  *    candidate on S, including its extended support;
  * 3) exact positive-definiteness and copositivity tests decide ESS stability.
  *
- * Safe search always starts with exact arithmetic. Fast search uses the historical raw-double heuristic unless an input check
- * selects safe search for the whole matrix.
+ * Safe search always starts with exact arithmetic. Fast search uses the raw-double heuristic after an exact precision-span check,
+ * with matrix-wide safe fallback for a large span and per-support exact fallback for a small pivot. Test search is an independent
+ * copy used to measure proposed fast-search changes and currently has the same behavior as fast.
  */
 class fracessa
 {
@@ -51,10 +54,11 @@ public:
     std::vector<candidate> candidates_;
 
 private:
-    // fracessa owns the rational game used by stability. Fast search refers to it, while safe search owns one integer-scaled copy.
+    // fracessa owns the rational game used by stability. Fast and test search refer to it, while safe search owns one integer-scaled copy.
     linalg::matrix_frc game_matrix_;
     candidate_search::find_candidate_fast find_candidate_fast_;
     candidate_search::find_candidate_safe find_candidate_safe_;
+    candidate_search::find_candidate_test find_candidate_test_;
     linalg::matrix_frc bee_matrix_;
 
     size_t dimension_;

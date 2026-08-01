@@ -1,4 +1,4 @@
-#include <fracessa/find_candidate_fast.hpp>
+#include <fracessa/find_candidate_test.hpp>
 #include <fracessa/find_candidate_safe.hpp>
 
 #include <cmath>
@@ -12,16 +12,16 @@ constexpr unsigned long kPrecisionSpanCutoff = 1'000'000'000UL;
 
 } // namespace
 
-find_candidate_fast::find_candidate_fast(const linalg::matrix_frc& game_matrix) noexcept
+find_candidate_test::find_candidate_test(const linalg::matrix_frc& game_matrix) noexcept
     : game_frc_(game_matrix)
     , dimension_(game_matrix.rows())
 {
 }
 
-void find_candidate_fast::convert_game_matrix(const find_candidate_safe& safe_search)
+void find_candidate_test::convert_game_matrix(const find_candidate_safe& safe_search)
 {
-    // P < 10^9 keeps every nonzero entry and every distinct gap far enough from binary64's conversion limits that the former six
-    // separate conversion checks are redundant. A rejected matrix uses safe search and needs no double allocation.
+    // P < 10^9 keeps every nonzero entry and every distinct gap far enough from binary64's conversion limits that the six
+    // separate fast-mode conversion checks are redundant. A rejected matrix uses safe search and needs no double allocation.
     requires_safe_fallback_ = safe_search.precision_span_at_least(kPrecisionSpanCutoff);
     if (requires_safe_fallback_) return;
 
@@ -33,9 +33,12 @@ void find_candidate_fast::convert_game_matrix(const find_candidate_safe& safe_se
     }
 }
 
-bool find_candidate_fast::find(const bitset64& support, size_t support_size)
+bool find_candidate_test::find(const bitset64& support, size_t support_size)
 {
-    // A pivot below the cutoff is inconclusive: exact arithmetic must distinguish a singular system from a small nonzero pivot.
+    /*
+     * This is the independent test copy of find_candidate_fast::find(). Its only algorithmic difference is that a pivot below
+     * the cutoff is inconclusive and therefore returns true so exact arithmetic decides the support.
+     */
     uint8_t support_indices[bs64::kMaxBitsetDimension];
     uint8_t non_support_indices[bs64::kMaxBitsetDimension];
     const size_t support_count = bs64::extract_set_indices(support, dimension_, support_indices);

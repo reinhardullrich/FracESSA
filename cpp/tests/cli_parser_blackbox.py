@@ -102,6 +102,7 @@ def main() -> int:
     )
     if "warning" in safe_result.stderr.lower():
         raise AssertionError("safe search unexpectedly printed a warning")
+    assert_success_with_ess_output(fracessa_exe, ["test", "2#0,1,0"], "test_success")
 
     for removed_or_unknown_method in ("verified", "exact", "unsafe", "unknown"):
         assert_failure_with_stderr(
@@ -130,6 +131,14 @@ def main() -> int:
             raise AssertionError(f"{case_name}: fast search did not fall back to safe analysis")
         if "warning" in fast_result.stderr.lower():
             raise AssertionError(f"{case_name}: fast search unexpectedly printed a warning")
+
+    # Test mode's exact precision span catches this full-support ESS that fast rejects after an inaccurate double solve.
+    precision_span_matrix = "3#1/50000000,4001/200000000000,5000000001/100000000,1/50000000,10000000002001/200000000000,0"
+    test_result = assert_success_with_ess_output(
+        fracessa_exe, ["--fullsupport", "test", precision_span_matrix], "precision_span_test"
+    )
+    if first_non_empty_line(test_result.stdout) != "1":
+        raise AssertionError("precision_span_test: test search did not fall back to safe analysis")
 
     # Other success paths
     assert_success_with_ess_output(fracessa_exe, ["safe", "5#1,3"], "circular_success")

@@ -29,6 +29,8 @@
 - `correctness/DOUBLE_PD_FALSE_POSITIVES.md`: exact derivation of the removed
   double-PD certificate bug, its regression games, and arbitrary-small-
   perturbation counterexamples.
+- `correctness/FAST_CANDIDATE_FALSE_REJECTION.md`: exact ESS counterexamples for the former fast per-support rejection rules and
+  the precision-span and small-pivot fallbacks now used by fast.
 - `architecture/UNSAFE_CANDIDATE_FILTER.md`: historical temporary-default normalized-heuristic phase; production now retains only
   the older raw heuristic through the required `fast` method.
 - `architecture/SUPPORT_GENERATOR_HANDOVER.md`: durable handover of the agreed

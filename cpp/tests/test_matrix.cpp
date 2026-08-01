@@ -1,5 +1,7 @@
 #include <gtest/gtest.h>
 #include <fracessa/find_candidate_fast.hpp>
+#include <fracessa/find_candidate_safe.hpp>
+#include <fracessa/find_candidate_test.hpp>
 #include <linalg/matrix_fraction.hpp>
 #include <linalg/matrix_double.hpp>
 
@@ -55,36 +57,57 @@ TEST(MatrixPositiveDefiniteTest, Fraction) {
     EXPECT_FALSE(B.is_positive_definite());
 }
 
-TEST(FindCandidateFastTest, SetsInputWarningForEveryRiskyConversion) {
-    const auto inspect = [](const fraction& diagonal_0, const fraction& off_diagonal, const fraction& diagonal_1) {
+TEST(FindCandidateFastTest, UsesExactPrecisionSpanCutoff) {
+    const auto exceeds_cutoff = [](const fraction& diagonal_0, const fraction& off_diagonal, const fraction& diagonal_1) {
         matrix_frc A(2, 2);
         A(0, 0) = diagonal_0;   A(0, 1) = off_diagonal;
         A(1, 0) = off_diagonal; A(1, 1) = diagonal_1;
+        find_candidate_safe safe(A);
         find_candidate_fast fast(A);
-        fast.convert_game_matrix();
-        return fast.input_warnings();
+        fast.convert_game_matrix(safe);
+        return fast.requires_safe_fallback();
     };
 
-    EXPECT_FALSE(inspect(fraction::zero(), fraction::one(), fraction::zero()));
+    EXPECT_FALSE(exceeds_cutoff(fraction::zero(), fraction(999'999'999), fraction::zero()));
+    EXPECT_TRUE(exceeds_cutoff(fraction::zero(), fraction(1'000'000'000), fraction::zero()));
+    EXPECT_TRUE(exceeds_cutoff(fraction::zero(), fraction("1/1000000000"), fraction::zero()));
+    EXPECT_TRUE(exceeds_cutoff(fraction(1'000'000'000), fraction(1'000'000'001), fraction(1'000'000'000)));
+}
 
-    EXPECT_TRUE(inspect(fraction::zero(), fraction("1/100000000000000000000"), fraction::zero()));
+TEST(FindCandidateTest, UsesExactPrecisionSpanCutoff) {
+    const auto exceeds_cutoff = [](const fraction& diagonal_0, const fraction& off_diagonal, const fraction& diagonal_1) {
+        matrix_frc A(2, 2);
+        A(0, 0) = diagonal_0;   A(0, 1) = off_diagonal;
+        A(1, 0) = off_diagonal; A(1, 1) = diagonal_1;
+        find_candidate_safe safe(A);
+        find_candidate_test test(A);
+        test.convert_game_matrix(safe);
+        return test.requires_safe_fallback();
+    };
 
-    EXPECT_TRUE(inspect(fraction("100000000000000000000"), fraction("100000000000000000001"),
-                        fraction("100000000000000000000")));
+    EXPECT_FALSE(exceeds_cutoff(fraction::zero(), fraction(999'999'999), fraction::zero()));
+    EXPECT_TRUE(exceeds_cutoff(fraction::zero(), fraction(1'000'000'000), fraction::zero()));
+    EXPECT_TRUE(exceeds_cutoff(fraction::zero(), fraction("1/1000000000"), fraction::zero()));
+    EXPECT_TRUE(exceeds_cutoff(fraction(1'000'000'000), fraction(1'000'000'001), fraction(1'000'000'000)));
+}
 
-    fraction underflow = fraction::one();
-    for (size_t i = 0; i < 1075; ++i) underflow.div_inplace(fraction::two());
-    EXPECT_TRUE(inspect(fraction::zero(), underflow, fraction::zero()));
+TEST(FindCandidateFastAndTest, SendSmallPivotToExactArithmetic) {
+    matrix_frc A(3, 3);
+    A(0, 0) = fraction(-3);
+    A(0, 1) = A(1, 0) = fraction(1);
+    A(0, 2) = A(2, 0) = fraction(2);
+    A(1, 1) = fraction("-1000000000001/3000000000000");
+    A(1, 2) = A(2, 1) = fraction("-1999999999999/3000000000000");
+    A(2, 2) = fraction("-4000000000001/3000000000000");
 
-    fraction overflow = fraction::one();
-    for (size_t i = 0; i < 1024; ++i) overflow.mul_inplace(fraction::two());
-    EXPECT_TRUE(inspect(fraction::zero(), overflow, fraction::zero()));
+    find_candidate_fast fast(A);
+    find_candidate_safe safe(A);
+    find_candidate_test test(A);
+    fast.convert_game_matrix(safe);
+    test.convert_game_matrix(safe);
 
-    fraction subnormal = fraction::one();
-    for (size_t i = 0; i < 1023; ++i) subnormal.div_inplace(fraction::two());
-    EXPECT_TRUE(inspect(fraction::zero(), subnormal, fraction::zero()));
-
-    fraction large = fraction::one();
-    for (size_t i = 0; i < 60; ++i) large.mul_inplace(fraction::two());
-    EXPECT_TRUE(inspect(fraction::one(), large, fraction::one()));
+    EXPECT_FALSE(fast.requires_safe_fallback());
+    EXPECT_FALSE(test.requires_safe_fallback());
+    EXPECT_TRUE(fast.find(bitset64{7}, 3));
+    EXPECT_TRUE(test.find(bitset64{7}, 3));
 }

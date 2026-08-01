@@ -245,7 +245,7 @@ def run_multiprocessing(
     written is returned.
 
     Args:
-        method: Required candidate-search method, ``"fast"`` or ``"safe"``.
+        method: Required candidate-search method: ``"fast"``, ``"safe"``, or experimental ``"test"``.
         matrices: One matrix or an iterable of matrices.
         config: Analysis options; defaults to :class:`RunConfig`.
         run_id: Output identifier; a timestamp-based ID is generated when omitted.

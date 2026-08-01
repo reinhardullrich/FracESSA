@@ -153,6 +153,7 @@ add_library(fracessa_lib
     src/fracessa.cpp
     src/find_candidate_fast.cpp
     src/find_candidate_safe.cpp
+    src/find_candidate_test.cpp
     src/checkstab.cpp
 )
 set_target_properties(fracessa_lib PROPERTIES POSITION_INDEPENDENT_CODE ON)

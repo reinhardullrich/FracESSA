@@ -18,6 +18,9 @@ public:
     find_candidate_safe& operator=(const find_candidate_safe&) = delete;
     ~find_candidate_safe();
 
+    // Test whether the exact integer-scaled game spans at least the requested factor without rebuilding that representation.
+    bool precision_span_at_least(unsigned long limit) const;
+
     // True means an exact candidate was found and written to result. The dense vector is optional because stability does not use it.
     bool find(const bitset64& support, size_t support_size, candidate& result, bool materialize_vector);
 
