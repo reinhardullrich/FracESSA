@@ -2,7 +2,9 @@
 
 #include <algorithm>
 #include <cassert>
+#include <cmath>
 #include <cstdint>
+#include <limits>
 #include <vector>
 
 namespace candidate_search {
@@ -36,6 +38,13 @@ find_candidate_safe::find_candidate_safe(const linalg::matrix_frc& game_matrix)
  */
 bool find_candidate_safe::precision_span_at_least(unsigned long limit) const
 {
+    linalg::integer maximum;
+    return precision_span_at_least(limit, true, maximum);
+}
+
+bool find_candidate_safe::precision_span_at_least(unsigned long limit, bool include_game_denominator,
+                                                  linalg::integer& maximum) const
+{
     const size_t entry_count = dimension_ * (dimension_ + 1) / 2;
     std::vector<linalg::integer::const_reference> entries;
     entries.reserve(entry_count);
@@ -47,16 +56,32 @@ bool find_candidate_safe::precision_span_at_least(unsigned long limit) const
     }
     std::sort(entries.begin(), entries.end(), [](auto left, auto right) { return left.compare(right) < 0; });
 
-    linalg::integer maximum(game_denominator_);
-    linalg::integer minimum(game_denominator_);
+    linalg::integer minimum;
     linalg::integer difference;
     linalg::integer scaled_minimum;
+    bool found_nonzero_scale = false;
+
+    if (include_game_denominator) {
+        maximum = game_denominator_;
+        minimum = game_denominator_;
+        found_nonzero_scale = true;
+    } else {
+        maximum.set_zero();
+    }
 
     for (const auto entry : entries) {
         if (entry.is_zero()) continue;
-        if (entry.compare_abs(maximum) > 0) maximum.set_abs(entry);
-        if (entry.compare_abs(minimum) < 0) minimum.set_abs(entry);
+        if (!found_nonzero_scale) {
+            maximum.set_abs(entry);
+            minimum.set_abs(entry);
+            found_nonzero_scale = true;
+        } else {
+            if (entry.compare_abs(maximum) > 0) maximum.set_abs(entry);
+            if (entry.compare_abs(minimum) < 0) minimum.set_abs(entry);
+        }
     }
+    if (!found_nonzero_scale) return false;
+
     for (size_t index = 1; index < entries.size(); ++index) {
         if (entries[index - 1].compare(entries[index]) == 0) continue;
         difference.set_difference(entries[index], entries[index - 1]);
@@ -66,6 +91,41 @@ bool find_candidate_safe::precision_span_at_least(unsigned long limit) const
     scaled_minimum = minimum;
     scaled_minimum.multiply(limit);
     return maximum.compare(scaled_minimum) >= 0;
+}
+
+bool find_candidate_safe::prepare_normalized_double_game(unsigned long precision_span_limit, linalg::matrix_dbl& result) const
+{
+    /*
+     * integer_game = game_denominator * game. The common positive denominator changes every payoff by the same factor and can
+     * therefore be omitted by the double candidate prefilter. One further common power-of-two scale keeps the largest integer
+     * entry near one without introducing another rounding operation. Unlike row/column equilibration, this cannot change the game.
+     */
+    linalg::integer maximum;
+    if (precision_span_at_least(precision_span_limit, false, maximum)) return false;
+
+    result = linalg::matrix_dbl(dimension_, dimension_);
+    if (maximum.is_zero()) return true;
+
+    slong maximum_exponent = 0;
+    static_cast<void>(maximum.to_dbl_2exp(maximum_exponent));
+    for (size_t row = 0; row < dimension_; ++row) {
+        for (size_t column = 0; column < dimension_; ++column) {
+            const auto entry = integer_game_(row, column);
+            if (entry.is_zero()) continue;
+
+            slong entry_exponent = 0;
+            const double mantissa = entry.to_dbl_2exp(entry_exponent);
+            const slong exponent_difference = entry_exponent - maximum_exponent;
+            if (exponent_difference < std::numeric_limits<int>::min() || exponent_difference > std::numeric_limits<int>::max()) {
+                return false;
+            }
+
+            const double value = std::scalbn(mantissa, static_cast<int>(exponent_difference));
+            if (value == 0.0 || !std::isfinite(value)) return false;
+            result(row, column) = value;
+        }
+    }
+    return true;
 }
 
 void find_candidate_safe::resize_reduced_system(size_t reduced_dimension)

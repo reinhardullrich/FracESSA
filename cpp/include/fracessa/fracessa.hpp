@@ -35,8 +35,8 @@ search_method parse_search_method(std::string_view name);
  * 3) exact positive-definiteness and copositivity tests decide ESS stability.
  *
  * Safe search always starts with exact arithmetic. Fast search uses the raw-double heuristic after an exact precision-span check,
- * with matrix-wide safe fallback for a large span and per-support exact fallback for a small pivot. Test search is an independent
- * copy used to measure proposed fast-search changes and currently has the same behavior as fast.
+ * with matrix-wide safe fallback for a large span and per-support exact fallback for a small pivot. Test search is independent
+ * experimental code used to benchmark proposed changes without changing production fast search.
  */
 class fracessa
 {

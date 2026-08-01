@@ -1,5 +1,6 @@
 #pragma once
 
+#include <array>
 #include <cstddef>
 
 #include <fracessa/bitset64.hpp>
@@ -11,14 +12,14 @@ namespace candidate_search {
 class find_candidate_safe;
 
 /*
- * Independent copy of the fast candidate prefilter for numerical experiments. Changes belong here until measurements justify
- * moving them into production fast search.
+ * Independent candidate prefilter for numerical experiments. Changes belong here until measurements justify moving them into
+ * production fast search.
  */
 class find_candidate_test {
 public:
     explicit find_candidate_test(const linalg::matrix_frc& game_matrix) noexcept;
 
-    // Reuse the safe solver's exact integer game to decide whether this matrix must use safe search, then convert to binary64.
+    // Reuse the safe solver's denominator-cleared integer game, normalize it once, and convert it to binary64.
     void convert_game_matrix(const find_candidate_safe& safe_search);
     bool requires_safe_fallback() const noexcept { return requires_safe_fallback_; }
 
@@ -26,10 +27,10 @@ public:
     bool find(const bitset64& support, size_t support_size);
 
 private:
-    const linalg::matrix_frc& game_frc_;
     size_t dimension_;
     linalg::matrix_dbl game_dbl_;
-    linalg::matrix_dbl linear_system_;
+    linalg::matrix_dbl reduced_system_;
+    std::array<double, bs64::kMaxBitsetDimension> game_scales_{};
     bool requires_safe_fallback_ = false;
 };
 

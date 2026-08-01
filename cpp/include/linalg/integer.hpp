@@ -22,6 +22,7 @@ public:
     bool is_one() const noexcept { return fmpz_is_one(value_); }
     int compare(integer_const_reference other) const noexcept { return fmpz_cmp(value_, other.value_); }
     int compare_abs(integer_const_reference other) const noexcept { return fmpz_cmpabs(value_, other.value_); }
+    double to_dbl_2exp(slong& exponent) const noexcept { return fmpz_get_d_2exp(&exponent, value_); }
 
 protected:
     const fmpz* value_;
@@ -174,6 +175,7 @@ public:
     bool is_one() const noexcept { return cref().is_one(); }
     int compare(const_reference other) const noexcept { return cref().compare(other); }
     int compare_abs(const_reference other) const noexcept { return cref().compare_abs(other); }
+    double to_dbl_2exp(slong& exponent) const noexcept { return cref().to_dbl_2exp(exponent); }
 
     reference ref() noexcept { return reference(data_); }
     const_reference cref() const noexcept { return const_reference(data_); }

@@ -6,6 +6,7 @@
 #include <fracessa/candidate.hpp>
 #include <linalg/flint_style_fraction_free_ldlt.hpp>
 #include <linalg/integer.hpp>
+#include <linalg/matrix_double.hpp>
 #include <linalg/matrix_fraction.hpp>
 #include <linalg/matrix_integer.hpp>
 
@@ -20,6 +21,10 @@ public:
     // Test whether the exact integer-scaled game spans at least the requested factor without rebuilding that representation.
     bool precision_span_at_least(unsigned long limit) const;
 
+    // Remove the common game denominator, normalize the remaining integer matrix by one power of two, and convert it once for test search.
+    // False means that the integer entries or their distinct gaps exceed the requested precision span and safe search must be used.
+    bool prepare_normalized_double_game(unsigned long precision_span_limit, linalg::matrix_dbl& result) const;
+
     // True means an exact candidate was found and written to result. The dense vector is optional because stability does not use it.
     bool find(const bitset64& support, size_t support_size, candidate& result, bool materialize_vector);
 
@@ -28,6 +33,7 @@ public:
     bool reduced_hessian_is_negative_definite() const noexcept { return reduced_hessian_is_negative_definite_; }
 
 private:
+    bool precision_span_at_least(unsigned long limit, bool include_game_denominator, linalg::integer& maximum) const;
     void resize_reduced_system(size_t reduced_dimension);
     void build_reduced_system(const uint8_t* support_indices, size_t reduced_dimension);
     void calculate_integer_payoff(linalg::integer& value, size_t strategy, size_t reference, const uint8_t* support_indices,

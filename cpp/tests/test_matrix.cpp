@@ -97,7 +97,7 @@ TEST(FindCandidateFastTest, UsesExactPrecisionSpanCutoff) {
     EXPECT_TRUE(exceeds_cutoff(fraction(1'000'000'000), fraction(1'000'000'001), fraction(1'000'000'000)));
 }
 
-TEST(FindCandidateTest, UsesExactPrecisionSpanCutoff) {
+TEST(FindCandidateTest, UsesIntegerPrecisionSpanAfterRemovingCommonScale) {
     const auto exceeds_cutoff = [](const fraction& diagonal_0, const fraction& off_diagonal, const fraction& diagonal_1) {
         matrix_frc A(2, 2);
         A(0, 0) = diagonal_0;   A(0, 1) = off_diagonal;
@@ -109,8 +109,9 @@ TEST(FindCandidateTest, UsesExactPrecisionSpanCutoff) {
     };
 
     EXPECT_FALSE(exceeds_cutoff(fraction::zero(), fraction(999'999'999), fraction::zero()));
-    EXPECT_TRUE(exceeds_cutoff(fraction::zero(), fraction(1'000'000'000), fraction::zero()));
-    EXPECT_TRUE(exceeds_cutoff(fraction::zero(), fraction("1/1000000000"), fraction::zero()));
+    EXPECT_FALSE(exceeds_cutoff(fraction::zero(), fraction(1'000'000'000), fraction::zero()));
+    EXPECT_FALSE(exceeds_cutoff(fraction::zero(), fraction("1/1000000000"), fraction::zero()));
+    EXPECT_TRUE(exceeds_cutoff(fraction::one(), fraction(1'000'000'000), fraction::one()));
     EXPECT_TRUE(exceeds_cutoff(fraction(1'000'000'000), fraction(1'000'000'001), fraction(1'000'000'000)));
 }
 
@@ -133,4 +134,57 @@ TEST(FindCandidateFastAndTest, SendSmallPivotToExactArithmetic) {
     EXPECT_FALSE(test.requires_safe_fallback());
     EXPECT_TRUE(fast.find(bitset64{7}, 3));
     EXPECT_TRUE(test.find(bitset64{7}, 3));
+}
+
+TEST(FindCandidateTest, SolvesNonsingularZeroDiagonalTwoByTwoPivot) {
+    /*
+     * With strategy 0 as reference, the full-support reduced system is
+     *
+     *     H = [0 1],      r = [-1],
+     *         [1 0]           [ 1]
+     *
+     * so y=(1,-1). A scalar-only LDL^T would stop at the zero diagonal and return true as inconclusive. Bunch-Kaufman must use a
+     * 2x2 pivot, solve the system, see the negative probability, and return false.
+     */
+    matrix_frc game(3, 3);
+    game(0, 0) = fraction::zero(); game(0, 1) = game(1, 0) = fraction::one(); game(0, 2) = game(2, 0) = fraction::neg_one();
+    game(1, 1) = fraction::two();  game(1, 2) = game(2, 1) = fraction::one(); game(2, 2) = fraction(-2);
+
+    find_candidate_safe safe(game);
+    find_candidate_test test(game);
+    test.convert_game_matrix(safe);
+
+    ASSERT_FALSE(test.requires_safe_fallback());
+    EXPECT_FALSE(test.find(bitset64{7}, 3));
+}
+
+TEST(FindCandidateTest, RemovesCommonDenominatorAndNormalizesGameOnce) {
+    /*
+     * Before the final common scale, support {0,1,2}, with strategy 0 as reference, has
+     *
+     *     H = diag(10^-8, 1),     y = (1/4, 1/4).
+     *
+     * Multiplying the complete game by 10^-50 must not make every reduced pivot fall below the absolute cutoff. Test search removes
+     * that common denominator and normalizes the integer game once, then the outside payoff still rejects the support.
+     */
+    const fraction common_scale("1/100000000000000000000000000000000000000000000000000");
+    const auto scaled = [&](const char* value) { return fraction(value) * common_scale; };
+    matrix_frc game(4, 4);
+    game(0, 0) = fraction::zero();
+    game(0, 1) = game(1, 0) = scaled("-1/400000000");
+    game(0, 2) = game(2, 0) = scaled("-1/4");
+    game(0, 3) = game(3, 0) = scaled("-1/10");
+    game(1, 1) = scaled("1/200000000");
+    game(1, 2) = game(2, 1) = scaled("-100000001/400000000");
+    game(1, 3) = game(3, 1) = fraction::zero();
+    game(2, 2) = scaled("1/2");
+    game(2, 3) = game(3, 2) = fraction::zero();
+    game(3, 3) = fraction::zero();
+
+    find_candidate_safe safe(game);
+    find_candidate_test test(game);
+    test.convert_game_matrix(safe);
+
+    ASSERT_FALSE(test.requires_safe_fallback());
+    EXPECT_FALSE(test.find(bitset64{7}, 3));
 }
