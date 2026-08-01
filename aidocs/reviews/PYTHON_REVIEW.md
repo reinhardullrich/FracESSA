@@ -31,9 +31,10 @@ remove a finding after its fix and regression coverage are complete.
   recover 86,152 candidates and 83,377 ESS. Dimensions 2-25 each have at least
   one circular and one non-circular matrix, and every distinct matrix from the
   two published Bomze-Schachinger-Ullrich result tables is present once.
-- Its retained timing session has 592 persistent-Pybind median rows. Werner's default and the preserved pre-mode default are
+- Its retained timing data have 670 persistent-Pybind median rows. Werner's default and the preserved pre-mode default are
   labeled `fast`, while Werner exact is labeled `safe`; the later three-mode snapshot retains its historical labels. Raw search
-  mismatches IDs 38-39, the retired normalized heuristic mismatches IDs 45-47, and exact search matches all matrices. Report rows
+  mismatches IDs 38-39, the retired normalized heuristic mismatches IDs 45-47, and exact search matches all matrices. The
+  committed current `fast` build has 78 correct rows covering every matrix with dimension at least 3. Report rows
   include dimension, circularity, and the derived lower bound
   `gamma_lower_bound = expected_ess ** (1 / dimension)`.
 - Sequential and multiprocessing paths use one flat result dictionary;

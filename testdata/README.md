@@ -19,7 +19,8 @@ into CTest.
 The timing table retains a CPU-2 persistent-Pybind median session with a one-second target. Werner's default and the preserved
 pre-mode default are stored as `fast`; Werner's exact run is stored as `safe`, matching their current semantic equivalents. The
 later `current-main` three-mode snapshot retains its historical `safe`, `unsafe`, and `exact` labels because its `safe` rows are
-the removed verified proof rather than today's exact safe method. Build label and revision disambiguate every historical row.
+the removed verified proof rather than today's exact safe method. The current `fast` build at revision `8697ebaf` covers all 78
+matrices with dimension at least 3 and matches every expected ESS count. Build label and revision disambiguate every historical row.
 
 ## Tables
 

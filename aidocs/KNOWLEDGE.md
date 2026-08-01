@@ -289,12 +289,13 @@ non-circular matrices. Same-property alternatives formerly stored at IDs 12
 and 21 were removed; the former contents of IDs 18 and 26 were replaced by the
 published vectors.
 
-The timing snapshot has one CPU-2 session with a one-second target and 592 persistent-Pybind median rows. Werner's default and the
+The timing snapshot has 670 CPU-2 persistent-Pybind median rows with a one-second target. Werner's default and the
 preserved pre-mode default are stored as `fast`; Werner's exact run is stored as `safe`, matching their current semantic
 equivalents. The later `current-main` three-mode snapshot retains historical `safe`, `unsafe`, and `exact` labels because its
 `safe` rows are the removed verified proof rather than today's exact safe method. Build label and revision disambiguate them. The
 raw historical build mismatches IDs 38-39, the retired normalized heuristic mismatches IDs 45-47, and the removed verified proof
-and exact search match all 87. Timing
+and exact search match all 87. The committed current `fast` build at revision `8697ebaf` has 78 rows covering every matrix with
+dimension at least 3; all observed ESS counts match. Timing
 reports include matrix dimension, circularity, and the derived paper-style
 lower bound `gamma_lower_bound = expected_ess ** (1 / dimension)` without
 storing it in SQLite.
