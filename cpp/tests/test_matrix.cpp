@@ -1,5 +1,6 @@
 #include <gtest/gtest.h>
 #include <fracessa/find_candidate_unsafe.hpp>
+#include <fracessa/find_candidate_very_unsafe.hpp>
 #include <linalg/matrix_fraction.hpp>
 #include <linalg/matrix_double.hpp>
 #include <cmath>
@@ -75,4 +76,40 @@ TEST(FindCandidateUnsafeTest, RejectsUnusableNormalizedDoubleMatrix) {
         find_candidate_unsafe unsafe(A);
         EXPECT_FALSE(unsafe.normalize_game_matrix());
     }
+}
+
+TEST(FindCandidateVeryUnsafeTest, DetectsEveryRawDoubleInputWarning) {
+    const auto inspect = [](const fraction& diagonal_0, const fraction& off_diagonal, const fraction& diagonal_1) {
+        matrix_frc A(2, 2);
+        A(0, 0) = diagonal_0;   A(0, 1) = off_diagonal;
+        A(1, 0) = off_diagonal; A(1, 1) = diagonal_1;
+        find_candidate_very_unsafe very_unsafe(A);
+        very_unsafe.convert_game_matrix();
+        return very_unsafe.input_warnings();
+    };
+
+    EXPECT_FALSE(inspect(fraction::zero(), fraction::one(), fraction::zero()).any());
+
+    const auto small_difference = inspect(fraction::zero(), fraction("1/100000000000000000000"), fraction::zero());
+    EXPECT_TRUE(small_difference.difference_below_pivot_cutoff);
+
+    const auto collapsed = inspect(fraction("100000000000000000000"), fraction("100000000000000000001"),
+                                   fraction("100000000000000000000"));
+    EXPECT_TRUE(collapsed.distinct_values_collapsed);
+
+    fraction underflow = fraction::one();
+    for (size_t i = 0; i < 1075; ++i) underflow.div_inplace(fraction::two());
+    EXPECT_TRUE(inspect(fraction::zero(), underflow, fraction::zero()).nonzero_became_zero);
+
+    fraction overflow = fraction::one();
+    for (size_t i = 0; i < 1024; ++i) overflow.mul_inplace(fraction::two());
+    EXPECT_TRUE(inspect(fraction::zero(), overflow, fraction::zero()).non_finite_value);
+
+    fraction subnormal = fraction::one();
+    for (size_t i = 0; i < 1023; ++i) subnormal.div_inplace(fraction::two());
+    EXPECT_TRUE(inspect(fraction::zero(), subnormal, fraction::zero()).subnormal_value);
+
+    fraction large = fraction::one();
+    for (size_t i = 0; i < 60; ++i) large.mul_inplace(fraction::two());
+    EXPECT_TRUE(inspect(fraction::one(), large, fraction::one()).binary_exponent_range_exceeds_precision);
 }

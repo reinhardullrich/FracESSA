@@ -149,15 +149,16 @@ endif()
 # 4. Build Targets
 # ==============================================================================
 
-add_library(fracessa_find_candidate_verified OBJECT
+add_library(fracessa_strict_candidate_search OBJECT
     src/find_candidate_verified.cpp
+    src/find_candidate_unsafe.cpp
 )
-set_target_properties(fracessa_find_candidate_verified PROPERTIES
+set_target_properties(fracessa_strict_candidate_search PROPERTIES
     INTERPROCEDURAL_OPTIMIZATION FALSE
     INTERPROCEDURAL_OPTIMIZATION_RELEASE FALSE
     POSITION_INDEPENDENT_CODE ON
 )
-target_include_directories(fracessa_find_candidate_verified PRIVATE
+target_include_directories(fracessa_strict_candidate_search PRIVATE
     ${CMAKE_CURRENT_SOURCE_DIR}/include
     ${CMAKE_CURRENT_SOURCE_DIR}/include/fracessa
     ${FLINT_INCLUDE_DIRS}
@@ -166,25 +167,24 @@ target_include_directories(fracessa_find_candidate_verified PRIVATE
 )
 
 if(MSVC)
-    target_compile_options(fracessa_find_candidate_verified PRIVATE /fp:strict /GL-)
+    target_compile_options(fracessa_strict_candidate_search PRIVATE /fp:strict /GL-)
     set(FRACESSA_FIND_CANDIDATE_VERIFIED_SUPPORTED 1)
 elseif(CMAKE_CXX_COMPILER_ID MATCHES "^(GNU|Clang|AppleClang)$")
-    target_compile_options(fracessa_find_candidate_verified PRIVATE -fno-fast-math -ffp-contract=off)
+    target_compile_options(fracessa_strict_candidate_search PRIVATE -fno-fast-math -ffp-contract=off)
     set(FRACESSA_FIND_CANDIDATE_VERIFIED_SUPPORTED 1)
 else()
     set(FRACESSA_FIND_CANDIDATE_VERIFIED_SUPPORTED 0)
 endif()
-target_compile_definitions(fracessa_find_candidate_verified PRIVATE
+target_compile_definitions(fracessa_strict_candidate_search PRIVATE
     FRACESSA_FIND_CANDIDATE_VERIFIED_SUPPORTED=${FRACESSA_FIND_CANDIDATE_VERIFIED_SUPPORTED}
 )
 
 add_library(fracessa_lib
     src/fracessa.cpp
-    src/find_candidate_unsafe.cpp
     src/find_candidate_very_unsafe.cpp
     src/find_candidate_exact.cpp
     src/checkstab.cpp
-    $<TARGET_OBJECTS:fracessa_find_candidate_verified>
+    $<TARGET_OBJECTS:fracessa_strict_candidate_search>
 )
 set_target_properties(fracessa_lib PROPERTIES POSITION_INDEPENDENT_CODE ON)
 

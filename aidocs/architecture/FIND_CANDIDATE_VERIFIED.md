@@ -122,13 +122,18 @@ game conversion rather than initializing one temporary per entry.
 
 ### 3. Strict binary64 proof arithmetic
 
-Compile the proof source separately from the fast project target:
+Compile the verified proof and unsafe double solver together in one strict
+candidate-search object target:
 
 ```text
 IPO/LTO:      disabled for the proof object
 GCC/Clang:    -fno-fast-math -ffp-contract=off
 MSVC:         /fp:strict /GL-
 ```
+
+Verified requires these settings for its proof. Unsafe remains heuristic, but
+shares them so the two double modes do not also differ because of floating-point
+contraction or link-time optimization.
 
 Outward operations use one explicitly grouped nearest-rounded operation followed
 by one adjacent binary64 step. Use the previously tested `double` to `uint64_t`
@@ -416,9 +421,9 @@ separate approval for that run.
 
 ### Strict-build inspection
 
-Inspect the generated compile command and verify that the proof source has
-strict floating-point flags, contraction disabled, and IPO disabled. The normal
-project sources retain their existing speed flags.
+Inspect the generated compile command and verify that both verified and unsafe
+sources have strict floating-point flags, contraction disabled, and IPO disabled.
+The remaining project sources retain their existing speed flags.
 
 ### Performance
 
@@ -468,10 +473,10 @@ solver rewrite, support-generator change, or parser change was added.
   with matching HPP/CPP files. `fracessa` owns the rational game; the three
   floating-point procedures refer to it and the exact procedure owns one
   integer-scaled copy. The former `MatrixServer` and `findeq.cpp` are gone.
-- The verified proof source is a separate object target compiled without fast-math,
-  floating-point contraction, or IPO/LTO. One centralized build/runtime check
-  refuses unavailable verified mode before enumeration; exact and unsafe remain
-  explicit alternatives.
+- The verified proof and unsafe solver share one object target compiled without
+  fast-math, floating-point contraction, or IPO/LTO. One centralized build/runtime
+  check refuses unavailable verified mode before enumeration; exact and unsafe
+  remain explicit alternatives.
 - Verification IDs 45-47 are active in the maintained SQLite database.
 - Release passed 11/11 core/CLI tests and 56/56 wrapper tests. A complete
   verified-mode sweep matched all 87 retained ESS counts. The explicit

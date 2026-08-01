@@ -264,8 +264,11 @@ Local non-MSVC Release builds default to `FRACESSA_NATIVE_ARCH=ON`
 (`-march=native`); Release CI sets it to `OFF`. Debug and other configurations
 use CMake's standard flags without FracESSA's throughput options. IPO/LTO is
 enabled only for Release and only when CMake confirms support.
-The `find_candidate_verified` object target overrides normal throughput flags with
-strict floating-point semantics, contraction disabled, and IPO/LTO disabled.
+The strict candidate-search object target compiles both `find_candidate_verified`
+and `find_candidate_unsafe` with strict floating-point semantics, contraction
+disabled, and IPO/LTO disabled. Unsafe remains a heuristic; the shared compiler
+policy removes mode-dependent floating-point optimization as an additional source
+of differing decisions.
 One centralized availability function combines compiler support with the
 runtime binary64, round-to-nearest, and subnormal checks. An unsupported build
 still provides exact and unsafe modes, but refuses verified search.
