@@ -17,12 +17,10 @@ heuristic and verified-search regression history. IDs 91-93 preserve one exact f
 candidate condition: the pivot cutoff, probability sign, and outside-payoff margin. Current fast uses its small-pivot and
 precision-span fallbacks to recover them. No complete SQLite matrix suite is currently wired into CTest.
 
-The timing table retains a CPU-2 persistent-Pybind median session with a one-second target. Werner's default and the preserved
-pre-mode default are stored as `fast`; Werner's exact run is stored as `safe`, matching their current semantic equivalents. The
-later `current-main` three-mode snapshot retains its historical `safe`, `unsafe`, and `exact` labels because its `safe` rows are
-the removed verified proof rather than today's exact safe method. The historical `fast` build at revision `8697ebaf` covers the 78
-matrices with dimension at least 3 that existed when it was measured and matches every expected ESS count. New IDs 91-93 have no
-stored timings yet. Build label and revision disambiguate every historical row.
+The timing table retains four CPU-2 persistent-Pybind build families: Werner fast and safe, the July 27 pre-refactor GitHub build
+renamed `classic`, and the paired safe builds immediately before and after the C++ FLINT-wrapper extraction. The paired builds use
+one-second native medians for 77 matrices of dimension at least 3; IDs 47, 65-66, and 90 are excluded by the 30-second rule. All
+paired ESS counts match. Build label, revision, and binary hash identify every stored build.
 
 ## Tables
 

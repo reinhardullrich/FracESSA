@@ -511,3 +511,13 @@ focused matrix test reconstructs every rational entry after common-denominator c
 and all 56 Python tests; ASan/UBSan passed all 10 C++/CLI tests; complete candidate output matched the pushed checkpoint on 11
 representative and regression matrices. A balanced eight-matrix CPU-2 safe benchmark through dimensions 3-23 produced a median
 runtime ratio of `0.967` to the checkpoint, so the inline readability layer showed no measurable overhead.
+235. Rebuilt and benchmarked the exact pre/post C++ FLINT-wrapper revisions:
+purged every timing family except Werner and the July 27 pre-refactor build, renamed that preserved build `classic`, and added
+paired safe runs for adjacent clean revisions `3547df5d` and `29799de8`. The CPU-2 persistent-Pybind runs use one-second native
+medians for 77 dimension-3-or-larger matrices; IDs 65-66 and 90 were not attempted, and ID 47 was removed after its pre-wrapper
+run exceeded 30 seconds. All ESS counts match. The wrapper build wins 59 rows, ties 4, and loses 14; its mean and median changes
+are $-7.01\%$ and $-8.50\%$, while summed medians fall by $6.27\%$ from 73.083 to 68.499 seconds. A reverse-order matrix-60 Perf
+check confirmed fewer instructions, branches, and cycles. Disabling strict aliasing improved only the raw-pointer build and
+reduced, but did not remove, the gap, isolating compiler code generation as the source and alias optimization as one contributor;
+no mathematical algorithm or storage-copy operation changed. The canonical database now contains 400 timing rows and passes
+integrity and foreign-key checks.

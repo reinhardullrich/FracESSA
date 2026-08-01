@@ -312,21 +312,18 @@ non-circular matrices. Same-property alternatives formerly stored at IDs 12
 and 21 were removed; the former contents of IDs 18 and 26 were replaced by the
 published vectors.
 
-The timing snapshot has 670 CPU-2 persistent-Pybind median rows with a one-second target. Werner's default and the
-preserved pre-mode default are stored as `fast`; Werner's exact run is stored as `safe`, matching their current semantic
-equivalents. The later `current-main` three-mode snapshot retains historical `safe`, `unsafe`, and `exact` labels because its
-`safe` rows are the removed verified proof rather than today's exact safe method. Build label and revision disambiguate them. The
-raw historical build mismatches IDs 38-39, the retired normalized heuristic mismatches IDs 45-47, and the removed verified proof
-and exact search match all 87 matrices in that timing snapshot. The historical `fast` build at revision `8697ebaf` has 78
-rows covering every matrix with dimension at least 3 that existed when it was measured; all observed ESS counts match. New IDs
-91-93 have no stored timings yet. Timing
-reports include matrix dimension, circularity, and the derived paper-style
-lower bound `gamma_lower_bound = expected_ess ** (1 / dimension)` without
-storing it in SQLite.
+The timing snapshot has 400 CPU-2 persistent-Pybind rows. It retains only Werner fast and safe, the July 27 pre-refactor GitHub
+build renamed `classic`, and the paired safe builds immediately before and after the C++ FLINT-wrapper extraction. Classic is
+revision `32f61679`; it predates both the support-generator redesign and exact $LDL^T$, and its raw-double result mismatches IDs
+38-39. Werner has 87 fast rows and 72 safe rows. The paired builds each have 77 dimension-3-or-larger rows with one-second native
+medians; IDs 65-66 and 90 were not attempted because retained evidence did not establish a sub-30-second run, while pre-wrapper
+ID 47 was measured at 50.394 seconds and then removed. All paired ESS counts match. Build label, revision, and binary hash identify
+every stored build. Timing reports derive matrix dimension, circularity, and the paper-style lower bound
+`gamma_lower_bound = expected_ess ** (1 / dimension)` without storing it in SQLite.
 
-The first `reduced-hessian-ldlt` benchmark measured 85 matrices; IDs 33-34 were
-not included in that run. All 85 ESS counts match. Against `current-main` on
-the same matrices, summed exact
+A historical `reduced-hessian-ldlt` benchmark measured 85 matrices; IDs 33-34
+were not included in that run. Those rows are no longer in the canonical timing table. All 85 ESS counts matched. Against
+`current-main` on the same matrices, summed exact
 medians fall from 1,386.743 to 1,184.045 seconds (14.62%), and the median
 per-matrix ratio is 0.6842. Eighty-two matrices are faster. IDs 45 and 47 are
 material regressions at 168.882 versus 74.655 seconds and 132.230 versus 72.686
@@ -360,6 +357,21 @@ per-matrix time by 78.33% and the arithmetic mean percentage by 56.32%. The
 only regression was the dimension-4 circular ID 69, from 0.792 to 0.833
 microseconds. Substantive cases improved by 61.48% to 94.84%; ID 51 improved
 by 2.42% because its 20 visited supports are all candidates.
+
+The paired wrapper benchmark compares clean adjacent revisions: raw FLINT-owning storage at `3547df5d` and the C++ `integer` and
+`matrix_int` wrappers at `29799de8`. Both use identical Release/native/LTO flags, one persistent Pybind process per build, CPU 2,
+and one-second native medians. Across 77 matrices, the wrapper build wins 59, ties 4, and loses 14. Its arithmetic mean and median
+per-matrix changes are $-7.01\%$ and $-8.50\%$; summed medians fall from 73.083 to 68.499 seconds, a $6.27\%$ reduction.
+Non-circular and circular median changes are $-11.34\%$ and $-6.52\%$ respectively.
+
+This is a compiler/code-generation gain, not a mathematical or storage-copy change. The wrapper entry references are non-owning,
+the small methods inline to the same FLINT operations, and the algorithm is unchanged. A reverse-order ten-second matrix-60 check
+measured 400.201 milliseconds before and 332.415 milliseconds after. Perf recorded approximately $9.3\%$ fewer instructions,
+$16.8\%$ fewer cycles, and $16.2\%$ fewer branches per solve in the wrapped Pybind build. Rebuilding both revisions with
+`-fno-strict-aliasing` left the wrapper result unchanged at 331.810 milliseconds but improved the raw-pointer build to 369.745
+milliseconds, reducing the gap from $16.9\%$ to $10.3\%$. This isolates alias optimization as one contributor; the remaining
+difference is consistent with the changed inline/LTO code shape and layout, but the diagnostic does not attribute it to one source
+expression.
 
 The former JSON/CSV verification, baseline-generation, speed-benchmark, and
 Callgrind runners were removed. There is no replacement matrix-verification
