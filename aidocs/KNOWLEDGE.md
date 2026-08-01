@@ -51,6 +51,8 @@ Last verified: 2026-08-01
    change when it is measurably faster, but do not add custom allocators, pools,
    generic workspace frameworks, or extensive plumbing merely to reduce
    allocations.
+10. FracESSA algorithm and orchestration code under `cpp/include/fracessa/` and `cpp/src/` uses C++ numerical types only. Raw
+    FLINT types and `fmpz_*`/`fmpq_*` calls are confined to the thin `linalg` wrappers and specialized numerical kernels.
 
 ## Repository
 
@@ -180,8 +182,8 @@ Important implementation points:
   matrices, while `find_candidate_safe` owns the one integer-scaled copy used by all exact candidate solves and both one-time
   precision-span decisions.
 - Exact candidate factorization and validation use FLINT `fmpz_t` integers;
-  public rational results and the retained Bomze stability fallback use FLINT
-  `fmpq_t` through `linalg::fraction`.
+  header-only `linalg::integer` and `linalg::matrix_int` wrappers own their storage and expose inline exact operations to
+  FracESSA. Public rational results and the retained Bomze stability fallback use FLINT `fmpq_t` through `linalg::fraction`.
 - Stability reuses the exact reduced-Hessian inertia. A non-negative-definite
   support Hessian rejects ESS immediately; a negative-definite Hessian proves
   ESS immediately when extended support equals support. Only the rare
@@ -204,6 +206,8 @@ Key files:
 
 - `cpp/include/fracessa/bitset64.hpp`: support-mask primitives.
 - `cpp/include/fracessa/supports.hpp`: support generation and pruning.
+- `cpp/include/linalg/integer.hpp` and `cpp/include/linalg/matrix_integer.hpp`: header-only owning C++ wrappers around FLINT exact
+  integers and integer matrices.
 - `cpp/include/linalg/fraction.hpp`: FLINT rational wrapper.
 - `cpp/include/linalg/copositive_fraction.hpp`: exact copositivity checks.
 - `cpp/include/fracessa/find_candidate_fast.hpp` and

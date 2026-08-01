@@ -16,6 +16,8 @@
 #include <cstddef>
 #include <vector>
 
+#include <linalg/matrix_integer.hpp>
+
 namespace linalg {
 
 struct fraction_free_ldlt_inertia {
@@ -52,27 +54,31 @@ public:
      * of system is read and overwritten by the fraction-free factorization; right_hand_side is also overwritten. X and right_hand_side currently
      * have one column. Returns 1 for a nonsingular system and 0 for a singular system. Outputs are undefined after a zero return.
      */
-    int solve_inplace(fmpz_mat_t X, fmpz_t denominator, fmpz_mat_t system, fmpz_mat_t right_hand_side,
+    int solve_inplace(matrix_int& solution, integer& denominator, matrix_int& system, matrix_int& right_hand_side,
                       fraction_free_ldlt_inertia& inertia)
     {
-        assert(fmpz_mat_nrows(system) == fmpz_mat_ncols(system));
-        assert(fmpz_mat_nrows(right_hand_side) == fmpz_mat_nrows(system));
-        assert(fmpz_mat_ncols(right_hand_side) == 1);
-        assert(fmpz_mat_nrows(X) == fmpz_mat_nrows(system));
-        assert(fmpz_mat_ncols(X) == 1);
+        assert(system.rows() == system.cols());
+        assert(right_hand_side.rows() == system.rows());
+        assert(right_hand_side.cols() == 1);
+        assert(solution.rows() == system.rows());
+        assert(solution.cols() == 1);
 
-        const size_t dimension = static_cast<size_t>(fmpz_mat_nrows(system));
+        fmpz_mat_struct* const raw_solution = solution.native_handle();
+        fmpz* const raw_denominator = denominator.native_handle();
+        fmpz_mat_struct* const raw_system = system.native_handle();
+        fmpz_mat_struct* const raw_right_hand_side = right_hand_side.native_handle();
+        const size_t dimension = system.rows();
 
         inertia = {};
         operation_count_ = 0;
         assert(coordinate_operations_.size() >= 2 * dimension);
 
         if (dimension == 0) {
-            fmpz_one(denominator);
+            fmpz_one(raw_denominator);
             return 1;
         }
 
-        bool immediate = all_values_are_immediate(system, right_hand_side, dimension);
+        bool immediate = all_values_are_immediate(raw_system, raw_right_hand_side, dimension);
         bool previous_is_one = true;
         ulong unsigned_denominator = 0;
         ulong denominator_inverse = 0;
@@ -82,8 +88,8 @@ public:
         slong positive_inertia = 0;
 
         for (size_t pivot_position = 0; pivot_position < dimension; ++pivot_position) {
-            if (!select_nonzero_diagonal(system, right_hand_side, pivot_position, dimension, immediate)) return 0;
-            fmpz* pivot = entry(system, pivot_position, pivot_position);
+            if (!select_nonzero_diagonal(raw_system, raw_right_hand_side, pivot_position, dimension, immediate)) return 0;
+            fmpz* pivot = entry(raw_system, pivot_position, pivot_position);
 
             // Bareiss pivot p_k divided by p_(k-1) is the corresponding diagonal entry of ordinary LDL^T, so its sign gives one inertia count.
             const int diagonal_sign = fmpz_sgn(pivot) * previous_pivot_sign;
@@ -98,28 +104,28 @@ public:
                 // continue using FLINT's two-limb update without rechecking every destination inside the loops.
                 for (size_t row = pivot_position + 1; row < dimension; ++row) {
                     for (size_t column = pivot_position + 1; column <= row; ++column) {
-                        next_step_is_immediate &= update_immediate(entry(system, row, column), pivot, entry(system, row, pivot_position),
-                                                                   entry(system, column, pivot_position), pivot_position > 0, previous_is_one,
-                                                                   unsigned_denominator, denominator_inverse, normalization_shift,
-                                                                   denominator_is_negative);
+                        next_step_is_immediate &= update_immediate(
+                            entry(raw_system, row, column), pivot, entry(raw_system, row, pivot_position),
+                            entry(raw_system, column, pivot_position), pivot_position > 0, previous_is_one, unsigned_denominator,
+                            denominator_inverse, normalization_shift, denominator_is_negative);
                     }
-                    next_step_is_immediate &= update_immediate(rhs_entry(right_hand_side, row), pivot, entry(system, row, pivot_position),
-                                                               rhs_entry(right_hand_side, pivot_position), pivot_position > 0, previous_is_one,
-                                                               unsigned_denominator, denominator_inverse, normalization_shift,
-                                                               denominator_is_negative);
+                    next_step_is_immediate &= update_immediate(
+                        rhs_entry(raw_right_hand_side, row), pivot, entry(raw_system, row, pivot_position),
+                        rhs_entry(raw_right_hand_side, pivot_position), pivot_position > 0, previous_is_one, unsigned_denominator,
+                        denominator_inverse, normalization_shift, denominator_is_negative);
                 }
             } else {
                 for (size_t row = pivot_position + 1; row < dimension; ++row) {
                     for (size_t column = pivot_position + 1; column <= row; ++column) {
-                        fmpz* result = entry(system, row, column);
+                        fmpz* result = entry(raw_system, row, column);
                         fmpz_mul(result, result, pivot);
-                        fmpz_submul(result, entry(system, row, pivot_position), entry(system, column, pivot_position));
+                        fmpz_submul(result, entry(raw_system, row, pivot_position), entry(raw_system, column, pivot_position));
                         if (pivot_position > 0 && !previous_is_one) fmpz_divexact(result, result, previous_pivot_);
                     }
 
-                    fmpz* result = rhs_entry(right_hand_side, row);
+                    fmpz* result = rhs_entry(raw_right_hand_side, row);
                     fmpz_mul(result, result, pivot);
-                    fmpz_submul(result, entry(system, row, pivot_position), rhs_entry(right_hand_side, pivot_position));
+                    fmpz_submul(result, entry(raw_system, row, pivot_position), rhs_entry(raw_right_hand_side, pivot_position));
                     if (pivot_position > 0 && !previous_is_one) fmpz_divexact(result, result, previous_pivot_);
                 }
             }
@@ -138,19 +144,19 @@ public:
 
         inertia.positive = positive_inertia;
         inertia.negative = static_cast<slong>(dimension) - positive_inertia;
-        fmpz_set(denominator, entry(system, dimension - 1, dimension - 1));
+        fmpz_set(raw_denominator, entry(raw_system, dimension - 1, dimension - 1));
 
         // Back substitution stays integral: with det(system) as the common denominator, every solution numerator is a Cramer determinant.
         for (size_t row = dimension; row-- > 0; ) {
-            fmpz* numerator = solution_entry(X, row);
-            fmpz_mul(numerator, denominator, rhs_entry(right_hand_side, row));
+            fmpz* numerator = solution_entry(raw_solution, row);
+            fmpz_mul(numerator, raw_denominator, rhs_entry(raw_right_hand_side, row));
             for (size_t column = row + 1; column < dimension; ++column) {
-                fmpz_submul(numerator, entry(system, column, row), solution_entry(X, column));
+                fmpz_submul(numerator, entry(raw_system, column, row), solution_entry(raw_solution, column));
             }
-            fmpz_divexact(numerator, numerator, entry(system, row, row));
+            fmpz_divexact(numerator, numerator, entry(raw_system, row, row));
         }
 
-        restore_original_coordinates(X);
+        restore_original_coordinates(raw_solution);
         return 1;
     }
 
@@ -342,31 +348,25 @@ private:
     fmpz_t temporary_2_;
 };
 
-/* Fast form for callers that already own disposable matrices and reusable scratch. */
-inline int fmpz_mat_solve_ffldlt_inplace(fmpz_mat_t X, fmpz_t denominator, fmpz_mat_t system, fmpz_mat_t right_hand_side,
-                                         fraction_free_ldlt_inertia& inertia, fraction_free_ldlt_workspace& workspace)
+/* Fast C++ form for callers that already own disposable matrices and reusable scratch. */
+inline int solve_fraction_free_ldlt_inplace(matrix_int& solution, integer& denominator, matrix_int& system,
+                                            matrix_int& right_hand_side, fraction_free_ldlt_inertia& inertia,
+                                            fraction_free_ldlt_workspace& workspace)
 {
-    return workspace.solve_inplace(X, denominator, system, right_hand_side, inertia);
+    return workspace.solve_inplace(solution, denominator, system, right_hand_side, inertia);
 }
 
 /*
  * FLINT-style convenience interface. Like fmpz_mat_solve_fflu, this preserves the const inputs and computes integer X and denominator satisfying
  * system*X = right_hand_side*denominator. Repeated hot-path callers should use the in-place overload above to avoid copying and allocation.
  */
-inline int fmpz_mat_solve_ffldlt(fmpz_mat_t X, fmpz_t denominator, const fmpz_mat_t system, const fmpz_mat_t right_hand_side,
-                                 fraction_free_ldlt_inertia& inertia)
+inline int solve_fraction_free_ldlt(matrix_int& solution, integer& denominator, const matrix_int& system,
+                                    const matrix_int& right_hand_side, fraction_free_ldlt_inertia& inertia)
 {
-    const size_t dimension = static_cast<size_t>(fmpz_mat_nrows(system));
-    fraction_free_ldlt_workspace workspace(dimension);
-    fmpz_mat_t system_copy;
-    fmpz_mat_t right_hand_side_copy;
-    fmpz_mat_init_set(system_copy, system);
-    fmpz_mat_init_set(right_hand_side_copy, right_hand_side);
-
-    const int nonsingular = workspace.solve_inplace(X, denominator, system_copy, right_hand_side_copy, inertia);
-    fmpz_mat_clear(right_hand_side_copy);
-    fmpz_mat_clear(system_copy);
-    return nonsingular;
+    fraction_free_ldlt_workspace workspace(system.rows());
+    matrix_int system_copy(system);
+    matrix_int right_hand_side_copy(right_hand_side);
+    return workspace.solve_inplace(solution, denominator, system_copy, right_hand_side_copy, inertia);
 }
 
 } // namespace linalg

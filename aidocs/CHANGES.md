@@ -504,3 +504,10 @@ fast now uses the safe solver's existing integer game for the exact $P\geq10^9$ 
 unnormalized binary64 matrix otherwise, and treats every pivot below $10^{-12}$ as inconclusive so exact arithmetic decides that
 support. Test remains an independent source copy and is currently behaviorally identical to fast. All 10 C++/CLI tests and all 56
 Python tests pass. Regression IDs 91-93 now produce fast/test/safe ESS counts `1/1/1`, `1/1/1`, and `2/2/2`.
+234. Added the C++ boundary around exact FLINT integers:
+introduced header-only `linalg::integer` and `linalg::matrix_int` owning wrappers, changed the fraction-free $LDL^T$ interface and
+safe candidate solver to use those C++ types, and confined raw FLINT calls to the wrappers and specialized numerical kernel. One
+focused matrix test reconstructs every rational entry after common-denominator conversion. Release passed all 10 C++/CLI tests
+and all 56 Python tests; ASan/UBSan passed all 10 C++/CLI tests; complete candidate output matched the pushed checkpoint on 11
+representative and regression matrices. A balanced eight-matrix CPU-2 safe benchmark through dimensions 3-23 produced a median
+runtime ratio of `0.967` to the checkpoint, so the inline readability layer showed no measurable overhead.

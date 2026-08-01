@@ -1,13 +1,13 @@
 #pragma once
 
-#include <flint/fmpz_mat.h>
-
 #include <cstddef>
 
 #include <fracessa/bitset64.hpp>
 #include <fracessa/candidate.hpp>
 #include <linalg/flint_style_fraction_free_ldlt.hpp>
+#include <linalg/integer.hpp>
 #include <linalg/matrix_fraction.hpp>
+#include <linalg/matrix_integer.hpp>
 
 namespace candidate_search {
 
@@ -16,7 +16,6 @@ public:
     explicit find_candidate_safe(const linalg::matrix_frc& game_matrix);
     find_candidate_safe(const find_candidate_safe&) = delete;
     find_candidate_safe& operator=(const find_candidate_safe&) = delete;
-    ~find_candidate_safe();
 
     // Test whether the exact integer-scaled game spans at least the requested factor without rebuilding that representation.
     bool precision_span_at_least(unsigned long limit) const;
@@ -29,30 +28,26 @@ public:
     bool reduced_hessian_is_negative_definite() const noexcept { return reduced_hessian_is_negative_definite_; }
 
 private:
-    fmpz* reduced_entry(size_t row, size_t column) noexcept;
-    fmpz* right_hand_side_entry(size_t row) noexcept;
-    fmpz* solution_entry(size_t row) noexcept;
-    const fmpz* solution_entry(size_t row) const noexcept;
-    const fmpz* game_entry(size_t row, size_t column) const noexcept;
     void resize_reduced_system(size_t reduced_dimension);
     void build_reduced_system(const uint8_t* support_indices, size_t reduced_dimension);
-    void calculate_integer_payoff(fmpz* value, size_t strategy, size_t reference, const uint8_t* support_indices, size_t reduced_dimension);
+    void calculate_integer_payoff(linalg::integer& value, size_t strategy, size_t reference, const uint8_t* support_indices,
+                                  size_t reduced_dimension);
     void ensure_candidate_vector(candidate& result) const;
 
     size_t dimension_;
     size_t reduced_dimension_ = 0;
     bool reduced_hessian_is_negative_definite_ = false;
     linalg::fraction_free_ldlt_workspace ffldlt_workspace_;
-    fmpz_mat_t integer_game_;
-    fmpz_t game_denominator_;
-    fmpz_mat_t reduced_system_;
-    fmpz_mat_t right_hand_side_;
-    fmpz_mat_t solution_numerators_;
-    fmpz_t solution_denominator_;
-    fmpz_t reference_numerator_;
-    fmpz_t payoff_numerator_;
-    fmpz_t payoff_denominator_;
-    fmpz_t outside_payoff_numerator_;
+    linalg::matrix_int integer_game_;
+    linalg::integer game_denominator_;
+    linalg::matrix_int reduced_system_;
+    linalg::matrix_int right_hand_side_;
+    linalg::matrix_int solution_numerators_;
+    linalg::integer solution_denominator_;
+    linalg::integer reference_numerator_;
+    linalg::integer payoff_numerator_;
+    linalg::integer payoff_denominator_;
+    linalg::integer outside_payoff_numerator_;
 };
 
 } // namespace candidate_search

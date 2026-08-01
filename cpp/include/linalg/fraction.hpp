@@ -6,6 +6,8 @@
 #include <string>
 #include <ostream>
 
+#include <linalg/integer.hpp>
+
 namespace linalg {
 
 /*
@@ -91,6 +93,12 @@ public:
     
     // Escape hatch for FLINT kernels; callers must preserve valid fmpq state.
     fmpq_t& data() noexcept { return data_; }
+    const fmpq* data() const noexcept { return data_; }
+
+    // Construct an exact rational from C++ integer wrappers without exposing FLINT at the algorithm call site.
+    void set_ratio(integer::const_reference numerator, integer::const_reference denominator) noexcept {
+        fmpq_set_fmpz_frac(data_, numerator.native_handle(), denominator.native_handle());
+    }
     
     // In-place arithmetic used in elimination/factorization loops.
     void mul_inplace(const fraction& other) noexcept {

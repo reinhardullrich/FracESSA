@@ -2,8 +2,10 @@
 #include <fracessa/find_candidate_fast.hpp>
 #include <fracessa/find_candidate_safe.hpp>
 #include <fracessa/find_candidate_test.hpp>
+#include <linalg/integer.hpp>
 #include <linalg/matrix_fraction.hpp>
 #include <linalg/matrix_double.hpp>
+#include <linalg/matrix_integer.hpp>
 
 using namespace linalg;
 using namespace candidate_search;
@@ -34,6 +36,27 @@ TEST(MatrixDoubleTest, BasicOperations) {
     EXPECT_EQ(A.rows(), 2);
     EXPECT_DOUBLE_EQ(A(0, 0), 1.0);
     EXPECT_DOUBLE_EQ(A(1, 1), 4.0);
+}
+
+TEST(MatrixIntegerTest, PreservesExactFractionMatrixValues) {
+    matrix_frc rational(2, 2);
+    rational(0, 0) = fraction(1, 2);  rational(0, 1) = fraction(-2, 3);
+    rational(1, 0) = fraction(5, 6);  rational(1, 1) = fraction(7);
+
+    matrix_int scaled;
+    integer denominator;
+    scaled.set_from_fraction_matrix(rational, denominator);
+
+    EXPECT_EQ(scaled.rows(), rational.rows());
+    EXPECT_EQ(scaled.cols(), rational.cols());
+    EXPECT_GT(denominator.sign(), 0);
+    for (size_t row = 0; row < rational.rows(); ++row) {
+        for (size_t column = 0; column < rational.cols(); ++column) {
+            fraction restored;
+            restored.set_ratio(scaled(row, column), denominator);
+            EXPECT_EQ(restored, rational(row, column));
+        }
+    }
 }
 
 TEST(MatrixFractionTest, FactoryFunctions) {

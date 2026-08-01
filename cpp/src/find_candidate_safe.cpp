@@ -1,21 +1,11 @@
 #include <fracessa/find_candidate_safe.hpp>
 
-#include <flint/fmpq_mat.h>
-
 #include <algorithm>
 #include <cassert>
 #include <cstdint>
 #include <vector>
 
 namespace candidate_search {
-namespace {
-
-const fmpq* raw_fraction(const fraction& value) noexcept
-{
-    return const_cast<fraction&>(value).data();
-}
-
-} // namespace
 
 /*
  * Exact candidate solver for a symmetric payoff matrix.
@@ -31,66 +21,7 @@ find_candidate_safe::find_candidate_safe(const linalg::matrix_frc& game_matrix)
     : dimension_(game_matrix.rows())
     , ffldlt_workspace_(dimension_)
 {
-    fmpq_mat_t rational_game;
-    fmpq_mat_init(rational_game, static_cast<slong>(dimension_), static_cast<slong>(dimension_));
-    fmpz_mat_init(integer_game_, static_cast<slong>(dimension_), static_cast<slong>(dimension_));
-    fmpz_init(game_denominator_);
-
-    for (size_t row = 0; row < dimension_; ++row) {
-        for (size_t column = 0; column < dimension_; ++column) {
-            fmpq_set(fmpq_mat_entry(rational_game, static_cast<slong>(row), static_cast<slong>(column)), raw_fraction(game_matrix(row, column)));
-        }
-    }
-    fmpq_mat_get_fmpz_mat_matwise(integer_game_, game_denominator_, rational_game);
-    fmpq_mat_clear(rational_game);
-
-    fmpz_mat_init(reduced_system_, 0, 0);
-    fmpz_mat_init(right_hand_side_, 0, 0);
-    fmpz_mat_init(solution_numerators_, 0, 0);
-    fmpz_init(solution_denominator_);
-    fmpz_init(reference_numerator_);
-    fmpz_init(payoff_numerator_);
-    fmpz_init(payoff_denominator_);
-    fmpz_init(outside_payoff_numerator_);
-}
-
-find_candidate_safe::~find_candidate_safe()
-{
-    fmpz_clear(outside_payoff_numerator_);
-    fmpz_clear(payoff_denominator_);
-    fmpz_clear(payoff_numerator_);
-    fmpz_clear(reference_numerator_);
-    fmpz_clear(solution_denominator_);
-    fmpz_mat_clear(solution_numerators_);
-    fmpz_mat_clear(right_hand_side_);
-    fmpz_mat_clear(reduced_system_);
-    fmpz_clear(game_denominator_);
-    fmpz_mat_clear(integer_game_);
-}
-
-fmpz* find_candidate_safe::reduced_entry(size_t row, size_t column) noexcept
-{
-    return fmpz_mat_entry(reduced_system_, static_cast<slong>(row), static_cast<slong>(column));
-}
-
-fmpz* find_candidate_safe::right_hand_side_entry(size_t row) noexcept
-{
-    return fmpz_mat_entry(right_hand_side_, static_cast<slong>(row), 0);
-}
-
-fmpz* find_candidate_safe::solution_entry(size_t row) noexcept
-{
-    return fmpz_mat_entry(solution_numerators_, static_cast<slong>(row), 0);
-}
-
-const fmpz* find_candidate_safe::solution_entry(size_t row) const noexcept
-{
-    return fmpz_mat_entry(solution_numerators_, static_cast<slong>(row), 0);
-}
-
-const fmpz* find_candidate_safe::game_entry(size_t row, size_t column) const noexcept
-{
-    return fmpz_mat_entry(integer_game_, static_cast<slong>(row), static_cast<slong>(column));
+    integer_game_.set_from_fraction_matrix(game_matrix, game_denominator_);
 }
 
 /*
@@ -106,59 +37,45 @@ const fmpz* find_candidate_safe::game_entry(size_t row, size_t column) const noe
 bool find_candidate_safe::precision_span_at_least(unsigned long limit) const
 {
     const size_t entry_count = dimension_ * (dimension_ + 1) / 2;
-    std::vector<const fmpz*> entries(entry_count);
+    std::vector<linalg::integer::const_reference> entries;
+    entries.reserve(entry_count);
 
-    size_t position = 0;
     for (size_t row = 0; row < dimension_; ++row) {
         for (size_t column = row; column < dimension_; ++column) {
-            entries[position++] = game_entry(row, column);
+            entries.push_back(integer_game_(row, column));
         }
     }
-    std::sort(entries.begin(), entries.end(), [](const fmpz* left, const fmpz* right) { return fmpz_cmp(left, right) < 0; });
+    std::sort(entries.begin(), entries.end(), [](auto left, auto right) { return left.compare(right) < 0; });
 
-    fmpz_t maximum;
-    fmpz_t minimum;
-    fmpz_t difference;
-    fmpz_t scaled_minimum;
-    fmpz_init_set(maximum, game_denominator_);
-    fmpz_init_set(minimum, game_denominator_);
-    fmpz_init(difference);
-    fmpz_init(scaled_minimum);
+    linalg::integer maximum(game_denominator_);
+    linalg::integer minimum(game_denominator_);
+    linalg::integer difference;
+    linalg::integer scaled_minimum;
 
-    for (const fmpz* entry : entries) {
-        if (fmpz_is_zero(entry)) continue;
-        if (fmpz_cmpabs(entry, maximum) > 0) fmpz_abs(maximum, entry);
-        if (fmpz_cmpabs(entry, minimum) < 0) fmpz_abs(minimum, entry);
+    for (const auto entry : entries) {
+        if (entry.is_zero()) continue;
+        if (entry.compare_abs(maximum) > 0) maximum.set_abs(entry);
+        if (entry.compare_abs(minimum) < 0) minimum.set_abs(entry);
     }
     for (size_t index = 1; index < entries.size(); ++index) {
-        if (fmpz_equal(entries[index - 1], entries[index])) continue;
-        fmpz_sub(difference, entries[index], entries[index - 1]);
-        if (fmpz_cmp(difference, minimum) < 0) fmpz_set(minimum, difference);
+        if (entries[index - 1].compare(entries[index]) == 0) continue;
+        difference.set_difference(entries[index], entries[index - 1]);
+        if (difference.compare(minimum) < 0) minimum = difference;
     }
 
-    fmpz_mul_ui(scaled_minimum, minimum, static_cast<ulong>(limit));
-    const bool result = fmpz_cmp(maximum, scaled_minimum) >= 0;
-
-    fmpz_clear(scaled_minimum);
-    fmpz_clear(difference);
-    fmpz_clear(minimum);
-    fmpz_clear(maximum);
-    return result;
+    scaled_minimum = minimum;
+    scaled_minimum.multiply(limit);
+    return maximum.compare(scaled_minimum) >= 0;
 }
 
 void find_candidate_safe::resize_reduced_system(size_t reduced_dimension)
 {
     if (reduced_dimension_ == reduced_dimension) return;
 
-    fmpz_mat_clear(solution_numerators_);
-    fmpz_mat_clear(right_hand_side_);
-    fmpz_mat_clear(reduced_system_);
-
     reduced_dimension_ = reduced_dimension;
-    const slong size = static_cast<slong>(reduced_dimension_);
-    fmpz_mat_init(reduced_system_, size, size);
-    fmpz_mat_init(right_hand_side_, size, 1);
-    fmpz_mat_init(solution_numerators_, size, 1);
+    reduced_system_.resize(reduced_dimension_, reduced_dimension_);
+    right_hand_side_.resize(reduced_dimension_, 1);
+    solution_numerators_.resize(reduced_dimension_, 1);
 }
 
 /*
@@ -175,30 +92,30 @@ void find_candidate_safe::resize_reduced_system(size_t reduced_dimension)
 void find_candidate_safe::build_reduced_system(const uint8_t* support_indices, size_t reduced_dimension)
 {
     const size_t reference = support_indices[0];
-    const fmpz* reference_diagonal = game_entry(reference, reference);
+    const auto reference_diagonal = integer_game_(reference, reference);
 
     for (size_t row = 0; row < reduced_dimension; ++row) {
         const size_t i = support_indices[row + 1];
-        fmpz_sub(right_hand_side_entry(row), reference_diagonal, game_entry(i, reference));
+        right_hand_side_(row, 0).set_difference(reference_diagonal, integer_game_(i, reference));
 
         // The symmetric fraction-free factorization reads only the lower triangle.
         for (size_t column = 0; column <= row; ++column) {
             const size_t j = support_indices[column + 1];
-            fmpz* value = reduced_entry(row, column);
-            fmpz_set(value, game_entry(i, j));
-            fmpz_sub(value, value, game_entry(i, reference));
-            fmpz_sub(value, value, game_entry(reference, j));
-            fmpz_add(value, value, reference_diagonal);
+            auto value = reduced_system_(row, column);
+            value = integer_game_(i, j);
+            value -= integer_game_(i, reference);
+            value -= integer_game_(reference, j);
+            value += reference_diagonal;
         }
     }
 }
 
-void find_candidate_safe::calculate_integer_payoff(fmpz* value, size_t strategy, size_t reference, const uint8_t* support_indices,
-                                                     size_t reduced_dimension)
+void find_candidate_safe::calculate_integer_payoff(linalg::integer& value, size_t strategy, size_t reference,
+                                                     const uint8_t* support_indices, size_t reduced_dimension)
 {
-    fmpz_mul(value, game_entry(strategy, reference), reference_numerator_);
+    value.set_product(integer_game_(strategy, reference), reference_numerator_);
     for (size_t position = 0; position < reduced_dimension; ++position) {
-        fmpz_addmul(value, game_entry(strategy, support_indices[position + 1]), solution_entry(position));
+        value.addmul(integer_game_(strategy, support_indices[position + 1]), solution_numerators_(position, 0));
     }
 }
 
@@ -235,32 +152,31 @@ bool find_candidate_safe::find(const bitset64& support, size_t support_size, can
 
     if (reduced_dimension == 0) {
         // A pure support has no tangent direction. Its reduced Hessian is vacuously negative definite and normalization fixes its probability at one.
-        fmpz_one(solution_denominator_);
-        fmpz_one(reference_numerator_);
+        solution_denominator_.set_one();
+        reference_numerator_.set_one();
         reduced_hessian_is_negative_definite_ = true;
     } else {
         resize_reduced_system(reduced_dimension);
         build_reduced_system(support_indices, reduced_dimension);
 
         linalg::fraction_free_ldlt_inertia inertia;
-        if (!linalg::fmpz_mat_solve_ffldlt_inplace(solution_numerators_, solution_denominator_, reduced_system_, right_hand_side_, inertia,
-                                                    ffldlt_workspace_)) return false;
+        if (!ffldlt_workspace_.solve_inplace(solution_numerators_, solution_denominator_, reduced_system_, right_hand_side_, inertia)) return false;
         reduced_hessian_is_negative_definite_ = inertia.positive == 0;
 
         // FLINT rationals require a positive denominator. Negating both sides leaves every exact solution value unchanged.
-        if (fmpz_sgn(solution_denominator_) < 0) {
-            fmpz_neg(solution_denominator_, solution_denominator_);
-            fmpz_mat_neg(solution_numerators_, solution_numerators_);
+        if (solution_denominator_.sign() < 0) {
+            solution_denominator_.negate();
+            solution_numerators_.negate();
         }
 
         // The solved entries are the probabilities for S without the reference. Recover the reference probability from x_m=1-sum(y).
-        fmpz_set(reference_numerator_, solution_denominator_);
+        reference_numerator_ = solution_denominator_;
         for (size_t position = 0; position < reduced_dimension; ++position) {
-            const fmpz* numerator = solution_entry(position);
-            if (fmpz_sgn(numerator) <= 0) return false;
-            fmpz_sub(reference_numerator_, reference_numerator_, numerator);
+            const auto numerator = solution_numerators_(position, 0);
+            if (numerator.sign() <= 0) return false;
+            reference_numerator_ -= numerator;
         }
-        if (fmpz_sgn(reference_numerator_) <= 0) return false;
+        if (reference_numerator_.sign() <= 0) return false;
     }
 
     // Recover the common support payoff from the reference row. Its denominator is game_denominator*solution_denominator.
@@ -270,13 +186,13 @@ bool find_candidate_safe::find(const bitset64& support, size_t support_size, can
     for (size_t position = 0; position < non_support_count; ++position) {
         const size_t outside_strategy = non_support_indices[position];
         calculate_integer_payoff(outside_payoff_numerator_, outside_strategy, reference, support_indices, reduced_dimension);
-        const int comparison = fmpz_cmp(outside_payoff_numerator_, payoff_numerator_);
+        const int comparison = outside_payoff_numerator_.compare(payoff_numerator_);
         if (comparison > 0) return false;
         if (comparison == 0) result.extended_support = bs64::set_bit_at_pos(result.extended_support, outside_strategy);
     }
 
-    fmpz_mul(payoff_denominator_, game_denominator_, solution_denominator_);
-    fmpq_set_fmpz_frac(result.payoff.data(), payoff_numerator_, payoff_denominator_);
+    payoff_denominator_.set_product(game_denominator_, solution_denominator_);
+    result.payoff.set_ratio(payoff_numerator_, payoff_denominator_);
     result.payoff_dbl = result.payoff.to_dbl();
     result.extended_support_size = bs64::count_set_bits(result.extended_support);
 
@@ -284,9 +200,9 @@ bool find_candidate_safe::find(const bitset64& support, size_t support_size, can
     if (materialize_vector) {
         ensure_candidate_vector(result);
         for (size_t position = 0; position < non_support_count; ++position) result.vector(non_support_indices[position], 0) = fraction::zero();
-        fmpq_set_fmpz_frac(result.vector(reference, 0).data(), reference_numerator_, solution_denominator_);
+        result.vector(reference, 0).set_ratio(reference_numerator_, solution_denominator_);
         for (size_t position = 0; position < reduced_dimension; ++position) {
-            fmpq_set_fmpz_frac(result.vector(support_indices[position + 1], 0).data(), solution_entry(position), solution_denominator_);
+            result.vector(support_indices[position + 1], 0).set_ratio(solution_numerators_(position, 0), solution_denominator_);
         }
     }
 
