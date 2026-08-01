@@ -19,10 +19,7 @@ analysis_mode parse_analysis_mode(std::string_view name)
     if (name == "verified") return analysis_mode::verified;
     if (name == "exact") return analysis_mode::exact;
     if (name == "unsafe") return analysis_mode::unsafe;
-    if (name == "very_unsafe") return analysis_mode::very_unsafe;
-    throw std::invalid_argument(
-        "Unknown analysis mode '" + std::string(name) +
-        "'; expected verified, exact, unsafe, or very_unsafe");
+    throw std::invalid_argument("Unknown analysis mode '" + std::string(name) + "'; expected verified, exact, or unsafe");
 }
 
 fracessa::fracessa(const linalg::matrix_frc& matrix, bool is_cs, bool with_candidates,
@@ -31,7 +28,6 @@ fracessa::fracessa(const linalg::matrix_frc& matrix, bool is_cs, bool with_candi
     : game_matrix_(matrix)
     , find_candidate_verified_(game_matrix_)
     , find_candidate_unsafe_(game_matrix_)
-    , find_candidate_very_unsafe_(game_matrix_)
     , find_candidate_exact_(game_matrix_)
     , dimension_(matrix.rows())
     , conf_with_candidates_(with_candidates)
@@ -45,9 +41,8 @@ fracessa::fracessa(const linalg::matrix_frc& matrix, bool is_cs, bool with_candi
         if (const char* reason = candidate_search::unavailable_reason()) {
             throw std::runtime_error(
                 std::string("Verified candidate search is unavailable: ") + reason +
-                ". Run with --mode exact for correct exact analysis, or --mode "
-                "unsafe or --mode very_unsafe for heuristic rejection that may "
-                "miss candidates or ESS results.");
+                ". Run with --mode exact for correct exact analysis, or --mode unsafe for heuristic rejection that may miss "
+                "candidates or ESS results.");
         }
     }
 
@@ -71,11 +66,9 @@ fracessa::fracessa(const linalg::matrix_frc& matrix, bool is_cs, bool with_candi
         logger_->info("game matrix:\n{}", game_matrix_.to_log_string());
     }
 
-    if (mode_ == analysis_mode::unsafe &&
-        !find_candidate_unsafe_.normalize_game_matrix()) {
-        mode_ = analysis_mode::exact;
-    } else if (mode_ == analysis_mode::very_unsafe) {
-        find_candidate_very_unsafe_.convert_game_matrix();
+    if (mode_ == analysis_mode::unsafe) {
+        find_candidate_unsafe_.convert_game_matrix();
+        if (find_candidate_unsafe_.input_warnings()) mode_ = analysis_mode::exact;
     }
 
     if (conf_full_support_) {
@@ -129,9 +122,6 @@ bool fracessa::analyze_support(bitset64 support, size_t support_size) {
         break;
     case analysis_mode::unsafe:
         if (!find_candidate_unsafe_.find(support, support_size)) return false;
-        break;
-    case analysis_mode::very_unsafe:
-        if (!find_candidate_very_unsafe_.find(support, support_size)) return false;
         break;
     case analysis_mode::exact:
         break;

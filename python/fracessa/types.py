@@ -55,7 +55,7 @@ class RunConfig:
         enable_logging: Enable native logging for sequential execution only.
     """
 
-    mode: Literal["verified", "exact", "unsafe", "very_unsafe"] = "verified"
+    mode: Literal["verified", "exact", "unsafe"] = "verified"
     full_support: bool = False
     include_candidates: bool = False
     enable_logging: bool = False
@@ -65,10 +65,8 @@ class RunConfig:
 
         if not isinstance(self.mode, str):
             raise TypeError("RunConfig.mode must be a str")
-        if self.mode not in {"verified", "exact", "unsafe", "very_unsafe"}:
-            raise ValueError(
-                "RunConfig.mode must be verified, exact, unsafe, or very_unsafe"
-            )
+        if self.mode not in {"verified", "exact", "unsafe"}:
+            raise ValueError("RunConfig.mode must be verified, exact, or unsafe")
 
 
 @dataclass(slots=True)

@@ -32,9 +32,8 @@
 - `correctness/FIND_CANDIDATE_VERIFIED.md`: mathematical basis for
   implemented exact normalization, one-sided bounded-error rejection proof,
   and exact fallback.
-- `architecture/UNSAFE_CANDIDATE_FILTER.md`: historical temporary-default phase;
-  its normalized and raw heuristics remain available through explicit
-  `--mode unsafe` and `--mode very_unsafe` selections.
+- `architecture/UNSAFE_CANDIDATE_FILTER.md`: historical temporary-default normalized-heuristic phase; production now retains only
+  the older raw heuristic through explicit `--mode unsafe`.
 - `architecture/FIND_CANDIDATE_VERIFIED.md`: implemented verified candidate-search
   design, approved source scope, acceptance conditions, and validation record.
 - `architecture/SUPPORT_GENERATOR_HANDOVER.md`: durable handover of the agreed

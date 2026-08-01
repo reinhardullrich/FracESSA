@@ -22,7 +22,7 @@ The current worktree contains four connected phases:
 The verified candidate search is the no-flag default. Its
 implementation record remains in
 [`FIND_CANDIDATE_VERIFIED.md`](FIND_CANDIDATE_VERIFIED.md); explicit
-`--mode unsafe` and `--mode very_unsafe` select the separate heuristics.
+`--mode unsafe` selects the historical raw-double heuristic.
 
 ## Agreed Production Architecture
 

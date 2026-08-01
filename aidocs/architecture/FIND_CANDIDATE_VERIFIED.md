@@ -3,9 +3,8 @@
 Status: implemented and locally verified on 2026-07-30. The body retains the
 mathematical design; the source ownership and completion record are current.
 
-Explicit `--mode unsafe` continues to select the normalized heuristic,
-`--mode very_unsafe` selects the historical unnormalized heuristic, and
-`--mode exact` bypasses every numerical rejection procedure. Unsafe code must
+Explicit `--mode unsafe` selects the historical unnormalized heuristic, and `--mode exact` bypasses every numerical rejection
+procedure. Unsafe code must
 not enter or weaken the strict proof kernel described here.
 
 ## Objective
@@ -324,15 +323,15 @@ Equality and overlap with zero require the exact solver.
 
 ## Production Source Ownership
 
-`fracessa` owns the rational game and coordinates four candidate procedures.
-The three floating-point procedures refer to that game. The exact procedure
+`fracessa` owns the rational game and coordinates three candidate procedures. The two floating-point procedures refer to that
+game. The exact procedure
 owns one denominator-cleared integer copy and its reusable solve matrices.
 
 | File | Responsibility |
 | --- | --- |
 | `cpp/include/fracessa/fracessa.hpp`, `cpp/src/fracessa.cpp` | Own the game, mode objects, candidate lifecycle, search, and final output. |
 | `cpp/include/fracessa/find_candidate_verified.hpp`, `cpp/src/find_candidate_verified.cpp` | Own lazy rigorous bounds and strict proof scratch; return false only for a proven non-candidate. |
-| `cpp/include/fracessa/find_candidate_unsafe.hpp`, `cpp/src/find_candidate_unsafe.cpp` | Own unsafe normalization and heuristic solve scratch. |
+| `cpp/include/fracessa/find_candidate_unsafe.hpp`, `cpp/src/find_candidate_unsafe.cpp` | Own the raw binary64 conversion, matrix-wide exact-fallback checks, and heuristic solve scratch. |
 | `cpp/include/fracessa/find_candidate_exact.hpp`, `cpp/src/find_candidate_exact.cpp` | Own the integer-scaled game and fraction-free reduced-system scratch; construct the exact candidate and inertia. |
 | `cpp/src/checkstab.cpp` | Build and reuse the exact Bee matrix stored by `fracessa`, then classify stability. |
 
@@ -466,22 +465,17 @@ Their matrices, expected counts, and exact candidate rows live in the
 The current worktree implements only Choice 1. No Choice 2, diagnostics, exact
 solver rewrite, support-generator change, or parser change was added.
 
-- Omitting `--mode` selects verified search; the single mode value selects
-  exact, normalized unsafe, or historical very unsafe search. Pybind and
+- Omitting `--mode` selects verified search; the single mode value selects exact or historical raw unsafe search. Pybind and
   `RunConfig` expose the same string selector.
-- Verified, unsafe, very unsafe, and exact candidate search are concrete state-owning classes
-  with matching HPP/CPP files. `fracessa` owns the rational game; the three
+- Verified, unsafe, and exact candidate search are concrete state-owning classes with matching HPP/CPP files. `fracessa` owns the rational game; the two
   floating-point procedures refer to it and the exact procedure owns one
   integer-scaled copy. The former `MatrixServer` and `findeq.cpp` are gone.
-- The verified proof and unsafe solver share one object target compiled without
-  fast-math, floating-point contraction, or IPO/LTO. One centralized build/runtime
-  check refuses unavailable verified mode before enumeration; exact and unsafe
-  remain explicit alternatives.
+- The verified proof is compiled without fast-math, floating-point contraction, or IPO/LTO. One centralized build/runtime check
+  refuses unavailable verified mode before enumeration; exact and unsafe remain explicit alternatives.
 - Verification IDs 45-47 are active in the maintained SQLite database.
-- Release passed 11/11 core/CLI tests and 56/56 wrapper tests. A complete
-  verified-mode sweep matched all 87 retained ESS counts. The explicit
-  very-unsafe mode matches 85 and reproduces exactly the two historical misses,
-  IDs 38-39. The earlier ASan/UBSan run passed all 11 core/CLI tests.
+- Release passed 11/11 core/CLI tests and 55/55 wrapper tests. A complete verified-mode sweep matched all 87 retained ESS counts.
+  Unsafe now sends the two historical raw-conversion failures, IDs 38-39, through exact candidate search. The earlier ASan/UBSan
+  run passed all 11 core/CLI tests.
 - On the historical pinned-CPU persistent-process set (IDs 1-33 and 35), summed
   bounded-error medians were 2,108.563 ms. This is 10.03x faster than the saved
   pre-generator Choice 1 run and 81.25x faster than the saved full-exact run;

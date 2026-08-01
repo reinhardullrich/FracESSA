@@ -36,51 +36,23 @@ class NativeIntegrationTests(unittest.TestCase):
         self.assertEqual(result["candidates"][0]["matrix_id"], matrix_id)
         self.assertIsNone(result["candidates"][0]["multiplier"])
 
-    def test_verified_and_unsafe_routes_native(self):
+    def test_verified_and_unsafe_route_native(self):
         database = Path(__file__).resolve().parents[3] / "testdata/fracessa_testdata.sqlite3"
         with closing(sqlite3.connect(database)) as connection:
-            dimension, values = connection.execute(
-                "SELECT dimension, matrix FROM matrices WHERE matrix_id = 46"
-            ).fetchone()
-        matrix = Matrix(matrix_id=46, matrix=f"{dimension}#{values}")
+            rows = connection.execute(
+                "SELECT matrix_id, dimension, matrix FROM matrices WHERE matrix_id IN (38, 46) ORDER BY matrix_id"
+            ).fetchall()
 
-        verified = run(
-            matrix,
-            RunConfig(include_candidates=True),
-            run_id="native_verified",
-        )
-        unsafe = run(
-            matrix,
-            RunConfig(include_candidates=True, mode="unsafe"),
-            run_id="native_unsafe",
-        )
+        for matrix_id, dimension, values in rows:
+            with self.subTest(matrix_id=matrix_id):
+                matrix = Matrix(matrix_id=matrix_id, matrix=f"{dimension}#{values}")
+                verified = run(matrix, RunConfig(include_candidates=True), run_id=f"native_verified_{matrix_id}")
+                unsafe = run(matrix, RunConfig(include_candidates=True, mode="unsafe"), run_id=f"native_unsafe_{matrix_id}")
 
-        self.assertTrue(verified["success"])
-        self.assertTrue(unsafe["success"])
-        self.assertEqual(verified["ess_count"], 1)
-        self.assertEqual(unsafe["ess_count"], 0)
-
-    def test_very_unsafe_preserves_raw_double_failure(self):
-        database = Path(__file__).resolve().parents[3] / "testdata/fracessa_testdata.sqlite3"
-        with closing(sqlite3.connect(database)) as connection:
-            dimension, values = connection.execute(
-                "SELECT dimension, matrix FROM matrices WHERE matrix_id = 38"
-            ).fetchone()
-        matrix = Matrix(matrix_id=38, matrix=f"{dimension}#{values}")
-
-        verified = run(matrix, RunConfig(), run_id="native_verified_raw_regression")
-        unsafe = run(
-            matrix, RunConfig(mode="unsafe"), run_id="native_unsafe_raw_regression"
-        )
-        very_unsafe = run(
-            matrix,
-            RunConfig(mode="very_unsafe"),
-            run_id="native_very_unsafe_raw_regression",
-        )
-
-        self.assertEqual(verified["ess_count"], 1)
-        self.assertEqual(unsafe["ess_count"], 1)
-        self.assertEqual(very_unsafe["ess_count"], 0)
+                self.assertTrue(verified["success"])
+                self.assertTrue(unsafe["success"])
+                self.assertEqual(verified["ess_count"], 1)
+                self.assertEqual(unsafe["ess_count"], 1)
 
     def test_unknown_native_mode_is_rejected(self):
         native = load_native_module()

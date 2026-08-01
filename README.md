@@ -49,7 +49,7 @@ syntax. The 64-bit mask is storage, not support for a dimension-64 search.
 ## CLI Flags
 - `-c, --candidates` include candidate rows in output.
 - `-l, --log` write detailed log output.
-- `--mode MODE` select `verified`, `exact`, `unsafe`, or `very_unsafe`;
+- `--mode MODE` select `verified`, `exact`, or `unsafe`;
   the default is `verified`.
 - `-f, --fullsupport` evaluate full support first.
 - `-t, --timing` print analyzer timing in nanoseconds.
@@ -57,9 +57,9 @@ syntax. The 64-bit mask is storage, not support for a dimension-64 search.
 
 With no mode option, FracESSA uses verified candidate search: it rejects a
 support only after proving a violated candidate condition and otherwise falls
-back to exact arithmetic. `--mode unsafe` uses the normalized heuristic, while
-`--mode very_unsafe` restores the older raw-double heuristic without
-normalization. Both unsafe modes can miss exact candidates and ESS results.
+back to exact arithmetic. `--mode unsafe` uses the historical raw-double heuristic without normalization and can miss exact
+candidates and ESS results. If any of its six exact-to-double input checks detects a risky conversion, unsafe filtering is
+bypassed for the whole matrix and candidate search proceeds exactly.
 `--mode exact` bypasses every floating-point candidate procedure. If the
 compiler or runtime floating-point environment cannot support the required
 error bounds, verified mode stops before the search and asks for an explicit

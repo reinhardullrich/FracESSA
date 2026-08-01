@@ -12,18 +12,15 @@ IDs 80-90 hold the previously missing Table 2 base and constructed matrices.
 Redundant alternatives formerly at IDs 12 and 21 were removed. IDs 56-66 are
 staged complete-multipartite many-ESS benchmark matrices. IDs 67-79 are
 deterministic random-integer coverage matrices; together with the existing rows,
-every dimension from 2 through 25 has at least one circular and one non-circular
-matrix. IDs 45-47 preserve the unsafe-filter, LU-boundary, and failed-proof
-verified-search regressions. No complete SQLite matrix suite is currently wired
+every dimension from 2 through 25 has at least one circular and one non-circular matrix. IDs 45-47 preserve the retired normalized
+heuristic, LU-boundary, and failed-proof verified-search regressions. No complete SQLite matrix suite is currently wired
 into CTest.
 
-The timing table contains one CPU-2 persistent-Pybind median session with a
-one-second target and all 87 matrices in four modes. Current unsafe, verified,
-and exact use one Release/native/LTO binary at algorithm revision
-`34e003168607`; historical default, very unsafe uses raw-double algorithm
-revision `32f61679da64` with a temporary normal-parser/nanosecond Pybind
-adapter. Historical very unsafe mismatches IDs 38-39, current unsafe mismatches
-IDs 45-47, and verified and exact match all 87 matrices.
+The timing table retains a CPU-2 persistent-Pybind median session with a one-second target and all 87 matrices in the four modes
+that existed when it was recorded. Normalized `unsafe`, `verified`, and `exact` use algorithm revision `34e003168607`; the
+`historical-default-very-unsafe` label uses raw-double revision `32f61679da64` with a temporary normal-parser/nanosecond Pybind
+adapter. Raw historical search mismatches IDs 38-39, the retired normalized heuristic mismatches IDs 45-47, and verified and
+exact match all 87 matrices. Current production names the raw heuristic `unsafe`; dated timing labels remain unchanged.
 
 ## Tables
 

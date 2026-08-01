@@ -124,10 +124,8 @@ the exact fractions. Support masks have 64 storage bits, but complete
 enumeration requires the exclusive `2^n` bound, so dimension 64 is not
 supported.
 
-The four numerical modes are verified, exact, unsafe, and very unsafe candidate
-search. Omitting `--mode` selects the rigorously one-sided verified procedure;
-`--mode unsafe` selects the normalized heuristic; `--mode very_unsafe` selects
-the historical raw-double heuristic without normalization; and `--mode exact`
+The three numerical modes are verified, exact, and unsafe candidate search. Omitting `--mode` selects the rigorously one-sided
+verified procedure; `--mode unsafe` selects the historical raw-double heuristic without normalization; and `--mode exact`
 bypasses every floating-point candidate procedure. If build-time or runtime
 floating-point requirements are unavailable, verified mode stops before support
 enumeration and requires an explicit exact or unsafe mode. An inconclusive proof
@@ -140,8 +138,7 @@ CLI or pybind input
   -> matrix_parser
   -> fracessa constructor
   -> support generation and pruning
-  -> find_candidate_verified, find_candidate_unsafe,
-     find_candidate_very_unsafe, or exact bypass
+  -> find_candidate_verified, find_candidate_unsafe, or exact bypass
   -> find_candidate_exact
   -> check_stability
   -> ESS/candidate output
@@ -171,20 +168,17 @@ Important implementation points:
   game into `[-1,1]`, encloses every entry in binary64, and reuses one bordered
   LU scratch matrix. It rejects only after a rigorous solution-error bound
   proves a nonpositive support probability or a profitable outside strategy.
-- `find_candidate_unsafe` owns its normalized binary64 matrix and bordered
-  scratch, then applies the existing danger veto. Constant games and unusable
-  conversions select exact candidate solving.
-- `find_candidate_very_unsafe` owns the direct, unnormalized binary64
-  conversion and historical bordered solve. It intentionally retains the old
-  pivot cutoff and margins that can reject exact candidates.
+- `find_candidate_unsafe` owns the direct, unnormalized binary64 conversion and historical bordered solve. Six one-time input
+  checks select matrix-wide exact fallback for risky conversions. Otherwise it intentionally retains the old pivot cutoff and
+  margins that can reject exact candidates.
 - `find_candidate_exact` clears the game's rational denominators once, eliminates
   the normalization/payoff border, and constructs the integer-scaled symmetric
   reduced system $dH y=dr$ in reusable FLINT storage. One fraction-free
   $LDL^T$-style factorization solves the candidate, proves singularity, and
   records the exact inertia needed by stability. Rational values are constructed
   only for successful public candidate output.
-- `fracessa` owns the rational game used by stability. The three floating-point
-  procedures refer to it, while `find_candidate_exact` owns one integer-scaled
+- `fracessa` owns the rational game used by stability. The two floating-point procedures refer to it, while
+  `find_candidate_exact` owns one integer-scaled
   copy for all exact candidate solves.
 - Exact candidate factorization and validation use FLINT `fmpz_t` integers;
   public rational results and the retained Bomze stability fallback use FLINT
@@ -199,11 +193,9 @@ Important implementation points:
   proves why tolerance tuning cannot recover an exact PD certificate.
 - `--mode exact` does not initialize or allocate any double candidate-search
   state, and all final stability decisions use exact rational arithmetic.
-- `--mode unsafe` uses a cheap pivot/margin danger veto, not a proof. IDs 45-47 are
-  active regressions for verified search and remain counterexamples
-  to the unsafe heuristic.
-- `--mode very_unsafe` reproduces the raw-double algorithm at revision
-  `32f61679da64`; retained IDs 38-39 demonstrate that it can miss ESS results.
+- `--mode unsafe` uses the raw-double algorithm at revision `32f61679da64` only when six one-time input checks pass. IDs 38-39
+  trigger matrix-wide exact fallback. The retained pivot cutoff remains heuristic for other inputs. The retired normalized
+  heuristic fixed IDs 38-39 but introduced misses on IDs 45-47 and is not a production mode.
 
 Key files:
 
@@ -215,11 +207,8 @@ Key files:
   `cpp/src/find_candidate_verified.cpp`: verified class, strict one-sided proof,
   availability check, and focused proof-helper contracts.
 - `cpp/include/fracessa/find_candidate_unsafe.hpp` and
-  `cpp/src/find_candidate_unsafe.cpp`: unsafe class, normalized game, heuristic
-  solve, and reusable scratch.
-- `cpp/include/fracessa/find_candidate_very_unsafe.hpp` and
-  `cpp/src/find_candidate_very_unsafe.cpp`: historical raw-double class,
-  unnormalized conversion, and heuristic solve.
+  `cpp/src/find_candidate_unsafe.cpp`: historical raw-double class, unnormalized conversion, exact-fallback input checks,
+  heuristic solve, and reusable scratch.
 - `cpp/include/fracessa/find_candidate_exact.hpp` and
   `cpp/src/find_candidate_exact.cpp`: exact class, border elimination,
   integer candidate validation, and candidate construction.
@@ -264,11 +253,8 @@ Local non-MSVC Release builds default to `FRACESSA_NATIVE_ARCH=ON`
 (`-march=native`); Release CI sets it to `OFF`. Debug and other configurations
 use CMake's standard flags without FracESSA's throughput options. IPO/LTO is
 enabled only for Release and only when CMake confirms support.
-The strict candidate-search object target compiles both `find_candidate_verified`
-and `find_candidate_unsafe` with strict floating-point semantics, contraction
-disabled, and IPO/LTO disabled. Unsafe remains a heuristic; the shared compiler
-policy removes mode-dependent floating-point optimization as an additional source
-of differing decisions.
+The `find_candidate_verified` object target uses strict floating-point semantics with contraction and IPO/LTO disabled. The raw
+unsafe heuristic remains with the normal Release throughput settings used by its historical implementation.
 One centralized availability function combines compiler support with the
 runtime binary64, round-to-nearest, and subnormal checks. An unsupported build
 still provides exact and unsafe modes, but refuses verified search.
@@ -299,12 +285,11 @@ classifications are the mathematical contracts.
 
 Every dimension from 2 through 25 has at least one circular and one
 non-circular matrix. IDs 67-79 fill the previously missing combinations with
-deterministic random integers; exact and unsafe runs agreed on their complete
-rational candidate contracts before insertion.
+deterministic random integers; exact and the then-current normalized heuristic agreed on their complete rational candidate
+contracts before insertion.
 
-IDs 45-47 preserve the verified-search regressions: the dimension-20 unsafe
-heuristic counterexample, the LU-boundary fallback case, and the failed-proof
-exact-fallback case. IDs 48-55 cover non-circular dimensions 15-24 through
+IDs 45-47 preserve the verified-search regressions against the retired normalized heuristic: the dimension-20 heuristic
+counterexample, the LU-boundary fallback case, and the failed-proof exact-fallback case. IDs 48-55 cover non-circular dimensions 15-24 through
 Hilbert, Hadamard, Paley conference, MINIJ, Fiedler, deterministic random
 families, and a dense weighted-Laplacian game with one full-support ESS.
 
@@ -316,13 +301,11 @@ non-circular matrices. Same-property alternatives formerly stored at IDs 12
 and 21 were removed; the former contents of IDs 18 and 26 were replaced by the
 published vectors.
 
-The timing snapshot has one CPU-2 session with a one-second target and 592
-persistent-Pybind median rows. Current unsafe, verified, and exact use one
-Release/native/LTO binary at algorithm revision `34e003168607`; historical
-default, very unsafe uses raw-double algorithm revision `32f61679da64` with a
-temporary normal-parser/nanosecond Pybind adapter. Every mode covers all 87
-matrices. Historical very unsafe mismatches IDs 38-39, current unsafe mismatches
-regression IDs 45-47, and current verified and exact match all 87. Timing
+The timing snapshot has one CPU-2 session with a one-second target and 592 persistent-Pybind median rows. Its labels preserve the
+four modes that existed when it was recorded: normalized `unsafe`, `verified`, and `exact` use algorithm revision `34e003168607`,
+while `historical-default-very-unsafe` uses raw-double revision `32f61679da64` with a temporary normal-parser/nanosecond Pybind
+adapter. Every mode covers all 87 matrices. The raw historical build mismatches IDs 38-39, the retired normalized heuristic
+mismatches IDs 45-47, and verified and exact match all 87. Timing
 reports include matrix dimension, circularity, and the derived paper-style
 lower bound `gamma_lower_bound = expected_ess ** (1 / dimension)` without
 storing it in SQLite.
@@ -383,9 +366,8 @@ not be mixed with persistent-Pybind microbenchmarks. Dated material under
 `experiments/` and `aidocs/experiments/` remains immutable historical
 evidence.
 
-Database IDs 45-47 preserve the known unsafe-filter correctness regressions
-tracked in `reviews/CPP_REVIEW.md`. The wrapper integration suite checks ID 46
-through both verified and unsafe routes, but no complete SQLite matrix suite is
+Database IDs 45-47 preserve the retired normalized-heuristic correctness regressions tracked in `reviews/CPP_REVIEW.md`. The
+wrapper integration suite checks IDs 38 and 46 through verified and unsafe routes, but no complete SQLite matrix suite is
 currently wired into `./test.sh` or release CI.
 
 ## Pybind Boundary
@@ -445,11 +427,9 @@ No production wrapper or matrix workflow imposes a per-matrix computation
 timeout. A matrix may legitimately run for hours. Worker-liveness handling must
 not be implemented as a computation timeout.
 
-`RunConfig()` selects verified candidate search by default. Its single `mode`
-field accepts `"verified"`, `"exact"`, `"unsafe"`, or `"very_unsafe"` and is
-passed unchanged through the native boundary. The two unsafe modes can miss
-candidates and ESS results; exact bypasses every floating-point candidate
-procedure.
+`RunConfig()` selects verified candidate search by default. Its single `mode` field accepts `"verified"`, `"exact"`, or
+`"unsafe"` and is passed unchanged through the native boundary. Unsafe can miss candidates and ESS results; exact bypasses every
+floating-point candidate procedure.
 
 `run` and `run_multiprocessing` are the only public execution functions. Both
 accept one `Matrix` or an iterable and accept an optional sink. One matrix

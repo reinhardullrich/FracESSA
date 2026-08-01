@@ -1,6 +1,6 @@
 # `find_pos_first_set_bit` Production Call Chain
 
-Last verified: 2026-07-31
+Last verified: 2026-08-01
 
 Scope: production C++ under `cpp/include/` and `cpp/src/`; tests are excluded.
 
@@ -16,8 +16,8 @@ is defined for zero.
 
 | Location | Caller | Purpose |
 |---|---|---|
-| `cpp/src/checkstab.cpp:30` | `fracessa::check_stability` | Select the Bee pivot index `m`. |
-| `cpp/src/checkstab.cpp:149` | `fracessa::check_stability` | Select the next reduction coordinate. |
+| `cpp/src/checkstab.cpp:31` | `fracessa::check_stability` | Select the Bee pivot index `m`. |
+| `cpp/src/checkstab.cpp:185` | `fracessa::check_stability` | Select the next reduction coordinate. |
 | `cpp/include/linalg/copositive_fraction.hpp:94` | `CopositivityCheckerV3::is_copositive_hadeler` | Handle a one-dimensional subset. |
 
 `find_pos_next_set_bit()` now has no production caller. Copositivity extracts
@@ -47,11 +47,11 @@ Production callers are:
 - `cpp/include/linalg/copositive_fraction.hpp:100`
 - `cpp/src/find_candidate_verified.cpp:618`
 - `cpp/src/find_candidate_verified.cpp:621`
-- `cpp/src/find_candidate_unsafe.cpp:74`
-- `cpp/src/find_candidate_unsafe.cpp:77`
-- `cpp/src/find_candidate_exact.cpp:40`
-- `cpp/src/find_candidate_exact.cpp:43`
-- `cpp/src/checkstab.cpp:55`
+- `cpp/src/find_candidate_unsafe.cpp:92`
+- `cpp/src/find_candidate_unsafe.cpp:94`
+- `cpp/src/find_candidate_exact.cpp:172`
+- `cpp/src/find_candidate_exact.cpp:174`
+- `cpp/src/checkstab.cpp:104`
 
 Regenerate the occurrence list with:
 

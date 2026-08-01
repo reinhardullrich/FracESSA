@@ -9,9 +9,7 @@ unit tests on matrix_parser internals.
 from __future__ import annotations
 
 import argparse
-from contextlib import closing
 import re
-import sqlite3
 import subprocess
 import sys
 from pathlib import Path
@@ -51,17 +49,6 @@ def assert_success_with_ess_output(
             f"{case_name}: expected integer ESS count on first line, got '{first_line}'"
         )
     return result
-
-
-def assert_unsafe_warning(result: subprocess.CompletedProcess, case_name: str) -> None:
-    warning = result.stderr.lower()
-    required = (
-        "heuristic candidate search",
-        "miss exact candidates and ess results",
-    )
-    for text in required:
-        if text not in warning:
-            raise AssertionError(f"{case_name}: unsafe warning is missing '{text}'")
 
 
 def assert_failure_with_stderr(
@@ -109,49 +96,25 @@ def main() -> int:
         print(f"[ERROR] missing executable: {fracessa_exe}")
         return 1
 
-    database = Path(__file__).resolve().parents[2] / "testdata/fracessa_testdata.sqlite3"
-    with closing(sqlite3.connect(database)) as connection:
-        dimension, values = connection.execute(
-            "SELECT dimension, matrix FROM matrices WHERE matrix_id = 46"
-        ).fetchone()
-    unsafe_counterexample = f"{dimension}#{values}"
-
-    # Matrix 46 has one ESS under verified/exact analysis, but unsafe search misses it.
-    default_result = assert_success_with_ess_output(
-        fracessa_exe, [unsafe_counterexample], "default_verified_success"
-    )
-    explicit_unsafe_result = assert_success_with_ess_output(
-        fracessa_exe,
-        ["--mode", "unsafe", unsafe_counterexample],
-        "explicit_unsafe_success",
-    )
-    if first_non_empty_line(default_result.stdout) != "1":
-        raise AssertionError(f"verified mode missed matrix 46 ESS: {default_result.stdout.strip()}")
-    if first_non_empty_line(explicit_unsafe_result.stdout) != "0":
-        raise AssertionError(f"unsafe mode unexpectedly retained matrix 46 ESS: {explicit_unsafe_result.stdout.strip()}")
-    if "unsafe" in default_result.stderr.lower():
-        raise AssertionError("default verified mode unexpectedly printed an unsafe warning")
-    assert_unsafe_warning(explicit_unsafe_result, "explicit_unsafe_warning")
-
     # Numerical mode and parser behavior
     exact_result = assert_success_with_ess_output(
         fracessa_exe, ["--mode", "exact", "2#0,1,0"], "exact_success"
     )
-    if "heuristic candidate search" in exact_result.stderr.lower():
-        raise AssertionError("exact mode unexpectedly printed the unsafe warning")
+    if "warning" in exact_result.stderr.lower():
+        raise AssertionError("exact mode unexpectedly printed a warning")
 
-    assert_failure_with_stderr(
-        fracessa_exe,
-        ["--mode", "unknown", "2#0,1,0"],
-        "Unknown analysis mode",
-        "unknown_mode_rejected",
-    )
+    for removed_or_unknown_mode in ("very_unsafe", "unknown"):
+        assert_failure_with_stderr(
+            fracessa_exe,
+            ["--mode", removed_or_unknown_mode, "2#0,1,0"],
+            "Unknown analysis mode",
+            f"{removed_or_unknown_mode}_mode_rejected",
+        )
 
-    # Affine normalization restores both historical raw-double failures. The
-    # explicit very-unsafe mode deliberately preserves those old rejections.
+    # Unsafe bypasses floating-point rejection for a game whose exact-to-double conversion triggers any input check.
     for case_name, matrix in (
-        ("normalized_scale", "2#0,1/100000000000000000000,0"),
-        ("normalized_translation", "2#100000000000000000000,100000000000000000001,100000000000000000000"),
+        ("small_difference", "2#0,1/100000000000000000000,0"),
+        ("collapsed_values", "2#100000000000000000000,100000000000000000001,100000000000000000000"),
     ):
         verified_result = assert_success_with_ess_output(
             fracessa_exe, [matrix], f"{case_name}_verified"
@@ -159,19 +122,14 @@ def main() -> int:
         unsafe_result = assert_success_with_ess_output(
             fracessa_exe, ["--mode", "unsafe", matrix], f"{case_name}_unsafe"
         )
-        very_unsafe_result = assert_success_with_ess_output(
-            fracessa_exe,
-            ["--mode", "very_unsafe", matrix],
-            f"{case_name}_very_unsafe",
-        )
         if first_non_empty_line(verified_result.stdout) != "1":
             raise AssertionError(f"{case_name}: verified mode missed the ESS")
         if first_non_empty_line(unsafe_result.stdout) != "1":
-            raise AssertionError(f"{case_name}: normalized unsafe mode missed the ESS")
-        if first_non_empty_line(very_unsafe_result.stdout) != "0":
-            raise AssertionError(f"{case_name}: very-unsafe mode did not preserve the historical rejection")
-        assert_unsafe_warning(unsafe_result, f"{case_name}_unsafe_warning")
-        assert_unsafe_warning(very_unsafe_result, f"{case_name}_very_unsafe_warning")
+            raise AssertionError(f"{case_name}: unsafe mode did not fall back to exact analysis")
+        if "unsafe" in verified_result.stderr.lower():
+            raise AssertionError(f"{case_name}: verified mode unexpectedly printed an unsafe warning")
+        if "warning" in unsafe_result.stderr.lower():
+            raise AssertionError(f"{case_name}: unsafe mode unexpectedly printed a warning")
 
     # Other success paths
     assert_success_with_ess_output(fracessa_exe, ["5#1,3"], "circular_success")

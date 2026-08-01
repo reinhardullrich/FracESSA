@@ -209,7 +209,7 @@ PYBIND11_MODULE(fracessa_core, m)
         R"doc(
 Compute one matrix with native C++ core and return structured results.
 
-mode: verified, exact, unsafe, or very_unsafe.
+mode: verified, exact, or unsafe.
 
 Returns a dict with keys:
 - status, success, error_message

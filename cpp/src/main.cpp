@@ -19,7 +19,7 @@ int main(int argc, char *argv[])
 
     program.add_argument("-c", "--candidates").help("include candidates").implicit_value(true).default_value(false);
     program.add_argument("-l", "--log").help("output log file").implicit_value(true).default_value(false);
-    program.add_argument("--mode").help("analysis mode: verified, exact, unsafe, or very_unsafe").default_value(std::string{"verified"});
+    program.add_argument("--mode").help("analysis mode: verified, exact, or unsafe").default_value(std::string{"verified"});
     program.add_argument("-f", "--fullsupport").help("search full support directly").implicit_value(true).default_value(false);
     program.add_argument("-t", "--timing").help("output computation time in nanoseconds").implicit_value(true).default_value(false);
     program.add_argument("-m", "--matrixid").help("optional matrix ID").scan<'i', std::int64_t>().default_value(std::int64_t{-1});
@@ -51,15 +51,6 @@ int main(int argc, char *argv[])
         return EXIT_FAILURE;
     }
 
-    if (mode == analysis_mode::unsafe) {
-        std::cerr
-            << "Warning: --mode unsafe uses heuristic candidate search and can miss "
-            << "exact candidates and ESS results." << std::endl;
-    } else if (mode == analysis_mode::very_unsafe) {
-        std::cerr
-            << "Warning: --mode very_unsafe uses raw, unnormalized heuristic candidate "
-            << "search and can miss exact candidates and ESS results." << std::endl;
-    }
     try {
         auto start_time = std::chrono::steady_clock::now();
         ::fracessa x(A, is_cs, candidates, mode, fullsupport, logger, matrix_id);

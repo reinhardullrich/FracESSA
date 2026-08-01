@@ -61,10 +61,9 @@ A matrix may use full CLI form (`"3#4,13/2,..."`) or values only when
 
 The default uses verified candidate search, which rejects a support only after
 a rigorous one-sided proof and otherwise falls back to exact arithmetic.
-`mode="unsafe"` selects the normalized heuristic, and `mode="very_unsafe"`
-selects the historical raw-double heuristic without normalization. Both can
-miss candidates and ESS results. `mode="exact"` bypasses every floating-point
-candidate procedure. Matrix input always uses the validating native parser.
+`mode="unsafe"` selects the historical raw-double heuristic without normalization and can miss candidates and ESS results. A
+risky exact-to-double input conversion bypasses unsafe filtering for the whole matrix and uses exact candidate checks instead.
+`mode="exact"` bypasses every floating-point candidate procedure. Matrix input always uses the validating native parser.
 
 `elapsed_ns` is always the native analyzer duration measured with a monotonic
 clock. There is deliberately no computation timeout.
@@ -83,7 +82,7 @@ build without loading two `fracessa_core` modules into one interpreter:
 PYTHONPATH=python python3 -m fracessa.timing run \
   --backend pybind --module-dir cpp/build \
   --build-label main --source-ref main --revision "$(git rev-parse HEAD)" \
-  --mode verified --mode unsafe --mode exact --mode very_unsafe \
+  --mode verified --mode unsafe --mode exact \
   --cpu 2 --comment "before candidate change"
 
 PYTHONPATH=python python3 -m fracessa.timing report latest --baseline main

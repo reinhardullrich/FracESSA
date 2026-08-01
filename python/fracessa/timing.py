@@ -134,8 +134,6 @@ def _pybind_arguments(
     if interface == "mode":
         arguments["mode"] = mode
     elif interface == "booleans":
-        if mode == "very_unsafe":
-            raise ValueError("this Pybind build does not expose very_unsafe mode")
         arguments["exact"] = mode == "exact"
         arguments["unsafe"] = mode == "unsafe"
     else:
@@ -228,9 +226,9 @@ def _cli_runner(
             elif mode == "exact":
                 mode_arguments = ["-e"]
             else:
-                raise ValueError("this legacy CLI does not expose very_unsafe mode")
+                raise ValueError("this legacy CLI does not expose the requested mode")
         elif unsafe_default:
-            if mode in {"unsafe", "very_unsafe"}:
+            if mode == "unsafe":
                 mode_arguments = []
             elif mode == "exact":
                 mode_arguments = ["-e"]
@@ -543,7 +541,7 @@ def _parser() -> argparse.ArgumentParser:
     run.add_argument(
         "--mode",
         action="append",
-        choices=("verified", "exact", "unsafe", "very_unsafe"),
+        choices=("verified", "exact", "unsafe"),
         required=True,
     )
     run.add_argument("--session")

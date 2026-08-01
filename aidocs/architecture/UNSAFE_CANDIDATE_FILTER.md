@@ -1,14 +1,12 @@
 # Temporary Unsafe-Default Candidate Filter
 
-Status: implemented; local correctness and performance verification recorded
-below.
+Status: historical; local correctness and performance verification is recorded below.
 
-Current status: this document records the completed temporary-default phase.
-Verified candidate search is now the default. The normalized heuristic is
-available through `--mode unsafe`, while the older raw-double algorithm from
-before normalization is available through `--mode very_unsafe`. The remainder
-of this document is the historical record of the temporary phase. See
-`FIND_CANDIDATE_VERIFIED.md` for the current routing and validation record.
+Current status: this document records the completed temporary-default phase. The normalized heuristic was later removed because
+it fixed raw-double failures 38-39 but introduced failures 45-47; it was not a monotonic safety improvement. Verified candidate
+search is the default, the historical raw-double algorithm is available through `--mode unsafe`, and exact bypass remains
+available through `--mode exact`. The remainder of this document is the historical record of the temporary phase. See
+`FIND_CANDIDATE_VERIFIED.md` for current routing and validation.
 
 Branch: `choice-one-candidate-filter`
 

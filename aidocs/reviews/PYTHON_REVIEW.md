@@ -31,9 +31,8 @@ remove a finding after its fix and regression coverage are complete.
   recover 86,152 candidates and 83,377 ESS. Dimensions 2-25 each have at least
   one circular and one non-circular matrix, and every distinct matrix from the
   two published Bomze-Schachinger-Ullrich result tables is present once.
-- Its current timing session has 348 persistent-Pybind median rows: all 87
-  matrices in current unsafe, verified, and exact modes plus historical default,
-  very unsafe. Historical very unsafe mismatches IDs 38-39, current unsafe
+- Its retained four-mode timing session has 348 persistent-Pybind median rows: all 87 matrices in the then-current normalized
+  unsafe, verified, and exact modes plus the historical raw default. Raw mismatches IDs 38-39, the retired normalized heuristic
   mismatches IDs 45-47, and verified and exact match all matrices. Report rows
   include dimension, circularity, and the derived lower bound
   `gamma_lower_bound = expected_ess ** (1 / dimension)`.
@@ -45,8 +44,7 @@ remove a finding after its fix and regression coverage are complete.
 - `run_multiprocessing` keeps the same parameter order as `run` and adds only a
   final optional `MPConfig`; `MPConfig()` defaults to the CPUs available to the
   Python process.
-- `RunConfig()` selects verified search by default; its single `mode` field
-  selects exact, normalized unsafe, or historical very unsafe search.
+- `RunConfig()` selects verified search by default; its single `mode` field selects exact or historical raw unsafe search.
 - Multiprocessing serializes results inside workers before queueing them, so a
   return-trip serialization failure exits the worker instead of hanging.
 - Multiprocessing uses one shared matrix queue and one shared result queue, yields

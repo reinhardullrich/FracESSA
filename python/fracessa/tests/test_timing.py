@@ -125,7 +125,7 @@ class TimingTests(unittest.TestCase):
         self.assertEqual(result, (7, 100, 4, 10_000))
 
     def test_pybind_modes_use_single_mode_parameter(self):
-        for mode in ("verified", "exact", "unsafe", "very_unsafe"):
+        for mode in ("verified", "exact", "unsafe"):
             arguments = timing._pybind_arguments("2#0,1,0", 1, mode, "mode")
             self.assertEqual(arguments["mode"], mode)
             self.assertNotIn("exact", arguments)
@@ -134,8 +134,6 @@ class TimingTests(unittest.TestCase):
         old = timing._pybind_arguments("2#0,1,0", 1, "unsafe", "booleans")
         self.assertFalse(old["exact"])
         self.assertTrue(old["unsafe"])
-        with self.assertRaisesRegex(ValueError, "does not expose very_unsafe"):
-            timing._pybind_arguments("2#0,1,0", 1, "very_unsafe", "booleans")
 
     def test_report_includes_matrix_growth_base(self):
         with tempfile.TemporaryDirectory() as directory:

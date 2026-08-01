@@ -15,14 +15,12 @@
 #include <fracessa/bitset64.hpp>
 #include <fracessa/find_candidate_exact.hpp>
 #include <fracessa/find_candidate_unsafe.hpp>
-#include <fracessa/find_candidate_very_unsafe.hpp>
 #include <fracessa/find_candidate_verified.hpp>
 
 enum class analysis_mode {
     verified,
     exact,
     unsafe,
-    very_unsafe,
 };
 
 analysis_mode parse_analysis_mode(std::string_view name);
@@ -36,9 +34,8 @@ analysis_mode parse_analysis_mode(std::string_view name);
  *    candidate on S, including its extended support;
  * 3) exact positive-definiteness and copositivity tests decide ESS stability.
  *
- * Verified mode returns false only after a rigorous one-sided proof. Unsafe
- * mode retains the normalized heuristic, very-unsafe mode restores the older
- * raw-double heuristic, and exact mode bypasses every preliminary search.
+ * Verified mode returns false only after a rigorous one-sided proof. Unsafe mode uses the historical raw-double heuristic,
+ * and exact mode bypasses every preliminary search.
  */
 class fracessa
 {
@@ -61,7 +58,6 @@ private:
     linalg::matrix_frc game_matrix_;
     candidate_search::find_candidate_verified find_candidate_verified_;
     candidate_search::find_candidate_unsafe find_candidate_unsafe_;
-    candidate_search::find_candidate_very_unsafe find_candidate_very_unsafe_;
     candidate_search::find_candidate_exact find_candidate_exact_;
     linalg::matrix_frc bee_matrix_;
 
