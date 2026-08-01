@@ -1,6 +1,6 @@
 #include <gtest/gtest.h>
 
-#include <fracessa/find_candidate_exact.hpp>
+#include <fracessa/find_candidate_safe.hpp>
 
 /*
  * Exact reduced-Hessian LDL^T tests through the candidate procedure that owns it.
@@ -12,7 +12,7 @@ TEST(LinearSolverFractionTest, SimpleCandidate) {
     game(1, 0) = fraction::one();  game(1, 1) = fraction::zero();
 
     candidate result;
-    candidate_search::find_candidate_exact finder(game);
+    candidate_search::find_candidate_safe finder(game);
     ASSERT_TRUE(finder.find(0b11, 2, result, true));
     EXPECT_EQ(result.vector(0, 0), fraction(1, 2));
     EXPECT_EQ(result.vector(1, 0), fraction(1, 2));
@@ -25,7 +25,7 @@ TEST(LinearSolverFractionTest, AllowsNegativePayoffVariable) {
     game(0, 0) = fraction(-2);
 
     candidate result;
-    candidate_search::find_candidate_exact finder(game);
+    candidate_search::find_candidate_safe finder(game);
     ASSERT_TRUE(finder.find(0b1, 1, result, false));
     EXPECT_EQ(result.payoff, fraction(-2));
     EXPECT_TRUE(finder.reduced_hessian_is_negative_definite());
@@ -47,7 +47,7 @@ TEST(LinearSolverFractionTest, HandlesNonsingularZeroDiagonalTwoByTwoPivot) {
     game(2, 0) = fraction(-1, 4);  game(2, 1) = fraction(1, 2);  game(2, 2) = fraction(-1, 2);
 
     candidate result;
-    candidate_search::find_candidate_exact finder(game);
+    candidate_search::find_candidate_safe finder(game);
     ASSERT_TRUE(finder.find(0b111, 3, result, true));
     EXPECT_EQ(result.vector(0, 0), fraction(1, 2));
     EXPECT_EQ(result.vector(1, 0), fraction(1, 4));
@@ -64,7 +64,7 @@ TEST(LinearSolverFractionTest, RejectsNonPositiveSupportVariable) {
     game(1, 0) = fraction::zero(); game(1, 1) = fraction::zero();
 
     candidate result;
-    candidate_search::find_candidate_exact finder(game);
+    candidate_search::find_candidate_safe finder(game);
     EXPECT_FALSE(finder.find(0b11, 2, result, false));
     EXPECT_FALSE(finder.reduced_hessian_is_negative_definite());
 }
@@ -75,6 +75,28 @@ TEST(LinearSolverFractionTest, RejectsSingularSystem) {
     game(1, 0) = fraction::one(); game(1, 1) = fraction::one();
 
     candidate result;
-    candidate_search::find_candidate_exact finder(game);
+    candidate_search::find_candidate_safe finder(game);
     EXPECT_FALSE(finder.find(0b11, 2, result, false));
+}
+
+TEST(LinearSolverFractionTest, BuildsVectorOnlyForRequestedSuccessfulCandidate) {
+    linalg::matrix_frc game(2, 2);
+    game(0, 0) = fraction::zero(); game(0, 1) = fraction::one();
+    game(1, 0) = fraction::one();  game(1, 1) = fraction::zero();
+    candidate_search::find_candidate_safe finder(game);
+
+    candidate rejected;
+    EXPECT_FALSE(finder.find(0b01, 1, rejected, true));
+    EXPECT_EQ(rejected.vector.rows(), 0);
+
+    candidate without_vector;
+    ASSERT_TRUE(finder.find(0b11, 2, without_vector, false));
+    EXPECT_EQ(without_vector.vector.rows(), 0);
+
+    candidate with_vector;
+    ASSERT_TRUE(finder.find(0b11, 2, with_vector, true));
+    ASSERT_EQ(with_vector.vector.rows(), 2);
+    ASSERT_EQ(with_vector.vector.cols(), 1);
+    EXPECT_EQ(with_vector.vector(0, 0), fraction(1, 2));
+    EXPECT_EQ(with_vector.vector(1, 0), fraction(1, 2));
 }

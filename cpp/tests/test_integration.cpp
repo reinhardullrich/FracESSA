@@ -15,7 +15,7 @@ TEST(IntegrationTest, SimpleGame) {
     B(0, 0) = fraction::zero(); B(0, 1) = fraction::one();
     B(1, 0) = fraction::one(); B(1, 1) = fraction::zero();
     
-    fracessa analyzer(B, false, true, analysis_mode::exact, false, false);
+    fracessa analyzer(search_method::safe, B, false, true, false, false);
     EXPECT_EQ(analyzer.ess_count_, 1);
 }
 
@@ -24,7 +24,7 @@ TEST(IntegrationTest, FullSupportModeReturnsStableFullSupport) {
     B(0, 0) = fraction::zero(); B(0, 1) = fraction::one();
     B(1, 0) = fraction::one();  B(1, 1) = fraction::zero();
 
-    fracessa analyzer(B, false, true, analysis_mode::exact, true, false);
+    fracessa analyzer(search_method::safe, B, false, true, true, false);
 
     ASSERT_EQ(analyzer.ess_count_, 1u);
     ASSERT_EQ(analyzer.candidates_.size(), 1u);
@@ -37,7 +37,7 @@ TEST(IntegrationTest, CircularFullSupportHasMultiplierOne) {
     B(0, 0) = fraction::zero(); B(0, 1) = fraction::one();
     B(1, 0) = fraction::one();  B(1, 1) = fraction::zero();
 
-    fracessa analyzer(B, true, true, analysis_mode::exact, true, false);
+    fracessa analyzer(search_method::safe, B, true, true, true, false);
 
     ASSERT_EQ(analyzer.ess_count_, 1u);
     ASSERT_EQ(analyzer.candidates_.size(), 1u);
@@ -50,7 +50,7 @@ TEST(IntegrationTest, FullSupportModeFallsBackWhenFullSupportIsNotStable) {
     B(0, 0) = fraction::one();  B(0, 1) = fraction::zero();
     B(1, 0) = fraction::zero(); B(1, 1) = fraction::one();
 
-    fracessa analyzer(B, false, true, analysis_mode::exact, true, false);
+    fracessa analyzer(search_method::safe, B, false, true, true, false);
 
     ASSERT_EQ(analyzer.ess_count_, 2u);
     ASSERT_EQ(analyzer.candidates_.size(), 3u);
@@ -62,7 +62,7 @@ TEST(IntegrationTest, CircularSymmetricStoresOneRepresentative) {
     std::vector<fraction> half_row = {fraction::one(), fraction(3)};
     matrix_frc B = create_circular_symmetric(5, half_row);
 
-    fracessa analyzer(B, true, true, analysis_mode::exact, false, false);
+    fracessa analyzer(search_method::safe, B, true, true, false, false);
 
     ASSERT_EQ(analyzer.ess_count_, 5u);
     ASSERT_EQ(analyzer.candidates_.size(), 1u);

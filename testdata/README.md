@@ -13,14 +13,13 @@ Redundant alternatives formerly at IDs 12 and 21 were removed. IDs 56-66 are
 staged complete-multipartite many-ESS benchmark matrices. IDs 67-79 are
 deterministic random-integer coverage matrices; together with the existing rows,
 every dimension from 2 through 25 has at least one circular and one non-circular matrix. IDs 45-47 preserve the retired normalized
-heuristic, LU-boundary, and failed-proof verified-search regressions. No complete SQLite matrix suite is currently wired
+heuristic and verified-search regression history. No complete SQLite matrix suite is currently wired
 into CTest.
 
-The timing table retains a CPU-2 persistent-Pybind median session with a one-second target and all 87 matrices in the four modes
-that existed when it was recorded. Normalized `unsafe`, `verified`, and `exact` use algorithm revision `34e003168607`; the
-`historical-default-very-unsafe` label uses raw-double revision `32f61679da64` with a temporary normal-parser/nanosecond Pybind
-adapter. Raw historical search mismatches IDs 38-39, the retired normalized heuristic mismatches IDs 45-47, and verified and
-exact match all 87 matrices. Current production names the raw heuristic `unsafe`; dated timing labels remain unchanged.
+The timing table retains a CPU-2 persistent-Pybind median session with a one-second target. Werner's default and the preserved
+pre-mode default are stored as `fast`; Werner's exact run is stored as `safe`, matching their current semantic equivalents. The
+later `current-main` three-mode snapshot retains its historical `safe`, `unsafe`, and `exact` labels because its `safe` rows are
+the removed verified proof rather than today's exact safe method. Build label and revision disambiguate every historical row.
 
 ## Tables
 
@@ -68,23 +67,22 @@ Each row is one sequential analyzer timing measurement for one matrix. A
 session may contain several builds, but each build is measured by a separate
 runner invocation. Rows record the machine and pinned CPU, human build label,
 moving source reference such as `main`, immutable revision, binary SHA-256,
-Pybind or CLI backend, numerical mode, target and measured wall durations,
+Pybind or CLI backend, search method in the historically named `mode` column, target and measured wall durations,
 iteration count, median native duration in nanoseconds, observed ESS count,
 and an optional comment.
 
 The observed count remains separate from the expected count in `matrices`, so a
-report can expose unsafe-mode mismatches without hiding or rejecting their
+report can expose fast-method mismatches without hiding or rejecting their
 timings. The report derives the Bomze-Schachinger-Ullrich exponential-growth
 lower bound `expected_ess ** (1 / dimension)` and prints it with dimension and
-circularity; this value is not stored in the database. Old CLI builds simply
-have no `safe` rows.
+circularity; this value is not stored in the database.
 
 ## Scope
 
 `python -m fracessa.timing` reads matrices from this database and writes timing
 observations back to `timings`. It is deliberately a sequential, Linux
 CPU-affinity runner, not part of the multiprocessing wrapper. One Pybind process
-stays open for all selected modes and matrices in a build. The first returned
+stays open for all selected methods and matrices in a build. The first returned
 C++ duration chooses `ceil(target / duration)` total samples and remains part
 of the sample; a duration at or above the target chooses one run. The stored
 result is the median returned `elapsed_ns`. Wall time is recorded as metadata

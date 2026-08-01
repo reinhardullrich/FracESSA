@@ -119,10 +119,10 @@ def _load_matrices(
 def _pybind_arguments(
     matrix: str,
     matrix_id: int,
-    mode: str,
+    method: str,
     interface: str,
 ) -> dict:
-    """Return native keyword arguments for one named numerical mode."""
+    """Return native keyword arguments for one named search method."""
 
     arguments = {
         "matrix": matrix,
@@ -131,15 +131,15 @@ def _pybind_arguments(
         "enable_logging": False,
         "matrix_id": matrix_id,
     }
-    if interface == "mode":
-        arguments["mode"] = mode
+    if interface == "method":
+        arguments["method"] = method
+    elif interface == "mode":
+        arguments["mode"] = "unsafe" if method == "fast" else "exact"
     elif interface == "booleans":
-        arguments["exact"] = mode == "exact"
-        arguments["unsafe"] = mode == "unsafe"
+        arguments["exact"] = method == "safe"
+        arguments["unsafe"] = method == "fast"
     else:
-        if mode == "verified":
-            raise ValueError("this legacy Pybind build does not expose verified mode")
-        arguments["exact"] = mode == "exact"
+        arguments["exact"] = method == "safe"
     return arguments
 
 
@@ -163,18 +163,20 @@ def _pybind_runner(module_dir: Path | None) -> tuple[Callable, Path]:
             f"loaded {module_path}, not a fracessa_core module from {module_dir}"
         )
     native_doc = native.compute_matrix.__doc__ or ""
-    if "mode:" in native_doc:
+    if "method:" in native_doc:
+        interface = "method"
+    elif "mode:" in native_doc:
         interface = "mode"
     elif "unsafe:" in native_doc:
         interface = "booleans"
     else:
         interface = "legacy"
 
-    def run(matrix_id: int, matrix: str, mode: str) -> tuple[int, int]:
+    def run(matrix_id: int, matrix: str, method: str) -> tuple[int, int]:
         """Run one matrix through the loaded extension."""
 
         result = native.compute_matrix(
-            **_pybind_arguments(matrix, matrix_id, mode, interface)
+            **_pybind_arguments(matrix, matrix_id, method, interface)
         )
         if result["status"] != 0:
             raise RuntimeError(result["error_message"] or "native computation failed")
@@ -206,7 +208,7 @@ def _cli_runner(
     executable: Path,
     unit: str,
     safe_default: bool,
-    unsafe_default: bool,
+    fast_default: bool,
 ) -> tuple[Callable, Path]:
     """Return a sequential callable for a CLI-only FracESSA build."""
 
@@ -214,31 +216,19 @@ def _cli_runner(
     if not executable.is_file() or not os.access(executable, os.X_OK):
         raise ValueError(f"CLI executable is missing or not executable: {executable}")
 
-    def run(matrix_id: int, matrix: str, mode: str) -> tuple[int, int]:
+    def run(matrix_id: int, matrix: str, method: str) -> tuple[int, int]:
         """Run one matrix through the selected CLI executable."""
 
         del matrix_id
         if safe_default:
-            if mode == "verified":
-                mode_arguments = []
-            elif mode == "unsafe":
-                mode_arguments = ["-u"]
-            elif mode == "exact":
-                mode_arguments = ["-e"]
-            else:
-                raise ValueError("this legacy CLI does not expose the requested mode")
-        elif unsafe_default:
-            if mode == "unsafe":
-                mode_arguments = []
-            elif mode == "exact":
-                mode_arguments = ["-e"]
-            else:
-                raise ValueError("this legacy CLI does not expose verified mode")
+            method_arguments = ["-u"] if method == "fast" else ["-e"]
+        elif fast_default:
+            method_arguments = [] if method == "fast" else ["-e"]
         else:
-            mode_arguments = [] if mode == "verified" else ["--mode", mode]
+            method_arguments = [method]
 
         completed = subprocess.run(
-            [str(executable), "-t", *mode_arguments, matrix],
+            [str(executable), "-t", *method_arguments, matrix],
             check=False,
             capture_output=True,
             text=True,
@@ -255,7 +245,7 @@ def _measure_target(
     runner: Callable,
     matrix_id: int,
     matrix: str,
-    mode: str,
+    method: str,
     target_ns: int,
 ) -> tuple[int, int, int, int]:
     """Measure one matrix for about ``target_ns`` and return its native median.
@@ -265,14 +255,14 @@ def _measure_target(
     """
 
     measured_started = perf_counter_ns()
-    ess_count, first_elapsed_ns = runner(matrix_id, matrix, mode)
+    ess_count, first_elapsed_ns = runner(matrix_id, matrix, method)
     if first_elapsed_ns <= 0:
         raise RuntimeError("native timing must be positive")
 
     iterations = max(1, (target_ns + first_elapsed_ns - 1) // first_elapsed_ns)
     samples = [first_elapsed_ns]
     for _ in range(1, iterations):
-        current_ess, current_elapsed_ns = runner(matrix_id, matrix, mode)
+        current_ess, current_elapsed_ns = runner(matrix_id, matrix, method)
         if current_ess != ess_count:
             raise RuntimeError("ESS count changed between timing iterations")
         if current_elapsed_ns <= 0:
@@ -291,15 +281,15 @@ def _validate_run(arguments: argparse.Namespace) -> None:
         raise ValueError("--target-seconds must be finite and positive")
     if round(arguments.target_seconds * 1_000_000_000) < 1:
         raise ValueError("--target-seconds is below one nanosecond")
-    if len(arguments.mode) != len(set(arguments.mode)):
-        raise ValueError("each --mode may be specified only once")
-    if arguments.safe_default and arguments.unsafe_default:
-        raise ValueError("--safe-default and --unsafe-default are mutually exclusive")
+    if len(arguments.method) != len(set(arguments.method)):
+        raise ValueError("each --method may be specified only once")
+    if arguments.safe_default and arguments.fast_default:
+        raise ValueError("--safe-default and --fast-default are mutually exclusive")
     if arguments.backend == "pybind":
         if arguments.executable is not None:
             raise ValueError("--executable is only valid with --backend cli")
-        if arguments.safe_default or arguments.unsafe_default:
-            raise ValueError("CLI default-mode flags are invalid with --backend pybind")
+        if arguments.safe_default or arguments.fast_default:
+            raise ValueError("legacy CLI default-method flags are invalid with --backend pybind")
     else:
         if arguments.executable is None:
             raise ValueError("--executable is required with --backend cli")
@@ -342,7 +332,7 @@ def _run(arguments: argparse.Namespace) -> int:
                 arguments.executable,
                 arguments.cli_unit,
                 arguments.safe_default,
-                arguments.unsafe_default,
+                arguments.fast_default,
             )
 
         recorded_at = datetime.now(tz=timezone.utc).isoformat()
@@ -351,11 +341,11 @@ def _run(arguments: argparse.Namespace) -> int:
         print(f"session={session}")
         previous_affinity = _pin_cpu(arguments.cpu)
         try:
-            for mode in arguments.mode:
+            for method in arguments.method:
                 for matrix_id, dimension, values, expected_ess in matrices:
                     matrix = f"{dimension}#{values}"
                     ess_count, elapsed_ns, iterations, measured_wall_ns = (
-                        _measure_target(runner, matrix_id, matrix, mode, target_ns)
+                        _measure_target(runner, matrix_id, matrix, method, target_ns)
                     )
                     connection.execute(
                         """INSERT INTO timings (
@@ -375,7 +365,7 @@ def _run(arguments: argparse.Namespace) -> int:
                             arguments.revision,
                             binary_sha256,
                             arguments.backend,
-                            mode,
+                            method,
                             matrix_id,
                             target_ns,
                             iterations,
@@ -387,7 +377,7 @@ def _run(arguments: argparse.Namespace) -> int:
                     connection.commit()
                     status = "ok" if ess_count == expected_ess else "mismatch"
                     print(
-                        f"{mode} matrix={matrix_id} iterations={iterations} "
+                        f"{method} matrix={matrix_id} iterations={iterations} "
                         f"median_ns={elapsed_ns} "
                         f"measured_s={measured_wall_ns / 1_000_000_000:.6f} "
                         f"ess={ess_count} expected={expected_ess} {status}",
@@ -440,7 +430,7 @@ def _report(arguments: argparse.Namespace) -> int:
     for row in rows:
         build, backend, source_ref, revision, digest, machine, cpu, comment = row[:8]
         (
-            mode,
+            method,
             matrix_id,
             is_cs,
             dimension,
@@ -457,7 +447,7 @@ def _report(arguments: argparse.Namespace) -> int:
         measurements.append(
             (
                 build,
-                mode,
+                method,
                 matrix_id,
                 is_cs,
                 dimension,
@@ -469,7 +459,7 @@ def _report(arguments: argparse.Namespace) -> int:
                 expected_ess,
             )
         )
-        medians[build, mode, matrix_id] = elapsed_ns
+        medians[build, method, matrix_id] = elapsed_ns
 
     for build, metadata in builds.items():
         backend, source_ref, revision, digest, machine, cpu, comment = metadata
@@ -480,13 +470,13 @@ def _report(arguments: argparse.Namespace) -> int:
         )
 
     print(
-        "build\tmode\tmatrix_id\tis_cs\tdimension\ttarget_s\titerations\t"
+        "build\tmethod\tmatrix_id\tis_cs\tdimension\ttarget_s\titerations\t"
         "measured_s\tmedian_ns\tess\texpected\tgamma_lower_bound\tstatus"
     )
     for measurement in sorted(measurements):
         (
             build,
-            mode,
+            method,
             matrix_id,
             is_cs,
             dimension,
@@ -500,7 +490,7 @@ def _report(arguments: argparse.Namespace) -> int:
         status = "ok" if ess_count == expected_ess else "mismatch"
         gamma_lower_bound = expected_ess ** (1 / dimension)
         print(
-            f"{build}\t{mode}\t{matrix_id}\t{is_cs}\t{dimension}\t"
+            f"{build}\t{method}\t{matrix_id}\t{is_cs}\t{dimension}\t"
             f"{target_ns / 1_000_000_000:g}\t"
             f"{iterations}\t{measured_wall_ns / 1_000_000_000:.6f}\t"
             f"{elapsed_ns}\t{ess_count}\t{expected_ess}\t"
@@ -511,13 +501,13 @@ def _report(arguments: argparse.Namespace) -> int:
         if arguments.baseline not in builds:
             raise ValueError(f"unknown baseline build: {arguments.baseline}")
         ratios = defaultdict(list)
-        for (build, mode, matrix_id), value in medians.items():
-            baseline = medians.get((arguments.baseline, mode, matrix_id))
+        for (build, method, matrix_id), value in medians.items():
+            baseline = medians.get((arguments.baseline, method, matrix_id))
             if build != arguments.baseline and baseline:
-                ratios[(build, mode)].append(value / baseline)
-        print("build\tmode\tshared_matrices\tmedian_ratio_to_baseline")
-        for (build, mode), values in sorted(ratios.items()):
-            print(f"{build}\t{mode}\t{len(values)}\t{median(values):.6f}")
+                ratios[(build, method)].append(value / baseline)
+        print("build\tmethod\tshared_matrices\tmedian_ratio_to_baseline")
+        for (build, method), values in sorted(ratios.items()):
+            print(f"{build}\t{method}\t{len(values)}\t{median(values):.6f}")
     return 0
 
 
@@ -539,9 +529,9 @@ def _parser() -> argparse.ArgumentParser:
     run.add_argument("--source-ref", required=True)
     run.add_argument("--revision", required=True)
     run.add_argument(
-        "--mode",
+        "--method",
         action="append",
-        choices=("verified", "exact", "unsafe"),
+        choices=("fast", "safe"),
         required=True,
     )
     run.add_argument("--session")
@@ -556,12 +546,12 @@ def _parser() -> argparse.ArgumentParser:
     run.add_argument(
         "--safe-default",
         action="store_true",
-        help="declare that a CLI with no mode flag is safe",
+        help="declare that a legacy CLI uses its safe search by default",
     )
     run.add_argument(
-        "--unsafe-default",
+        "--fast-default",
         action="store_true",
-        help="declare that a legacy CLI with no mode flag is unsafe",
+        help="declare that a legacy CLI uses its fast search by default",
     )
 
     report = commands.add_parser("report", help="show one stored session")

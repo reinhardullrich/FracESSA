@@ -11,16 +11,16 @@ import time
 
 from .core import compute_matrix, new_run_id
 from .sinks import _consume_to_sink
-from .types import MPConfig, Matrix, RunConfig, StatusCode
+from .types import MPConfig, Matrix, RunConfig, SearchMethod, StatusCode, _validate_search_method
 
 _SENTINEL = None
 
 
-def _safe_compute(matrix: Matrix, config: RunConfig, run_id: str) -> dict:
+def _safe_compute(method: SearchMethod, matrix: Matrix, config: RunConfig, run_id: str) -> dict:
     """Compute a matrix or convert an unexpected worker error to a result row."""
 
     try:
-        return compute_matrix(matrix=matrix, config=config, run_id=run_id)
+        return compute_matrix(method=method, matrix=matrix, config=config, run_id=run_id)
     except Exception as exc:  # defensive: worker must never crash the pool protocol
         return {
             "run_id": run_id,
@@ -39,6 +39,7 @@ def _safe_compute(matrix: Matrix, config: RunConfig, run_id: str) -> dict:
 def _queue_worker(
     input_queue,
     output_queue,
+    method: SearchMethod,
     config: RunConfig,
     run_id: str,
 ):
@@ -50,7 +51,7 @@ def _queue_worker(
             return
 
         matrix = pickle.loads(payload)
-        result = _safe_compute(matrix=matrix, config=config, run_id=run_id)
+        result = _safe_compute(method=method, matrix=matrix, config=config, run_id=run_id)
         output_queue.put(bytes(ForkingPickler.dumps(result)))
 
 
@@ -68,9 +69,10 @@ def _max_pending_matrices(mp_config: MPConfig) -> int:
 class _QueueRunner:
     """Own the shared queues and worker processes for one wrapper run."""
 
-    def __init__(self, run_config: RunConfig, mp_config: MPConfig, run_id: str | None = None):
+    def __init__(self, method: SearchMethod, run_config: RunConfig, mp_config: MPConfig, run_id: str | None = None):
         """Start configured workers and create their shared queues."""
 
+        self.method = method
         self.run_config = run_config
         self.mp_config = mp_config
         self.run_id = run_id or new_run_id("mp")
@@ -87,7 +89,7 @@ class _QueueRunner:
                 proc = self._ctx.Process(
                     target=_queue_worker,
                     name=f"fracessa-worker-{worker_idx}",
-                    args=(self._input_queue, self._output_queue, self.run_config, self.run_id),
+                    args=(self._input_queue, self._output_queue, self.method, self.run_config, self.run_id),
                     daemon=True,
                 )
                 proc.start()
@@ -167,6 +169,7 @@ class _QueueRunner:
 
 
 def _run_matrices_multiprocessing(
+    method: SearchMethod,
     matrices: Iterable[Matrix],
     config: RunConfig,
     mp_config: MPConfig,
@@ -184,7 +187,7 @@ def _run_matrices_multiprocessing(
     if config.enable_logging:
         raise ValueError("RunConfig.enable_logging is not supported with multiprocessing")
 
-    runner = _QueueRunner(run_config=config, mp_config=mp_config, run_id=run_id)
+    runner = _QueueRunner(method=method, run_config=config, mp_config=mp_config, run_id=run_id)
     completed = False
     try:
         matrices_iter = iter(matrices)
@@ -227,6 +230,7 @@ def _run_matrices_multiprocessing(
 
 
 def run_multiprocessing(
+    method: SearchMethod,
     matrices: Matrix | Iterable[Matrix],
     config: RunConfig | None = None,
     run_id: str | None = None,
@@ -241,6 +245,7 @@ def run_multiprocessing(
     written is returned.
 
     Args:
+        method: Required candidate-search method, ``"fast"`` or ``"safe"``.
         matrices: One matrix or an iterable of matrices.
         config: Analysis options; defaults to :class:`RunConfig`.
         run_id: Output identifier; a timestamp-based ID is generated when omitted.
@@ -255,12 +260,14 @@ def run_multiprocessing(
         ValueError: If ``config.enable_logging`` is true.
     """
 
+    _validate_search_method(method)
     cfg = config if config is not None else RunConfig()
     mp_cfg = mp_config if mp_config is not None else MPConfig()
     rid = run_id or new_run_id("mp")
     is_single = isinstance(matrices, Matrix)
     source = (matrices,) if is_single else matrices
     results = _run_matrices_multiprocessing(
+        method=method,
         matrices=source,
         config=cfg,
         mp_config=mp_cfg,

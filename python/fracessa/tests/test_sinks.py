@@ -205,6 +205,7 @@ class SinkTests(unittest.TestCase):
                     ):
                         with self.assertRaisesRegex(RuntimeError, "forced computation failure"):
                             run(
+                                "safe",
                                 [Matrix(1, "2#0,1,0")],
                                 sink=sink,
                                 run_id=run_id,

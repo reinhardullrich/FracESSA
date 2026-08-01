@@ -7,6 +7,17 @@ from enum import IntEnum
 import os
 from typing import Any, Literal
 
+SearchMethod = Literal["fast", "safe"]
+
+
+def _validate_search_method(method: str) -> None:
+    """Reject a missing or unknown candidate-search method."""
+
+    if not isinstance(method, str):
+        raise TypeError("method must be a str")
+    if method not in {"fast", "safe"}:
+        raise ValueError("method must be fast or safe")
+
 
 class StatusCode(IntEnum):
     """Status values returned by native matrix computation."""
@@ -49,25 +60,14 @@ class RunConfig:
     """Configure native analysis for sequential or multiprocessing execution.
 
     Attributes:
-        mode: Candidate-search mode; verified is the default.
         full_support: Request full-support analysis from the native engine.
         include_candidates: Include candidate dictionaries in each result.
         enable_logging: Enable native logging for sequential execution only.
     """
 
-    mode: Literal["verified", "exact", "unsafe"] = "verified"
     full_support: bool = False
     include_candidates: bool = False
     enable_logging: bool = False
-
-    def __post_init__(self) -> None:
-        """Reject unknown native analysis modes."""
-
-        if not isinstance(self.mode, str):
-            raise TypeError("RunConfig.mode must be a str")
-        if self.mode not in {"verified", "exact", "unsafe"}:
-            raise ValueError("RunConfig.mode must be verified, exact, or unsafe")
-
 
 @dataclass(slots=True)
 class MPConfig:

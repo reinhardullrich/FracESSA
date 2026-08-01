@@ -41,7 +41,7 @@ Last verified: 2026-08-01
    diagnostics, not as performance goals. Retain an allocation optimization
    only when real end-to-end benchmarks show a repeatable speed improvement;
    lower memory use does not justify slower or more complicated code.
-7. Performance samples must cover the affected modes, small and large games,
+7. Performance samples must cover the affected methods, small and large games,
    and both circular and non-circular matrices. Include dimensions around 20
    and 23 when feasible. A synthetic kernel result alone is not sufficient.
 8. Keep dimension-2 matrices in the canonical test data and correctness
@@ -124,12 +124,10 @@ the exact fractions. Support masks have 64 storage bits, but complete
 enumeration requires the exclusive `2^n` bound, so dimension 64 is not
 supported.
 
-The three numerical modes are verified, exact, and unsafe candidate search. Omitting `--mode` selects the rigorously one-sided
-verified procedure; `--mode unsafe` selects the historical raw-double heuristic without normalization; and `--mode exact`
-bypasses every floating-point candidate procedure. If build-time or runtime
-floating-point requirements are unavailable, verified mode stops before support
-enumeration and requires an explicit exact or unsafe mode. An inconclusive proof
-for an individual support still falls back to exact arithmetic normally.
+Every entry surface requires one of two search methods before the matrix; there is no default. `safe` uses exact arithmetic for
+every candidate decision. `fast` first uses the historical raw-double heuristic without normalization and then confirms every
+surviving support exactly. Six one-time exact-to-double input checks switch the whole matrix from `fast` to `safe`; otherwise the
+heuristic can still reject exact candidates and ESS results.
 
 ## Computation Flow
 
@@ -138,8 +136,8 @@ CLI or pybind input
   -> matrix_parser
   -> fracessa constructor
   -> support generation and pruning
-  -> find_candidate_verified, find_candidate_unsafe, or exact bypass
-  -> find_candidate_exact
+  -> optional find_candidate_fast heuristic
+  -> find_candidate_safe
   -> check_stability
   -> ESS/candidate output
 ```
@@ -164,22 +162,17 @@ Important implementation points:
 - Newly found exact candidates are pending until the next cardinality, keeping
   each generator layer's pruning rules stable. Stability is irrelevant to this
   pruning rule: every exact equilibrium support forbids later strict supersets.
-- `find_candidate_verified` lazily translates and positively scales the exact
-  game into `[-1,1]`, encloses every entry in binary64, and reuses one bordered
-  LU scratch matrix. It rejects only after a rigorous solution-error bound
-  proves a nonpositive support probability or a profitable outside strategy.
-- `find_candidate_unsafe` owns the direct, unnormalized binary64 conversion and historical bordered solve. Six one-time input
-  checks select matrix-wide exact fallback for risky conversions. Otherwise it intentionally retains the old pivot cutoff and
+- `find_candidate_fast` owns the direct, unnormalized binary64 conversion and historical bordered solve. Six one-time input
+  checks select matrix-wide safe fallback for risky conversions. Otherwise it intentionally retains the old pivot cutoff and
   margins that can reject exact candidates.
-- `find_candidate_exact` clears the game's rational denominators once, eliminates
+- `find_candidate_safe` clears the game's rational denominators once, eliminates
   the normalization/payoff border, and constructs the integer-scaled symmetric
   reduced system $dH y=dr$ in reusable FLINT storage. One fraction-free
   $LDL^T$-style factorization solves the candidate, proves singularity, and
   records the exact inertia needed by stability. Rational values are constructed
   only for successful public candidate output.
-- `fracessa` owns the rational game used by stability. The two floating-point procedures refer to it, while
-  `find_candidate_exact` owns one integer-scaled
-  copy for all exact candidate solves.
+- `fracessa` owns the rational game used by stability. `find_candidate_fast` refers to it, while `find_candidate_safe` owns one
+  integer-scaled copy for all exact candidate solves.
 - Exact candidate factorization and validation use FLINT `fmpz_t` integers;
   public rational results and the retained Bomze stability fallback use FLINT
   `fmpq_t` through `linalg::fraction`.
@@ -191,11 +184,11 @@ Important implementation points:
   accepted as a final mathematical certificate.
 - `correctness/DOUBLE_PD_FALSE_POSITIVES.md` documents the concrete failures and
   proves why tolerance tuning cannot recover an exact PD certificate.
-- `--mode exact` does not initialize or allocate any double candidate-search
-  state, and all final stability decisions use exact rational arithmetic.
-- `--mode unsafe` uses the raw-double algorithm at revision `32f61679da64` only when six one-time input checks pass. IDs 38-39
-  trigger matrix-wide exact fallback. The retained pivot cutoff remains heuristic for other inputs. The retired normalized
-  heuristic fixed IDs 38-39 but introduced misses on IDs 45-47 and is not a production mode.
+- `safe` does not initialize or allocate any double candidate-search state, and all final stability decisions use exact rational
+  arithmetic.
+- `fast` uses the raw-double algorithm at revision `32f61679da64` only when six one-time input checks pass. IDs 38-39 trigger
+  matrix-wide safe fallback. The retained pivot cutoff remains heuristic for other inputs. The retired normalized heuristic fixed
+  IDs 38-39 but introduced misses on IDs 45-47 and is not a production method.
 
 Key files:
 
@@ -203,20 +196,17 @@ Key files:
 - `cpp/include/fracessa/supports.hpp`: support generation and pruning.
 - `cpp/include/linalg/fraction.hpp`: FLINT rational wrapper.
 - `cpp/include/linalg/copositive_fraction.hpp`: exact copositivity checks.
-- `cpp/include/fracessa/find_candidate_verified.hpp` and
-  `cpp/src/find_candidate_verified.cpp`: verified class, strict one-sided proof,
-  availability check, and focused proof-helper contracts.
-- `cpp/include/fracessa/find_candidate_unsafe.hpp` and
-  `cpp/src/find_candidate_unsafe.cpp`: historical raw-double class, unnormalized conversion, exact-fallback input checks,
+- `cpp/include/fracessa/find_candidate_fast.hpp` and
+  `cpp/src/find_candidate_fast.cpp`: historical raw-double class, unnormalized conversion, safe-fallback input checks,
   heuristic solve, and reusable scratch.
-- `cpp/include/fracessa/find_candidate_exact.hpp` and
-  `cpp/src/find_candidate_exact.cpp`: exact class, border elimination,
+- `cpp/include/fracessa/find_candidate_safe.hpp` and
+  `cpp/src/find_candidate_safe.cpp`: exact class, border elimination,
   integer candidate validation, and candidate construction.
 - `cpp/include/linalg/flint_style_fraction_free_ldlt.hpp`: reusable in-place
   fraction-free symmetric solve, exact inertia, and zero-diagonal coordinate
   handling.
 - `cpp/include/fracessa/fracessa.hpp` and `cpp/src/fracessa.cpp`: exact game
-  ownership, mode coordination, support search, and candidate lifecycle.
+  ownership, method coordination, support search, and candidate lifecycle.
 - `cpp/src/checkstab.cpp`: stability classification.
 
 ## Build And Dependencies
@@ -253,11 +243,9 @@ Local non-MSVC Release builds default to `FRACESSA_NATIVE_ARCH=ON`
 (`-march=native`); Release CI sets it to `OFF`. Debug and other configurations
 use CMake's standard flags without FracESSA's throughput options. IPO/LTO is
 enabled only for Release and only when CMake confirms support.
-The `find_candidate_verified` object target uses strict floating-point semantics with contraction and IPO/LTO disabled. The raw
-unsafe heuristic remains with the normal Release throughput settings used by its historical implementation.
-One centralized availability function combines compiler support with the
-runtime binary64, round-to-nearest, and subnormal checks. An unsupported build
-still provides exact and unsafe modes, but refuses verified search.
+The fast heuristic uses the normal Release throughput settings of its historical implementation. MPFR remains an explicit link
+dependency because static FLINT linkage requires the `FLINT -> MPFR -> GMP` order; production source no longer calls MPFR
+directly.
 When sandboxing blocks the normal ccache directory, rerun the build with
 escalated filesystem access rather than disabling or redirecting ccache.
 
@@ -270,7 +258,7 @@ GMP, MPFR, or FLINT.
 ./test.sh # build, core/CLI tests, and wrapper tests
 ```
 
-The non-matrix CTest suite consists of ten GoogleTest executables plus one CLI
+The non-matrix CTest suite consists of nine GoogleTest executables plus one CLI
 black-box parser test. Wrapper tests use Python `unittest`. Matrix correctness
 is no longer wired as one CTest per matrix.
 
@@ -301,11 +289,12 @@ non-circular matrices. Same-property alternatives formerly stored at IDs 12
 and 21 were removed; the former contents of IDs 18 and 26 were replaced by the
 published vectors.
 
-The timing snapshot has one CPU-2 session with a one-second target and 592 persistent-Pybind median rows. Its labels preserve the
-four modes that existed when it was recorded: normalized `unsafe`, `verified`, and `exact` use algorithm revision `34e003168607`,
-while `historical-default-very-unsafe` uses raw-double revision `32f61679da64` with a temporary normal-parser/nanosecond Pybind
-adapter. Every mode covers all 87 matrices. The raw historical build mismatches IDs 38-39, the retired normalized heuristic
-mismatches IDs 45-47, and verified and exact match all 87. Timing
+The timing snapshot has one CPU-2 session with a one-second target and 592 persistent-Pybind median rows. Werner's default and the
+preserved pre-mode default are stored as `fast`; Werner's exact run is stored as `safe`, matching their current semantic
+equivalents. The later `current-main` three-mode snapshot retains historical `safe`, `unsafe`, and `exact` labels because its
+`safe` rows are the removed verified proof rather than today's exact safe method. Build label and revision disambiguate them. The
+raw historical build mismatches IDs 38-39, the retired normalized heuristic mismatches IDs 45-47, and the removed verified proof
+and exact search match all 87. Timing
 reports include matrix dimension, circularity, and the derived paper-style
 lower bound `gamma_lower_bound = expected_ess ** (1 / dimension)` without
 storing it in SQLite.
@@ -354,9 +343,10 @@ SQLite, measures one build and one matrix at a time on a user-selected Linux
 CPU, and writes normalized nanosecond samples to the same database. Reusing a
 session name groups separately invoked builds. Each row records `source_ref`
 (for a moving name such as `main`), its immutable `revision`, the binary hash,
-backend, mode, CPU, comment, observed ESS count, target and measured wall time,
+backend, historical `mode` database value, CPU, comment, observed ESS count, target and measured wall time,
 iteration count, and median native elapsed time. One Pybind process stays open
-for every selected mode and matrix in a build. The first returned native
+for every selected method and matrix in a build. New runs require `--method fast` or `--method safe`; adapters map those choices
+onto old Pybind and CLI interfaces when benchmarking historical builds. The first returned native
 duration chooses `ceil(target / duration)` total samples and remains in the
 sample; a duration at or above the target chooses one run. The stored result is
 the median returned `elapsed_ns`. Measured wall time is metadata only and
@@ -367,8 +357,8 @@ not be mixed with persistent-Pybind microbenchmarks. Dated material under
 evidence.
 
 Database IDs 45-47 preserve the retired normalized-heuristic correctness regressions tracked in `reviews/CPP_REVIEW.md`. The
-wrapper integration suite checks IDs 38 and 46 through verified and unsafe routes, but no complete SQLite matrix suite is
-currently wired into `./test.sh` or release CI.
+wrapper integration suite checks IDs 38 and 46 through fast and safe routes, but no complete SQLite matrix suite is currently
+wired into `./test.sh` or release CI.
 
 ## Pybind Boundary
 
@@ -427,12 +417,12 @@ No production wrapper or matrix workflow imposes a per-matrix computation
 timeout. A matrix may legitimately run for hours. Worker-liveness handling must
 not be implemented as a computation timeout.
 
-`RunConfig()` selects verified candidate search by default. Its single `mode` field accepts `"verified"`, `"exact"`, or
-`"unsafe"` and is passed unchanged through the native boundary. Unsafe can miss candidates and ESS results; exact bypasses every
+`RunConfig()` contains only analysis options. `run`, `run_multiprocessing`, and `compute_matrix` require `"fast"` or `"safe"` as
+their first argument; there is no default method. Fast can miss candidates and ESS results, while safe bypasses every
 floating-point candidate procedure.
 
 `run` and `run_multiprocessing` are the only public execution functions. Both
-accept one `Matrix` or an iterable and accept an optional sink. One matrix
+accept a required method followed by one `Matrix` or an iterable and accept an optional sink. One matrix
 returns one dictionary, an iterable returns a result iterator, and passing a
 sink eagerly writes the results and returns the matrix count. `compute_matrix`
 is the public low-level native adapter. `run_multiprocessing` adds only a final

@@ -55,7 +55,7 @@ void fracessa::check_stability()
     const size_t kay_size = bs64::count_set_bits(kay);
 
     /*
-     * Reuse the reduced Hessian already factored by find_candidate_exact.
+     * Reuse the reduced Hessian already factored by find_candidate_safe.
      *
      * The exact candidate solve chose the same reference m and formed
      *
@@ -77,7 +77,7 @@ void fracessa::check_stability()
      *
      * Only H<0 with J strictly larger than I reaches the original Bee, partial-copositivity, and copositivity implementation below.
      */
-    if (!find_candidate_exact_.reduced_hessian_is_negative_definite()) {
+    if (!find_candidate_safe_.reduced_hessian_is_negative_definite()) {
         if (kay_size <= 1) {
             if (conf_with_log_)
                 logger_->info("Reason: false_not_posdef_and_kay_0_1 (from reduced Hessian)");

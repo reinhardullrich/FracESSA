@@ -2,23 +2,23 @@ import inspect
 import unittest
 
 import fracessa
-from fracessa.types import MPConfig, Matrix, RunConfig, StatusCode
+from fracessa.types import MPConfig, Matrix, RunConfig, StatusCode, _validate_search_method
 
 
 class TypesTests(unittest.TestCase):
     def test_run_config_has_no_timeout_field(self):
         cfg = RunConfig()
         self.assertFalse(hasattr(cfg, "timeout_s"))
-        self.assertEqual(cfg.mode, "verified")
+        self.assertFalse(hasattr(cfg, "mode"))
 
-    def test_run_config_validates_mode(self):
-        for mode in ("verified", "exact", "unsafe"):
-            self.assertEqual(RunConfig(mode=mode).mode, mode)
-        with self.assertRaisesRegex(TypeError, "mode must be a str"):
-            RunConfig(mode=1)
-        for mode in ("unknown", "very_unsafe"):
-            with self.subTest(mode=mode), self.assertRaisesRegex(ValueError, "verified, exact, or unsafe"):
-                RunConfig(mode=mode)
+    def test_search_method_is_required_and_validated(self):
+        for method in ("fast", "safe"):
+            _validate_search_method(method)
+        with self.assertRaisesRegex(TypeError, "method must be a str"):
+            _validate_search_method(1)
+        for method in ("verified", "exact", "unsafe", "unknown"):
+            with self.subTest(method=method), self.assertRaisesRegex(ValueError, "fast or safe"):
+                _validate_search_method(method)
 
     def test_status_codes(self):
         self.assertEqual(int(StatusCode.OK), 0)
@@ -56,16 +56,22 @@ class TypesTests(unittest.TestCase):
 
     def test_public_execution_api(self):
         self.assertEqual(
+            list(inspect.signature(fracessa.compute_matrix).parameters),
+            ["method", "matrix", "config", "run_id"],
+        )
+        self.assertEqual(
             list(inspect.signature(fracessa.run).parameters),
-            ["matrices", "config", "run_id", "sink"],
+            ["method", "matrices", "config", "run_id", "sink"],
         )
         self.assertEqual(
             list(inspect.signature(fracessa.run_multiprocessing).parameters),
-            ["matrices", "config", "run_id", "sink", "mp_config"],
+            ["method", "matrices", "config", "run_id", "sink", "mp_config"],
         )
         self.assertIsNone(
             inspect.signature(fracessa.run_multiprocessing).parameters["mp_config"].default
         )
+        for function in (fracessa.compute_matrix, fracessa.run, fracessa.run_multiprocessing):
+            self.assertIs(inspect.signature(function).parameters["method"].default, inspect.Parameter.empty)
         self.assertEqual(
             fracessa.__all__,
             [

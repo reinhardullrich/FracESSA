@@ -19,7 +19,7 @@ Verification matrices 36 and 37 exposed the concrete failure:
 - each game has zero ESS in exact arithmetic;
 - the old double shortcut reported two ESS;
 - all four incorrect candidates were classified as `T_pd_dbl`;
-- removing the shortcut makes both default and `--mode exact` return zero ESS.
+- removing the shortcut makes both `fast` and `safe` return zero ESS.
 
 The defect was especially dangerous because only the positive floating result
 was final. A negative floating result continued to exact arithmetic, but a

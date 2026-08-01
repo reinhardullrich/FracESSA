@@ -11,12 +11,12 @@
 
 namespace candidate_search {
 
-class find_candidate_exact {
+class find_candidate_safe {
 public:
-    explicit find_candidate_exact(const linalg::matrix_frc& game_matrix);
-    find_candidate_exact(const find_candidate_exact&) = delete;
-    find_candidate_exact& operator=(const find_candidate_exact&) = delete;
-    ~find_candidate_exact();
+    explicit find_candidate_safe(const linalg::matrix_frc& game_matrix);
+    find_candidate_safe(const find_candidate_safe&) = delete;
+    find_candidate_safe& operator=(const find_candidate_safe&) = delete;
+    ~find_candidate_safe();
 
     // True means an exact candidate was found and written to result. The dense vector is optional because stability does not use it.
     bool find(const bitset64& support, size_t support_size, candidate& result, bool materialize_vector);

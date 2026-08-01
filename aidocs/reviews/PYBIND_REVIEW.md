@@ -1,6 +1,6 @@
 # Pybind Review
 
-Last verified: 2026-07-31
+Last verified: 2026-08-01
 
 Scope: the native `fracessa_core` extension boundary in
 `cpp/src/pybind_module.cpp`, including argument/result conversion, native status
@@ -25,7 +25,7 @@ status when needed.
 
 ## Current Validation State
 
-- The combined Release build passed all 11 C++/CLI tests and all 53 PyFracESSA
+- The combined Release build passed all 10 C++/CLI tests and all 56 PyFracESSA
   tests with the native module and PyArrow available.
 - Every safe-parser rejection returns the single `PARSE_ERROR` status plus the
   shared parser's detailed diagnostic without reparsing or writing to `stderr`.
@@ -36,8 +36,8 @@ status when needed.
 - Native candidate conversion has an exact 11-field value-and-type contract
   regression. Ordinary rows use `multiplier=None`; one circular regression
   returns a representative with `multiplier=5` and a weighted ESS count of 5.
-- The binding exposes verified search by default, explicit unsafe search, and
-  exact search; exact and unsafe together return `EXEC_ERROR`.
+- The binding requires `fast` or `safe` before the matrix; there is no default or compatibility alias, and unknown methods return
+  `EXEC_ERROR`.
 - Native single-process and multiprocessing integration tests pass.
 - One process-wide native mutex serializes logging-enabled analyzer calls from
   Python threads while non-logging calls remain concurrent.

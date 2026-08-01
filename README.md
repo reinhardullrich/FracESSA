@@ -7,11 +7,11 @@ Fast ESS analysis for symmetric games with exact rational verification.
 
 FracESSA is a C++17 command-line tool for Evolutionary Stable Strategy (ESS) search on symmetric payoff matrices.
 It is designed for raw speed in large support-space scans, with an exact-only
-mode and a rigorously one-sided default rejection procedure.
+safe method and a faster heuristic method.
 
 ## Why FracESSA
-- Default two-stage pipeline: verified candidate search, then exact FLINT
-  fraction checks for every support not safely rejected.
+- Required method choice: `fast` uses binary64 rejection before exact checks;
+  `safe` uses exact FLINT arithmetic from the start.
 - Bitset-based support enumeration over a `2^n` search space.
 - Optimized for many repeated operations on small/medium matrix dimensions.
 - Circular-symmetric and general symmetric matrix input support.
@@ -30,7 +30,7 @@ mode and a rigorously one-sided default rejection procedure.
 
 ### 3. Run One Matrix
 ```bash
-./cpp/build/fracessa "3#4,13/2,1/2,5,11/2,3"
+./cpp/build/fracessa safe "3#4,13/2,1/2,5,11/2,3"
 ```
 
 ## Input Format
@@ -47,23 +47,21 @@ The parser accepts dimensions 1 through 63 and validates the complete matrix
 syntax. The 64-bit mask is storage, not support for a dimension-64 search.
 
 ## CLI Flags
+
+The first positional argument is required and must be `fast` or `safe`; there
+is no default method.
+
 - `-c, --candidates` include candidate rows in output.
 - `-l, --log` write detailed log output.
-- `--mode MODE` select `verified`, `exact`, or `unsafe`;
-  the default is `verified`.
 - `-f, --fullsupport` evaluate full support first.
 - `-t, --timing` print analyzer timing in nanoseconds.
 - `-m, --matrixid` optional signed 64-bit matrix ID for logging/verification runs.
 
-With no mode option, FracESSA uses verified candidate search: it rejects a
-support only after proving a violated candidate condition and otherwise falls
-back to exact arithmetic. `--mode unsafe` uses the historical raw-double heuristic without normalization and can miss exact
-candidates and ESS results. If any of its six exact-to-double input checks detects a risky conversion, unsafe filtering is
-bypassed for the whole matrix and candidate search proceeds exactly.
-`--mode exact` bypasses every floating-point candidate procedure. If the
-compiler or runtime floating-point environment cannot support the required
-error bounds, verified mode stops before the search and asks for an explicit
-exact or unsafe mode.
+`fast` uses the historical raw-double heuristic without normalization and can
+miss exact candidates and ESS results. If any of its six exact-to-double input
+checks detects a risky conversion, fast filtering is bypassed for the whole
+matrix and candidate search proceeds safely. `safe` bypasses floating-point
+candidate rejection and uses exact arithmetic for every support.
 
 Output format:
 - line 1: ESS count

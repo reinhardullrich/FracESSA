@@ -45,12 +45,10 @@ dimension, then repeatedly executes `ctz64(bits)` and `bits &= bits - 1`.
 Production callers are:
 
 - `cpp/include/linalg/copositive_fraction.hpp:100`
-- `cpp/src/find_candidate_verified.cpp:618`
-- `cpp/src/find_candidate_verified.cpp:621`
-- `cpp/src/find_candidate_unsafe.cpp:92`
-- `cpp/src/find_candidate_unsafe.cpp:94`
-- `cpp/src/find_candidate_exact.cpp:172`
-- `cpp/src/find_candidate_exact.cpp:174`
+- `cpp/src/find_candidate_fast.cpp:92`
+- `cpp/src/find_candidate_fast.cpp:94`
+- `cpp/src/find_candidate_safe.cpp:172`
+- `cpp/src/find_candidate_safe.cpp:174`
 - `cpp/src/checkstab.cpp:104`
 
 Regenerate the occurrence list with:

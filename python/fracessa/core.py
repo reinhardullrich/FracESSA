@@ -7,7 +7,7 @@ from importlib import import_module
 from pathlib import Path
 import threading
 
-from .types import Matrix, RunConfig
+from .types import Matrix, RunConfig, SearchMethod, _validate_search_method
 
 _native_module = None
 _native_lock = threading.Lock()
@@ -115,13 +115,14 @@ def _matrix_cli_string(matrix: Matrix) -> str:
     return f"{dimension}#{text}"
 
 
-def compute_matrix(matrix: Matrix, config: RunConfig, run_id: str) -> dict:
+def compute_matrix(method: SearchMethod, matrix: Matrix, config: RunConfig, run_id: str) -> dict:
     """Compute one matrix with the native extension and normalize its result.
 
     Candidate rows are augmented with ``run_id`` and ``matrix_id``. The returned
     dictionary is the canonical result shape consumed by every file sink.
 
     Args:
+        method: Required candidate-search method, ``"fast"`` or ``"safe"``.
         matrix: Validated matrix input.
         config: Native analysis options.
         run_id: Identifier attached to the result and candidate rows.
@@ -131,14 +132,15 @@ def compute_matrix(matrix: Matrix, config: RunConfig, run_id: str) -> dict:
         and the input metadata.
     """
 
+    _validate_search_method(method)
     native = load_native_module()
     matrix_cli = _matrix_cli_string(matrix)
     matrix_id = matrix.matrix_id
 
     native_out = native.compute_matrix(
+        method=method,
         matrix=matrix_cli,
         include_candidates=config.include_candidates,
-        mode=config.mode,
         full_support=config.full_support,
         enable_logging=config.enable_logging,
         matrix_id=matrix_id,

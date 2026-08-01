@@ -67,7 +67,7 @@ def assert_failure_with_stderr(
 
 
 def assert_candidate_header_matches_rows(fracessa_exe: Path) -> None:
-    result = run_case(fracessa_exe, ["--candidates", "2#0,1,0"])
+    result = run_case(fracessa_exe, ["--candidates", "safe", "2#0,1,0"])
     if result.returncode != 0:
         raise AssertionError(
             f"candidate_columns: expected success, got rc={result.returncode}, stderr={result.stderr.strip()}"
@@ -96,46 +96,46 @@ def main() -> int:
         print(f"[ERROR] missing executable: {fracessa_exe}")
         return 1
 
-    # Numerical mode and parser behavior
-    exact_result = assert_success_with_ess_output(
-        fracessa_exe, ["--mode", "exact", "2#0,1,0"], "exact_success"
+    # Search-method and parser behavior
+    safe_result = assert_success_with_ess_output(
+        fracessa_exe, ["safe", "2#0,1,0"], "safe_success"
     )
-    if "warning" in exact_result.stderr.lower():
-        raise AssertionError("exact mode unexpectedly printed a warning")
+    if "warning" in safe_result.stderr.lower():
+        raise AssertionError("safe search unexpectedly printed a warning")
 
-    for removed_or_unknown_mode in ("very_unsafe", "unknown"):
+    for removed_or_unknown_method in ("verified", "exact", "unsafe", "unknown"):
         assert_failure_with_stderr(
             fracessa_exe,
-            ["--mode", removed_or_unknown_mode, "2#0,1,0"],
-            "Unknown analysis mode",
-            f"{removed_or_unknown_mode}_mode_rejected",
+            [removed_or_unknown_method, "2#0,1,0"],
+            "Unknown search method",
+            f"{removed_or_unknown_method}_method_rejected",
         )
+    assert_failure_with_stderr(fracessa_exe, ["--mode", "safe", "2#0,1,0"], "Unknown argument: --mode", "mode_flag_removed")
+    assert_failure_with_stderr(fracessa_exe, ["2#0,1,0"], "matrix", "missing_method_rejected")
 
-    # Unsafe bypasses floating-point rejection for a game whose exact-to-double conversion triggers any input check.
+    # Fast search bypasses floating-point rejection for a game whose exact-to-double conversion triggers any input check.
     for case_name, matrix in (
         ("small_difference", "2#0,1/100000000000000000000,0"),
         ("collapsed_values", "2#100000000000000000000,100000000000000000001,100000000000000000000"),
     ):
-        verified_result = assert_success_with_ess_output(
-            fracessa_exe, [matrix], f"{case_name}_verified"
+        safe_result = assert_success_with_ess_output(
+            fracessa_exe, ["safe", matrix], f"{case_name}_safe"
         )
-        unsafe_result = assert_success_with_ess_output(
-            fracessa_exe, ["--mode", "unsafe", matrix], f"{case_name}_unsafe"
+        fast_result = assert_success_with_ess_output(
+            fracessa_exe, ["fast", matrix], f"{case_name}_fast"
         )
-        if first_non_empty_line(verified_result.stdout) != "1":
-            raise AssertionError(f"{case_name}: verified mode missed the ESS")
-        if first_non_empty_line(unsafe_result.stdout) != "1":
-            raise AssertionError(f"{case_name}: unsafe mode did not fall back to exact analysis")
-        if "unsafe" in verified_result.stderr.lower():
-            raise AssertionError(f"{case_name}: verified mode unexpectedly printed an unsafe warning")
-        if "warning" in unsafe_result.stderr.lower():
-            raise AssertionError(f"{case_name}: unsafe mode unexpectedly printed a warning")
+        if first_non_empty_line(safe_result.stdout) != "1":
+            raise AssertionError(f"{case_name}: safe search missed the ESS")
+        if first_non_empty_line(fast_result.stdout) != "1":
+            raise AssertionError(f"{case_name}: fast search did not fall back to safe analysis")
+        if "warning" in fast_result.stderr.lower():
+            raise AssertionError(f"{case_name}: fast search unexpectedly printed a warning")
 
     # Other success paths
-    assert_success_with_ess_output(fracessa_exe, ["5#1,3"], "circular_success")
+    assert_success_with_ess_output(fracessa_exe, ["safe", "5#1,3"], "circular_success")
     assert_success_with_ess_output(
         fracessa_exe,
-        ["--matrixid", "9223372036854775807", "2#0,1,0"],
+        ["--matrixid", "9223372036854775807", "safe", "2#0,1,0"],
         "signed_64_bit_matrix_id",
     )
     assert_candidate_header_matches_rows(fracessa_exe)
@@ -143,25 +143,25 @@ def main() -> int:
     # Parser failure paths
     assert_failure_with_stderr(
         fracessa_exe,
-        ["2,0,1,0"],
+        ["safe", "2,0,1,0"],
         "does not include '#'",
         "missing_hash_rejected",
     )
     assert_failure_with_stderr(
         fracessa_exe,
-        ["2#0#1"],
+        ["safe", "2#0#1"],
         "Multiple '#'",
         "multiple_hash_rejected",
     )
     assert_failure_with_stderr(
         fracessa_exe,
-        ["--mode", "unsafe", "64#1"],
+        ["fast", "64#1"],
         "supports dimensions in [1, 63]",
-        "numerical_unsafe_uses_dimension_guard",
+        "fast_uses_dimension_guard",
     )
     assert_failure_with_stderr(
         fracessa_exe,
-        ["2#1/0,0,1"],
+        ["safe", "2#1/0,0,1"],
         "denominator cannot be zero",
         "zero_denominator_rejected",
     )

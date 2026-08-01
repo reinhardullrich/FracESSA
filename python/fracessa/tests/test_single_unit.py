@@ -48,7 +48,7 @@ class SingleUnitTests(unittest.TestCase):
     def test_run_accepts_one_matrix(self):
         matrix = Matrix(matrix_id=5, matrix="2#0,1,0")
         with mock.patch("fracessa.single.compute_matrix", return_value=_fake_result(5)):
-            result = single.run(matrix)
+            result = single.run("safe", matrix)
 
         self.assertEqual(result["matrix_id"], 5)
 
@@ -56,12 +56,13 @@ class SingleUnitTests(unittest.TestCase):
         matrices = [Matrix(matrix_id=1, matrix="2#0,1,0"), Matrix(matrix_id=2, matrix="2#3,3/2,4")]
         run_ids = []
 
-        def _compute(matrix, config, run_id):
+        def _compute(method, matrix, config, run_id):
+            self.assertEqual(method, "safe")
             run_ids.append(run_id)
             return _fake_result(matrix.matrix_id)
 
         with mock.patch("fracessa.single.compute_matrix", side_effect=_compute):
-            results = list(single.run(matrices, run_id="shared"))
+            results = list(single.run("safe", matrices, run_id="shared"))
 
         self.assertEqual([result["matrix_id"] for result in results], [1, 2])
         self.assertEqual(run_ids, ["shared", "shared"])
@@ -69,7 +70,7 @@ class SingleUnitTests(unittest.TestCase):
         sink = _TestSink()
         run_ids.clear()
         with mock.patch("fracessa.single.compute_matrix", side_effect=_compute):
-            written = single.run(matrices, sink=sink)
+            written = single.run("safe", matrices, sink=sink)
 
         self.assertEqual(written, 2)
         self.assertEqual(sink.written, 2)
@@ -81,6 +82,6 @@ class SingleUnitTests(unittest.TestCase):
 
         with mock.patch("fracessa.single.compute_matrix", return_value=_fake_result(1)):
             with self.assertRaisesRegex(RuntimeError, "write failure"):
-                single.run(matrix, sink=sink)
+                single.run("safe", matrix, sink=sink)
 
         self.assertTrue(sink.close_called)

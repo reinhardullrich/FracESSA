@@ -61,7 +61,7 @@ CREATE TABLE timings (
     revision TEXT NOT NULL CHECK (length(revision) > 0),
     binary_sha256 TEXT NOT NULL CHECK (length(binary_sha256) = 64),
     backend TEXT NOT NULL CHECK (backend IN ('pybind', 'cli')),
-    mode TEXT NOT NULL CHECK (mode IN ('safe', 'unsafe', 'exact')),
+    mode TEXT NOT NULL CHECK (mode IN ('fast', 'safe', 'unsafe', 'exact')),
     matrix_id INTEGER NOT NULL,
     target_ns INTEGER NOT NULL CHECK (target_ns > 0),
     iterations INTEGER NOT NULL CHECK (iterations > 0),

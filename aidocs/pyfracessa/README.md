@@ -36,8 +36,7 @@ must be part of a larger authored manual.
 
 ```text
 Matrix(matrix_id: int, matrix: str, metadata: dict | None = None)
-RunConfig(mode="verified", full_support=False, include_candidates=False,
-          enable_logging=False)
+RunConfig(full_support=False, include_candidates=False, enable_logging=False)
 MPConfig(workers=<available CPUs>, prefetch_per_worker=128, queue_maxsize=4096,
          start_method="spawn")
 ```
@@ -59,11 +58,10 @@ the weighted mathematical total.
 A matrix may use full CLI form (`"3#4,13/2,..."`) or values only when
 `metadata["dimension"]` is present.
 
-The default uses verified candidate search, which rejects a support only after
-a rigorous one-sided proof and otherwise falls back to exact arithmetic.
-`mode="unsafe"` selects the historical raw-double heuristic without normalization and can miss candidates and ESS results. A
-risky exact-to-double input conversion bypasses unsafe filtering for the whole matrix and uses exact candidate checks instead.
-`mode="exact"` bypasses every floating-point candidate procedure. Matrix input always uses the validating native parser.
+Every execution call requires `"fast"` or `"safe"` before the matrix; there is no default. Fast uses the historical raw-double
+heuristic without normalization and can miss candidates and ESS results. A risky exact-to-double conversion bypasses fast
+filtering for the whole matrix and uses safe exact candidate checks instead. Safe bypasses every floating-point candidate
+procedure. Matrix input always uses the validating native parser.
 
 `elapsed_ns` is always the native analyzer duration measured with a monotonic
 clock. There is deliberately no computation timeout.
@@ -82,7 +80,7 @@ build without loading two `fracessa_core` modules into one interpreter:
 PYTHONPATH=python python3 -m fracessa.timing run \
   --backend pybind --module-dir cpp/build \
   --build-label main --source-ref main --revision "$(git rev-parse HEAD)" \
-  --mode verified --mode unsafe --mode exact \
+  --method fast --method safe \
   --cpu 2 --comment "before candidate change"
 
 PYTHONPATH=python python3 -m fracessa.timing report latest --baseline main
@@ -90,23 +88,23 @@ PYTHONPATH=python python3 -m fracessa.timing report latest --baseline main
 
 `source_ref` records a moving name such as `main`; `revision` records the exact
 commit measured, and the module or executable SHA-256 is captured automatically.
-The default selection is the `small` matrix class. Each matrix/mode starts with
+The default selection is the `small` matrix class. Each matrix/method starts with
 one native sample. Its returned `elapsed_ns` chooses
 `ceil(target / elapsed_ns)` total samples and remains part of the sample; a
 duration at or above the one-second target chooses one run. The stored result is
 the median returned native duration. The Pybind module stays loaded for every
-selected mode and matrix in that invocation. Python wall time is recorded as
+selected method and matrix in that invocation. Python wall time is recorded as
 metadata only and does not select the sample count or result. Use repeated
 `--matrix-id`, `--size-class`, and `--target-seconds` to change the selection
 or calibration duration.
 
 Current Pybind builds supply nanoseconds directly. For a legacy CLI whose
-no-flag mode is unsafe and whose second output line is seconds, use
-`--unsafe-default --cli-unit s`. A safe-by-default CLI instead uses
-`--safe-default`. CLI runs start one child process per sample and must not be
-mixed with persistent-Pybind microbenchmarks. Old builds have only `unsafe` and
-`exact` rows. Verified mode is accepted only when the extension exposes either
-the current `mode` argument or the former native `unsafe` argument.
+no-flag method corresponds to today's fast method and whose second output line
+is seconds, use `--fast-default --cli-unit s`. A safe-by-default legacy CLI
+instead uses `--safe-default`. CLI runs start one child process per sample and
+must not be mixed with persistent-Pybind microbenchmarks. The timing adapter
+maps `fast` and `safe` onto the old mode or Boolean interfaces when measuring
+historical binaries.
 Reports include the iteration count and actual measured wall duration, compare
 observed ESS counts with the expected database count, and retain mismatching
 unsafe timings visibly. Each result row also includes the matrix dimension,
@@ -133,17 +131,17 @@ detailed diagnostic in `error_message`. The parser throws
 from fracessa import Matrix, RunConfig, run
 
 matrix = Matrix(3, "3#4,13/2,1/2,5,11/2,3")
-result = run(matrix, RunConfig(include_candidates=True), run_id="example")
+result = run("safe", matrix, RunConfig(include_candidates=True), run_id="example")
 print(result["ess_count"])
 ```
 
-`compute_matrix(matrix, config, run_id) -> dict` is the sole public low-level
+`compute_matrix(method, matrix, config, run_id) -> dict` is the sole public low-level
 wrapper call into the native module. Native-module loading is internal.
 
 There are two public execution functions:
 
-- `run(matrices, config=None, run_id=None, sink=None)`
-- `run_multiprocessing(matrices, config=None, run_id=None, sink=None,
+- `run(method, matrices, config=None, run_id=None, sink=None)`
+- `run_multiprocessing(method, matrices, config=None, run_id=None, sink=None,
   mp_config=None)`
 
 Both accept either one `Matrix` or an iterable of matrices. Without a sink,
@@ -170,6 +168,7 @@ matrices = [
 
 if __name__ == "__main__":
     for result in run_multiprocessing(
+        "fast",
         matrices,
         config=RunConfig(include_candidates=False),
         mp_config=MPConfig(workers=8),

@@ -147,8 +147,8 @@ This is not a speculative arithmetic trick. FLINT's own
 rational arithmetic is expensive and that its matrix algorithms normally clear
 denominators and perform the heavy work over integers. It already exposes
 matrix-wise and row-wise denominator clearing plus fraction-free, Dixon, and
-multimodular solvers. The present handwritten exact elimination inside
-`find_candidate_exact` bypasses those algorithms. Bareiss's original
+multimodular solvers. The exact elimination inside `find_candidate_safe` is the
+production point corresponding to this proposal. Bareiss's original
 [integer-preserving elimination](https://www.ams.org/mcom/1968-22-103/S0025-5718-1968-0226829-0/S0025-5718-1968-0226829-0.pdf)
 provides the underlying method.
 

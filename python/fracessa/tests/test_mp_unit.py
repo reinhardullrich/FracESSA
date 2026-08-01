@@ -25,7 +25,8 @@ def _fake_result(matrix_id: int) -> dict:
 class _FakeRunner:
     instances = []
 
-    def __init__(self, run_config, mp_config, run_id=None):
+    def __init__(self, method, run_config, mp_config, run_id=None):
+        self.method = method
         self.run_config = run_config
         self.mp_config = mp_config
         self.run_id = run_id
@@ -72,6 +73,7 @@ class MPUnitTests(unittest.TestCase):
         _FakeRunner.instances.clear()
         with mock.patch("fracessa.mp._QueueRunner", _FakeRunner):
             result = mp_mod.run_multiprocessing(
+                "safe",
                 matrix,
                 run_id="unit_mp",
             )
@@ -86,6 +88,7 @@ class MPUnitTests(unittest.TestCase):
         _FakeRunner.instances.clear()
         with mock.patch("fracessa.mp._QueueRunner", _FakeRunner):
             count = mp_mod.run_multiprocessing(
+                "safe",
                 matrices,
                 sink=sink,
                 mp_config=MPConfig(workers=1),
@@ -103,6 +106,7 @@ class MPUnitTests(unittest.TestCase):
         with mock.patch("fracessa.mp._QueueRunner", _FakeRunner):
             results = list(
                 mp_mod.run_multiprocessing(
+                    "safe",
                     matrices=matrices,
                     config=RunConfig(),
                     mp_config=cfg,
@@ -123,7 +127,7 @@ class MPUnitTests(unittest.TestCase):
 
         _FakeRunner.instances.clear()
         with mock.patch("fracessa.mp._QueueRunner", _FakeRunner):
-            results = mp_mod.run_multiprocessing(matrices, mp_config=cfg)
+            results = mp_mod.run_multiprocessing("safe", matrices, mp_config=cfg)
             next(results)
             results.close()
 
@@ -138,6 +142,7 @@ class MPUnitTests(unittest.TestCase):
             with self.assertRaisesRegex(ValueError, "enable_logging"):
                 list(
                     mp_mod.run_multiprocessing(
+                        "safe",
                         matrices,
                         config=RunConfig(enable_logging=True),
                         mp_config=MPConfig(workers=1),
@@ -167,7 +172,7 @@ class MPUnitTests(unittest.TestCase):
 
         with mock.patch("fracessa.mp._safe_compute", return_value={"bad": lambda: None}):
             with self.assertRaises(Exception):
-                mp_mod._queue_worker(input_queue, output_queue, RunConfig(), "unit")
+                mp_mod._queue_worker(input_queue, output_queue, "safe", RunConfig(), "unit")
 
         output_queue.put.assert_not_called()
 
@@ -176,7 +181,7 @@ class MPUnitTests(unittest.TestCase):
         matrix.matrix_id = "invalid"
 
         with mock.patch("fracessa.mp.compute_matrix", side_effect=RuntimeError("forced")):
-            result = mp_mod._safe_compute(matrix, RunConfig(), "unit")
+            result = mp_mod._safe_compute("safe", matrix, RunConfig(), "unit")
 
         self.assertEqual(result["matrix_id"], -1)
         self.assertEqual(result["status"], 255)

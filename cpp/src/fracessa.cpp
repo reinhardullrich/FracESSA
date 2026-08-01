@@ -14,38 +14,27 @@
  * stability classification. Confirmed ESS supports trigger superset pruning.
  */
 
-analysis_mode parse_analysis_mode(std::string_view name)
+search_method parse_search_method(std::string_view name)
 {
-    if (name == "verified") return analysis_mode::verified;
-    if (name == "exact") return analysis_mode::exact;
-    if (name == "unsafe") return analysis_mode::unsafe;
-    throw std::invalid_argument("Unknown analysis mode '" + std::string(name) + "'; expected verified, exact, or unsafe");
+    if (name == "fast") return search_method::fast;
+    if (name == "safe") return search_method::safe;
+    throw std::invalid_argument("Unknown search method '" + std::string(name) + "'; expected fast or safe");
 }
 
-fracessa::fracessa(const linalg::matrix_frc& matrix, bool is_cs, bool with_candidates,
-                   analysis_mode mode, bool full_support, bool with_log,
+fracessa::fracessa(search_method method, const linalg::matrix_frc& matrix, bool is_cs, bool with_candidates,
+                   bool full_support, bool with_log,
                    std::int64_t matrix_id)
     : game_matrix_(matrix)
-    , find_candidate_verified_(game_matrix_)
-    , find_candidate_unsafe_(game_matrix_)
-    , find_candidate_exact_(game_matrix_)
+    , find_candidate_fast_(game_matrix_)
+    , find_candidate_safe_(game_matrix_)
     , dimension_(matrix.rows())
     , conf_with_candidates_(with_candidates)
-    , mode_(mode)
+    , method_(method)
     , conf_full_support_(full_support)
     , conf_with_log_(with_log)
     , candidate_()
     , logger_()
 {
-    if (mode_ == analysis_mode::verified) {
-        if (const char* reason = candidate_search::unavailable_reason()) {
-            throw std::runtime_error(
-                std::string("Verified candidate search is unavailable: ") + reason +
-                ". Run with --mode exact for correct exact analysis, or --mode unsafe for heuristic rejection that may miss "
-                "candidates or ESS results.");
-        }
-    }
-
     if (conf_with_candidates_)
         candidates_.reserve(250 * dimension_);
 
@@ -66,9 +55,9 @@ fracessa::fracessa(const linalg::matrix_frc& matrix, bool is_cs, bool with_candi
         logger_->info("game matrix:\n{}", game_matrix_.to_log_string());
     }
 
-    if (mode_ == analysis_mode::unsafe) {
-        find_candidate_unsafe_.convert_game_matrix();
-        if (find_candidate_unsafe_.input_warnings()) mode_ = analysis_mode::exact;
+    if (method_ == search_method::fast) {
+        find_candidate_fast_.convert_game_matrix();
+        if (find_candidate_fast_.input_warnings()) method_ = search_method::safe;
     }
 
     if (conf_full_support_) {
@@ -116,18 +105,9 @@ fracessa::fracessa(const linalg::matrix_frc& matrix, bool is_cs, bool with_candi
 }
 
 bool fracessa::analyze_support(bitset64 support, size_t support_size) {
-    switch (mode_) {
-    case analysis_mode::verified:
-        if (!find_candidate_verified_.find(support, support_size)) return false;
-        break;
-    case analysis_mode::unsafe:
-        if (!find_candidate_unsafe_.find(support, support_size)) return false;
-        break;
-    case analysis_mode::exact:
-        break;
-    }
+    if (method_ == search_method::fast && !find_candidate_fast_.find(support, support_size)) return false;
     const bool needs_candidate_vector = conf_with_candidates_ || conf_with_log_;
-    if (!find_candidate_exact_.find(
+    if (!find_candidate_safe_.find(
             support, support_size, candidate_, needs_candidate_vector))
         return false;
 

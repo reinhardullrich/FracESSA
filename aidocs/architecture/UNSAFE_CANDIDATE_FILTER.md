@@ -3,10 +3,9 @@
 Status: historical; local correctness and performance verification is recorded below.
 
 Current status: this document records the completed temporary-default phase. The normalized heuristic was later removed because
-it fixed raw-double failures 38-39 but introduced failures 45-47; it was not a monotonic safety improvement. Verified candidate
-search is the default, the historical raw-double algorithm is available through `--mode unsafe`, and exact bypass remains
-available through `--mode exact`. The remainder of this document is the historical record of the temporary phase. See
-`FIND_CANDIDATE_VERIFIED.md` for current routing and validation.
+it fixed raw-double failures 38-39 but introduced failures 45-47; it was not a monotonic safety improvement. Production now
+requires either `fast`, the historical unnormalized raw-double heuristic with matrix-wide safe fallback checks, or `safe`, the
+exact-only path. The verified proof and all old mode flags were removed. The remainder of this document is historical.
 
 Branch: `choice-one-candidate-filter`
 
@@ -441,18 +440,7 @@ Verified locally on 2026-07-28:
 The known IDs 45-47 limitation remains. Passing IDs 1-44 does not make the
 unsafe danger veto a correctness proof.
 
-## Later Choice 1 Handoff
+## Historical Outcome
 
-After this phase is implemented, reviewed, benchmarked, and accepted, Choice 1
-is a separate change:
-
-1. Re-audit `FIND_CANDIDATE_VERIFIED.md` against the accepted unsafe commit.
-2. Add verified candidate search and only then add the mode state needed to
-   distinguish Choice 1 from explicit unsafe.
-3. Change no-flag behavior from unsafe to Choice 1; keep `--unsafe` as the
-   explicit heuristic override and `--exact` as exact-only.
-4. Add a numerical `unsafe` argument to pybind/Python only when that distinction
-   exists.
-5. Transfer verification IDs 45-47 only when the new default can pass them.
-
-None of this Choice 1 handoff belongs to the current implementation approval.
+The later verified proof was implemented and then removed. Production now exposes only the required `fast` and `safe` methods
+described at the top of this historical document.

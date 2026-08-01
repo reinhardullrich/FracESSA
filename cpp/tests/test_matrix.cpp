@@ -1,5 +1,5 @@
 #include <gtest/gtest.h>
-#include <fracessa/find_candidate_unsafe.hpp>
+#include <fracessa/find_candidate_fast.hpp>
 #include <linalg/matrix_fraction.hpp>
 #include <linalg/matrix_double.hpp>
 
@@ -55,14 +55,14 @@ TEST(MatrixPositiveDefiniteTest, Fraction) {
     EXPECT_FALSE(B.is_positive_definite());
 }
 
-TEST(FindCandidateUnsafeTest, SetsInputWarningForEveryRiskyConversion) {
+TEST(FindCandidateFastTest, SetsInputWarningForEveryRiskyConversion) {
     const auto inspect = [](const fraction& diagonal_0, const fraction& off_diagonal, const fraction& diagonal_1) {
         matrix_frc A(2, 2);
         A(0, 0) = diagonal_0;   A(0, 1) = off_diagonal;
         A(1, 0) = off_diagonal; A(1, 1) = diagonal_1;
-        find_candidate_unsafe unsafe(A);
-        unsafe.convert_game_matrix();
-        return unsafe.input_warnings();
+        find_candidate_fast fast(A);
+        fast.convert_game_matrix();
+        return fast.input_warnings();
     };
 
     EXPECT_FALSE(inspect(fraction::zero(), fraction::one(), fraction::zero()));

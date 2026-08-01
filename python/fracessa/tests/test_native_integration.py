@@ -24,6 +24,7 @@ class NativeIntegrationTests(unittest.TestCase):
     def test_run_native(self):
         matrix_id = (1 << 63) - 1
         result = run(
+            "safe",
             Matrix(matrix_id=matrix_id, matrix="2#0,1,0"),
             RunConfig(include_candidates=True),
             run_id="native_single",
@@ -36,7 +37,7 @@ class NativeIntegrationTests(unittest.TestCase):
         self.assertEqual(result["candidates"][0]["matrix_id"], matrix_id)
         self.assertIsNone(result["candidates"][0]["multiplier"])
 
-    def test_verified_and_unsafe_route_native(self):
+    def test_fast_and_safe_route_native(self):
         database = Path(__file__).resolve().parents[3] / "testdata/fracessa_testdata.sqlite3"
         with closing(sqlite3.connect(database)) as connection:
             rows = connection.execute(
@@ -46,24 +47,29 @@ class NativeIntegrationTests(unittest.TestCase):
         for matrix_id, dimension, values in rows:
             with self.subTest(matrix_id=matrix_id):
                 matrix = Matrix(matrix_id=matrix_id, matrix=f"{dimension}#{values}")
-                verified = run(matrix, RunConfig(include_candidates=True), run_id=f"native_verified_{matrix_id}")
-                unsafe = run(matrix, RunConfig(include_candidates=True, mode="unsafe"), run_id=f"native_unsafe_{matrix_id}")
+                safe = run("safe", matrix, RunConfig(include_candidates=True), run_id=f"native_safe_{matrix_id}")
+                fast = run("fast", matrix, RunConfig(include_candidates=True), run_id=f"native_fast_{matrix_id}")
 
-                self.assertTrue(verified["success"])
-                self.assertTrue(unsafe["success"])
-                self.assertEqual(verified["ess_count"], 1)
-                self.assertEqual(unsafe["ess_count"], 1)
+                self.assertTrue(safe["success"])
+                self.assertTrue(fast["success"])
+                self.assertEqual(safe["ess_count"], 1)
+                self.assertEqual(fast["ess_count"], 1)
 
-    def test_unknown_native_mode_is_rejected(self):
+    def test_unknown_native_method_is_rejected(self):
         native = load_native_module()
-        result = native.compute_matrix("2#0,1,0", mode="unknown")
+        result = native.compute_matrix("unknown", "2#0,1,0")
 
         self.assertFalse(result["success"])
         self.assertEqual(result["status"], 4)
 
+    def test_removed_native_mode_keyword_is_rejected(self):
+        native = load_native_module()
+        with self.assertRaises(TypeError):
+            native.compute_matrix(matrix="2#0,1,0", mode="exact")
+
     def test_native_candidate_contract(self):
         native = load_native_module()
-        result = native.compute_matrix("2#0,1,0", include_candidates=True)
+        result = native.compute_matrix("safe", "2#0,1,0", include_candidates=True)
         candidate = result["candidates"][0]
 
         self.assertEqual(
@@ -101,8 +107,9 @@ class NativeIntegrationTests(unittest.TestCase):
 
     def test_circular_native_returns_one_weighted_representative(self):
         result = run(
+            "safe",
             Matrix(matrix_id=2, matrix="5#1,3"),
-            RunConfig(include_candidates=True, mode="exact"),
+            RunConfig(include_candidates=True),
             run_id="native_circular",
         )
 
@@ -121,7 +128,7 @@ class NativeIntegrationTests(unittest.TestCase):
 
         for matrix, error_message in invalid_matrices.items():
             with self.subTest(matrix=matrix):
-                result = run(Matrix(matrix_id=1, matrix=matrix), run_id="invalid")
+                result = run("safe", Matrix(matrix_id=1, matrix=matrix), run_id="invalid")
                 self.assertFalse(result["success"])
                 self.assertEqual(result["status"], 1)
                 self.assertEqual(result["error_message"], error_message)
@@ -135,6 +142,7 @@ class NativeIntegrationTests(unittest.TestCase):
 
         results = list(
             run_multiprocessing(
+                "safe",
                 matrices,
                 config=RunConfig(include_candidates=False),
                 mp_config=MPConfig(workers=2),
@@ -158,6 +166,7 @@ class NativeIntegrationTests(unittest.TestCase):
                     results = list(
                         executor.map(
                             lambda matrix_id: native.compute_matrix(
+                                "safe",
                                 "2#0,1,0",
                                 enable_logging=True,
                                 matrix_id=matrix_id,

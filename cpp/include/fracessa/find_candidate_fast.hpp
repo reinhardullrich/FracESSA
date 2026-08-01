@@ -8,9 +8,9 @@
 
 namespace candidate_search {
 
-class find_candidate_unsafe {
+class find_candidate_fast {
 public:
-    explicit find_candidate_unsafe(const linalg::matrix_frc& game_matrix) noexcept;
+    explicit find_candidate_fast(const linalg::matrix_frc& game_matrix) noexcept;
 
     // Convert directly to binary64 and record input conditions that require matrix-wide exact fallback.
     void convert_game_matrix();

@@ -1,4 +1,4 @@
-#include <fracessa/find_candidate_unsafe.hpp>
+#include <fracessa/find_candidate_fast.hpp>
 
 #include <algorithm>
 #include <cmath>
@@ -18,13 +18,13 @@ struct converted_entry {
 
 } // namespace
 
-find_candidate_unsafe::find_candidate_unsafe(const linalg::matrix_frc& game_matrix) noexcept
+find_candidate_fast::find_candidate_fast(const linalg::matrix_frc& game_matrix) noexcept
     : game_frc_(game_matrix)
     , dimension_(game_matrix.rows())
 {
 }
 
-void find_candidate_unsafe::convert_game_matrix()
+void find_candidate_fast::convert_game_matrix()
 {
     input_warnings_ = false;
     game_dbl_ = linalg::matrix_dbl(dimension_, dimension_);
@@ -81,7 +81,7 @@ void find_candidate_unsafe::convert_game_matrix()
     }
 }
 
-bool find_candidate_unsafe::find(const bitset64& support, size_t support_size)
+bool find_candidate_fast::find(const bitset64& support, size_t support_size)
 {
     /*
      * Historical raw-double rejection path from revision 32f61679. It intentionally has no normalization, danger veto, or

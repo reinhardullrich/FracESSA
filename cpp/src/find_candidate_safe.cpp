@@ -1,4 +1,4 @@
-#include <fracessa/find_candidate_exact.hpp>
+#include <fracessa/find_candidate_safe.hpp>
 
 #include <flint/fmpq_mat.h>
 
@@ -25,7 +25,7 @@ const fmpq* raw_fraction(const fraction& value) noexcept
  * The denominator is positive, so this scaling preserves every equality, inequality, and inertia sign used by candidate search and stability.
  * Each support can therefore stay in integer arithmetic until a successful candidate is written to the public rational result.
  */
-find_candidate_exact::find_candidate_exact(const linalg::matrix_frc& game_matrix)
+find_candidate_safe::find_candidate_safe(const linalg::matrix_frc& game_matrix)
     : dimension_(game_matrix.rows())
     , ffldlt_workspace_(dimension_)
 {
@@ -52,7 +52,7 @@ find_candidate_exact::find_candidate_exact(const linalg::matrix_frc& game_matrix
     fmpz_init(outside_payoff_numerator_);
 }
 
-find_candidate_exact::~find_candidate_exact()
+find_candidate_safe::~find_candidate_safe()
 {
     fmpz_clear(outside_payoff_numerator_);
     fmpz_clear(payoff_denominator_);
@@ -66,32 +66,32 @@ find_candidate_exact::~find_candidate_exact()
     fmpz_mat_clear(integer_game_);
 }
 
-fmpz* find_candidate_exact::reduced_entry(size_t row, size_t column) noexcept
+fmpz* find_candidate_safe::reduced_entry(size_t row, size_t column) noexcept
 {
     return fmpz_mat_entry(reduced_system_, static_cast<slong>(row), static_cast<slong>(column));
 }
 
-fmpz* find_candidate_exact::right_hand_side_entry(size_t row) noexcept
+fmpz* find_candidate_safe::right_hand_side_entry(size_t row) noexcept
 {
     return fmpz_mat_entry(right_hand_side_, static_cast<slong>(row), 0);
 }
 
-fmpz* find_candidate_exact::solution_entry(size_t row) noexcept
+fmpz* find_candidate_safe::solution_entry(size_t row) noexcept
 {
     return fmpz_mat_entry(solution_numerators_, static_cast<slong>(row), 0);
 }
 
-const fmpz* find_candidate_exact::solution_entry(size_t row) const noexcept
+const fmpz* find_candidate_safe::solution_entry(size_t row) const noexcept
 {
     return fmpz_mat_entry(solution_numerators_, static_cast<slong>(row), 0);
 }
 
-const fmpz* find_candidate_exact::game_entry(size_t row, size_t column) const noexcept
+const fmpz* find_candidate_safe::game_entry(size_t row, size_t column) const noexcept
 {
     return fmpz_mat_entry(integer_game_, static_cast<slong>(row), static_cast<slong>(column));
 }
 
-void find_candidate_exact::resize_reduced_system(size_t reduced_dimension)
+void find_candidate_safe::resize_reduced_system(size_t reduced_dimension)
 {
     if (reduced_dimension_ == reduced_dimension) return;
 
@@ -117,7 +117,7 @@ void find_candidate_exact::resize_reduced_system(size_t reduced_dimension)
  * The stored integer game is d*A for one positive d. We therefore build d*H and d*r below. This integer system has the same solution and inertia
  * as the rational system, and H is nonsingular exactly when the original bordered candidate matrix is nonsingular.
  */
-void find_candidate_exact::build_reduced_system(const uint8_t* support_indices, size_t reduced_dimension)
+void find_candidate_safe::build_reduced_system(const uint8_t* support_indices, size_t reduced_dimension)
 {
     const size_t reference = support_indices[0];
     const fmpz* reference_diagonal = game_entry(reference, reference);
@@ -138,7 +138,7 @@ void find_candidate_exact::build_reduced_system(const uint8_t* support_indices, 
     }
 }
 
-void find_candidate_exact::calculate_integer_payoff(fmpz* value, size_t strategy, size_t reference, const uint8_t* support_indices,
+void find_candidate_safe::calculate_integer_payoff(fmpz* value, size_t strategy, size_t reference, const uint8_t* support_indices,
                                                      size_t reduced_dimension)
 {
     fmpz_mul(value, game_entry(strategy, reference), reference_numerator_);
@@ -147,7 +147,7 @@ void find_candidate_exact::calculate_integer_payoff(fmpz* value, size_t strategy
     }
 }
 
-void find_candidate_exact::ensure_candidate_vector(candidate& result) const
+void find_candidate_safe::ensure_candidate_vector(candidate& result) const
 {
     if (result.vector.rows() != dimension_ || result.vector.cols() != 1) result.vector = linalg::matrix_frc(dimension_, 1);
 }
@@ -163,7 +163,7 @@ void find_candidate_exact::ensure_candidate_vector(candidate& result) const
  * The fraction-free LDL^T solve proves nonsingularity, returns all probabilities with one common denominator, and records the exact inertia of H.
  * A failed test returns immediately; rational candidate fields are materialized only after every exact candidate condition succeeds.
  */
-bool find_candidate_exact::find(const bitset64& support, size_t support_size, candidate& result, bool materialize_vector)
+bool find_candidate_safe::find(const bitset64& support, size_t support_size, candidate& result, bool materialize_vector)
 {
     reduced_hessian_is_negative_definite_ = false;
 

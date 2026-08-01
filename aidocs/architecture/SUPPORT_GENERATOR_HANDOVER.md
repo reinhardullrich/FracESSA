@@ -9,20 +9,17 @@ in [`../plans/SUPPORT_GENERATORS.md`](../plans/SUPPORT_GENERATORS.md).
 
 ## Branch Context
 
-The current worktree contains four connected phases:
+The current worktree contains three connected phases:
 
-1. the temporary explicitly unsafe numerical candidate search and the exact
-   fallback mode;
+1. the temporary numerical candidate-search experiments;
 2. the support-frontier and circular-bracelet experiments that established the
    replacement design;
 3. the production one-support-at-a-time generators and compressed circular
-   candidate output;
-4. the rigorously one-sided verified candidate search.
+   candidate output.
 
-The verified candidate search is the no-flag default. Its
-implementation record remains in
-[`FIND_CANDIDATE_VERIFIED.md`](FIND_CANDIDATE_VERIFIED.md); explicit
-`--mode unsafe` selects the historical raw-double heuristic.
+Production now requires `fast` or `safe` before the matrix. Fast uses the
+historical raw-double heuristic before exact confirmation; safe starts with
+exact candidate solving. There is no default method.
 
 ## Agreed Production Architecture
 
@@ -77,8 +74,8 @@ belongs to the support most recently emitted to that callback.
 
 ## Candidate And Pruning Lifecycle
 
-`fracessa::analyze_support()` performs the selected verified or unsafe search,
-exact rational equilibrium solve, candidate population, and stability classification.
+`fracessa::analyze_support()` performs the optional fast search, safe exact
+equilibrium solve, candidate population, and stability classification.
 If it reports an exact candidate, the caller registers `candidate_.support` with
 the active generator and then calls `finalize_candidate()`.
 

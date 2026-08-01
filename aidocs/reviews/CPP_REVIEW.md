@@ -1,6 +1,6 @@
 # C++ Review
 
-Last verified: 2026-07-31
+Last verified: 2026-08-01
 
 Scope: active C++ analyzer core, CLI, shared parser, CMake, C++/CTest coverage,
 and the release workflow. The native Python binding is reviewed separately in
@@ -51,8 +51,7 @@ Release/LTO builds with native architecture enabled were pinned to CPU 2. Small
 matrices were repeated to an approximately one-second target and reduced to the
 median of the native `elapsed_ns` values returned by C++. A matrix already
 slower than one second ran once. The balanced panels included dimensions 5, 10,
-19, 20, 22, and 23, circular and non-circular games, and verified, unsafe, and
-exact modes. Long one-sample results are reported as such; they are not treated
+19, 20, 22, and 23, circular and non-circular games, and the historical verified, unsafe, and exact modes. Long one-sample results are reported as such; they are not treated
 as precise percentage measurements.
 
 ### Result
@@ -65,7 +64,7 @@ shows a new runtime bottleneck.
 
 ### Exact solution scratch: neutral, do not change
 
-Current code creates the `n`-entry local `matrix_frc solution` at
+At the audited revision, exact search created an `n`-entry local `matrix_frc solution` at
 `cpp/src/find_candidate_exact.cpp:105` for every nonsingular support.
 
 The readable prototype added `matrix_frc::resize()`, kept one `solution_` member
@@ -276,9 +275,8 @@ around zero.
 
 ### Allocation sites reviewed without a retained prototype
 
-- Verified and unsafe candidate search already keep their double matrices and
-  fixed-size index arrays as reusable members or stack storage. Their remaining
-  MPFR work is one-time exact-to-binary conversion required by the proof.
+- Fast candidate search keeps its double matrix and fixed-size index arrays as reusable members or stack storage. Its conversion
+  work runs once per game, not inside the support loop.
 - `linear_system_` and `bee_matrix_` already reuse their storage while the
   matrix size stays unchanged. The experiments above show that more aggressive
   Bee reuse can be slower.
@@ -297,15 +295,10 @@ around zero.
 
 ## Reassessed Non-Findings
 
-- Keeping `find_candidate_exact`, `find_candidate_verified`, and
-  `find_candidate_unsafe` as three concrete classes is justified. Each owns
-  different reusable scratch state for a distinct algorithm; another shared
+- Keeping `find_candidate_safe` and `find_candidate_fast` as two concrete classes is justified. Each owns different reusable
+  scratch state for a distinct algorithm; another shared
   interface or a return to one large `fracessa` implementation would add
   coupling rather than remove it.
-- The proof-helper declarations in `find_candidate_verified.hpp` are justified
-  by focused tests of the rounding, factorization, residual, error-bound, and
-  rejection steps. Splitting the 727-line proof kernel into more classes or
-  files would not make the mathematical flow smaller.
 - Moving MatrixParser's unchanged implementation into
   `cpp/include/fracessa/matrix_parser.hpp` is behavior-preserving. Its symbols
   have the required inline linkage, and the parser and CLI tests pass.
@@ -348,29 +341,24 @@ around zero.
   speculative CLI-only build option was added. A fresh disconnected
   `BUILD_TESTING=OFF` configure exposed no GoogleTest or test targets, built the
   CLI and Python module, and reported zero CTests. The default configuration
-  still passed all 11 C++/CLI and 54 Python tests.
+  still passed the then-current test suite.
 - Build configurations now use CMake's standard optimization and `NDEBUG`
   flags. Fresh GNU compile databases showed that every Debug FracESSA source
   had `-g` and none had `-O3`, `NDEBUG`, loop unrolling, `-march=native`, or
   LTO. RelWithDebInfo had only CMake's standard `-O2 -g -DNDEBUG`; Release had
   CMake's `-O3 -DNDEBUG` plus the project throughput flags and Release-only IPO.
-  The verified proof source retained strict floating-point flags and no IPO.
-  The fresh Debug CLI built and ran, while the Release suite passed all 11
-  C++/CLI and 54 Python tests and ASan/UBSan passed all 11 C++/CLI tests.
+  The fresh Debug CLI built and ran, while the then-current Release and sanitizer suites passed.
 
 ## Current Validation State
 
-- A warning-enabled Release build using `-Wall`, `-Wextra`, `-Wpedantic`,
-  `-Wconversion`, and `-Wshadow` passed all 11 C++/CLI tests. It found no new
-  FracESSA production warning; the remaining diagnostics are test-only
-  conversions/bracing and bundled spdlog/fmt diagnostics.
+- The current Release build passes all 10 C++/CLI tests and all 56 Python tests.
 - Streaming Gosper enumeration, the 62-by-62 immediate-rejection regression,
   the singular Hadeler rejection, and the late-pivot 3-by-3 LU solve/inverse
-  regression pass all 11 C++/CLI tests. All 54 wrapper tests also pass.
+  regression pass the current C++/CLI suite.
 - Exact candidate search now validates outside-support strategies before dense
   vector construction and skips that construction when neither output nor
   logging needs it; the focused requested/successful-vector regression passes.
-- The latest complete verified-mode sweep matched the stored ESS count for all
+- The latest complete historical verified-mode sweep matched the stored ESS count for all
   87 retained SQLite matrices. That long sweep was not rerun for the current
   local source and regression-test changes.
 - Wrapper tests: see `PYBIND_REVIEW.md` and `PYTHON_REVIEW.md`.
@@ -385,9 +373,8 @@ around zero.
   multipliers recover 86,152 candidates and 83,377 ESS across 87 matrices.
 - A fixed-seed audit generated 20,000 exact 4-by-4 integer matrices; all 19,890
   nonsingular cases satisfied `A * inverse(A) == I` exactly.
-- ASan/UBSan passed all 11 C++/CLI tests on the combined tree.
 - Ordinary pushes and pull requests run the same three-platform build and fast
   test matrix as tags; artifact packaging and publication remain tag-only.
-- One wrapper integration regression exercises database ID 46 through verified
-  and unsafe modes; no complete SQLite matrix-verification runner is wired into
+- Wrapper integration regressions exercise database IDs 38 and 46 through fast
+  and safe methods; no complete SQLite matrix-verification runner is wired into
   CTest or CI.

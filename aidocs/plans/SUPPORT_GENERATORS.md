@@ -55,7 +55,7 @@ analyzer contract is `1 <= dimension < 64`.
 
 ### Exact candidate and forbidden support
 
-An exact candidate is a support accepted by `find_candidate_exact::find()`. Only that
+An exact candidate is a support accepted by `find_candidate_safe::find()`. Only that
 exact result may create a pruning rule. A support passed on by a preliminary
 double procedure must never prune anything.
 
@@ -539,8 +539,8 @@ size_t add_forbidden(bitset64 support); // distinct-orbit multiplier
 - `CircularSupportGenerator` uses fixed-content FKM recursion, reflection
   reduction, expanded dihedral forbidden masks, and returns their distinct
   orbit size as the candidate multiplier.
-- `fracessa::analyze_support()` selects verified, unsafe, or exact candidate
-  analysis and owns exact stability classification.
+- `fracessa::analyze_support()` runs the optional fast heuristic, then safe
+  exact candidate analysis, and owns exact stability classification.
 - `fracessa::finalize_candidate()` owns representative IDs, weighted ESS counting,
   and optional output of the one representative row.
 - `--fullsupport` still tests its single mask first. On fallback, the callback

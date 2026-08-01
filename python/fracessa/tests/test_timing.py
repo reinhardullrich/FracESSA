@@ -56,9 +56,9 @@ class TimingTests(unittest.TestCase):
                         "main",
                         "--revision",
                         "abc123",
-                        "--mode",
-                        "unsafe",
-                        "--unsafe-default",
+                        "--method",
+                        "fast",
+                        "--fast-default",
                         "--cli-unit",
                         "s",
                         "--cpu",
@@ -80,7 +80,7 @@ class TimingTests(unittest.TestCase):
                 row,
                 (
                     "cli",
-                    "unsafe",
+                    "fast",
                     1_000_000,
                     9,
                     1_200_000,
@@ -95,15 +95,15 @@ class TimingTests(unittest.TestCase):
     def test_native_measurement_at_target_uses_one_run(self):
         calls = []
 
-        def runner(matrix_id, matrix, mode):
-            calls.append((matrix_id, matrix, mode))
+        def runner(matrix_id, matrix, method):
+            calls.append((matrix_id, matrix, method))
             return 7, 1_100_000_000
 
         with mock.patch(
             "fracessa.timing.perf_counter_ns", side_effect=[0, 5]
         ):
             result = timing._measure_target(
-                runner, 3, "2#0,1,0", "exact", 1_000_000_000
+                runner, 3, "2#0,1,0", "safe", 1_000_000_000
             )
 
         self.assertEqual(result, (7, 1_100_000_000, 1, 5))
@@ -112,26 +112,33 @@ class TimingTests(unittest.TestCase):
     def test_native_duration_sizes_sample_and_result_is_median(self):
         elapsed = iter([100, 1_000, 90, 100])
 
-        def runner(matrix_id, matrix, mode):
+        def runner(matrix_id, matrix, method):
             return 7, next(elapsed)
 
         with mock.patch(
             "fracessa.timing.perf_counter_ns", side_effect=[0, 10_000]
         ):
             result = timing._measure_target(
-                runner, 3, "2#0,1,0", "exact", 400
+                runner, 3, "2#0,1,0", "safe", 400
             )
 
         self.assertEqual(result, (7, 100, 4, 10_000))
 
-    def test_pybind_modes_use_single_mode_parameter(self):
-        for mode in ("verified", "exact", "unsafe"):
-            arguments = timing._pybind_arguments("2#0,1,0", 1, mode, "mode")
-            self.assertEqual(arguments["mode"], mode)
-            self.assertNotIn("exact", arguments)
-            self.assertNotIn("unsafe", arguments)
+    def test_pybind_method_and_historical_interfaces_are_mapped(self):
+        for method in ("fast", "safe"):
+            arguments = timing._pybind_arguments("2#0,1,0", 1, method, "method")
+            self.assertEqual(arguments["method"], method)
 
-        old = timing._pybind_arguments("2#0,1,0", 1, "unsafe", "booleans")
+        self.assertEqual(
+            timing._pybind_arguments("2#0,1,0", 1, "fast", "mode")["mode"],
+            "unsafe",
+        )
+        self.assertEqual(
+            timing._pybind_arguments("2#0,1,0", 1, "safe", "mode")["mode"],
+            "exact",
+        )
+
+        old = timing._pybind_arguments("2#0,1,0", 1, "fast", "booleans")
         self.assertFalse(old["exact"])
         self.assertTrue(old["unsafe"])
 
@@ -156,7 +163,7 @@ class TimingTests(unittest.TestCase):
                            measured_wall_ns, elapsed_ns, ess_count
                        ) VALUES (
                            'test', 'now', 'machine', 0, '', 'current', 'main',
-                           'abc123', ?, 'pybind', 'exact', 1, 1000000000, 1,
+                           'abc123', ?, 'pybind', 'safe', 1, 1000000000, 1,
                            123, 100, 8
                        )""",
                     ("0" * 64,),
@@ -173,7 +180,7 @@ class TimingTests(unittest.TestCase):
                 "matrix_id\tis_cs\tdimension\ttarget_s", output.getvalue()
             )
             self.assertIn(
-                "current\texact\t1\t1\t3\t1\t1\t0.000000\t100\t8\t8\t"
+                "current\tsafe\t1\t1\t3\t1\t1\t0.000000\t100\t8\t8\t"
                 "2.000000\tok",
                 output.getvalue(),
             )

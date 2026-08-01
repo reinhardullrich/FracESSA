@@ -42,13 +42,13 @@ class CoreUnitTests(unittest.TestCase):
     def test_compute_matrix_uses_cli_string_if_already_prefixed(self):
         fake = _FakeNative()
         matrix = Matrix(matrix_id=11, matrix="2#0,1,0")
-        cfg = RunConfig(include_candidates=True, mode="unsafe")
+        cfg = RunConfig(include_candidates=True)
 
         with mock.patch("fracessa.core.load_native_module", return_value=fake):
-            result = core.compute_matrix(matrix=matrix, config=cfg, run_id="unit")
+            result = core.compute_matrix(method="fast", matrix=matrix, config=cfg, run_id="unit")
 
         self.assertEqual(fake.last_kwargs["matrix"], "2#0,1,0")
-        self.assertEqual(fake.last_kwargs["mode"], "unsafe")
+        self.assertEqual(fake.last_kwargs["method"], "fast")
         self.assertEqual(result["matrix_id"], 11)
         self.assertEqual(result["ess_count"], 2)
         self.assertEqual(result["elapsed_ns"], 1234)
@@ -61,7 +61,7 @@ class CoreUnitTests(unittest.TestCase):
         cfg = RunConfig(include_candidates=False)
 
         with mock.patch("fracessa.core.load_native_module", return_value=fake):
-            result = core.compute_matrix(matrix=matrix, config=cfg, run_id="unit")
+            result = core.compute_matrix(method="safe", matrix=matrix, config=cfg, run_id="unit")
 
         self.assertEqual(fake.last_kwargs["matrix"], "2#0,1,0")
         self.assertEqual(result["candidate_count"], 0)
@@ -73,7 +73,7 @@ class CoreUnitTests(unittest.TestCase):
 
         with mock.patch("fracessa.core.load_native_module", return_value=fake):
             with self.assertRaises(ValueError):
-                core.compute_matrix(matrix=matrix, config=cfg, run_id="unit")
+                core.compute_matrix(method="safe", matrix=matrix, config=cfg, run_id="unit")
 
     def test_compute_matrix_rejects_non_integer_metadata_dimension(self):
         fake = _FakeNative()
@@ -86,4 +86,4 @@ class CoreUnitTests(unittest.TestCase):
                 )
                 with mock.patch("fracessa.core.load_native_module", return_value=fake):
                     with self.assertRaisesRegex(TypeError, "dimension.*must be an int"):
-                        core.compute_matrix(matrix=matrix, config=RunConfig(), run_id="unit")
+                        core.compute_matrix(method="safe", matrix=matrix, config=RunConfig(), run_id="unit")
