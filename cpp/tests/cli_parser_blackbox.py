@@ -132,6 +132,13 @@ def main() -> int:
         if "warning" in fast_result.stderr.lower():
             raise AssertionError(f"{case_name}: fast search unexpectedly printed a warning")
 
+    timing_result = assert_success_with_ess_output(
+        fracessa_exe, ["--timing", "fast", "2#1,1000000000,1"], "safe_fallback_output"
+    )
+    timing_lines = [line.strip() for line in timing_result.stdout.splitlines() if line.strip()]
+    if len(timing_lines) != 3 or timing_lines[2] != "precision_span":
+        raise AssertionError(f"safe_fallback_output: expected precision_span on line 3, got {timing_lines}")
+
     # Fast and test must preserve all three exact ESS that their historical floating-point rejection tests lost.
     historical_false_rejections = (
         (

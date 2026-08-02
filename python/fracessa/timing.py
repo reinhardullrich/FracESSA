@@ -34,6 +34,21 @@ _CLI_TO_NS = {
     "ms": Decimal(1_000_000),
     "s": Decimal(1_000_000_000),
 }
+_SAFE_FALLBACKS = {
+    "precision_span",
+    "equilibration_invalid",
+    "equilibration_non_convergence",
+    "equilibration",  # Legacy output from historical binaries.
+}
+
+
+def _read_safe_fallback(result: dict) -> str | None:
+    """Return and validate the optional whole-matrix safe fallback."""
+
+    fallback = result.get("safe_fallback")
+    if fallback is not None and fallback not in _SAFE_FALLBACKS:
+        raise RuntimeError(f"unknown safe fallback: {fallback!r}")
+    return fallback
 
 
 def _sha256(path: Path) -> str:
@@ -180,7 +195,7 @@ def _pybind_runner(module_dir: Path | None) -> tuple[Callable, Path]:
     else:
         interface = "legacy"
 
-    def run(matrix_id: int, matrix: str, method: str) -> tuple[int, int]:
+    def run(matrix_id: int, matrix: str, method: str) -> tuple[int, int, str | None]:
         """Run one matrix through the loaded extension."""
 
         result = native.compute_matrix(
@@ -188,13 +203,13 @@ def _pybind_runner(module_dir: Path | None) -> tuple[Callable, Path]:
         )
         if result["status"] != 0:
             raise RuntimeError(result["error_message"] or "native computation failed")
-        return int(result["ess_count"]), int(result["elapsed_ns"])
+        return int(result["ess_count"]), int(result["elapsed_ns"]), _read_safe_fallback(result)
 
     return run, module_path
 
 
-def _parse_cli_output(stdout: str, unit: str) -> tuple[int, int]:
-    """Parse ESS count and elapsed time from the CLI's first two output lines."""
+def _parse_cli_output(stdout: str, unit: str) -> tuple[int, int, str | None]:
+    """Parse ESS count, elapsed time, and an optional safe fallback from CLI output."""
 
     lines = [line.strip() for line in stdout.splitlines() if line.strip()]
     if len(lines) < 2:
@@ -209,7 +224,10 @@ def _parse_cli_output(stdout: str, unit: str) -> tuple[int, int]:
     elapsed_ns = int(
         (raw_time * _CLI_TO_NS[unit]).to_integral_value(rounding=ROUND_HALF_UP)
     )
-    return ess_count, elapsed_ns
+    fallback = None if len(lines) < 3 or lines[2] == "null" else lines[2]
+    if fallback is not None and fallback not in _SAFE_FALLBACKS:
+        raise RuntimeError(f"unknown safe fallback in CLI output: {fallback!r}")
+    return ess_count, elapsed_ns, fallback
 
 
 def _cli_runner(
@@ -224,7 +242,7 @@ def _cli_runner(
     if not executable.is_file() or not os.access(executable, os.X_OK):
         raise ValueError(f"CLI executable is missing or not executable: {executable}")
 
-    def run(matrix_id: int, matrix: str, method: str) -> tuple[int, int]:
+    def run(matrix_id: int, matrix: str, method: str) -> tuple[int, int, str | None]:
         """Run one matrix through the selected CLI executable."""
 
         del matrix_id
@@ -256,7 +274,7 @@ def _measure_target(
     method: str,
     target_ns: int,
     calibration_ns: int,
-) -> tuple[int, int, int, int]:
+) -> tuple[int, int, int, int, str | None]:
     """Measure one matrix for about ``target_ns`` and return its native median.
 
     The stored per-matrix calibration chooses the iteration count. Wall time is
@@ -265,22 +283,24 @@ def _measure_target(
 
     measured_started = perf_counter_ns()
     iterations = 1 if calibration_ns == -1 else max(1, (target_ns + calibration_ns - 1) // calibration_ns)
-    ess_count, first_elapsed_ns = runner(matrix_id, matrix, method)
+    ess_count, first_elapsed_ns, safe_fallback = runner(matrix_id, matrix, method)
     if first_elapsed_ns <= 0:
         raise RuntimeError("native timing must be positive")
 
     samples = [first_elapsed_ns]
     for _ in range(1, iterations):
-        current_ess, current_elapsed_ns = runner(matrix_id, matrix, method)
+        current_ess, current_elapsed_ns, current_safe_fallback = runner(matrix_id, matrix, method)
         if current_ess != ess_count:
             raise RuntimeError("ESS count changed between timing iterations")
+        if current_safe_fallback != safe_fallback:
+            raise RuntimeError("safe fallback changed between timing iterations")
         if current_elapsed_ns <= 0:
             raise RuntimeError("native timing must be positive")
         samples.append(current_elapsed_ns)
 
     measured_wall_ns = max(1, perf_counter_ns() - measured_started)
     median_ns = round(median(samples))
-    return ess_count, median_ns, iterations, measured_wall_ns
+    return ess_count, median_ns, iterations, measured_wall_ns, safe_fallback
 
 
 def _validate_run(arguments: argparse.Namespace) -> None:
@@ -360,16 +380,16 @@ def _run(arguments: argparse.Namespace) -> int:
                     calibration_ns = fast_calibration_ns if method == "fast" else safe_calibration_ns
                     assert calibration_ns is not None
                     matrix = f"{dimension}#{values}"
-                    ess_count, elapsed_ns, iterations, measured_wall_ns = (
+                    ess_count, elapsed_ns, iterations, measured_wall_ns, safe_fallback = (
                         _measure_target(runner, matrix_id, matrix, method, target_ns, calibration_ns)
                     )
                     connection.execute(
                         """INSERT INTO timings (
                                session, recorded_at, machine, cpu_id, comment,
                                build_label, source_ref, revision, binary_sha256,
-                               backend, mode, matrix_id, target_ns, iterations,
+                               backend, mode, safe_fallback, matrix_id, target_ns, iterations,
                                measured_wall_ns, elapsed_ns, ess_count
-                           ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)""",
+                           ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)""",
                         (
                             session,
                             recorded_at,
@@ -382,6 +402,7 @@ def _run(arguments: argparse.Namespace) -> int:
                             binary_sha256,
                             arguments.backend,
                             method,
+                            safe_fallback,
                             matrix_id,
                             target_ns,
                             iterations,
@@ -397,6 +418,7 @@ def _run(arguments: argparse.Namespace) -> int:
                         f"{method} matrix={matrix_id} iterations={iterations} "
                         f"calibration_us={calibration_us} "
                         f"median_ns={elapsed_ns} "
+                        f"safe_fallback={safe_fallback or 'null'} "
                         f"measured_s={measured_wall_ns / 1_000_000_000:.6f} "
                         f"ess={ess_count} expected={expected_ess} {status}",
                         flush=True,
@@ -426,7 +448,7 @@ def _report(arguments: argparse.Namespace) -> int:
             session = row[0]
         rows = connection.execute(
             """SELECT t.build_label, t.backend, t.source_ref, t.revision,
-                      t.binary_sha256, t.machine, t.cpu_id, t.comment, t.mode,
+                      t.binary_sha256, t.machine, t.cpu_id, t.comment, t.mode, t.safe_fallback,
                       t.matrix_id, m.is_cs, m.dimension, t.target_ns,
                       t.iterations, t.measured_wall_ns, t.elapsed_ns,
                       t.ess_count, m.ess_count
@@ -449,6 +471,7 @@ def _report(arguments: argparse.Namespace) -> int:
         build, backend, source_ref, revision, digest, machine, cpu, comment = row[:8]
         (
             method,
+            safe_fallback,
             matrix_id,
             is_cs,
             dimension,
@@ -466,6 +489,7 @@ def _report(arguments: argparse.Namespace) -> int:
             (
                 build,
                 method,
+                safe_fallback,
                 matrix_id,
                 is_cs,
                 dimension,
@@ -477,7 +501,8 @@ def _report(arguments: argparse.Namespace) -> int:
                 expected_ess,
             )
         )
-        medians[build, method, matrix_id] = elapsed_ns
+        if method != "fast" or safe_fallback is None:
+            medians[build, method, matrix_id] = elapsed_ns
 
     for build, metadata in builds.items():
         backend, source_ref, revision, digest, machine, cpu, comment = metadata
@@ -488,13 +513,14 @@ def _report(arguments: argparse.Namespace) -> int:
         )
 
     print(
-        "build\tmethod\tmatrix_id\tis_cs\tdimension\ttarget_s\titerations\t"
+        "build\tmethod\tsafe_fallback\tmatrix_id\tis_cs\tdimension\ttarget_s\titerations\t"
         "measured_s\tmedian_ns\tess\texpected\tgamma_lower_bound\tstatus"
     )
-    for measurement in sorted(measurements):
+    for measurement in sorted(measurements, key=lambda row: (row[0], row[1], row[3])):
         (
             build,
             method,
+            safe_fallback,
             matrix_id,
             is_cs,
             dimension,
@@ -508,7 +534,7 @@ def _report(arguments: argparse.Namespace) -> int:
         status = "ok" if ess_count == expected_ess else "mismatch"
         gamma_lower_bound = expected_ess ** (1 / dimension)
         print(
-            f"{build}\t{method}\t{matrix_id}\t{is_cs}\t{dimension}\t"
+            f"{build}\t{method}\t{safe_fallback or 'null'}\t{matrix_id}\t{is_cs}\t{dimension}\t"
             f"{target_ns / 1_000_000_000:g}\t"
             f"{iterations}\t{measured_wall_ns / 1_000_000_000:.6f}\t"
             f"{elapsed_ns}\t{ess_count}\t{expected_ess}\t"

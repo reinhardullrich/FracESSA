@@ -81,39 +81,84 @@ TEST(MatrixPositiveDefiniteTest, Fraction) {
 }
 
 TEST(FindCandidateFastTest, UsesExactPrecisionSpanCutoff) {
-    const auto exceeds_cutoff = [](const fraction& diagonal_0, const fraction& off_diagonal, const fraction& diagonal_1) {
+    const auto fallback = [](const fraction& diagonal_0, const fraction& off_diagonal, const fraction& diagonal_1) {
         matrix_frc A(2, 2);
         A(0, 0) = diagonal_0;   A(0, 1) = off_diagonal;
         A(1, 0) = off_diagonal; A(1, 1) = diagonal_1;
         find_candidate_safe safe(A);
         find_candidate_fast fast(A);
         fast.convert_game_matrix(safe);
-        return fast.requires_safe_fallback();
+        return fast.safe_fallback_reason();
     };
 
-    EXPECT_FALSE(exceeds_cutoff(fraction::zero(), fraction(999'999'999), fraction::zero()));
-    EXPECT_FALSE(exceeds_cutoff(fraction::zero(), fraction(1'000'000'000), fraction::zero()));
-    EXPECT_FALSE(exceeds_cutoff(fraction::zero(), fraction("1/1000000000"), fraction::zero()));
-    EXPECT_TRUE(exceeds_cutoff(fraction::one(), fraction(1'000'000'000), fraction::one()));
-    EXPECT_TRUE(exceeds_cutoff(fraction(1'000'000'000), fraction(1'000'000'001), fraction(1'000'000'000)));
+    EXPECT_EQ(fallback(fraction::zero(), fraction(999'999'999), fraction::zero()), safe_fallback::none);
+    EXPECT_EQ(fallback(fraction::zero(), fraction(1'000'000'000), fraction::zero()), safe_fallback::none);
+    EXPECT_EQ(fallback(fraction::zero(), fraction("1/1000000000"), fraction::zero()), safe_fallback::none);
+    EXPECT_EQ(fallback(fraction::one(), fraction(1'000'000'000), fraction::one()), safe_fallback::precision_span);
+    EXPECT_EQ(fallback(fraction(1'000'000'000), fraction(1'000'000'001), fraction(1'000'000'000)),
+              safe_fallback::precision_span);
 }
 
 TEST(FindCandidateTest, UsesIntegerPrecisionSpanAfterRemovingCommonScale) {
-    const auto exceeds_cutoff = [](const fraction& diagonal_0, const fraction& off_diagonal, const fraction& diagonal_1) {
+    const auto fallback = [](const fraction& diagonal_0, const fraction& off_diagonal, const fraction& diagonal_1) {
         matrix_frc A(2, 2);
         A(0, 0) = diagonal_0;   A(0, 1) = off_diagonal;
         A(1, 0) = off_diagonal; A(1, 1) = diagonal_1;
         find_candidate_safe safe(A);
         find_candidate_test test(A);
         test.convert_game_matrix(safe);
-        return test.requires_safe_fallback();
+        return test.safe_fallback_reason();
     };
 
-    EXPECT_FALSE(exceeds_cutoff(fraction::zero(), fraction(999'999'999), fraction::zero()));
-    EXPECT_FALSE(exceeds_cutoff(fraction::zero(), fraction(1'000'000'000), fraction::zero()));
-    EXPECT_FALSE(exceeds_cutoff(fraction::zero(), fraction("1/1000000000"), fraction::zero()));
-    EXPECT_TRUE(exceeds_cutoff(fraction::one(), fraction(1'000'000'000), fraction::one()));
-    EXPECT_TRUE(exceeds_cutoff(fraction(1'000'000'000), fraction(1'000'000'001), fraction(1'000'000'000)));
+    EXPECT_EQ(fallback(fraction::zero(), fraction(999'999'999), fraction::zero()), safe_fallback::none);
+    EXPECT_EQ(fallback(fraction::zero(), fraction(1'000'000'000), fraction::zero()), safe_fallback::none);
+    EXPECT_EQ(fallback(fraction::zero(), fraction("1/1000000000"), fraction::zero()), safe_fallback::none);
+    EXPECT_EQ(fallback(fraction::one(), fraction(1'000'000'000), fraction::one()), safe_fallback::precision_span);
+    EXPECT_EQ(fallback(fraction(1'000'000'000), fraction(1'000'000'001), fraction(1'000'000'000)),
+              safe_fallback::precision_span);
+}
+
+TEST(FindCandidateFastAndTest, IgnoreOnlyExactZeroRowsDuringEquilibration) {
+    matrix_frc harmless_zero_row(3, 3);
+    harmless_zero_row(1, 2) = harmless_zero_row(2, 1) = fraction::one();
+    find_candidate_safe harmless_safe(harmless_zero_row);
+    find_candidate_fast harmless_fast(harmless_zero_row);
+    find_candidate_test harmless_test(harmless_zero_row);
+    harmless_fast.convert_game_matrix(harmless_safe);
+    harmless_test.convert_game_matrix(harmless_safe);
+
+    EXPECT_EQ(harmless_fast.safe_fallback_reason(), safe_fallback::none);
+    EXPECT_EQ(harmless_test.safe_fallback_reason(), safe_fallback::none);
+
+    // Coordinate zero is harmlessly empty, while the remaining K_1,15 adjacency block makes BIN equilibration produce an invalid
+    // scale. The zero row must not hide that independent failure.
+    matrix_frc zero_row_with_bad_active_block(17, 17);
+    for (size_t leaf = 2; leaf < 17; ++leaf) {
+        zero_row_with_bad_active_block(1, leaf) = zero_row_with_bad_active_block(leaf, 1) = fraction::one();
+    }
+    find_candidate_safe bad_safe(zero_row_with_bad_active_block);
+    find_candidate_fast bad_fast(zero_row_with_bad_active_block);
+    find_candidate_test bad_test(zero_row_with_bad_active_block);
+    bad_fast.convert_game_matrix(bad_safe);
+    bad_test.convert_game_matrix(bad_safe);
+
+    EXPECT_EQ(bad_fast.safe_fallback_reason(), safe_fallback::equilibration_invalid);
+    EXPECT_EQ(bad_test.safe_fallback_reason(), safe_fallback::equilibration_invalid);
+
+    // The Fork Graph remains finite but does not satisfy the BIN convergence test within 100 iterations.
+    matrix_frc nonconvergent_game(5, 5);
+    nonconvergent_game(0, 4) = nonconvergent_game(4, 0) = fraction::one();
+    nonconvergent_game(1, 4) = nonconvergent_game(4, 1) = fraction::one();
+    nonconvergent_game(2, 3) = nonconvergent_game(3, 2) = fraction::one();
+    nonconvergent_game(3, 4) = nonconvergent_game(4, 3) = fraction::one();
+    find_candidate_safe nonconvergent_safe(nonconvergent_game);
+    find_candidate_fast nonconvergent_fast(nonconvergent_game);
+    find_candidate_test nonconvergent_test(nonconvergent_game);
+    nonconvergent_fast.convert_game_matrix(nonconvergent_safe);
+    nonconvergent_test.convert_game_matrix(nonconvergent_safe);
+
+    EXPECT_EQ(nonconvergent_fast.safe_fallback_reason(), safe_fallback::equilibration_non_convergence);
+    EXPECT_EQ(nonconvergent_test.safe_fallback_reason(), safe_fallback::equilibration_non_convergence);
 }
 
 TEST(FindCandidateFastAndTest, SendSmallPivotToExactArithmetic) {
@@ -131,8 +176,8 @@ TEST(FindCandidateFastAndTest, SendSmallPivotToExactArithmetic) {
     fast.convert_game_matrix(safe);
     test.convert_game_matrix(safe);
 
-    EXPECT_FALSE(fast.requires_safe_fallback());
-    EXPECT_FALSE(test.requires_safe_fallback());
+    EXPECT_EQ(fast.safe_fallback_reason(), safe_fallback::none);
+    EXPECT_EQ(test.safe_fallback_reason(), safe_fallback::none);
     EXPECT_TRUE(fast.find(bitset64{7}, 3));
     EXPECT_TRUE(test.find(bitset64{7}, 3));
 }
@@ -157,8 +202,8 @@ TEST(FindCandidateFastAndTest, SolveNonsingularZeroDiagonalTwoByTwoPivot) {
     fast.convert_game_matrix(safe);
     test.convert_game_matrix(safe);
 
-    ASSERT_FALSE(fast.requires_safe_fallback());
-    ASSERT_FALSE(test.requires_safe_fallback());
+    ASSERT_EQ(fast.safe_fallback_reason(), safe_fallback::none);
+    ASSERT_EQ(test.safe_fallback_reason(), safe_fallback::none);
     EXPECT_FALSE(fast.find(bitset64{7}, 3));
     EXPECT_FALSE(test.find(bitset64{7}, 3));
 }
@@ -192,8 +237,8 @@ TEST(FindCandidateFastAndTest, RemoveCommonDenominatorAndNormalizeGameOnce) {
     fast.convert_game_matrix(safe);
     test.convert_game_matrix(safe);
 
-    ASSERT_FALSE(fast.requires_safe_fallback());
-    ASSERT_FALSE(test.requires_safe_fallback());
+    ASSERT_EQ(fast.safe_fallback_reason(), safe_fallback::none);
+    ASSERT_EQ(test.safe_fallback_reason(), safe_fallback::none);
     EXPECT_FALSE(fast.find(bitset64{7}, 3));
     EXPECT_FALSE(test.find(bitset64{7}, 3));
 }

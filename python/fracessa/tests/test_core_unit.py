@@ -34,6 +34,7 @@ class _FakeNative:
             "error_message": "",
             "ess_count": 2,
             "elapsed_ns": 1234,
+            "safe_fallback": "precision_span",
             "candidates": candidates,
         }
 
@@ -52,6 +53,7 @@ class CoreUnitTests(unittest.TestCase):
         self.assertEqual(result["matrix_id"], 11)
         self.assertEqual(result["ess_count"], 2)
         self.assertEqual(result["elapsed_ns"], 1234)
+        self.assertEqual(result["safe_fallback"], "precision_span")
         self.assertEqual(result["candidate_count"], 1)
         self.assertEqual(result["candidates"][0]["candidate_id"], 7)
 

@@ -33,6 +33,7 @@ class NativeIntegrationTests(unittest.TestCase):
         self.assertTrue(result["success"])
         self.assertEqual(result["status"], 0)
         self.assertEqual(result["ess_count"], 1)
+        self.assertIsNone(result["safe_fallback"])
         self.assertEqual(result["matrix_id"], matrix_id)
         self.assertEqual(result["candidates"][0]["matrix_id"], matrix_id)
         self.assertIsNone(result["candidates"][0]["multiplier"])
@@ -54,6 +55,27 @@ class NativeIntegrationTests(unittest.TestCase):
                 self.assertTrue(fast["success"])
                 self.assertEqual(safe["ess_count"], 1)
                 self.assertEqual(fast["ess_count"], 1)
+
+    def test_whole_matrix_safe_fallback_is_exposed(self):
+        native = load_native_module()
+        database = Path(__file__).resolve().parents[3] / "testdata/fracessa_testdata.sqlite3"
+        with closing(sqlite3.connect(database)) as connection:
+            dimension, values = connection.execute(
+                "SELECT dimension, matrix FROM matrices WHERE matrix_id = 2109"
+            ).fetchone()
+        cases = {
+            "2#0,1,0": None,
+            "2#1,1000000000,1": "precision_span",
+            "2#0,0,0": None,
+            f"{dimension}#{values}": "equilibration_invalid",
+            "5#0,0,0,0,1,0,0,0,1,0,1,0,0,1,0": "equilibration_non_convergence",
+        }
+
+        for matrix, expected in cases.items():
+            with self.subTest(matrix=matrix):
+                self.assertEqual(native.classify_safe_fallback(matrix), expected)
+                result = native.compute_matrix("fast", matrix)
+                self.assertEqual(result["safe_fallback"], expected)
 
     def test_unknown_native_method_is_rejected(self):
         native = load_native_module()

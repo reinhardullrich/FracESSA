@@ -4,6 +4,7 @@
 #include <cstddef>
 
 #include <fracessa/bitset64.hpp>
+#include <fracessa/find_candidate_safe.hpp>
 #include <linalg/matrix_double.hpp>
 #include <linalg/matrix_fraction.hpp>
 
@@ -21,7 +22,7 @@ public:
 
     // Reuse the safe solver's denominator-cleared integer game, normalize it once, and convert it to binary64.
     void convert_game_matrix(const find_candidate_safe& safe_search);
-    bool requires_safe_fallback() const noexcept { return requires_safe_fallback_; }
+    safe_fallback safe_fallback_reason() const noexcept { return safe_fallback_; }
 
     // False means heuristic rejection. True means exact arithmetic must decide.
     bool find(const bitset64& support, size_t support_size);
@@ -31,7 +32,7 @@ private:
     linalg::matrix_dbl game_dbl_;
     linalg::matrix_dbl reduced_system_;
     std::array<double, bs64::kMaxBitsetDimension> game_scales_{};
-    bool requires_safe_fallback_ = false;
+    safe_fallback safe_fallback_ = safe_fallback::none;
 };
 
 } // namespace candidate_search

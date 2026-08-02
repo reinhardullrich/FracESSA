@@ -763,3 +763,35 @@ only diagonal IDs 314, 2180, and 2203.
 is unknown. The Bomze-Schachinger-Ullrich paper calls it the lower bound for $\gamma$ implied by the matrix and labels the result
 column `$\gamma \geq$`. All 713 analyzed matrices expose a value without duplicating mutable data; `matrix_overview` places the
 column immediately after `ess_structure`.
+273. Added the eight missing payoff games from the 2014 and 2015 Bomze-Schachinger-Ullrich copositive constructions:
+IDs 2688-2695 cover dimensions 6, 7, 8, 9, 11, 12, 13, and 14 and store the primitive integer transformation
+`A = (dJ - S) / g`. Safe analysis records `8, 14, 20, 30, 33, 60, 108, 192` ESS; the order-8 and order-9 games have two and three
+more ESS than the papers' copositive-zero counts. All eight safe and fast calibrations completed. The database now contains 1,072
+matrices, 721 complete baselines, 66,195 candidate representatives, 104,563 weighted candidates, and 91,599 weighted ESS.
+274. Made every whole-matrix fast-to-safe switch explicit:
+added the nullable `safe_fallback` result and database field with the exact values `precision_span`, `double_conversion`, and
+`equilibration`. CLI timing prints the value on line 3; Pybind, Python summaries, CSV/JSON/Parquet sinks, calibration, timing rows,
+and `matrix_overview` preserve it, with the view placing it immediately after `gamma_lower_bound`. Calibration classifies before
+starting its cutoff process, and timing ratio summaries exclude
+fast rows that actually measured safe search. Classified all 1,072 stored matrices: 960 have no whole-matrix fallback, 45 use
+`precision_span`, and 67 use `equilibration`; no current matrix hits `double_conversion`. Backfilled the field only for timing
+panels that used the current precision-span/equilibration gate, leaving classic and Werner historical rows unchanged.
+All 10 C++/CLI tests, all 63 Python tests, the 1,072-row native classification audit, SQLite integrity, and foreign keys pass.
+275. Limited the fast/test equilibration zero-row exception to the affected coordinates:
+exact all-zero rows and columns now retain scale one while the LAPACK-derived BIN iteration continues over every nonzero
+coordinate with its reduced active dimension. Invalid arithmetic or failure to converge in that active block still switches the
+whole game to safe search. A focused regression covers both a harmless isolated zero coordinate and a zero coordinate beside a
+separately failing active block. Reclassification released 54 former zero-row fallbacks and identified 59 games that previously
+used the last scaling after reaching the 100-iteration limit. The resulting matrix classifications are 955 without whole-game
+fallback, 45 `precision_span`, four `equilibration`, and 68 `equilibration_non_convergence`; nine of the latter had already fallen
+back generically because their zero rows prevented the active block from being examined. No database field except
+`matrices.safe_fallback` changed.
+276. Renamed the current invalid-equilibration fallback to `equilibration_invalid`:
+current fast/test output and matrix classifications now distinguish invalid or non-finite equilibration arithmetic from the
+100-iteration `equilibration_non_convergence` limit. Both reasons switch the whole game to safe search. The 13 historical timing
+rows produced by older generic-fallback binaries retain `equilibration` rather than being relabelled inaccurately.
+277. Removed the unreachable `double_conversion` fallback:
+the preceding exact precision-span gate guarantees every nonzero power-of-two-normalized integer entry remains within roughly 30
+binary exponents of the maximum when `P < 10^9`, so exponent overflow, binary64 underflow, and non-finite conversion cannot occur.
+Current output and schemas now expose only `precision_span`, `equilibration_invalid`, and
+`equilibration_non_convergence`; historical generic `equilibration` timing rows remain supported.

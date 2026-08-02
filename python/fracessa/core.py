@@ -157,6 +157,7 @@ def compute_matrix(method: SearchMethod, matrix: Matrix, config: RunConfig, run_
         "success": native_out["success"],
         "ess_count": native_out["ess_count"],
         "elapsed_ns": native_out["elapsed_ns"],
+        "safe_fallback": native_out["safe_fallback"],
         "candidate_count": len(candidates),
         "error_message": native_out["error_message"],
         "candidates": candidates,

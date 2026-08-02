@@ -16,6 +16,7 @@ _SUMMARY_FIELDS = (
     "success",
     "ess_count",
     "elapsed_ns",
+    "safe_fallback",
     "candidate_count",
     "error_message",
 )

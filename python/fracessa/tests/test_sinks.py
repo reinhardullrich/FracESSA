@@ -19,6 +19,7 @@ def _sample_result(matrix_id: int = 3) -> dict:
         "success": True,
         "ess_count": 1,
         "elapsed_ns": 12,
+        "safe_fallback": None,
         "candidate_count": 1,
         "error_message": "",
         "candidates": [
@@ -65,6 +66,8 @@ class SinkTests(unittest.TestCase):
             candidate_lines = candidates_path.read_text(encoding="utf-8").strip().splitlines()
             with candidates_path.open(encoding="utf-8", newline="") as fh:
                 candidate_rows = list(csv.DictReader(fh))
+            with summary_path.open(encoding="utf-8", newline="") as fh:
+                summary_rows = list(csv.DictReader(fh))
             metadata = json.loads(
                 Path(f"{summary_path}.metadata.json").read_text(encoding="utf-8")
             )
@@ -73,6 +76,7 @@ class SinkTests(unittest.TestCase):
         self.assertGreaterEqual(len(candidate_lines), 2)
         self.assertIn("multiplier", candidate_lines[0])
         self.assertEqual(candidate_rows[0]["multiplier"], "")
+        self.assertEqual(summary_rows[0]["safe_fallback"], "")
         self.assertEqual(metadata[0]["metadata"], {"source": "unit"})
 
     def test_json_sink_writes_arrays(self):
@@ -87,6 +91,7 @@ class SinkTests(unittest.TestCase):
             candidates = json.loads(candidates_path.read_text(encoding="utf-8"))
 
         self.assertEqual(len(summary), 1)
+        self.assertIsNone(summary[0]["safe_fallback"])
         self.assertEqual(len(candidates), 1)
         self.assertIsNone(candidates[0]["multiplier"])
 
@@ -109,8 +114,10 @@ class SinkTests(unittest.TestCase):
             sink.write_result(circular)
             sink.close()
             multipliers = pq.read_table(candidates_path)["multiplier"].to_pylist()
+            fallbacks = pq.read_table(summary_path)["safe_fallback"].to_pylist()
 
         self.assertEqual(multipliers, [None, 5])
+        self.assertEqual(fallbacks, [None, None])
 
     def test_json_sink_replaces_non_finite_floats_with_null(self):
         result = _sample_result()

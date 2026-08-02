@@ -59,10 +59,12 @@ fracessa::fracessa(search_method method, const linalg::matrix_frc& matrix, bool 
 
     if (method_ == search_method::fast) {
         find_candidate_fast_.convert_game_matrix(find_candidate_safe_);
-        if (find_candidate_fast_.requires_safe_fallback()) method_ = search_method::safe;
+        safe_fallback_ = find_candidate_fast_.safe_fallback_reason();
+        if (safe_fallback_ != candidate_search::safe_fallback::none) method_ = search_method::safe;
     } else if (method_ == search_method::test) {
         find_candidate_test_.convert_game_matrix(find_candidate_safe_);
-        if (find_candidate_test_.requires_safe_fallback()) method_ = search_method::safe;
+        safe_fallback_ = find_candidate_test_.safe_fallback_reason();
+        if (safe_fallback_ != candidate_search::safe_fallback::none) method_ = search_method::safe;
     }
 
     if (conf_full_support_) {

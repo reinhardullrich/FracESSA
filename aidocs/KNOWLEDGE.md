@@ -138,6 +138,11 @@ $10^{-12}$ reaches exact checking. Its remaining probability and outside-payoff 
 an independent source copy of `fast`, not a wrapper around it; it currently has identical behavior and can be changed without
 changing production fast search.
 
+Every result exposes `safe_fallback`: null means the selected fast/test method reached its double search, while `precision_span`,
+`equilibration_invalid`, or `equilibration_non_convergence` identifies the whole-matrix preparation step that switched the run to
+safe search. A per-support exact retry does not set it. CLI timing output prints this as line 3; Pybind and all Python sinks use the
+same nullable field. Historical timing rows may retain the legacy generic value `equilibration`.
+
 ## Computation Flow
 
 ```text
@@ -177,10 +182,11 @@ Important implementation points:
   each process one triangle and mirror it. Each support eliminates the
   payoff/normalization border, forms the transformed reduced Hessian, and solves it with the adapted lower-triangle Bunch-Kaufman
   $LDL^T$ factorization and solve. The transformed normalization vector and row scales recover probabilities and payoffs in the
-  original game coordinates. Failed equilibration, every small or non-finite pivot, and every non-finite completed probability or
-  payoff accumulation are inconclusive and reach exact checking. Outside strategies are enumerated directly from the complement
-  mask only after factorization and probability checks pass. Probability and outside-payoff rejections remain heuristic, so `fast`
-  is not a correctness certificate.
+  original game coordinates. Exact all-zero rows and columns retain scale one and are excluded individually from the active BIN
+  iteration; every failure or non-convergence in the remaining nonzero block, every small or non-finite pivot, and every non-finite
+  completed probability or payoff accumulation are inconclusive and reach exact checking. Outside strategies are enumerated
+  directly from the complement mask only after factorization and probability checks pass. Probability and outside-payoff
+  rejections remain heuristic, so `fast` is not a correctness certificate.
 - `find_candidate_test` intentionally duplicates fast double storage, equilibration, and reduced-system kernel without sharing its
   implementation or double state. Its source is currently identical to fast apart from class and header names.
 - `find_candidate_safe` clears the game's rational denominators once, eliminates
@@ -513,6 +519,13 @@ non-circular matrices. Same-property alternatives formerly stored at IDs 12
 and 21 were removed; the former contents of IDs 18 and 26 were replaced by the
 published vectors.
 
+IDs 2688-2695 store the eight previously missing payoff games derived from the 2014 and 2015 Bomze-Schachinger-Ullrich
+copositive constructions at dimensions 6, 7, 8, 9, 11, 12, 13, and 14. They use the primitive integer transformation
+`A = (dJ - S) / g`, where `d` is the common diagonal and `g` is the positive gcd; on the simplex this turns each isolated
+copositive zero into a global strict maximizer and hence an ESS. Exact safe analysis gives ESS counts `8, 14, 20, 30, 33, 60,
+108, 192`, respectively. The papers state 18 zeroes at dimension 8 and 27 at dimension 9; the complete ESS search finds two and
+three additional nonglobal strict local maxima. The order-15 `S15` construction was already present as ID 24 with 360 ESS.
+
 The timing snapshot has 710 CPU-2 persistent-Pybind rows. It retains Werner fast and safe, the July 27 pre-refactor GitHub build
 renamed `classic`, the paired safe builds immediately before and after the C++ FLINT-wrapper extraction, and four 81-matrix fast
 panels for `equilibrated-fast`, rejected FP-S01, retained FP-S02, and combined FP-S02+FP-S03. The experimental test panels use
@@ -535,9 +548,8 @@ removed IDs 38 and 44 in favor of ID 1. Zero-game consolidation removed ID 43 in
 dimension-one consolidation left ID 314 as the sole full-storage exception. Eighteen stale `classic`/Werner rows for the old
 matrices were replaced by a current-build fast/safe panel; after both cleanups it has four rows for IDs 1 and 2203.
 
-Fast calibration covers all 1,064 matrices with 700 positive durations and 364 `-1` timeouts. The 450 generator-catalogue rows
-contributed 310 positive durations and 140 timeouts under the one-second cutoff. The earlier 614-row suite retains 405 positive safe
-durations and 209 `-1` timeouts; the new rows contributed 305 complete safe durations and 145 timeouts. No calibration remains null.
+Fast calibration covers all 1,072 matrices with 750 positive durations and 322 `-1` timeouts; safe calibration has 718 positive
+durations and 354 timeouts. No calibration remains null.
 The reusable
 `scripts/calibrate_matrices.py` processes only null calibration fields by default;
 safe mode also stores the complete exact baseline when it finishes within the cutoff. Its `safe --retry-timeouts` form processes
@@ -603,19 +615,21 @@ SQLite, measures one build and one matrix at a time on a user-selected Linux
 CPU, and writes normalized nanosecond samples to the same database. Reusing a
 session name groups separately invoked builds. Each row records `source_ref`
 (for a moving name such as `main`), its immutable `revision`, the binary hash,
-backend, historical `mode` database value, CPU, comment, observed ESS count, target and measured wall time,
+backend, historical `mode` database value, nullable whole-matrix `safe_fallback`, CPU, comment, observed ESS count, target and measured wall time,
 iteration count, and median native elapsed time. One Pybind process stays open
 for every selected method and matrix in a build. New runs require `--method fast` or `--method safe`; adapters map those choices
 onto old Pybind and CLI interfaces when benchmarking historical builds. Each matrix row owns nullable `fast_calibration_ns` and
 `safe_calibration_ns` values. Positive values choose `ceil(target / calibration)` samples, while `-1` records a calibration killed
 at its cutoff and chooses one sample; a missing value is a hard error. `scripts/calibrate_matrices.py fast|safe` fills only missing
-values with a one-second default cutoff; safe also records missing exact candidate baselines. Use
+values with a one-second default cutoff; it classifies and stores `matrices.safe_fallback` before the timed process so a timeout does
+not lose the reason, and safe also records missing exact candidate baselines. Use
 `scripts/calibrate_matrices.py safe --retry-timeouts --cutoff-seconds 120` to retry only safe `-1` rows once. Clear a field manually
 before an intentional refresh. Calibrations are not timing-history rows. The default target is 0.5 seconds, and the stored result is the
 median returned `elapsed_ns`. Measured wall time is metadata only and never chooses or determines the reported timing. The CLI
 backend remains
 available for legacy inspection but starts a child process per sample and must
-not be mixed with persistent-Pybind microbenchmarks. Dated material under
+not be mixed with persistent-Pybind microbenchmarks. Timing reports retain fallback rows but exclude non-null fast fallbacks from
+speed-ratio summaries. Dated material under
 `experiments/` and `aidocs/experiments/` remains immutable historical
 evidence.
 
@@ -641,7 +655,7 @@ converts that value directly to Python's arbitrary-precision integer.
 
 Native analyzer timing uses `std::chrono::steady_clock` and is always returned
 as integer nanoseconds in `elapsed_ns`. The CLI `--timing` output uses the same
-clock and unit. There is no wrapper timing-suppression option.
+clock and unit, followed by `safe_fallback` on line 3. There is no wrapper timing-suppression option.
 
 Matrix IDs are signed 64-bit values at the CLI, analyzer, Pybind, and file-sink
 boundaries. `Matrix` accepts only built-in Python integers in that range and

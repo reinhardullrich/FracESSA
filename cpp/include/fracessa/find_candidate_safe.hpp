@@ -1,6 +1,8 @@
 #pragma once
 
 #include <cstddef>
+#include <cstdint>
+#include <string_view>
 
 #include <fracessa/bitset64.hpp>
 #include <fracessa/candidate.hpp>
@@ -11,6 +13,24 @@
 #include <linalg/matrix_integer.hpp>
 
 namespace candidate_search {
+
+enum class safe_fallback : std::uint8_t {
+    none,
+    precision_span,
+    equilibration_invalid,
+    equilibration_non_convergence,
+};
+
+constexpr std::string_view safe_fallback_name(safe_fallback fallback) noexcept
+{
+    switch (fallback) {
+    case safe_fallback::none: return "";
+    case safe_fallback::precision_span: return "precision_span";
+    case safe_fallback::equilibration_invalid: return "equilibration_invalid";
+    case safe_fallback::equilibration_non_convergence: return "equilibration_non_convergence";
+    }
+    return "";
+}
 
 class find_candidate_safe {
 public:
@@ -23,8 +43,8 @@ public:
 
     // Remove the common game denominator, normalize the remaining integer matrix by one power of two, convert one symmetric
     // triangle, and mirror it for double search.
-    // False means that the integer entries or their distinct gaps exceed the requested precision span and safe search must be used.
-    bool prepare_normalized_double_game(unsigned long precision_span_limit, linalg::matrix_dbl& result) const;
+    // Returns none after successful conversion; otherwise identifies why the complete matrix must use safe search.
+    safe_fallback prepare_normalized_double_game(unsigned long precision_span_limit, linalg::matrix_dbl& result) const;
 
     // True means an exact candidate was found and written to result. The dense vector is optional because stability does not use it.
     bool find(const bitset64& support, size_t support_size, candidate& result, bool materialize_vector);

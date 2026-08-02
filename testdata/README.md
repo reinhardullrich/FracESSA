@@ -3,8 +3,8 @@
 `fracessa_testdata.sqlite3` is the canonical store for exact test matrices,
 complete expected candidate results where available, and timing data.
 
-The current snapshot contains 1,064 distinct strategically normalized matrices. The 713 analyzed matrices have 65,800 stored
-candidate representatives whose multipliers represent 104,098 candidates and 91,134 ESS. The other 351 rows have null baseline
+The current snapshot contains 1,072 distinct strategically normalized matrices. The 721 analyzed matrices have 66,195 stored
+candidate representatives whose multipliers represent 104,563 candidates and 91,599 ESS. The other 351 rows have null baseline
 fields: 206 from the earlier suite exceeded the two-minute safe retry cutoff, and 145 generator-catalogue rows exceeded their
 initial one-second safe cutoff.
 
@@ -17,7 +17,11 @@ staged complete-multipartite many-ESS benchmark matrices. IDs 67-79 are
 deterministic random-integer coverage matrices; together with the existing rows,
 every dimension from 2 through 25 has at least one circular and one non-circular
 matrix. IDs 45-47 preserve the unsafe-filter, LU-boundary, and failed-proof
-verified-search regressions. IDs 91-117 originally held SuiteSparse Matrix Collection
+verified-search regressions. IDs 2688-2695 are the eight previously missing payoff games obtained from the 2014 and 2015
+Bomze-Schachinger-Ullrich copositive constructions. Each stores the primitive integer form of `(dJ-S)/g`, so the papers' isolated
+copositive zeroes become global strict maximizers and therefore ESS. Exact safe analysis finds the published lower-bound counts,
+plus two additional ESS for the order-8 game and three for the order-9 game; order-15 source matrix `S15` was already present as
+ID 24. IDs 91-117 originally held SuiteSparse Matrix Collection
 imports, IDs 118-269 are QAPLIB imports, and IDs 270-280 are TSPLIB95 imports.
 IDs 281-313 are Biq Mac Library imports, and IDs 314-319 are Magma Hadamard
 database imports. Thirty QPLIB objective imports retain their original IDs
@@ -41,7 +45,7 @@ selection covers 51 eligible generator families and 34 documented or structural 
 bands. See `../aidocs/reference/MATRIX_GENERATOR_CATALOGUE_AUDIT.md` for the complete scope, exclusions, revisions, sampling rule,
 and validation record.
 
-The timing table contains 710 CPU-2 persistent-Pybind median rows. It retains
+The timing table retains CPU-2 persistent-Pybind median rows for
 Werner fast and safe, the July 27 pre-refactor GitHub build renamed `classic`,
 the paired safe builds immediately before and after the C++ FLINT-wrapper
 extraction, four fast-path experiment panels, and a four-row current-build fast/safe circular-normalization panel. Catalog-only rows
@@ -51,11 +55,10 @@ rule. All paired ESS counts match. Build label, revision, and binary hash
 identify every stored build.
 
 Matrix rows contain nullable `fast_calibration_ns` and `safe_calibration_ns` values used only to choose benchmark iteration
-counts. Fast calibration covers all 1,064 matrices with 700 positive measurements and 364 `-1` timeouts; the 450 generator-catalogue
-rows contributed 310 measurements and 140 timeouts under the one-second cutoff. The earlier 614-row suite retains 405 positive safe
-measurements and 209 `-1` timeouts; the new rows contributed 305 complete safe measurements and 145 timeouts. No calibration field
-remains null. A value of `-1` records a calibration run killed at its cutoff and selects one benchmark iteration. Positive integer
-nanoseconds preserve the native value exactly; divide by `1000.0` when displaying decimal microseconds.
+counts. Fast calibration covers all 1,072 matrices with 750 positive measurements and 322 `-1` timeouts; safe has 718 positive
+measurements and 354 timeouts. No calibration field remains null. A value of `-1` records a calibration run killed at its cutoff
+and selects one benchmark iteration. Positive integer nanoseconds preserve the native value exactly; divide by `1000.0` when
+displaying decimal microseconds.
 
 Run `scripts/calibrate_matrices.py fast` or `scripts/calibrate_matrices.py safe` from the repository root to fill only missing
 calibrations with the canonical Release Pybind module on CPU 2 and a one-second cutoff. Safe calibration also stores complete
@@ -63,6 +66,8 @@ weighted counts, support-size structures, and representative candidate rows for 
 Existing calibration and baseline values are never overwritten; clear a calibration field explicitly before intentionally
 refreshing it. To retry only safe `-1` rows once with a two-minute cutoff, run
 `scripts/calibrate_matrices.py safe --retry-timeouts --cutoff-seconds 120`.
+The calibration script classifies the whole-matrix fast fallback before starting the timed process, so even a killed calibration
+stores the correct `safe_fallback` value.
 
 ## Circular Storage Normalization
 
@@ -411,6 +416,10 @@ Each row stores one exact matrix input and its summary:
 - `fast_calibration_ns` and `safe_calibration_ns`: nullable native-duration estimates used to choose benchmark sample counts.
   Positive values are nanoseconds, while `-1` marks a calibration timeout. They are matrix metadata, not benchmark
   observations.
+- `safe_fallback`: null when fast search prepares and uses its double matrix, otherwise `precision_span`,
+  `equilibration_invalid`, or `equilibration_non_convergence`. This records only a whole-matrix switch to safe search; an exact
+  retry for one support does not set it.
+  `matrix_overview` places it immediately after `gamma_lower_bound`.
 
 The stable `matrix_id` remains the program-facing identifier. `origin` preserves
 the existing human provenance text, while `source_url` provides a
@@ -455,14 +464,17 @@ Each row is one sequential analyzer timing measurement for one matrix. A
 session may contain several builds, but each build is measured by a separate
 runner invocation. Rows record the machine and pinned CPU, human build label,
 moving source reference such as `main`, immutable revision, binary SHA-256,
-Pybind or CLI backend, search method in the historically named `mode` column, target and measured wall durations,
+Pybind or CLI backend, search method in the historically named `mode` column, whole-matrix `safe_fallback`, target and measured wall durations,
 iteration count, median native duration in nanoseconds, observed ESS count,
 and an optional comment.
 
 The observed count remains separate from the expected count in `matrices`, so a
 report can expose fast-method mismatches without hiding or rejecting their
 timings. The report prints the same Bomze-Schachinger-Ullrich exponential-growth
-lower bound exposed as `matrices.gamma_lower_bound`.
+lower bound exposed as `matrices.gamma_lower_bound`. Fast rows with non-null `safe_fallback` remain visible but are excluded from
+speed-ratio summaries because they measured safe search rather than the double path.
+Historical timing rows may retain the legacy generic value `equilibration`; current binaries distinguish invalid arithmetic from
+non-convergence.
 
 ## Scope
 

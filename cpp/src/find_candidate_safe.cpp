@@ -4,7 +4,6 @@
 #include <cassert>
 #include <cmath>
 #include <cstdint>
-#include <limits>
 #include <vector>
 
 namespace candidate_search {
@@ -93,7 +92,7 @@ bool find_candidate_safe::precision_span_at_least(unsigned long limit, bool incl
     return maximum.compare(scaled_minimum) >= 0;
 }
 
-bool find_candidate_safe::prepare_normalized_double_game(unsigned long precision_span_limit, linalg::matrix_dbl& result) const
+safe_fallback find_candidate_safe::prepare_normalized_double_game(unsigned long precision_span_limit, linalg::matrix_dbl& result) const
 {
     /*
      * integer_game = game_denominator * game. The common positive denominator changes every payoff by the same factor and can
@@ -101,10 +100,10 @@ bool find_candidate_safe::prepare_normalized_double_game(unsigned long precision
      * entry near one without introducing another rounding operation. Unlike row/column equilibration, this cannot change the game.
      */
     linalg::integer maximum;
-    if (precision_span_at_least(precision_span_limit, false, maximum)) return false;
+    if (precision_span_at_least(precision_span_limit, false, maximum)) return safe_fallback::precision_span;
 
     result = linalg::matrix_dbl(dimension_, dimension_);
-    if (maximum.is_zero()) return true;
+    if (maximum.is_zero()) return safe_fallback::none;
 
     slong maximum_exponent = 0;
     static_cast<void>(maximum.to_dbl_2exp(maximum_exponent));
@@ -116,17 +115,13 @@ bool find_candidate_safe::prepare_normalized_double_game(unsigned long precision
             slong entry_exponent = 0;
             const double mantissa = entry.to_dbl_2exp(entry_exponent);
             const slong exponent_difference = entry_exponent - maximum_exponent;
-            if (exponent_difference < std::numeric_limits<int>::min() || exponent_difference > std::numeric_limits<int>::max()) {
-                return false;
-            }
-
+            // The preceding precision-span check bounds every nonzero entry to less than 10^9 below the maximum, so this scale cannot underflow or overflow.
             const double value = std::scalbn(mantissa, static_cast<int>(exponent_difference));
-            if (value == 0.0 || !std::isfinite(value)) return false;
             result(row, column) = value;
             result(column, row) = value;
         }
     }
-    return true;
+    return safe_fallback::none;
 }
 
 void find_candidate_safe::resize_reduced_system(size_t reduced_dimension)

@@ -50,6 +50,7 @@ public:
     fracessa& operator=(fracessa&&) = delete;
 
     size_t ess_count_ = 0;
+    candidate_search::safe_fallback safe_fallback_ = candidate_search::safe_fallback::none;
     // Populated only when with_candidates is true.
     std::vector<candidate> candidates_;
 

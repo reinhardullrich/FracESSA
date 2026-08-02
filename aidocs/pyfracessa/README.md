@@ -46,9 +46,13 @@ built-in Python integer in the signed 64-bit range (booleans are rejected),
 `matrix` must be a string, and `metadata` must be a dictionary or `None`.
 
 Every computation returns one plain dictionary with `run_id`, `matrix_id`,
-`status`, `success`, `ess_count`, `elapsed_ns`, `candidate_count`,
+`status`, `success`, `ess_count`, `elapsed_ns`, `safe_fallback`, `candidate_count`,
 `error_message`, `candidates`, and `metadata`. `candidates` is a list of plain
 dictionaries; there are no result-row classes or conversion step.
+
+`safe_fallback` is `None` unless `fast` bypassed double search for the complete matrix. The possible reasons are
+`"precision_span"`, `"equilibration_invalid"`, and `"equilibration_non_convergence"`. An inconclusive pivot for one support does
+not set this field.
 
 Each candidate dictionary has a nullable `multiplier`: circular matrices return
 one bracelet representative with its orbit count, while ordinary candidates use
@@ -58,10 +62,10 @@ the weighted mathematical total.
 A matrix may use full CLI form (`"3#4,13/2,..."`) or values only when
 `metadata["dimension"]` is present.
 
-Every execution call requires `"fast"` or `"safe"` before the matrix; there is no default. Fast uses the historical raw-double
-heuristic without normalization and can miss candidates and ESS results. A risky exact-to-double conversion bypasses fast
-filtering for the whole matrix and uses safe exact candidate checks instead. Safe bypasses every floating-point candidate
-procedure. Matrix input always uses the validating native parser.
+Every execution call requires `"fast"` or `"safe"` before the matrix; there is no default. Fast applies the exact precision-span
+gate, converts and equilibrates the complete game once, and then uses binary64 candidate rejection. A matrix-wide preparation
+failure uses safe exact candidate checks instead. Safe bypasses every floating-point candidate procedure. Matrix input always uses
+the validating native parser.
 
 `elapsed_ns` is always the native analyzer duration measured with a monotonic
 clock. There is deliberately no computation timeout.

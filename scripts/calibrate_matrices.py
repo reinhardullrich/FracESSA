@@ -21,6 +21,7 @@ DEFAULT_DATABASE = REPOSITORY_ROOT / "testdata" / "fracessa_testdata.sqlite3"
 DEFAULT_MODULE_DIR = REPOSITORY_ROOT / "cpp" / "build-benchmark"
 DEFAULT_CUTOFF_SECONDS = 1.0
 STARTUP_TIMEOUT_SECONDS = 30.0
+SAFE_FALLBACKS = {"precision_span", "equilibration_invalid", "equilibration_non_convergence"}
 
 
 def _compute_matrix(
@@ -97,6 +98,13 @@ def _check_result(result: dict, matrix_id: int) -> int:
     return elapsed_ns
 
 
+def _safe_fallback(result: dict, matrix_id: int) -> str | None:
+    fallback = result.get("safe_fallback")
+    if fallback is not None and fallback not in SAFE_FALLBACKS:
+        raise RuntimeError(f"matrix {matrix_id}: unknown safe fallback {fallback!r}")
+    return fallback
+
+
 def _exact_baseline(result: dict, matrix_id: int) -> tuple[tuple, list[tuple]]:
     candidates = result["candidates"]
     candidate_structure: Counter[int] = Counter()
@@ -162,7 +170,7 @@ def _run_one(
     needs_baseline: bool,
     expected_ess: int | None,
     single_sample: bool,
-) -> tuple[int, tuple[tuple, list[tuple]] | None, str | None]:
+) -> tuple[int, tuple[tuple, list[tuple]] | None, str | None, str | None]:
     receive_messages, send_messages = context.Pipe(duplex=False)
     cutoff_ns = int(cutoff_seconds * 1_000_000_000)
     process = context.Process(
@@ -175,6 +183,7 @@ def _run_one(
     baseline = None
     timed_out = False
     failure = None
+    safe_fallback = None
     try:
         message = _receive(receive_messages, process, STARTUP_TIMEOUT_SECONDS, matrix_id)
         if message is None or message[0] != "ready":
@@ -191,6 +200,7 @@ def _run_one(
                 if kind != "baseline":
                     raise RuntimeError(f"matrix {matrix_id}: expected exact baseline result")
                 _check_result(result, matrix_id)
+                safe_fallback = _safe_fallback(result, matrix_id)
                 baseline = _exact_baseline(result, matrix_id)
                 expected_ess = int(result["ess_count"])
                 if single_sample:
@@ -209,6 +219,10 @@ def _run_one(
             if kind != "sample":
                 raise RuntimeError(f"matrix {matrix_id}: expected calibration sample")
             elapsed_ns = _check_result(result, matrix_id)
+            current_safe_fallback = _safe_fallback(result, matrix_id)
+            if samples and current_safe_fallback != safe_fallback:
+                raise RuntimeError(f"matrix {matrix_id}: safe fallback changed between calibration samples")
+            safe_fallback = current_safe_fallback
             observed_ess = int(result["ess_count"])
             if expected_ess is not None and observed_ess != expected_ess:
                 raise RuntimeError(f"matrix {matrix_id}: ESS count {observed_ess} != expected {expected_ess}")
@@ -225,7 +239,7 @@ def _run_one(
             _terminate(process)
         receive_messages.close()
 
-    return (-1 if timed_out or failure else int(median(samples))), baseline, ("timeout" if timed_out else failure)
+    return (-1 if timed_out or failure else int(median(samples))), baseline, ("timeout" if timed_out else failure), safe_fallback
 
 
 def _store_result(
@@ -235,6 +249,7 @@ def _store_result(
     calibration_ns: int,
     baseline: tuple[tuple, list[tuple]] | None,
     retry_timeout: bool,
+    safe_fallback: str | None,
 ) -> None:
     calibration_column = f"{method}_calibration_ns"
     with connection:
@@ -253,15 +268,16 @@ def _store_result(
             calibration_condition = f"{calibration_column} = -1" if retry_timeout else f"{calibration_column} IS NULL"
             cursor = connection.execute(
                 f"""UPDATE matrices
-                    SET candidate_count = ?, ess_count = ?, candidate_structure = ?, ess_structure = ?, {calibration_column} = ?
+                    SET candidate_count = ?, ess_count = ?, candidate_structure = ?, ess_structure = ?, {calibration_column} = ?,
+                        safe_fallback = ?
                     WHERE matrix_id = ? AND candidate_count IS NULL AND {calibration_condition}""",
-                (*summary, calibration_ns, matrix_id),
+                (*summary, calibration_ns, safe_fallback, matrix_id),
             )
         else:
             calibration_condition = f"{calibration_column} = -1" if retry_timeout else f"{calibration_column} IS NULL"
             cursor = connection.execute(
-                f"UPDATE matrices SET {calibration_column} = ? WHERE matrix_id = ? AND {calibration_condition}",
-                (calibration_ns, matrix_id),
+                f"UPDATE matrices SET {calibration_column} = ?, safe_fallback = ? WHERE matrix_id = ? AND {calibration_condition}",
+                (calibration_ns, safe_fallback, matrix_id),
             )
         if cursor.rowcount != 1:
             raise RuntimeError(f"matrix {matrix_id}: database row changed during calibration")
@@ -287,6 +303,9 @@ def calibrate(
     if not list(module_dir.glob("fracessa_core*.so")):
         raise ValueError(f"fracessa_core is missing from {module_dir}")
 
+    sys.path.insert(0, str(module_dir))
+    import fracessa_core
+
     calibration_column = f"{method}_calibration_ns"
     context = get_context("spawn")
     connection = sqlite3.connect(database)
@@ -310,24 +329,33 @@ def calibrate(
         ).fetchall()
         started = monotonic()
         for position, (matrix_id, dimension, values, candidate_count, ess_count) in enumerate(rows, start=1):
+            matrix = f"{dimension}#{values}"
+            classified_fallback = fracessa_core.classify_safe_fallback(matrix)
+            if classified_fallback is not None and classified_fallback not in SAFE_FALLBACKS:
+                raise RuntimeError(f"matrix {matrix_id}: unknown classified safe fallback {classified_fallback!r}")
             needs_baseline = method == "safe" and candidate_count is None
-            calibration_ns, baseline, failure = _run_one(
+            calibration_ns, baseline, failure, observed_fallback = _run_one(
                 context,
                 module_dir,
                 cpu_id,
                 cutoff_seconds,
                 method,
                 matrix_id,
-                f"{dimension}#{values}",
+                matrix,
                 needs_baseline,
                 ess_count,
                 retry_timeouts,
             )
-            _store_result(connection, method, matrix_id, calibration_ns, baseline, retry_timeouts)
+            if method == "fast" and observed_fallback is not None and observed_fallback != classified_fallback:
+                raise RuntimeError(
+                    f"matrix {matrix_id}: computed safe fallback {observed_fallback!r} != classified {classified_fallback!r}"
+                )
+            _store_result(connection, method, matrix_id, calibration_ns, baseline, retry_timeouts, classified_fallback)
             calibration = failure or ("timeout" if calibration_ns == -1 else f"{calibration_ns / 1_000:.3f} us")
             baseline_status = " baseline=filled" if baseline is not None else ""
             print(
                 f"[{position}/{len(rows)}] matrix={matrix_id} dimension={dimension} calibration={calibration}{baseline_status} "
+                f"safe_fallback={classified_fallback or 'null'} "
                 f"total_minutes={(monotonic() - started) / 60:.2f}",
                 flush=True,
             )

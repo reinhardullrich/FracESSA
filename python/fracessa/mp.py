@@ -29,6 +29,7 @@ def _safe_compute(method: SearchMethod, matrix: Matrix, config: RunConfig, run_i
             "success": False,
             "ess_count": 0,
             "elapsed_ns": 0,
+            "safe_fallback": None,
             "candidate_count": 0,
             "error_message": f"Worker exception: {exc}",
             "candidates": [],

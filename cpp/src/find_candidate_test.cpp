@@ -54,35 +54,50 @@ constexpr size_t kEquilibrationIterations = 100;
  * principal submatrix from the same scaled game. The transformed normalization vector D*1 is handled explicitly when the support
  * border is eliminated below, so this is a change of variables rather than a change of game.
  */
-bool equilibrate_game_matrix(linalg::matrix_dbl& game, size_t dimension, double* scales)
+safe_fallback equilibrate_game_matrix(linalg::matrix_dbl& game, size_t dimension, double* scales)
 {
     double beta[bs64::kMaxBitsetDimension];
+    size_t active_coordinates[bs64::kMaxBitsetDimension];
+    size_t active_dimension = 0;
 
     for (size_t coordinate = 0; coordinate < dimension; ++coordinate) scales[coordinate] = 0.0;
     for (size_t column = 0; column < dimension; ++column) {
         const double diagonal = std::abs(game(column, column));
-        if (!std::isfinite(diagonal)) return false;
+        if (!std::isfinite(diagonal)) return safe_fallback::equilibration_invalid;
         scales[column] = std::max(scales[column], diagonal);
         for (size_t row = column + 1; row < dimension; ++row) {
             const double magnitude = std::abs(game(row, column));
-            if (!std::isfinite(magnitude)) return false;
+            if (!std::isfinite(magnitude)) return safe_fallback::equilibration_invalid;
             scales[row] = std::max(scales[row], magnitude);
             scales[column] = std::max(scales[column], magnitude);
         }
     }
 
     for (size_t coordinate = 0; coordinate < dimension; ++coordinate) {
-        if (!(scales[coordinate] > 0.0) || !std::isfinite(scales[coordinate])) return false;
+        if (!std::isfinite(scales[coordinate])) return safe_fallback::equilibration_invalid;
+        if (scales[coordinate] == 0.0) {
+            // An exact zero row is also a zero column because the game is symmetric. Its positive scale is arbitrary, so leave it
+            // unchanged and equilibrate every nonzero coordinate independently instead of rejecting or accepting the whole game.
+            scales[coordinate] = 1.0;
+            continue;
+        }
         scales[coordinate] = 1.0 / scales[coordinate];
+        if (!(scales[coordinate] > 0.0) || !std::isfinite(scales[coordinate])) return safe_fallback::equilibration_invalid;
+        active_coordinates[active_dimension++] = coordinate;
     }
+    if (active_dimension == 0) return safe_fallback::none;
 
-    const double tolerance = 1.0 / std::sqrt(2.0 * static_cast<double>(dimension));
+    const double active_dimension_dbl = static_cast<double>(active_dimension);
+    const double tolerance = 1.0 / std::sqrt(2.0 * active_dimension_dbl);
     double average = 0.0;
+    bool converged = false;
     for (size_t iteration = 0; iteration < kEquilibrationIterations; ++iteration) {
-        for (size_t coordinate = 0; coordinate < dimension; ++coordinate) beta[coordinate] = 0.0;
-        for (size_t column = 0; column < dimension; ++column) {
+        for (size_t active = 0; active < active_dimension; ++active) beta[active_coordinates[active]] = 0.0;
+        for (size_t active_column = 0; active_column < active_dimension; ++active_column) {
+            const size_t column = active_coordinates[active_column];
             beta[column] += std::abs(game(column, column)) * scales[column];
-            for (size_t row = column + 1; row < dimension; ++row) {
+            for (size_t active_row = active_column + 1; active_row < active_dimension; ++active_row) {
+                const size_t row = active_coordinates[active_row];
                 const double magnitude = std::abs(game(row, column));
                 beta[row] += magnitude * scales[column];
                 beta[column] += magnitude * scales[row];
@@ -90,14 +105,18 @@ bool equilibrate_game_matrix(linalg::matrix_dbl& game, size_t dimension, double*
         }
 
         average = 0.0;
-        for (size_t coordinate = 0; coordinate < dimension; ++coordinate) average += scales[coordinate] * beta[coordinate];
-        average /= static_cast<double>(dimension);
-        if (!(average > 0.0) || !std::isfinite(average)) return false;
+        for (size_t active = 0; active < active_dimension; ++active) {
+            const size_t coordinate = active_coordinates[active];
+            average += scales[coordinate] * beta[coordinate];
+        }
+        average /= active_dimension_dbl;
+        if (!(average > 0.0) || !std::isfinite(average)) return safe_fallback::equilibration_invalid;
 
         // LAPACK's DLASSQ accumulation keeps the convergence norm finite even when residual magnitudes differ substantially.
         double residual_scale = 0.0;
         double residual_sum_squares = 1.0;
-        for (size_t coordinate = 0; coordinate < dimension; ++coordinate) {
+        for (size_t active = 0; active < active_dimension; ++active) {
+            const size_t coordinate = active_coordinates[active];
             const double residual = std::abs(scales[coordinate] * beta[coordinate] - average);
             if (residual == 0.0) continue;
             if (residual_scale < residual) {
@@ -109,65 +128,73 @@ bool equilibrate_game_matrix(linalg::matrix_dbl& game, size_t dimension, double*
                 residual_sum_squares += ratio * ratio;
             }
         }
-        const double standard_deviation = residual_scale * std::sqrt(residual_sum_squares / static_cast<double>(dimension));
-        if (standard_deviation < tolerance * average) break;
+        const double standard_deviation = residual_scale * std::sqrt(residual_sum_squares / active_dimension_dbl);
+        if (standard_deviation < tolerance * average) {
+            converged = true;
+            break;
+        }
 
-        for (size_t coordinate = 0; coordinate < dimension; ++coordinate) {
+        for (size_t active_coordinate = 0; active_coordinate < active_dimension; ++active_coordinate) {
+            const size_t coordinate = active_coordinates[active_coordinate];
             const double diagonal = std::abs(game(coordinate, coordinate));
             const double old_scale = scales[coordinate];
-            const double c2 = (static_cast<double>(dimension) - 1.0) * diagonal;
-            const double c1 = (static_cast<double>(dimension) - 2.0) * (beta[coordinate] - diagonal * old_scale);
+            const double c2 = (active_dimension_dbl - 1.0) * diagonal;
+            const double c1 = (active_dimension_dbl - 2.0) * (beta[coordinate] - diagonal * old_scale);
             const double diagonal_scale = diagonal * old_scale;
             const double c0 = -diagonal_scale * old_scale + 2.0 * beta[coordinate] * old_scale
-                              - static_cast<double>(dimension) * average;
+                              - active_dimension_dbl * average;
             const double discriminant = c1 * c1 - 4.0 * c0 * c2;
-            if (!(discriminant > 0.0) || !std::isfinite(discriminant)) return false;
+            if (!(discriminant > 0.0) || !std::isfinite(discriminant)) return safe_fallback::equilibration_invalid;
 
             const double denominator = c1 + std::sqrt(discriminant);
-            if (denominator == 0.0 || !std::isfinite(denominator)) return false;
+            if (denominator == 0.0 || !std::isfinite(denominator)) return safe_fallback::equilibration_invalid;
             const double new_scale = -2.0 * c0 / denominator;
-            if (!(new_scale > 0.0) || !std::isfinite(new_scale)) return false;
+            if (!(new_scale > 0.0) || !std::isfinite(new_scale)) return safe_fallback::equilibration_invalid;
 
             const double difference = new_scale - old_scale;
             double row_product = 0.0;
-            for (size_t other = 0; other <= coordinate; ++other) {
+            for (size_t active_other = 0; active_other <= active_coordinate; ++active_other) {
+                const size_t other = active_coordinates[active_other];
                 const double magnitude = std::abs(game(coordinate, other));
                 row_product += scales[other] * magnitude;
                 beta[other] += difference * magnitude;
             }
-            for (size_t other = coordinate + 1; other < dimension; ++other) {
+            for (size_t active_other = active_coordinate + 1; active_other < active_dimension; ++active_other) {
+                const size_t other = active_coordinates[active_other];
                 const double magnitude = std::abs(game(other, coordinate));
                 row_product += scales[other] * magnitude;
                 beta[other] += difference * magnitude;
             }
 
-            average += (row_product + beta[coordinate]) * difference / static_cast<double>(dimension);
+            average += (row_product + beta[coordinate]) * difference / active_dimension_dbl;
             scales[coordinate] = new_scale;
         }
     }
+    if (!converged) return safe_fallback::equilibration_non_convergence;
 
     const double common_scale = 1.0 / std::sqrt(average);
-    for (size_t coordinate = 0; coordinate < dimension; ++coordinate) {
+    for (size_t active = 0; active < active_dimension; ++active) {
+        const size_t coordinate = active_coordinates[active];
         const double unrounded_scale = scales[coordinate] * common_scale;
-        if (!(unrounded_scale > 0.0) || !std::isfinite(unrounded_scale)) return false;
+        if (!(unrounded_scale > 0.0) || !std::isfinite(unrounded_scale)) return safe_fallback::equilibration_invalid;
         const double exponent = std::log2(unrounded_scale);
         if (!std::isfinite(exponent) || exponent < static_cast<double>(std::numeric_limits<int>::min())
             || exponent > static_cast<double>(std::numeric_limits<int>::max())) {
-            return false;
+            return safe_fallback::equilibration_invalid;
         }
         scales[coordinate] = std::scalbn(1.0, static_cast<int>(exponent));
-        if (!(scales[coordinate] > 0.0) || !std::isfinite(scales[coordinate])) return false;
+        if (!(scales[coordinate] > 0.0) || !std::isfinite(scales[coordinate])) return safe_fallback::equilibration_invalid;
     }
 
     for (size_t row = 0; row < dimension; ++row) {
         for (size_t column = 0; column <= row; ++column) {
             const double value = game(row, column) * (scales[row] * scales[column]);
-            if (!std::isfinite(value)) return false;
+            if (!std::isfinite(value)) return safe_fallback::equilibration_invalid;
             game(row, column) = value;
             game(column, row) = value;
         }
     }
-    return true;
+    return safe_fallback::none;
 }
 
 void swap_active_coordinates(linalg::matrix_dbl& system, size_t active_start, size_t first, size_t second, size_t dimension,
@@ -350,8 +377,8 @@ void find_candidate_test::convert_game_matrix(const find_candidate_safe& safe_se
 {
     // The safe solver has already cleared one common denominator from the complete game. Normalize that integer matrix and compute
     // D*A*D once; every support reuses a principal submatrix and the matching entries of D.
-    requires_safe_fallback_ = !safe_search.prepare_normalized_double_game(kPrecisionSpanCutoff, game_dbl_);
-    if (!requires_safe_fallback_) requires_safe_fallback_ = !equilibrate_game_matrix(game_dbl_, dimension_, game_scales_.data());
+    safe_fallback_ = safe_search.prepare_normalized_double_game(kPrecisionSpanCutoff, game_dbl_);
+    if (safe_fallback_ == safe_fallback::none) safe_fallback_ = equilibrate_game_matrix(game_dbl_, dimension_, game_scales_.data());
 }
 
 bool find_candidate_test::find(const bitset64& support, size_t support_size)

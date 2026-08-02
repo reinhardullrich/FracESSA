@@ -55,7 +55,7 @@ is no default method.
 - `-c, --candidates` include candidate rows in output.
 - `-l, --log` write detailed log output.
 - `-f, --fullsupport` evaluate full support first.
-- `-t, --timing` print analyzer timing in nanoseconds.
+- `-t, --timing` print analyzer timing in nanoseconds and the whole-matrix safe fallback.
 - `-m, --matrixid` optional signed 64-bit matrix ID for logging/verification runs.
 
 `fast` removes the game's common denominator and switches the whole matrix to safe search when the remaining exact integer
@@ -70,6 +70,7 @@ support.
 Output format:
 - line 1: ESS count
 - optional line 2 (`-t`): runtime in nanoseconds
+- optional line 3 (`-t`): `null`, `precision_span`, `equilibration_invalid`, or `equilibration_non_convergence`
 - optional extra lines (`-c`): candidate CSV rows
 
 ## Build Dependencies

@@ -52,6 +52,11 @@ CREATE TABLE matrices (
     safe_calibration_ns INTEGER CHECK (
         safe_calibration_ns IS NULL OR safe_calibration_ns = -1 OR safe_calibration_ns > 0
     ),
+    safe_fallback TEXT CHECK (
+        safe_fallback IS NULL OR safe_fallback IN (
+            'precision_span', 'equilibration_invalid', 'equilibration_non_convergence'
+        )
+    ),
     CHECK (
         (candidate_count IS NULL AND ess_count IS NULL AND
          candidate_structure IS NULL AND ess_structure IS NULL) OR
@@ -98,6 +103,11 @@ CREATE TABLE timings (
     binary_sha256 TEXT NOT NULL CHECK (length(binary_sha256) = 64),
     backend TEXT NOT NULL CHECK (backend IN ('pybind', 'cli')),
     mode TEXT NOT NULL CHECK (mode IN ('fast', 'safe', 'unsafe', 'exact')),
+    safe_fallback TEXT CHECK (
+        safe_fallback IS NULL OR safe_fallback IN (
+            'precision_span', 'equilibration', 'equilibration_invalid', 'equilibration_non_convergence'
+        )
+    ),
     matrix_id INTEGER NOT NULL,
     target_ns INTEGER NOT NULL CHECK (target_ns > 0),
     iterations INTEGER NOT NULL CHECK (iterations > 0),
@@ -112,7 +122,7 @@ CREATE VIEW matrix_overview AS
 SELECT matrix_id, dimension, is_cs, matrix,
        fast_calibration_ns, safe_calibration_ns,
        candidate_count, ess_count, candidate_structure, ess_structure,
-       gamma_lower_bound,
+       gamma_lower_bound, safe_fallback,
        size_class, origin, tags, name, family, subfamily, description,
        source_url, original_format, original_id, created_at
 FROM matrices

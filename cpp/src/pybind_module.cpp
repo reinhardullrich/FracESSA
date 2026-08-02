@@ -46,6 +46,7 @@ struct NativeResult {
     std::string error_message;
     size_t ess_count = 0;
     long long elapsed_ns = 0;
+    candidate_search::safe_fallback safe_fallback = candidate_search::safe_fallback::none;
     std::vector<NativeCandidate> candidates;
 };
 
@@ -99,6 +100,7 @@ NativeResult compute_matrix_impl(
 
         result.elapsed_ns = std::chrono::duration_cast<std::chrono::nanoseconds>(end - start).count();
         result.ess_count = analyzer.ess_count_;
+        result.safe_fallback = analyzer.safe_fallback_;
         result.status = kStatusOk;
         result.success = true;
 
@@ -158,6 +160,11 @@ py::dict compute_matrix(
     out["error_message"] = native.error_message;
     out["ess_count"] = native.ess_count;
     out["elapsed_ns"] = native.elapsed_ns;
+    const auto fallback = candidate_search::safe_fallback_name(native.safe_fallback);
+    if (fallback.empty())
+        out["safe_fallback"] = py::none();
+    else
+        out["safe_fallback"] = std::string(fallback);
 
     py::list candidates;
     for (const auto& c : native.candidates) {
@@ -182,6 +189,29 @@ py::dict compute_matrix(
     return out;
 }
 
+candidate_search::safe_fallback classify_safe_fallback_impl(const std::string& matrix)
+{
+    linalg::matrix_frc parsed_matrix;
+    [[maybe_unused]] bool is_cs = false;
+    matrix_parser::parse_matrix_string(matrix, parsed_matrix, is_cs);
+    candidate_search::find_candidate_safe safe_search(parsed_matrix);
+    candidate_search::find_candidate_fast fast_search(parsed_matrix);
+    fast_search.convert_game_matrix(safe_search);
+    return fast_search.safe_fallback_reason();
+}
+
+py::object classify_safe_fallback(const std::string& matrix)
+{
+    candidate_search::safe_fallback fallback;
+    {
+        py::gil_scoped_release release;
+        fallback = classify_safe_fallback_impl(matrix);
+    }
+    const auto name = candidate_search::safe_fallback_name(fallback);
+    if (name.empty()) return py::none();
+    return py::str(name);
+}
+
 } // namespace
 
 PYBIND11_MODULE(fracessa_core, m)
@@ -192,6 +222,9 @@ PYBIND11_MODULE(fracessa_core, m)
     m.attr("STATUS_PARSE_ERROR") = kStatusParseError;
     m.attr("STATUS_EXEC_ERROR") = kStatusExecError;
     m.attr("STATUS_INTERNAL_ERROR") = kStatusInternalError;
+
+    m.def("classify_safe_fallback", &classify_safe_fallback, py::arg("matrix"),
+          "Return the whole-matrix fast-to-safe fallback reason, or None.");
 
     m.def(
         "compute_matrix",
@@ -209,7 +242,7 @@ method: fast, safe, or test; required before matrix.
 
 Returns a dict with keys:
 - status, success, error_message
-- ess_count, elapsed_ns
+- ess_count, elapsed_ns, safe_fallback
 - candidates (list of dict rows)
 )doc"
     );
