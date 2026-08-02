@@ -684,3 +684,7 @@ at least one example from every family. Reused six exact existing rows and added
 compact circular storage. Independently verified SQLite integrity, foreign keys, storage shape, exact symmetry, global uniqueness,
 dimension and tag contracts, and a second idempotent selection pass. The database now contains 1,108 pairwise-distinct matrices,
 101 complete baselines, and 1,007 catalog-only rows; candidate and timing data are unchanged.
+261. Added a database-browser timing overview:
+created the read-only `timing_overview` SQLite view with matrix ID, dimension, circular-symmetry flag, name, and calibration time first;
+retained every historical timing measurement and every untimed matrix; moved timing identity, measurement details, matrix metadata,
+and matrix text behind the leading inspection columns; and ordered rows by dimension, circular symmetry, matrix ID, and timing identity.

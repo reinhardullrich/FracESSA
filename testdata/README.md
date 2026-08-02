@@ -343,6 +343,17 @@ recorded in `../aidocs/reference/MATRIX_GENERATOR_CATALOGUE_AUDIT.md`.
 
 ## Tables
 
+### `timing_overview`
+
+This read-only view is the convenient database-browser entry point. It keeps all
+matrices, including those without timings, and presents `matrix_id`, `dimension`,
+`is_cs`, `name`, `calibration_ns`, and `calibration_seconds` first. Historical
+timing identity and measurement metadata follow, with the remaining matrix
+metadata and the matrix text at the end. Rows are ordered by dimension,
+`is_cs`, matrix ID, and then timing identity. A matrix appears once per retained
+timing measurement; a matrix without timing data appears once with null timing
+columns.
+
 ### `matrices`
 
 Each row stores one exact matrix input and its summary:

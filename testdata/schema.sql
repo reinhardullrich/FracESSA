@@ -91,3 +91,46 @@ CREATE TABLE timings (
     PRIMARY KEY (session, build_label, mode, matrix_id),
     FOREIGN KEY (matrix_id) REFERENCES matrices(matrix_id) ON DELETE CASCADE
 ) STRICT;
+
+CREATE VIEW timing_overview AS
+SELECT
+    m.matrix_id,
+    m.dimension,
+    m.is_cs,
+    m.name,
+    t.elapsed_ns AS calibration_ns,
+    t.elapsed_ns / 1000000000.0 AS calibration_seconds,
+    t.build_label,
+    t.mode,
+    t.session,
+    t.recorded_at,
+    t.target_ns,
+    t.iterations,
+    t.measured_wall_ns,
+    t.ess_count AS measured_ess_count,
+    m.ess_count AS expected_ess_count,
+    t.machine,
+    t.cpu_id,
+    t.backend,
+    t.source_ref,
+    t.revision,
+    t.binary_sha256,
+    t.comment,
+    m.size_class,
+    m.candidate_count,
+    m.candidate_structure,
+    m.ess_structure,
+    m.family,
+    m.subfamily,
+    m.origin,
+    m.tags,
+    m.description,
+    m.source_url,
+    m.original_format,
+    m.original_id,
+    m.created_at,
+    m.matrix
+FROM matrices AS m
+LEFT JOIN timings AS t USING (matrix_id)
+ORDER BY m.dimension, m.is_cs, m.matrix_id,
+         t.recorded_at, t.build_label, t.mode;

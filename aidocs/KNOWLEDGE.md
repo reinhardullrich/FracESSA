@@ -325,6 +325,11 @@ classifications are the mathematical contracts. The other 1,007 rows are
 catalog-only and keep all four baseline-summary fields null as one group; null
 never means zero candidates or zero ESS.
 
+Use the read-only SQLite view `timing_overview` for manual inspection. It leads
+with matrix ID, dimension, circular-symmetry flag, name, and calibration time,
+keeps all historical timing rows, places bulky matrix metadata last, and orders
+by dimension, `is_cs`, matrix ID, and timing identity.
+
 For optimization-problem collections, import only explicitly stored symmetric
 objective matrices. Do not add matrices whose only role is as a constraint. If
 such a matrix already exists from an independent source, retain the existing
