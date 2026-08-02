@@ -3,10 +3,9 @@
 `fracessa_testdata.sqlite3` is the canonical store for exact test matrices,
 complete expected candidate results where available, and timing data.
 
-The current snapshot contains 1,072 distinct strategically normalized matrices. The 721 analyzed matrices have 66,195 stored
-candidate representatives whose multipliers represent 104,563 candidates and 91,599 ESS. The other 351 rows have null baseline
-fields: 206 from the earlier suite exceeded the two-minute safe retry cutoff, and 145 generator-catalogue rows exceeded their
-initial one-second safe cutoff.
+The current snapshot contains 1,072 distinct strategically normalized matrices. The 721 exact baselines and three additional
+unverified fast results have 66,227 stored candidate representatives whose multipliers represent 104,595 candidates and 91,613
+ESS. The other 348 rows have null candidate fields.
 
 It contains each distinct matrix from Tables 1 and 2 of the
 Bomze-Schachinger-Ullrich ESS-growth paper exactly once. IDs 18 and 26 hold the
@@ -55,17 +54,18 @@ rule. All paired ESS counts match. Build label, revision, and binary hash
 identify every stored build.
 
 Matrix rows contain nullable `fast_calibration_ns` and `safe_calibration_ns` values used only to choose benchmark iteration
-counts. Fast calibration covers all 1,072 matrices with 750 positive measurements and 322 `-1` timeouts; safe has 718 positive
+counts. Fast calibration covers all 1,072 matrices with 753 positive measurements and 319 `-1` timeouts; safe has 718 positive
 measurements and 354 timeouts. No calibration field remains null. A value of `-1` records a calibration run killed at its cutoff
 and selects one benchmark iteration. Positive integer nanoseconds preserve the native value exactly; divide by `1000.0` when
 displaying decimal microseconds.
 
 Run `scripts/calibrate_matrices.py fast` or `scripts/calibrate_matrices.py safe` from the repository root to fill only missing
-calibrations with the canonical Release Pybind module on CPU 2 and a one-second cutoff. Safe calibration also stores complete
-weighted counts, support-size structures, and representative candidate rows for a matrix that finishes within the cutoff.
+calibrations with the canonical Release Pybind module on CPU 2 and a one-second cutoff. When candidate fields are missing, either
+method also stores weighted counts, support-size structures, and representative candidate rows for a matrix that finishes.
 Existing calibration and baseline values are never overwritten; clear a calibration field explicitly before intentionally
-refreshing it. To retry only safe `-1` rows once with a two-minute cutoff, run
-`scripts/calibrate_matrices.py safe --retry-timeouts --cutoff-seconds 120`.
+refreshing it. Use `scripts/calibrate_matrices.py fast|safe --retry-timeouts --cutoff-seconds 120` to retry only the selected
+method's `-1` rows once. A completed fast result is exact when `safe_fallback` is non-null; otherwise it remains an unverified fast
+result when safe calibration is still `-1`.
 The calibration script classifies the whole-matrix fast fallback before starting the timed process, so even a killed calibration
 stores the correct `safe_fallback` value.
 

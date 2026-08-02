@@ -795,3 +795,9 @@ the preceding exact precision-span gate guarantees every nonzero power-of-two-no
 binary exponents of the maximum when `P < 10^9`, so exponent overflow, binary64 underflow, and non-finite conversion cannot occur.
 Current output and schemas now expose only `precision_span`, `equilibration_invalid`, and
 `equilibration_non_convergence`; historical generic `equilibration` timing rows remain supported.
+278. Made timeout calibration retries symmetric and resumable:
+`scripts/calibrate_matrices.py fast|safe --retry-timeouts` now runs only the selected method's `-1` rows once and stores missing
+candidate data atomically with each completed calibration. Fast results are exact only when a whole-matrix `safe_fallback` occurs;
+otherwise a remaining `safe_calibration_ns = -1` marks them as unverified. The first two-minute fast pass was stopped after six
+attempts: IDs 274, 2477, and 216 completed with candidate data, while IDs 2475, 2478, and 217 timed out. There are 319 fast
+timeouts remaining.

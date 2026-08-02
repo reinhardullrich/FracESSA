@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Fill missing matrix timing calibrations and safe exact baselines."""
+"""Fill matrix timing calibrations and candidate results."""
 
 from __future__ import annotations
 
@@ -105,7 +105,7 @@ def _safe_fallback(result: dict, matrix_id: int) -> str | None:
     return fallback
 
 
-def _exact_baseline(result: dict, matrix_id: int) -> tuple[tuple, list[tuple]]:
+def _candidate_result(result: dict, matrix_id: int) -> tuple[tuple, list[tuple]]:
     candidates = result["candidates"]
     candidate_structure: Counter[int] = Counter()
     ess_structure: Counter[int] = Counter()
@@ -198,10 +198,10 @@ def _run_one(
             else:
                 kind, result = message
                 if kind != "baseline":
-                    raise RuntimeError(f"matrix {matrix_id}: expected exact baseline result")
+                    raise RuntimeError(f"matrix {matrix_id}: expected candidate result")
                 _check_result(result, matrix_id)
                 safe_fallback = _safe_fallback(result, matrix_id)
-                baseline = _exact_baseline(result, matrix_id)
+                baseline = _candidate_result(result, matrix_id)
                 expected_ess = int(result["ess_count"])
                 if single_sample:
                     samples.append(int(result["elapsed_ns"]))
@@ -296,8 +296,6 @@ def calibrate(
         raise ValueError(f"CPU {cpu_id} is unavailable; choose one of {sorted(available_cpus)}")
     if cutoff_seconds <= 0:
         raise ValueError("cutoff must be positive")
-    if retry_timeouts and method != "safe":
-        raise ValueError("timeout retries are supported only for safe calibration")
     if not database.is_file():
         raise ValueError(f"database does not exist: {database}")
     if not list(module_dir.glob("fracessa_core*.so")):
@@ -333,7 +331,7 @@ def calibrate(
             classified_fallback = fracessa_core.classify_safe_fallback(matrix)
             if classified_fallback is not None and classified_fallback not in SAFE_FALLBACKS:
                 raise RuntimeError(f"matrix {matrix_id}: unknown classified safe fallback {classified_fallback!r}")
-            needs_baseline = method == "safe" and candidate_count is None
+            needs_baseline = candidate_count is None
             calibration_ns, baseline, failure, observed_fallback = _run_one(
                 context,
                 module_dir,

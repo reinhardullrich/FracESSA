@@ -548,13 +548,15 @@ removed IDs 38 and 44 in favor of ID 1. Zero-game consolidation removed ID 43 in
 dimension-one consolidation left ID 314 as the sole full-storage exception. Eighteen stale `classic`/Werner rows for the old
 matrices were replaced by a current-build fast/safe panel; after both cleanups it has four rows for IDs 1 and 2203.
 
-Fast calibration covers all 1,072 matrices with 750 positive durations and 322 `-1` timeouts; safe calibration has 718 positive
+Fast calibration covers all 1,072 matrices with 753 positive durations and 319 `-1` timeouts; safe calibration has 718 positive
 durations and 354 timeouts. No calibration remains null.
 The reusable
 `scripts/calibrate_matrices.py` processes only null calibration fields by default;
-safe mode also stores the complete exact baseline when it finishes within the cutoff. Its `safe --retry-timeouts` form processes
-only `-1` rows, runs each matrix once, and leaves unsuccessful rows at `-1`; the retained two-minute pass uses
-`--cutoff-seconds 120`. These calibrations choose future iteration counts and are not timing-history rows.
+either method also stores missing candidate data when it finishes within the cutoff. Its `fast|safe --retry-timeouts` form
+processes only that method's `-1` rows, runs each matrix once, and leaves unsuccessful rows at `-1`; the retained two-minute pass
+uses `--cutoff-seconds 120`. A completed fast result is exact when `safe_fallback` is non-null; otherwise it is explicitly an
+unverified fast result while `safe_calibration_ns` remains `-1`. These calibrations choose future iteration counts and are not
+timing-history rows.
 
 A historical `reduced-hessian-ldlt` benchmark measured 85 matrices; IDs 33-34
 were not included in that run. Those rows are no longer in the canonical timing table. All 85 ESS counts matched. Against
@@ -622,8 +624,8 @@ onto old Pybind and CLI interfaces when benchmarking historical builds. Each mat
 `safe_calibration_ns` values. Positive values choose `ceil(target / calibration)` samples, while `-1` records a calibration killed
 at its cutoff and chooses one sample; a missing value is a hard error. `scripts/calibrate_matrices.py fast|safe` fills only missing
 values with a one-second default cutoff; it classifies and stores `matrices.safe_fallback` before the timed process so a timeout does
-not lose the reason, and safe also records missing exact candidate baselines. Use
-`scripts/calibrate_matrices.py safe --retry-timeouts --cutoff-seconds 120` to retry only safe `-1` rows once. Clear a field manually
+not lose the reason, and either method stores missing candidate results. Use
+`scripts/calibrate_matrices.py fast|safe --retry-timeouts --cutoff-seconds 120` to retry only that method's `-1` rows once. Clear a field manually
 before an intentional refresh. Calibrations are not timing-history rows. The default target is 0.5 seconds, and the stored result is the
 median returned `elapsed_ns`. Measured wall time is metadata only and never chooses or determines the reported timing. The CLI
 backend remains
