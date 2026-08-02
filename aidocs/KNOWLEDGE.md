@@ -1,6 +1,6 @@
 # Project Knowledge
 
-Last verified: 2026-07-31
+Last verified: 2026-08-02
 
 ## Source-Code Approval Gate
 
@@ -272,12 +272,155 @@ is no longer wired as one CTest per matrix.
 
 `testdata/fracessa_testdata.sqlite3` is the canonical matrix, expected-result,
 and timing store. Its strict schema is in `testdata/schema.sql`; the current
-snapshot has 87 matrices and 49,157 stored candidate representatives. Nullable
-multipliers recover weighted totals of 86,152 candidates and 83,377 ESS:
+snapshot has 627 pairwise-distinct exact matrices. The 98 analyzed rows have
+49,388 stored candidate representatives; nullable multipliers recover weighted
+totals of 86,383 candidates and 83,462 ESS:
 circular rows store one smallest dihedral representative and its orbit count,
 while non-circular rows store null. Candidate IDs and row order remain
 reproducibility checks; complete weighted candidate sets and ESS
-classifications are the mathematical contracts.
+classifications are the mathematical contracts. The other 529 rows are
+catalog-only and keep all four baseline-summary fields null as one group; null
+never means zero candidates or zero ESS.
+
+For optimization-problem collections, import only explicitly stored symmetric
+objective matrices. Do not add matrices whose only role is as a constraint. If
+such a matrix already exists from an independent source, retain the existing
+row rather than treating the constraint occurrence as grounds for deletion.
+
+Matrix rows also carry human and machine-readable catalog metadata: name,
+family, subfamily, description, source URL, original format and ID, and a
+creation/first-use date. `origin` remains the established prose provenance
+field, while `source_url` stores an external website or DOI. Legacy REF
+fixtures use `family = "historical"`; when their exact day is unknown, January
+1 of the known year is a documented placeholder rather than an asserted
+historical day.
+
+IDs 91-117 are the 27 distinct SuiteSparse Matrix Collection imports selected
+from the official 2,904-entry index by square shape, exact numerical symmetry,
+real values, and dimension at most 63. Matrix Market pattern, integer, and
+finite printed real tokens are converted to exact rational values in FracESSA format. This
+preserves the downloaded decimal tokens but does not certify an unprinted
+physical value as symbolically rational. Exact dense rational duplicates are
+skipped; SuiteSparse ID 2758 duplicates matrix ID 1. Imported dimensions 26-63
+carry the `super_large` tag. IDs 91-101 have complete exact baselines; IDs
+102-117 are catalog-only.
+
+The finite NIST Matrix Market search across all symmetric categories and
+dimensions 1-63 produced nine downloadable exact-symmetric files. Eight exactly
+duplicate SuiteSparse rows; `BFW62B` is the same source and sparsity pattern as
+SuiteSparse `Bai/bfwb62` with eight last-digit differences no larger than
+`1e-21`; and NIST withdrew its incorrect `LAP 25` Matrix Market assembly. The
+earlier `FIDAP005` check likewise identifies a rounded `FIDAP/ex5` source copy.
+NIST pages remain alternate provenance, not separate matrix rows.
+
+IDs 118-269 are 152 exact distinct matrices from the official QAPLIB `qapdata`
+archive. Of 136 fixed instances, 109 have dimensions at most 63; their A and B
+integer matrices are tested independently, yielding 182 symmetric occurrences
+and 30 internal duplicates. One retained matrix is circular-symmetric. All
+QAPLIB rows are catalog-only and cite DOI `10.7488/ds/3428`; redistributed data
+is attributed to Burkard, Cela, Karisch, Rendl, Anjos, and Hahn under CC BY 4.0.
+
+IDs 270-280 are the 11 exact symmetric integer matrices from the official
+TSPLIB95 symmetric-TSP archive that declare `EDGE_WEIGHT_TYPE: EXPLICIT` and
+have dimension at most 63. The three retained explicit layouts were expanded
+exactly and checked edge-for-edge against the independent official TSPLIB95 XML
+files. The six other explicit symmetric TSPs exceed dimension 63; coordinate-
+derived instances, tours, and asymmetric problem categories are excluded. The
+11 imports are non-circular, globally distinct, and catalog-only.
+
+IDs 281-313 are the 33 in-range exact integer matrices from the official Biq
+Mac Library archive: 10 Beasley and 13 Glover-Kochenberger-Alidaee
+binary-quadratic matrices plus 10 Rudy Max-Cut graphs. The full archive has 468
+files representing 343 logical instances; all 125 dense/sparse pairs match
+exactly, and 310 logical instances exceed dimension 63. Sparse Q matrices use
+the library's symmetry contract, while Max-Cut edge lists are stored as
+symmetric zero-diagonal adjacency matrices. The retained rows are non-circular,
+globally distinct, and catalog-only.
+
+IDs 314-319 are the six exact symmetric in-range representatives from Magma's
+Hadamard database: representative 1 at degrees 1, 2, 4, 8, 16, and 32. The
+compact binary decoding matches the exact degree-16 example printed in Magma's
+handbook, and every one of the 4,474 ordinary representatives through degree 63
+was checked for the Hadamard identity and exact symmetry. The separate 638-row
+skew-Hadamard database was also audited; all rows have degrees 36, 44, or 52
+and none is symmetric. The six imports are non-circular, globally distinct,
+and catalog-only.
+
+Thirty of the 35 in-range QPLIB problems have an explicitly stored quadratic
+objective. The database retains only these 30 objective Hessians; quadratic-
+constraint matrices and linear objective vectors are excluded. Each stored
+lower triangle is mirrored exactly, and finite printed coefficients are parsed
+as exact fractions. The objectives are pairwise distinct, duplicate no earlier
+catalog row, and retain their original noncontiguous IDs between 320 and 1925.
+An independent PyQPLIB 0.1.7 parse matches all coefficients and roles. The
+QPLIB imports are non-circular, catalog-only, and attributed under CC BY 4.0
+with DOI `10.1007/s12532-018-0147-4`.
+
+IDs 1926-1982 are 57 exact distinct matrices from every locally maintained
+problem family in J.E. Beasley's current OR-Library index plus its still-hosted
+urban-transit page: 23 binary-quadratic Q matrices, 23 capacitated minimum-
+spanning-tree cost matrices, six aircraft-
+separation matrices, two CAB hub-location matrices, one portfolio correlation
+matrix, and two urban-transit demand matrices. Eligibility requires an
+explicitly stored rational square matrix, exact symmetry, and dimension at most
+63; coordinate-derived, shortest-path-derived, rectangular, and externally
+linked data are excluded. The OR-Library Q matrices use the source's
+maximization sign and are therefore negatives of, not duplicates of, the Biq
+Mac minimization copies. Exact deduplication removes ten repeated `capmst`
+occurrences and the repeated `portreb1` correlation matrix. Two in-range
+`capmstnew` matrices, two aircraft tables, and six corporate tax tables fail
+symmetry. The archived official `td1` and `td2` demand files are retained;
+transit time files contain nonnumeric absent-link markers. Every import is
+non-circular, globally new, catalog-only, and covered by OR-Library's MIT
+license.
+
+COMPl_e_ib 1.1 was audited as a control-system benchmark library rather than
+treated as a generic bag of arrays. It defines 168 state matrices `A`: 57 exceed
+the dimension-63 limit, and none of the 111 in-range matrices is exactly
+symmetric. Input/output channels and synthesized identity, zero, and weighting
+arrays are not independent benchmark matrices. The audit therefore adds no
+catalog row.
+
+The SLICOT model-reduction collection has 18 linear-system benchmarks. Seventeen
+exceed dimension 63; the sole in-range state matrix is the order-48 building
+model, whose `A` matrix is asymmetric. Its `build.mat` file is byte-identical
+to COMPl_e_ib's `lah.mat`, so this audit also adds no catalog row.
+
+IDs 1983-1990 are eight exact adjacency matrices from KONECT's 23 downloadable
+unipartite networks through dimension 63. All nine undirected files are
+symmetric; directed `moreno_taro` is also exactly symmetric because its arcs
+occur in reciprocal pairs, while the other 13 directed matrices are
+asymmetric. Seven small bipartite files are excluded because their native
+tables are rectangular. Exact dense deduplication maps KONECT Dolphins and
+Zachary karate club to existing SuiteSparse IDs 114-115 as alternate
+provenance. Every new KONECT row is non-circular and catalog-only. KONECT does
+not state one collection-wide dataset license, so project metadata makes no
+broader licensing claim.
+
+IDs 1991-2137 are a deterministic 147-graph stratified sample from all 23,988 House of Graphs entries with dimensions
+1-63 on August 2, 2026. Five dimension bands are crossed with acyclic, connected bipartite cyclic, connected planar
+non-bipartite, connected nonplanar, disconnected cyclic, regular, dense, vertex-transitive, asymmetric, and unrestricted
+control categories. Up to three graphs per populated stratum are chosen by SHA-256 rank with seed `20260802`; one stratum
+has only one eligible graph and one graph occurs in two selected strata. Every canonical graph6 value matched the API
+adjacency list, no imported matrix duplicates an existing dense matrix, and eight rows use compact circular storage. All
+147 are catalog-only. No collection-wide House of Graphs data license was found, so metadata makes no broader claim.
+
+IDs 2138-2176 are the 39 exact, globally new Network Data Repository matrices selected from 1,241 index rows reporting
+dimensions 1-63. The deterministic sample crosses the repository category with dimension bands `1-8`, `9-16`, `17-25`,
+`26-44`, and `45-63`, ranks with SHA-256 seed `20260802`, and retains at most three directly represented symmetric matrices
+per populated stratum after deduplication against the 558-row pre-import database. The rows comprise 15 animal-social, 15
+cheminformatics, six protein, two DIMACS, and one biological matrix. Exact Matrix Market expansion and undirected or
+reciprocal edge-list reconstruction are accepted; rectangular or unsymmetric matrices, temporal streams, bipartite tables
+without a square adjacency matrix, malformed files, and forced symmetrization are rejected. All 39 source archives
+round-trip exactly, one row is circular, and all are catalog-only. The repository states a Creative Commons
+Attribution-ShareAlike license without identifying a version.
+
+IDs 2177-2206 are the 30 exact SDPLIB `F0` objective coefficient matrices whose complete block-diagonal dimensions are at
+most 63. The 92-problem SDPLIB 1.2 mirror has exactly 30 such eligible problems. Only matrix number zero is retained from
+each; all 1,799 `F1...Fm` constraint matrices and separate source blocks are excluded. Exact decimal and scientific tokens
+become reduced fractions. The objectives are pairwise distinct, duplicate no existing database row, and remain catalog-only;
+15 carry `super_large`. `theta1` is circulant but has a nonzero diagonal and therefore cannot use FracESSA's compact
+zero-diagonal circular input. The current GitHub mirror declares GPL-3.0; project metadata makes no broader licensing claim.
 
 Every dimension from 2 through 25 has at least one circular and one
 non-circular matrix. IDs 67-79 fill the previously missing combinations with
@@ -298,13 +441,16 @@ non-circular matrices. Same-property alternatives formerly stored at IDs 12
 and 21 were removed; the former contents of IDs 18 and 26 were replaced by the
 published vectors.
 
-The timing snapshot has one CPU-2 session with a one-second target and 348
+The timing snapshot has one CPU-2 session with a one-second target and 507
 persistent-Pybind median rows. Current unsafe, verified, and exact use one
 Release/native/LTO binary at algorithm revision `34e003168607`; historical
 default, very unsafe uses raw-double algorithm revision `32f61679da64` with a
-temporary normal-parser/nanosecond Pybind adapter. Every mode covers all 87
-matrices. Historical very unsafe mismatches IDs 38-39, current unsafe mismatches
-regression IDs 45-47, and current verified and exact match all 87. Timing
+temporary normal-parser/nanosecond Pybind adapter. Every mode covers the 87
+matrices that preceded ID 91 except Werner exact, which has 72 completed rows;
+catalog-only imports do not have timing rows and the timing runner excludes rows
+without baselines by default. Historical very unsafe mismatches IDs 38-39,
+current unsafe mismatches regression IDs 45-47, and current verified and exact
+match all 87 timed matrices. Timing
 reports include matrix dimension, circularity, and the derived paper-style
 lower bound `gamma_lower_bound = expected_ess ** (1 / dimension)` without
 storing it in SQLite.

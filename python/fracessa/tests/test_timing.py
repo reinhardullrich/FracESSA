@@ -10,6 +10,30 @@ from fracessa import timing
 
 
 class TimingTests(unittest.TestCase):
+    def test_matrix_selection_skips_rows_without_candidate_baselines(self):
+        with sqlite3.connect(":memory:") as connection:
+            connection.executescript(
+                timing.DEFAULT_DATABASE.with_name("schema.sql").read_text()
+            )
+            connection.executemany(
+                """INSERT INTO matrices (
+                       matrix_id, dimension, size_class, is_cs, matrix,
+                       candidate_count, ess_count, candidate_structure,
+                       ess_structure, origin
+                   ) VALUES (?, 2, 'small', 0, '0,1,0', ?, ?, ?, ?, 'unit')""",
+                [
+                    (1, 1, 1, "{}", "{}"),
+                    (2, None, None, None, None),
+                ],
+            )
+
+            self.assertEqual(
+                timing._load_matrices(connection, None, "all"),
+                [(1, 2, "0,1,0", 1)],
+            )
+            with self.assertRaisesRegex(ValueError, "no candidate baseline"):
+                timing._load_matrices(connection, [2], "all")
+
     def test_cli_seconds_are_normalized_and_adaptively_sampled(self):
         with tempfile.TemporaryDirectory() as directory:
             root = Path(directory)

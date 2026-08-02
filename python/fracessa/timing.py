@@ -98,17 +98,22 @@ def _load_matrices(
         missing = sorted(set(requested) - {row[0] for row in rows})
         if missing:
             raise ValueError(f"unknown matrix IDs: {missing}")
+        uncomputed = [row[0] for row in rows if row[3] is None]
+        if uncomputed:
+            raise ValueError(f"matrix IDs have no candidate baseline: {uncomputed}")
         return rows
 
     if size_class == "all":
         rows = connection.execute(
             """SELECT matrix_id, dimension, matrix, ess_count
-               FROM matrices ORDER BY matrix_id"""
+               FROM matrices WHERE ess_count IS NOT NULL ORDER BY matrix_id"""
         ).fetchall()
     else:
         rows = connection.execute(
             """SELECT matrix_id, dimension, matrix, ess_count
-               FROM matrices WHERE size_class = ? ORDER BY matrix_id""",
+               FROM matrices
+               WHERE size_class = ? AND ess_count IS NOT NULL
+               ORDER BY matrix_id""",
             (size_class,),
         ).fetchall()
     if not rows:
