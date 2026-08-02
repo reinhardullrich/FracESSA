@@ -351,7 +351,7 @@ around zero.
 
 ## Current Validation State
 
-- The current Release build passes all 10 C++/CLI tests and all 57 Python tests.
+- The current Release build passes all 10 C++/CLI tests and all 60 Python tests.
 - Streaming Gosper enumeration, the 62-by-62 immediate-rejection regression,
   the singular Hadeler rejection, and the late-pivot 3-by-3 LU solve/inverse
   regression pass the current C++/CLI suite.
@@ -369,13 +369,13 @@ around zero.
   cardinality layer. An independent order-insensitive comparison matched all
   mathematical candidate rows and ESS results across the former 52-matrix
   verification corpus.
-- The canonical SQLite snapshot contains 628 distinct strategically normalized matrices. Its 366 analyzed rows store 56,960
-  candidate representatives whose multipliers recover 94,046 candidates and 85,303 ESS; the other 262 rows exceeded the one-second safe
-  calibration cutoff.
+- The canonical SQLite snapshot contains 1,064 distinct strategically normalized matrices. Its 713 analyzed rows store 65,800
+  candidate representatives whose multipliers recover 104,098 candidates and 91,134 ESS. The 351 catalog-only rows comprise 206
+  earlier safe timeouts and 145 generator-catalogue rows that exceeded their initial one-second safe cutoff.
 - A fixed-seed audit generated 20,000 exact 4-by-4 integer matrices; all 19,890
   nonsingular cases satisfied `A * inverse(A) == I` exactly.
 - Ordinary pushes and pull requests run the same three-platform build and fast
   test matrix as tags; artifact packaging and publication remain tag-only.
-- Wrapper integration regressions exercise database IDs 38 and 46 through fast
+- Wrapper integration regressions exercise database IDs 46 and 2208 through fast
   and safe methods; no complete SQLite matrix-verification runner is wired into
   CTest or CI.

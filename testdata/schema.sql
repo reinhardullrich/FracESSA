@@ -6,7 +6,8 @@ CREATE TABLE matrices (
     size_class TEXT NOT NULL CHECK (
         (dimension BETWEEN 1 AND 8 AND size_class = 'small') OR
         (dimension BETWEEN 9 AND 16 AND size_class = 'medium') OR
-        (dimension >= 17 AND size_class = 'large')
+        (dimension BETWEEN 17 AND 25 AND size_class = 'large') OR
+        (dimension >= 26 AND size_class = 'super_large')
     ),
     is_cs INTEGER NOT NULL CHECK (is_cs IN (0, 1)),
     matrix TEXT NOT NULL CHECK (length(matrix) > 0),
@@ -24,6 +25,12 @@ CREATE TABLE matrices (
             json_type(ess_structure) = 'object'
         )
     ),
+    gamma_lower_bound REAL GENERATED ALWAYS AS (
+        CASE
+            WHEN ess_count IS NULL THEN NULL
+            ELSE pow(ess_count, 1.0 / dimension)
+        END
+    ) VIRTUAL,
     origin TEXT NOT NULL CHECK (length(origin) > 0),
     tags TEXT NOT NULL DEFAULT '[]' CHECK (
         json_valid(tags) AND
@@ -52,6 +59,9 @@ CREATE TABLE matrices (
          candidate_structure IS NOT NULL AND ess_structure IS NOT NULL)
     )
 ) STRICT;
+
+CREATE UNIQUE INDEX matrices_by_dimension_and_text
+    ON matrices(dimension, matrix);
 
 CREATE TABLE candidates (
     matrix_id INTEGER NOT NULL,
@@ -97,3 +107,13 @@ CREATE TABLE timings (
     PRIMARY KEY (session, build_label, mode, matrix_id),
     FOREIGN KEY (matrix_id) REFERENCES matrices(matrix_id) ON DELETE CASCADE
 ) STRICT;
+
+CREATE VIEW matrix_overview AS
+SELECT matrix_id, dimension, is_cs, matrix,
+       fast_calibration_ns, safe_calibration_ns,
+       candidate_count, ess_count, candidate_structure, ess_structure,
+       gamma_lower_bound,
+       size_class, origin, tags, name, family, subfamily, description,
+       source_url, original_format, original_id, created_at
+FROM matrices
+ORDER BY dimension, is_cs, matrix_id;

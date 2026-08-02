@@ -339,7 +339,7 @@ renewed source approval before editing it.
    exact without Reinhard's separate approval.
 4. Reuse the existing edge fixtures instead of adding another test harness:
    ID 7 checks zero-payoff candidates, ID 41 checks a negative payoff, ID 44
-   checks a zero-payoff mixed ESS, IDs 40 and 43 exercise constant-matrix exact
+   checks a zero-payoff mixed ESS, while IDs 40 and former ID 43 exercise constant-matrix exact
    fallback, and ID 42 preserves an outside-payoff equality boundary.
 5. Keep reference IDs 45-47 outside the active verification files for now.
    They are known negative controls where unsafe loses an exact ESS, not tests

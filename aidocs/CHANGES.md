@@ -703,3 +703,63 @@ IDs 39 and 41 both became the same compact dimension-two game as older ID 1 afte
 values. Removed the two newer matrix rows and their cascading candidate, calibration, and four current timing records, leaving 628
 pairwise-distinct stored matrices, 56,960 representatives, 94,046 weighted candidates, 85,303 weighted ESS, 46 compact circular
 rows, and 716 timings. The normalization script now identifies identical compact results and retains the oldest `created_at` row.
+264. Retried every safe calibration timeout with a two-minute cutoff:
+extended `scripts/calibrate_matrices.py` with a safe-only `--retry-timeouts` pass that selects `safe_calibration_ns = -1`, runs each
+matrix exactly once, stores a successful exact baseline atomically when missing, leaves unsuccessful rows at `-1`, and continues
+after an individual worker exits. The pass raised positive safe calibrations from 362 to 419, reduced `-1` rows from 266 to 209,
+and added 56 complete baselines. The database now has 422 analyzed matrices, 61,618 candidate representatives, 98,704 weighted
+candidates, and 86,507 weighted ESS. All stored candidate weights, ESS weights, support-size structures, SQLite integrity, and
+foreign keys validate.
+265. Imported the combined exact matrix-generator catalogue from current `main` without duplicating strategically equivalent games:
+copied the 478 raw Anymatrix, TypedMatrices.jl, and Matrix Depot rows at IDs 2210-2687 and the generator tags for exact existing
+IDs 48, 49, 314, 1995, 2001, and 2155. Exact circular normalization converted 53 new full matrices to compact `A - dJ` storage;
+normalized ID 2215 then duplicated ID 44 and was removed, leaving 477 new catalog-only rows, including 80 compact rows and five
+documented dimension-one exceptions. Added the native SQLite unique index on `(dimension, matrix)`; `matrix` alone is not unique
+because compact strings omit dimension. The final database has 1,105 distinct normalized matrices, 126 compact rows, 422 analyzed
+rows, and 683 catalog-only rows. Existing candidates, timings, baselines, and calibrations are unchanged; both calibration fields
+are null on every new row. Exact source round-trips, global normalized deduplication, schema shape, tags, SQLite integrity, foreign
+keys, and a second idempotent circular-normalization pass all validate.
+266. Moved the dimension-26-through-63 classification out of tags and into `size_class`:
+added `super_large` as the fourth size class, narrowed `large` to dimensions 17-25, migrated all 501 affected rows, and removed the
+redundant `super_large` tag from each. The timing CLI now accepts `--size-class super_large`; its parser regression also uses the
+new value. Updated the matrix-selection fixture to use distinct inputs under the new `(dimension, matrix)` uniqueness constraint.
+All 10 C++/CLI tests and all 60 Python tests pass; SQLite integrity, foreign keys, and exact preservation of all nonclassification
+matrix fields, candidates, and timings validate.
+267. Calibrated fast search for all 477 generator-catalogue matrices:
+ran the current Release Pybind module on CPU 2 with the one-second per-matrix cutoff, storing each result immediately. The pass
+finished in 3.24 minutes with 337 positive native durations and 140 `-1` timeout sentinels. Fast calibration now covers all 1,105
+matrices with 741 measurements and 364 timeouts; no fast calibration remains null. Safe calibrations and all candidate baselines
+remain unchanged.
+268. Calibrated safe search and exact baselines for all 477 generator-catalogue matrices:
+ran the same Release Pybind module on CPU 2 with the one-second per-matrix cutoff and atomic per-matrix writes. The 3.60-minute pass
+stored 332 positive native durations and their complete candidate rows, weighted candidate and ESS totals, and both support-size
+structures; 145 timeout rows received `-1` with no partial baseline. Safe calibration now covers all 1,105 matrices with 751
+measurements and 354 timeouts. The database has 754 complete baselines, 66,542 candidate representatives, 104,888 weighted
+candidates, and 91,733 weighted ESS. Summary totals, support structures, candidate rows, SQLite integrity, and foreign keys all
+validate exactly.
+269. Removed positive rational scalar duplicates from the canonical matrix store:
+compared exact stored value vectors only within equal `(dimension, is_cs)` classes and retained the lowest matrix ID. Deleted IDs
+38, 44, 2212-2214, 2220, and 2254 in favor of IDs 1, 314, 2211, 68, and 2250; seven candidate rows and four normalization timing
+rows cascaded with them. Negative scalar multiples remain distinct because they reverse payoff comparisons. The resulting 1,098
+matrices contain 747 complete baselines, 66,535 candidate representatives, 104,875 weighted candidates, 91,720 weighted ESS, and
+712 timing rows. Replaced deleted integration fixture ID 38 with precision-span regression ID 2208. Exact scalar re-audit finds no
+remaining positive-scale group; the focused native regression, SQLite integrity, and foreign keys pass.
+270. Consolidated dimension-one and compact all-zero corpus representatives:
+retained ID 314 as the sole dimension-one game and removed equivalent IDs 2210-2211. Retained the largest compact all-zero game,
+dimension-50 ID 2203, as the zero-payoff degeneracy/performance representative and removed IDs 43, 158, 1992, 2080, and 2127.
+The cross-dimension zero-game rule is an explicit sampling choice, not a mathematical equivalence claim. Seven candidate rows and
+two normalization timing rows cascaded with the deletions. The resulting 1,091 matrices contain 740 complete baselines, 66,528
+candidate representatives, 104,826 weighted candidates, 91,718 weighted ESS, and 710 timing rows. Exact audits leave only ID 314
+at dimension one and ID 2203 among compact all-zero games; SQLite integrity and foreign keys pass.
+271. Consolidated diagonal benchmark-corpus representatives:
+retained dimension-one ID 314, compact all-zero dimension-50 ID 2203, and nonzero dimension-60 ID 2180. Removed the other 27
+diagonal matrices: 20 Strakos generator rows, six SDPLIB objective rows, and SuiteSparse ID 105. This is an intentional sampling
+choice, not a mathematical-equivalence rule for diagonal games. Foreign-key cascades removed 728 candidate representatives
+representing 728 candidates and 584 ESS; no timing row was affected. The resulting 1,064 matrices contain 713 complete baselines,
+65,800 candidate representatives, 104,098 weighted candidates, 91,134 weighted ESS, and 710 timing rows. Exact re-audit leaves
+only diagonal IDs 314, 2180, and 2203.
+272. Added the paper-style ESS growth bound to matrix metadata:
+`matrices.gamma_lower_bound` is a generated real column equal to `ess_count ** (1 / dimension)` and null when the exact ESS count
+is unknown. The Bomze-Schachinger-Ullrich paper calls it the lower bound for $\gamma$ implied by the matrix and labels the result
+column `$\gamma \geq$`. All 713 analyzed matrices expose a value without duplicating mutable data; `matrix_overview` places the
+column immediately after `ess_structure`.

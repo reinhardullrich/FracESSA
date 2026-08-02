@@ -20,10 +20,10 @@ class TimingTests(unittest.TestCase):
                        matrix_id, dimension, size_class, is_cs, matrix,
                        candidate_count, ess_count, candidate_structure,
                        ess_structure, origin
-                   ) VALUES (?, 2, 'small', 0, '0,1,0', ?, ?, ?, ?, 'unit')""",
+                   ) VALUES (?, 2, 'small', 0, ?, ?, ?, ?, ?, 'unit')""",
                 [
-                    (1, 1, 1, "{}", "{}"),
-                    (2, None, None, None, None),
+                    (1, "0,1,0", 1, 1, "{}", "{}"),
+                    (2, "0,2,0", None, None, None, None),
                 ],
             )
 
@@ -161,11 +161,12 @@ class TimingTests(unittest.TestCase):
     def test_default_target_is_half_a_second(self):
         arguments = timing._parser().parse_args(
             [
-                "run", "--backend", "pybind", "--build-label", "current",
+                "run", "--backend", "pybind", "--build-label", "current", "--size-class", "super_large",
                 "--source-ref", "main", "--revision", "abc123", "--method", "fast", "--cpu", "2",
             ]
         )
         self.assertEqual(arguments.target_seconds, 0.5)
+        self.assertEqual(arguments.size_class, "super_large")
 
     def test_run_rejects_a_missing_calibration_before_loading_the_binary(self):
         with tempfile.TemporaryDirectory() as directory:

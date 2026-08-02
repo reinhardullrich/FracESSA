@@ -26,8 +26,8 @@ remove a finding after its fix and regression coverage are complete.
 - The unused input pass-through iterator and its collection imports have been
   deleted.
 - `testdata/fracessa_testdata.sqlite3` passes SQLite integrity and foreign-key
-  checks and contains 628 distinct strategically normalized matrices. Its 366 analyzed rows store 56,960 representatives whose
-  multipliers recover 94,046 candidates and 85,303 ESS; 262 rows exceeded the safe calibration cutoff. Dimensions 2-25 each have at least
+  checks and contains 1,105 distinct strategically normalized matrices. Its 754 analyzed rows store 66,542 representatives whose
+  multipliers recover 104,888 candidates and 91,733 ESS; 351 rows remain catalog-only. Dimensions 2-25 each have at least
   one circular and one non-circular matrix, and every distinct matrix from the
   two published Bomze-Schachinger-Ullrich result tables is present once.
 - Its retained timing data have 716 persistent-Pybind median rows spanning Werner, `classic`, paired safe-wrapper, four fast-path
@@ -36,9 +36,9 @@ remove a finding after its fix and regression coverage are complete.
   match their expected ESS counts. Report rows
   include dimension, circularity, and the derived lower bound
   `gamma_lower_bound = expected_ess ** (1 / dimension)`.
-- All 628 matrices have both calibration fields: fast has 404 measured native durations and 224 cutoff sentinels; safe has 362
-  measurements and 266 sentinels. Safe calibration added 267 exact baselines without changing any prior baseline, candidate,
-  timing, fast-calibration, or catalog-metadata value.
+- Fast calibration covers all 1,105 rows with 741 measured durations and 364 cutoff sentinels; the 477 generator-catalogue rows
+  contributed 337 measurements and 140 sentinels. Safe calibration covers all rows with 751 measured durations and 354 sentinels;
+  the new rows contributed 332 complete baselines and 145 sentinels.
 - Sequential and multiprocessing paths use one flat result dictionary;
   CSV, JSON, and Parquet are the only output sinks.
 - `run` and `run_multiprocessing` are the only public execution functions;

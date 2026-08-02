@@ -41,7 +41,7 @@ class NativeIntegrationTests(unittest.TestCase):
         database = Path(__file__).resolve().parents[3] / "testdata/fracessa_testdata.sqlite3"
         with closing(sqlite3.connect(database)) as connection:
             rows = connection.execute(
-                "SELECT matrix_id, dimension, matrix FROM matrices WHERE matrix_id IN (38, 46) ORDER BY matrix_id"
+                "SELECT matrix_id, dimension, matrix FROM matrices WHERE matrix_id IN (46, 2208) ORDER BY matrix_id"
             ).fetchall()
 
         for matrix_id, dimension, values in rows:

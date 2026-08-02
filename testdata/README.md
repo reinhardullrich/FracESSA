@@ -3,11 +3,10 @@
 `fracessa_testdata.sqlite3` is the canonical store for exact test matrices,
 complete expected candidate results where available, and timing data.
 
-The current snapshot contains 628 distinct strategically normalized matrices. The
-366 analyzed matrices have 56,960 stored candidate representatives whose
-multipliers represent 94,046 candidates and 85,303 ESS; the other 262 catalog
-rows have null baseline fields because safe analysis exceeded the one-second
-calibration cutoff.
+The current snapshot contains 1,064 distinct strategically normalized matrices. The 713 analyzed matrices have 65,800 stored
+candidate representatives whose multipliers represent 104,098 candidates and 91,134 ESS. The other 351 rows have null baseline
+fields: 206 from the earlier suite exceeded the two-minute safe retry cutoff, and 145 generator-catalogue rows exceeded their
+initial one-second safe cutoff.
 
 It contains each distinct matrix from Tables 1 and 2 of the
 Bomze-Schachinger-Ullrich ESS-growth paper exactly once. IDs 18 and 26 hold the
@@ -18,41 +17,52 @@ staged complete-multipartite many-ESS benchmark matrices. IDs 67-79 are
 deterministic random-integer coverage matrices; together with the existing rows,
 every dimension from 2 through 25 has at least one circular and one non-circular
 matrix. IDs 45-47 preserve the unsafe-filter, LU-boundary, and failed-proof
-verified-search regressions. IDs 91-117 are SuiteSparse Matrix Collection
+verified-search regressions. IDs 91-117 originally held SuiteSparse Matrix Collection
 imports, IDs 118-269 are QAPLIB imports, and IDs 270-280 are TSPLIB95 imports.
 IDs 281-313 are Biq Mac Library imports, and IDs 314-319 are Magma Hadamard
 database imports. Thirty QPLIB objective imports retain their original IDs
 between 320 and 1925; the gaps are the deliberately removed constraint-only
 rows. IDs 1926-1982 are OR-Library imports, IDs 1983-1990 are KONECT imports,
 IDs 1991-2137 are the House of Graphs stratified sample, IDs 2138-2176 are the
-Network Data Repository stratified sample, and IDs 2177-2206 are SDPLIB `F0`
-objective-matrix imports. IDs 2207-2209 preserve one exact false rejection for
+Network Data Repository stratified sample, and IDs 2177-2206 originally held SDPLIB `F0`
+objective-matrix imports. Diagonal sampling subsequently removed SuiteSparse ID 105 and SDPLIB IDs 2177-2179 and 2204-2206.
+IDs 2207-2209 preserve one exact false rejection for
 each former fast per-support candidate condition: the pivot cutoff, probability
 sign, and outside-payoff margin. Current fast uses its small-pivot and
 precision-span fallbacks to recover them. No complete SQLite matrix suite is
 currently wired into CTest.
 
-The timing table contains 716 CPU-2 persistent-Pybind median rows. It retains
+IDs 2210-2687 contain 450 retained exact representatives from a combined audit of Anymatrix, TypedMatrices.jl, and Matrix
+Depot. The raw selection contributed 478 rows. Circular normalization removed exact duplicate ID 2215; the positive-scale audit
+then removed IDs 2212-2214, 2220, and 2254 in favor of older strategically equivalent rows, dimension-one consolidation
+removed IDs 2210-2211 in favor of ID 314, and diagonal sampling removed all 20 Strakos rows. Six additional
+selected matrices were already present at IDs 48, 49, 314, 1995, 2001, and 2155 and were tagged rather than duplicated. The
+selection covers 51 eligible generator families and 34 documented or structural property classifications across five dimension
+bands. See `../aidocs/reference/MATRIX_GENERATOR_CATALOGUE_AUDIT.md` for the complete scope, exclusions, revisions, sampling rule,
+and validation record.
+
+The timing table contains 710 CPU-2 persistent-Pybind median rows. It retains
 Werner fast and safe, the July 27 pre-refactor GitHub build renamed `classic`,
 the paired safe builds immediately before and after the C++ FLINT-wrapper
-extraction, four fast-path experiment panels, and a 10-row current-build fast/safe circular-normalization panel. Catalog-only rows
+extraction, four fast-path experiment panels, and a four-row current-build fast/safe circular-normalization panel. Catalog-only rows
 are excluded automatically. The paired builds use one-second native medians for 77 matrices
 of dimension at least 3; IDs 47, 65-66, and 90 are excluded by the 30-second
 rule. All paired ESS counts match. Build label, revision, and binary hash
 identify every stored build.
 
 Matrix rows contain nullable `fast_calibration_ns` and `safe_calibration_ns` values used only to choose benchmark iteration
-counts. Fast calibration covers all 628 matrices: 404 positive measurements and 224 `-1` timeouts. Existing values were retained,
-and only missing rows used the current one-second cutoff. Safe also covers all 628 matrices: 362 positive measurements and 266
-`-1` timeouts. A missing value prevents timing that matrix and method. A value of `-1` records a calibration run killed at its
-cutoff and selects one benchmark iteration. Positive integer nanoseconds preserve the native value exactly; divide by `1000.0`
-when displaying decimal microseconds.
+counts. Fast calibration covers all 1,064 matrices with 700 positive measurements and 364 `-1` timeouts; the 450 generator-catalogue
+rows contributed 310 measurements and 140 timeouts under the one-second cutoff. The earlier 614-row suite retains 405 positive safe
+measurements and 209 `-1` timeouts; the new rows contributed 305 complete safe measurements and 145 timeouts. No calibration field
+remains null. A value of `-1` records a calibration run killed at its cutoff and selects one benchmark iteration. Positive integer
+nanoseconds preserve the native value exactly; divide by `1000.0` when displaying decimal microseconds.
 
 Run `scripts/calibrate_matrices.py fast` or `scripts/calibrate_matrices.py safe` from the repository root to fill only missing
 calibrations with the canonical Release Pybind module on CPU 2 and a one-second cutoff. Safe calibration also stores complete
 weighted counts, support-size structures, and representative candidate rows for a matrix that finishes within the cutoff.
 Existing calibration and baseline values are never overwritten; clear a calibration field explicitly before intentionally
-refreshing it.
+refreshing it. To retry only safe `-1` rows once with a two-minute cutoff, run
+`scripts/calibrate_matrices.py safe --retry-timeouts --cutoff-seconds 120`.
 
 ## Circular Storage Normalization
 
@@ -61,15 +71,17 @@ with common diagonal value `d`, it stores the strategically equivalent zero-diag
 matrix, in compact circular form. Subtracting `d` from every entry preserves all best-response comparisons, candidates, and ESS;
 only every payoff changes by `-d`. Subtracting `d` only from the diagonal would not be equivalent.
 
-The retained converted rows and exact recorded constants are ID 1: `0`; ID 38: `0`; ID 43: `0`; ID 44: `-1`; and ID 2203: `1`.
-Each matrix description records its own constant and states that the preceding provenance describes the unnormalized source
-matrix. Normalized IDs 39 and 41 duplicated older ID 1, so the newer rows were removed. ID 314 is the dimension-one exception: it
-is mathematically circulant, but compact storage would contain zero values while the parser requires one value, so it remains full
-and is documented as non-circular storage.
+The retained converted rows and exact recorded constants are ID 1: `0` and ID 2203: `1`. Each matrix description
+records its own constant and states that the preceding provenance describes the unnormalized source matrix. Normalized IDs 39 and
+41 duplicated older ID 1, so the newer rows were removed. The generator-catalogue import normalized 53 additional rows by the same
+rule; normalized ID 2215 exactly duplicated later-removed ID 44. Positive-scale deduplication then removed IDs 38 and 44 in favor
+of ID 1. Zero-game consolidation removed ID 43 in favor of the retained dimension-50 ID 2203. ID 314 is the sole dimension-one
+exception: it is mathematically circulant, but compact storage would contain zero values while the parser requires one value, so it
+remains full and is documented as non-circular storage.
 
 Normalization invalidated and recomputed the affected baselines and calibrations. Eighteen `classic`/Werner timing rows for the
-old stored matrices were removed; the replacement current-build panel contains fast and safe measurements for all five retained
-normalized rows. Its dimension-two rows are retained only as normalization checks and remain excluded from aggregate benchmark
+old stored matrices were removed; after both cleanups the replacement current-build panel contains fast and safe measurements for
+IDs 1 and 2203. Its dimension-two rows are retained only as normalization checks and remain excluded from aggregate benchmark
 comparisons.
 
 ## SuiteSparse Imports
@@ -87,13 +99,12 @@ The SuiteSparse Matrix Collection import uses the following reproducible rule:
   source value and transformation remain in its description.
 - Exact dense rational duplicates are not imported. SuiteSparse ID 2758,
   `Mycielski/mycielskian2`, was skipped because it equals existing matrix ID 1.
-- Dimensions 26-63 are retained but tagged `"super_large"`.
+- Dimensions 26-63 use `size_class = "super_large"`.
 
 The official 2,904-entry index contains 56 real square matrices through order
 63. Exact parsing accepts 28 symmetric files and rejects the other 28; ID 2758
-duplicates existing matrix ID 1, leaving 27 imports at IDs 91-117. IDs 91-101
-retain complete exact candidate baselines from the earlier order-30 import,
-while IDs 102-117 are catalog-only. Source page, collection ID, original Matrix
+duplicates existing matrix ID 1, initially leaving 27 imports at IDs 91-117. Diagonal sampling later removed ID 105
+(`HB/bcsstm01`), leaving 26 SuiteSparse rows. Source page, collection ID, original Matrix
 Market field type, group, title, date, and author are retained in metadata.
 
 ## NIST Matrix Market Audit
@@ -119,9 +130,9 @@ matrices, A and B. The import tests A and B independently, retains only exact
 symmetric matrices with dimensions 1-63, and globally deduplicates their dense
 values before choosing compact circular or upper-triangle FracESSA storage.
 
-Of 109 in-range instance files, 182 matrix occurrences are symmetric. Thirty
-are repeated matrices within QAPLIB, leaving 152 exact distinct imports at IDs
-118-269; one is circular-symmetric. These rows are catalog-only. The source is
+Of 109 in-range instance files, 182 matrix occurrences are symmetric. Thirty are repeated matrices within QAPLIB, leaving 152
+exact distinct source matrices at IDs 118-269. The later zero-game consolidation removed circular zero matrix ID 158, leaving 151
+QAPLIB rows. The source is
 the QAPLIB dataset by Burkard, Cela, Karisch, Rendl, Anjos, and Hahn,
 [DOI 10.7488/ds/3428](https://doi.org/10.7488/ds/3428), licensed under
 [CC BY 4.0](https://creativecommons.org/licenses/by/4.0/). The database stores
@@ -140,7 +151,7 @@ The retained `FULL_MATRIX`, `LOWER_DIAG_ROW`, and `UPPER_ROW` representations
 were expanded exactly and checked edge-for-edge against TSPLIB95's independent
 official XML files. All 11 are non-circular and distinct from each other and
 from every existing dense exact database matrix. They are catalog-only rows at
-IDs 270-280; dimensions 26-63 carry the `"super_large"` tag.
+IDs 270-280; dimensions 26-63 use `size_class = "super_large"`.
 
 ## Biq Mac Library Imports
 
@@ -156,7 +167,7 @@ expanded under the library's symmetric-Q contract; each Max-Cut graph becomes
 its symmetric zero-diagonal weighted adjacency matrix. The 46 individual files
 behind the retained rows match their aggregate-archive copies byte-for-byte.
 All 33 matrices are non-circular and globally distinct. They are catalog-only
-rows at IDs 281-313; dimensions 26-63 carry the `"super_large"` tag. The audited
+rows at IDs 281-313; dimensions 26-63 use `size_class = "super_large"`. The audited
 archive SHA-256 is `887ed2a8187fff2cf941d3c6aad3953ffd9904700dd86710fc2bd09736670e5a`.
 
 ## Magma Hadamard Imports
@@ -175,8 +186,7 @@ only six are themselves symmetric: representative 1 at each of degrees 1, 2,
 36, 44, or 52; all satisfy the skew-Hadamard property and none is symmetric.
 The six retained exact `+/-1` source matrices are globally distinct. Dimension-one ID 314 is mathematically circulant but remains
 in full storage because the compact representation would have no values; IDs 315-319 are non-circular. They are catalog-only rows
-at IDs 314-319; degree 32 carries the
-`"super_large"` tag.
+at IDs 314-319; degree 32 uses `size_class = "super_large"`.
 
 The audited SHA-256 values are
 `69930089fe46dd59cb0c48c73e1cfd03928b2e25958b1ce22de7a9f647e0cad7`
@@ -205,7 +215,7 @@ Thirty of the 35 files have an explicit quadratic objective. Their 30 objective
 matrices are pairwise distinct, duplicate no earlier database row, and are not
 circular. Every coefficient and role was independently cross-checked with
 PyQPLIB 0.1.7. The rows retain their original noncontiguous IDs between 320 and
-1925, are catalog-only, and carry the `"super_large"` tag at dimensions 26-63.
+1925, are catalog-only, and use `size_class = "super_large"` at dimensions 26-63.
 
 ## OR-Library Imports
 
@@ -234,7 +244,7 @@ urban-transit demand files `td1` and `td2` were recovered from 2011 Internet
 Archive snapshots of the now-missing official files; `td3` exceeds dimension
 63, while the time files contain nonnumeric `-` entries for absent links and
 are not rational matrices. All 57 imports are non-circular, globally new, and
-catalog-only; dimensions 26-63 carry the `"super_large"` tag.
+catalog-only; dimensions 26-63 use `size_class = "super_large"`.
 
 ## COMPl_e_ib Audit
 
@@ -275,7 +285,7 @@ reciprocal; the other 13 directed matrices fail exact symmetry. The Dolphins
 and Zachary karate-club matrices exactly duplicate existing SuiteSparse IDs 114
 and 115, which now retain KONECT as alternate provenance. The other eight
 matrices are globally new, non-circular, catalog-only rows at IDs 1983-1990.
-Dimensions 26-63 carry the `"super_large"` tag. KONECT publishes the files and
+Dimensions 26-63 use `size_class = "super_large"`. KONECT publishes the files and
 their source citations but does not state one collection-wide dataset license,
 so this catalog makes no broader licensing claim.
 
@@ -292,11 +302,12 @@ connected bipartite cyclic, connected planar non-bipartite, connected nonplanar,
 lowest SHA-256 ranks of `20260802|dimension_band|category|graph_id` were selected. This fixed rule makes the nominally
 random sample reproducible without storing or depending on API result order.
 
-All 50 strata were populated. The dimension-45-through-63 disconnected-cyclic stratum contained only one graph, and House
-of Graphs ID 21044 was selected independently by two strata. Removing that overlap leaves 147 unique matrices: 29, 30, 30,
-30, and 28 from the five dimension bands. None exactly duplicates an existing dense matrix; eight admit compact circular
-storage. The catalog-only rows occupy IDs 1991-2137, retain their House of Graphs ID, canonical graph6 string, source name
-when available, selected strata, source page, and seed, and tag dimensions 26-63 as `"super_large"`.
+All 50 strata were populated. The dimension-45-through-63 disconnected-cyclic stratum contained only one graph, and House of
+Graphs ID 21044 was selected independently by two strata. Removing that overlap produced 147 unique matrices: 29, 30, 30, 30, and
+28 from the five dimension bands. The later zero-game consolidation removed empty graphs at database IDs 1992, 2080, and 2127.
+The retained 144 rows have band counts 27, 30, 29, 30, and 28; none exactly duplicates an existing dense matrix, and five admit
+compact circular storage. Rows occupy IDs 1991-2137, retain their House of Graphs ID, canonical graph6 string, source name when
+available, selected strata, source page, and seed, and use `size_class = "super_large"` at dimensions 26-63.
 
 House of Graphs documents canonicalization, duplicate rejection, and downloadable formats for further personal use, but
 the audit found no collection-wide data-license statement. The catalog therefore records provenance without making a
@@ -318,8 +329,8 @@ streams, bipartite tables without a square adjacency matrix, malformed files, an
 are excluded. Exact duplicates already in the 558-row pre-import database are skipped without changing the existing row.
 
 The resulting 39 catalog-only imports occupy IDs 2138-2176: 15 animal-social, 15 cheminformatics, six protein, two DIMACS,
-and one biological matrix. Their dimension-band counts are 6, 6, 7, 10, and 10 respectively. Twenty carry the
-`"super_large"` tag, 11 have non-unit weights, and one admits compact circular storage. All 39 source archives round-trip to
+and one biological matrix. Their dimension-band counts are 6, 6, 7, 10, and 10 respectively. Twenty use
+`size_class = "super_large"`, 11 have non-unit weights, and one admits compact circular storage. All 39 source archives round-trip to
 their stored exact matrices, and none duplicates another database row. The repository's
 [data policy](https://networkrepository.com/policy.php) states a Creative Commons Attribution-ShareAlike license without
 naming a version; each row retains its dataset page for source-specific attribution.
@@ -332,13 +343,38 @@ the import retains only matrix number zero, `F0`, as the objective coefficient m
 matrices are deliberately excluded, and the source blocks are expanded into one complete matrix rather than cataloged as
 independent submatrices.
 
-IDs 2177-2206 are the resulting 30 catalog-only objective matrices: four control, 15 H-infinity, two infeasible-dual, two
-infeasible-primal, three quadratic-assignment, one theta, and three truss problems. Exact parsing converts finite decimal
+IDs 2177-2206 initially held the resulting 30 objective matrices: four control, 15 H-infinity, two infeasible-dual, two
+infeasible-primal, three quadratic-assignment, one theta, and three truss problems. Diagonal sampling removed control IDs
+2177-2179 and truss IDs 2204-2206. The retained 24 rows comprise one control, 15 H-infinity, two infeasible-dual, two
+infeasible-primal, three quadratic-assignment, and one theta matrix. Exact parsing converts finite decimal
 and scientific-notation tokens to reduced fractions. The source matrices are pairwise distinct and duplicate no earlier source
-matrix; 15 carry the `"super_large"` tag. `theta1` is circulant with source diagonal `1`; ID 2203 stores the strategically
+matrix. `theta1` is circulant with source diagonal `1`; ID 2203 stores the strategically
 equivalent compact matrix obtained by subtracting `1` from every entry, and its description records the transformation. Each row
 links to its exact source file. The
 current GitHub mirror declares GPL-3.0; this catalog makes no broader licensing claim.
+
+## Matrix Generator Catalogue Imports
+
+[Anymatrix](https://github.com/north-numerical-computing/anymatrix),
+[TypedMatrices.jl](https://github.com/TypedMatrices/TypedMatrices.jl), and
+[Matrix Depot](https://github.com/JuliaMatrices/MatrixDepot.jl) overlap heavily, so they are audited and sampled as one generator
+catalogue. The eligible pool contains 2,678 distinct exact symmetric matrices of dimensions 1 through 63 from 51 mathematical
+families. Deterministic SHA-256 ranking with seed `20260802` retains up to three matrices from each populated
+property-by-dimension-band stratum, then ensures that every eligible family has at least one representative.
+
+The resulting 484 selected matrices populate 166 property-band strata. Six matched existing IDs 48, 49, 314, 1995, 2001, and
+2155 exactly. The raw IDs 2210-2687 held the other 478. Normalization changed 53 full circulant rows to compact `A - dJ` storage
+and exposed exact duplicate ID 2215; the later positive-scale audit removed another five source rows in favor of older rows, and
+dimension-one consolidation removed IDs 2210-2211. Diagonal sampling then removed all 20 Strakos rows. The retained 450 new rows
+therefore comprise 78 compact circular matrices and no dimension-one or Strakos row. Retained-row counts by selection band are
+69, 90, 86, 104, and 101; compact counts are 14, 18, 15, 17, and 14. In the original
+selected source set, only two populated strata contain fewer than three distinct eligible matrices: `fixed_size` at dimensions
+45-63 has two, and `unimodular` at dimensions 1-8 has one. The other `unimodular` bands are empty rather than under-sampled.
+
+All formulas and source matrices are evaluated as exact integers or rational numbers. Irrational, transcendental, random-real,
+rectangular, nonsymmetric, and dimension-above-63 families are excluded. The complete acceptance and rejection audit, source
+revisions, family list, exact normalization checks, and retained counts are recorded in
+`../aidocs/reference/MATRIX_GENERATOR_CATALOGUE_AUDIT.md`.
 
 ## Tables
 
@@ -348,8 +384,7 @@ Each row stores one exact matrix input and its summary:
 
 - `matrix_id`: stable FracESSA verification ID.
 - `dimension`: number of strategies, from 1 through 63.
-- `size_class`: `small` for dimensions 1-8, `medium` for 9-16, and
-  `large` for 17-63.
+- `size_class`: `small` for dimensions 1-8, `medium` for 9-16, `large` for 17-25, and `super_large` for 26-63.
 - `is_cs`: 1 for compact circular-symmetric input, otherwise 0.
 - `matrix`: the exact comma-separated input values, without the `n#` prefix.
 - `candidate_count` and `ess_count`: complete weighted baseline counts, or null
@@ -358,9 +393,12 @@ Each row stores one exact matrix input and its summary:
   count.
 - `ess_structure`: JSON object mapping support size to weighted ESS count. Both
   structure fields are null exactly when both count fields are null.
+- `gamma_lower_bound`: generated real value `ess_count ** (1 / dimension)`, or null when `ess_count` is null. The
+  Bomze-Schachinger-Ullrich paper calls this the lower bound for $\gamma$ implied by the matrix; its result table labels the column
+  `$\gamma \geq$`.
 - `origin`: where the matrix came from and why it was retained.
-- `tags`: JSON array of short qualitative categories such as
-  `"numerical_edge"`, `"support_frontier"`, or `"super_large"`.
+- `tags`: JSON array of short qualitative categories such as `"numerical_edge"`, `"support_frontier"`, or
+  `"generator_catalogue"`. Matrix size belongs only in `size_class`.
 - `name`: short human-readable matrix name.
 - `family` and `subfamily`: broad and narrow matrix classifications used for
   selecting related fixtures.
@@ -386,6 +424,15 @@ day is unknown, `created_at` uses January 1 of the known year as an explicit
 placeholder; for example, `2014-01-01` means only "legacy matrix known from
 2014." Its purpose is to distinguish long-standing matrices from cases added to
 the current suite in 2026, not to assert an exact historical day.
+
+The database enforces uniqueness on `(dimension, matrix)`. `matrix` alone cannot be unique because compact input omits its
+dimension, so identical token strings can legitimately describe different-sized matrices. Import audits also compare exact stored
+value vectors within the same dimension and `is_cs` class. If two differ only by a positive nonzero rational multiplier, the lower
+matrix ID is retained. Negative multipliers are not duplicates because they reverse payoff comparisons.
+
+The corpus retains exactly three diagonal matrices: dimension-one ID 314, compact all-zero dimension-50 ID 2203, and nonzero
+dimension-60 ID 2180. The other 27 diagonal rows were removed to avoid overrepresenting this structurally trivial family. This is
+an explicit benchmark-corpus sampling choice; distinct diagonal games are not generally mathematically equivalent.
 
 For example, `{"1":8,"4":2}` means eight support-one results and two
 support-four results. Empty ESS structure is stored as `{}`.
@@ -414,9 +461,8 @@ and an optional comment.
 
 The observed count remains separate from the expected count in `matrices`, so a
 report can expose fast-method mismatches without hiding or rejecting their
-timings. The report derives the Bomze-Schachinger-Ullrich exponential-growth
-lower bound `expected_ess ** (1 / dimension)` and prints it with dimension and
-circularity; this value is not stored in the database.
+timings. The report prints the same Bomze-Schachinger-Ullrich exponential-growth
+lower bound exposed as `matrices.gamma_lower_bound`.
 
 ## Scope
 

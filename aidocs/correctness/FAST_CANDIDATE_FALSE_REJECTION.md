@@ -315,7 +315,8 @@ run without that option.
 
 ## Relation to Earlier Regression Matrices
 
-- IDs 38 and 39 exercise exact-to-double input problems and now trigger matrix-wide safe fallback.
+- Former database IDs 38 and 39 exercised exact-to-double input problems and triggered matrix-wide safe fallback. Both were later
+  removed as strategically equivalent duplicates.
 - IDs 45, 46, and 47 were false rejections caused by the retired normalized heuristic. The current raw fast method solves them.
 - The first matrix above exposes the former per-support pivot rejection.
 - The second and third matrices show that pivot fallback alone leaves independent false rejections in both remaining per-support

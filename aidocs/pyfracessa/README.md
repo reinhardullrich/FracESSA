@@ -88,10 +88,12 @@ PYTHONPATH=python python3 -m fracessa.timing report latest --baseline main
 
 `source_ref` records a moving name such as `main`; `revision` records the exact
 commit measured, and the module or executable SHA-256 is captured automatically.
-The default selection is the `small` matrix class. Each matrix/method starts with
+The default selection is the `small` matrix class; `--size-class` also accepts `medium`, `large`, `super_large`, and `all`. Each
+matrix/method starts with
 the `fast_calibration_ns` or `safe_calibration_ns` value in its database row. Fill missing values with
 `scripts/calibrate_matrices.py fast` or `scripts/calibrate_matrices.py safe`; the safe calibration also stores a missing exact
-candidate baseline when that matrix finishes within the one-second cutoff. The timing runner uses
+candidate baseline when that matrix finishes within the one-second cutoff. To retry only safe `-1` rows once with a two-minute
+cutoff, use `scripts/calibrate_matrices.py safe --retry-timeouts --cutoff-seconds 120`. The timing runner uses
 `ceil(target / calibration)` samples for positive calibrations; a calibration at or above the target or a `-1` timeout
 sentinel chooses one run. The default target is 0.5 seconds, and a missing calibration is an error. The stored result is the median
 returned native duration. The Pybind module stays loaded for every selected method and matrix in that invocation. Python wall time
@@ -110,7 +112,7 @@ observed ESS counts with the expected database count, and retain mismatching
 unsafe timings visibly. Each result row also includes the matrix dimension,
 circular-symmetry flag, and the paper-style lower bound
 `gamma_lower_bound = expected_ess ** (1 / dimension)`. The bound is derived from
-the canonical expected count and is not stored redundantly in SQLite.
+the canonical expected count and matches the generated `matrices.gamma_lower_bound` column.
 
 Status codes:
 

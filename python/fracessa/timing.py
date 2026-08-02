@@ -557,7 +557,7 @@ def _parser() -> argparse.ArgumentParser:
     run.add_argument("--cpu", type=int, required=True)
     run.add_argument("--target-seconds", type=float, default=0.5)
     run.add_argument(
-        "--size-class", choices=("small", "medium", "large", "all"), default="small"
+        "--size-class", choices=("small", "medium", "large", "super_large", "all"), default="small"
     )
     run.add_argument("--matrix-id", type=int, action="append")
     run.add_argument("--cli-unit", choices=tuple(_CLI_TO_NS), default="ns")
