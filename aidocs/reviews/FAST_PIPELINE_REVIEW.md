@@ -246,7 +246,7 @@ automatic cleanup.
 
 ### FP-E02: Reuse the reduced-system row offset
 
-- [ ] Test factoring the repeated row term out of reduced-system construction.
+- [x] Tested and reverted after changing one known fast decision; no general stability advantage for the retained formula was found.
 
 The current formulas are
 
@@ -266,9 +266,22 @@ H_ij       = B_ij - d_i * B_mj + d_j * row_offset
 This removes two multiplications and one addition per lower-triangle entry. It is algebraically identical, but reassociation can
 change cancellation and therefore rejection decisions.
 
+The test-only implementation passed all 10 ordinary Release tests and all 10 ASan/UBSan tests. An initial 81-matrix comparison was
+discarded because its temporary helper omitted each matrix dimension and therefore compared identical parser errors rather than
+computations. The canonical native/LTO benchmark used valid inputs and exposed a changed decision before timing completed: matrix
+46 retained its exact full-support ESS in `fast` but returned zero candidates in `test`. A focused high-precision diagnostic found
+only two of 55 lower-triangle entries changed, each by one binary64 ulp (`1.1102230246251565e-16`). For one entry the factored
+formula exactly matched the higher-precision evaluation of the double inputs while the expanded formula was one ulp low; for the
+other, the two values lay equally far on opposite sides. The factored construction is therefore not generally less stable. The
+reduced matrix has 2-norm condition number about `2.984e10`, so it strongly amplifies the perturbation: one computed probability
+changes from `3.0581423239e-9` to `-6.5326723740e-9`, while its exact value is `1e-8`. The retained formula happens to err in the
+favorable direction for this matrix. The experiment was reverted and no timing result was retained because adopting it would
+knowingly change an existing fast regression result; that is a behavioral trade-off, not a numerical-stability proof for the
+retained expression.
+
 ### FP-E03: Store the reduced scratch in the factorization's traversal order
 
-- [ ] Prototype a local transposed accessor over the existing row-major `matrix_dbl` storage.
+- [x] Tested and rejected; production and experimental search retain the original row-major lower-triangle storage.
 
 The Bunch-Kaufman loops mostly walk fixed columns while `matrix_dbl` is row-major. Storing the logical lower triangle transposed
 would make those hot walks contiguous. Keep this local to the fast/test implementation; do not create a new general matrix class
@@ -276,6 +289,20 @@ for one kernel.
 
 Required check: cover both 1-by-1 and 2-by-2 pivot paths, compare exact candidate contracts, and use a balanced timing panel. Keep
 it only for a clear gain across matrix types and dimensions.
+
+The test-only transposed accessor passed all 10 Release tests and all 10 ASan/UBSan tests. Its initial claimed 81-matrix complete
+comparison used the same invalid dimensionless helper described under FP-E02 and is discarded. The valid CPU-2 persistent-Pybind
+benchmark checked matching ESS counts and fallback classifications while covering 76 dimension-3-to-25 matrices in both call
+orders. Transposition was slower: median changes were `+1.0605%` with `fast` called first and `+1.2794%` with `test` called first.
+For dimensions 17-25 the corresponding medians were `+1.9864%` and `+2.1579%`; both circular and non-circular subsets regressed.
+On dimension-23 matrix 53, three 100-run Perf repeats measured about `+4.55%` instructions, `+4.22%` branches, and `+2.37%`
+cycles, with essentially unchanged branch misses. A complete candidate-contract comparison was unnecessary after this decisive
+performance rejection.
+
+The scratch matrices are at most 24-by-24 in this panel and fit comfortably in L1 cache. Transposition therefore saves little
+cache-miss cost, while it reverses the efficient row-major traversal used to construct the reduced system and produces more
+instructions. An earlier test-only row-oriented update without transposition was also rejected: its forward/reverse median
+regressions were `+0.7609%` and `+0.9746%`. No further storage-order variant is justified without a materially different kernel.
 
 ### FP-E04: Fuse the forward right-hand-side transformation into factorization
 
