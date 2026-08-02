@@ -1,6 +1,6 @@
 # Project Knowledge
 
-Last verified: 2026-08-01
+Last verified: 2026-08-02
 
 ## Source-Code Approval Gate
 
@@ -127,11 +127,12 @@ enumeration requires the exclusive `2^n` bound, so dimension 64 is not
 supported.
 
 Every entry surface requires one of three search methods before the matrix; there is no default. `safe` uses exact arithmetic for
-every candidate decision. `fast` uses the unnormalized raw-double heuristic only after an exact integer precision-span check and
-then confirms every surviving support exactly. A matrix with $P\geq10^9$ switches entirely to `safe`, and a support with a pivot
-below $10^{-12}$ reaches exact checking. Its remaining probability and outside-payoff rejections are heuristic. Experimental
-`test` is an independent source copy of `fast`, not a wrapper around it; it currently has identical behavior and can be changed
-without changing production fast search.
+every candidate decision. `fast` removes the game's common denominator, applies an exact integer precision-span check, normalizes
+and equilibrates the complete binary64 game once, and solves each border-eliminated symmetric candidate system with
+Bunch-Kaufman $LDL^T$. A matrix with $P\geq10^9$ switches entirely to `safe`, and a support with an inconclusive pivot below
+$10^{-12}$ reaches exact checking. Its remaining probability and outside-payoff rejections are heuristic. Experimental `test` is
+an independent source copy of `fast`, not a wrapper around it; it currently has identical behavior and can be changed without
+changing production fast search.
 
 ## Computation Flow
 
@@ -166,21 +167,26 @@ Important implementation points:
 - Newly found exact candidates are pending until the next cardinality, keeping
   each generator layer's pruning rules stable. Stability is irrelevant to this
   pruning rule: every exact equilibrium support forbids later strict supersets.
-- `find_candidate_fast` owns the direct, unnormalized binary64 conversion and bordered solve. One exact matrix-wide precision-span
-  test reads the safe solver's already prepared integer game and common denominator. A matrix with $P\geq10^9$ switches to safe
-  search before double allocation or conversion. Every pivot below $10^{-12}$ is inconclusive and reaches exact checking. Its
-  probability and outside-payoff branches remain heuristic, so `fast` is not a correctness certificate.
-- `find_candidate_test` intentionally duplicates fast double storage and the candidate kernel without sharing its implementation
-  or double state. It currently has the same precision-span, pivot, probability, and outside-payoff decisions as fast.
+- `find_candidate_fast` reuses the safe solver's denominator-cleared integer game. It switches the complete matrix to safe search
+  when the remaining integer entries or distinct gaps give $P\geq10^9$; otherwise one common power-of-two normalization precedes
+  one LAPACK-derived symmetric BIN equilibration $A\mapsto DAD$ of the complete game. Each support eliminates the
+  payoff/normalization border, forms the transformed reduced Hessian, and solves it with the adapted lower-triangle Bunch-Kaufman
+  $LDL^T$ factorization and solve. The transformed normalization vector and row scales recover probabilities and payoffs in the
+  original game coordinates. Failed equilibration, every small or non-finite pivot, and every non-finite completed probability or
+  payoff accumulation are inconclusive and reach exact checking. Probability and outside-payoff rejections remain heuristic, so
+  `fast` is not a correctness certificate.
+- `find_candidate_test` intentionally duplicates fast double storage, equilibration, and reduced-system kernel without sharing its
+  implementation or double state. It currently has the same precision-span, pivot, probability, and outside-payoff decisions as
+  fast.
 - `find_candidate_safe` clears the game's rational denominators once, eliminates
   the normalization/payoff border, and constructs the integer-scaled symmetric
   reduced system $dH y=dr$ in reusable FLINT storage. One fraction-free
   $LDL^T$-style factorization solves the candidate, proves singularity, and
   records the exact inertia needed by stability. Rational values are constructed
   only for successful public candidate output.
-- `fracessa` owns the rational game used by stability. `find_candidate_fast` and `find_candidate_test` refer to it for their double
-  matrices, while `find_candidate_safe` owns the one integer-scaled copy used by all exact candidate solves and both one-time
-  precision-span decisions.
+- `fracessa` owns the rational game used by stability. `find_candidate_safe` owns the one integer-scaled copy used by exact
+  candidate solves and both one-time precision-span decisions; fast and test each own the converted and equilibrated double copy
+  prepared from that integer game.
 - Exact candidate factorization and validation use FLINT `fmpz_t` integers;
   header-only `linalg::integer` and `linalg::matrix_int` wrappers own their storage and expose inline exact operations to
   FracESSA. Public rational results and the retained Bomze stability fallback use FLINT `fmpq_t` through `linalg::fraction`.
@@ -211,8 +217,8 @@ Key files:
 - `cpp/include/linalg/fraction.hpp`: FLINT rational wrapper.
 - `cpp/include/linalg/copositive_fraction.hpp`: exact copositivity checks.
 - `cpp/include/fracessa/find_candidate_fast.hpp` and
-  `cpp/src/find_candidate_fast.cpp`: production raw-double class, exact precision-span gate, small-pivot fallback, heuristic
-  inequalities, and reusable scratch.
+  `cpp/src/find_candidate_fast.cpp`: production exact precision-span gate, whole-game double equilibration, reduced symmetric
+  Bunch-Kaufman solve, small-pivot fallback, heuristic inequalities, and reusable scratch.
 - `cpp/include/fracessa/find_candidate_test.hpp` and
   `cpp/src/find_candidate_test.cpp`: independent experimental copy of fast search.
 - `cpp/include/fracessa/find_candidate_safe.hpp` and

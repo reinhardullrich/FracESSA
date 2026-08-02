@@ -132,13 +132,37 @@ def main() -> int:
         if "warning" in fast_result.stderr.lower():
             raise AssertionError(f"{case_name}: fast search unexpectedly printed a warning")
 
-    # Test mode's exact precision span catches this full-support ESS that fast rejects after an inaccurate double solve.
-    precision_span_matrix = "3#1/50000000,4001/200000000000,5000000001/100000000,1/50000000,10000000002001/200000000000,0"
-    test_result = assert_success_with_ess_output(
-        fracessa_exe, ["--fullsupport", "test", precision_span_matrix], "precision_span_test"
+    # Fast and test must preserve all three exact ESS that their historical floating-point rejection tests lost.
+    historical_false_rejections = (
+        (
+            "small_pivot",
+            ["--fullsupport", "--candidates"],
+            "1",
+            "3#-3,1,2,-1000000000001/3000000000000,-1999999999999/3000000000000,-4000000000001/3000000000000",
+        ),
+        (
+            "positive_probability",
+            ["--fullsupport", "--candidates"],
+            "1",
+            "3#1/50000000,4001/200000000000,5000000001/100000000,1/50000000,10000000002001/200000000000,0",
+        ),
+        (
+            "outside_payoff",
+            ["--candidates"],
+            "2",
+            "4#1/5,40000000001/200000000000,501/10,6040000000001/400000000000,1/5,10020000000001/200000000000,"
+            "10048000000001/400000000000,0,10040000000001/400000000000,0",
+        ),
     )
-    if first_non_empty_line(test_result.stdout) != "1":
-        raise AssertionError("precision_span_test: test search did not fall back to safe analysis")
+    for case_name, options, expected_ess_count, matrix in historical_false_rejections:
+        safe_result = assert_success_with_ess_output(fracessa_exe, [*options, "safe", matrix], f"{case_name}_safe")
+        if first_non_empty_line(safe_result.stdout) != expected_ess_count:
+            raise AssertionError(f"{case_name}: safe search returned the wrong ESS count")
+
+        for method in ("fast", "test"):
+            result = assert_success_with_ess_output(fracessa_exe, [*options, method, matrix], f"{case_name}_{method}")
+            if result.stdout != safe_result.stdout:
+                raise AssertionError(f"{case_name}: {method} search differs from safe search")
 
     # Other success paths
     assert_success_with_ess_output(fracessa_exe, ["safe", "5#1,3"], "circular_success")

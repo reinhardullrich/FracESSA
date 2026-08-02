@@ -526,3 +526,15 @@ documented the exact Release/native/LTO Ninja build through the system ccache co
 unrequested floating-point, aliasing, sanitizer, profiling, debug, or optimization flags, and required both revisions in a source
 comparison to use the same clean toolchain and dependency environment. Toolchain changes now start a separately recorded benchmark
 lineage; only explicitly requested and labelled experiments may deviate from the canonical configuration.
+237. Promoted the equilibrated reduced-system double solver to production fast search:
+copied the independent test implementation into fast without introducing shared numerical code. Fast now removes the common game
+denominator, applies the exact integer $P\geq10^9$ matrix-wide safe fallback, performs one common power-of-two normalization and
+one LAPACK-derived symmetric BIN equilibration $A\mapsto DAD$, eliminates the candidate border, and solves each transformed
+reduced Hessian with the adapted Bunch-Kaufman $LDL^T$ factorization. Test remains an independent source copy. The complete
+CPU-2 benchmark of the test implementation measured a median per-matrix change of $+1.13\%$ against unscaled reduced-system
+$LDL^T$; temporarily removing the $P$ gate changed the median by only $+0.11\%$ and was reverted. Release passed all 10 C++/CLI
+tests and all 56 Python tests, ASan/UBSan passed all 10 C++/CLI tests, and fast reproduced every stored exact candidate contract
+and ESS classification for all 90 canonical matrices. Fast and test now also send non-finite completed probability and payoff
+accumulations to exact checking, while the CLI regression compares complete fast/test/safe candidate output for all three stored
+historical false rejections. MSVC Release `/fp:fast` remains tracked separately because it does not guarantee IEEE special-value
+behavior.

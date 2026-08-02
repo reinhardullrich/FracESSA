@@ -415,6 +415,7 @@ bool find_candidate_test::find(const bitset64& support, size_t support_size)
             if (probability < kProbabilityTolerance) return false;
             reference_probability -= probability;
         }
+        if (!std::isfinite(reference_probability)) return true;
         if (reference_probability < kProbabilityTolerance) return false;
     }
 
@@ -425,8 +426,10 @@ bool find_candidate_test::find(const bitset64& support, size_t support_size)
         payoff += game_dbl_(reference, support_indices[position + 1]) * solution[position];
     }
     payoff *= inverse_reference_scale;
+    if (!std::isfinite(payoff)) return true;
 
     const double threshold = payoff + 1e-4 * static_cast<double>(dimension_);
+    if (!std::isfinite(threshold)) return true;
     for (size_t i_pos = 0; i_pos < non_support_count; ++i_pos) {
         const size_t i = non_support_indices[i_pos];
         double rowsum = game_dbl_(i, reference) * reference_coordinate;
@@ -434,6 +437,7 @@ bool find_candidate_test::find(const bitset64& support, size_t support_size)
             rowsum += game_dbl_(i, support_indices[position + 1]) * solution[position];
         }
         rowsum /= game_scales_[i];
+        if (!std::isfinite(rowsum)) return true;
         if (rowsum > threshold) return false;
     }
 

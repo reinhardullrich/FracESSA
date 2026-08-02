@@ -34,9 +34,9 @@ search_method parse_search_method(std::string_view name);
  *    candidate on S, including its extended support;
  * 3) exact positive-definiteness and copositivity tests decide ESS stability.
  *
- * Safe search always starts with exact arithmetic. Fast search uses the raw-double heuristic after an exact precision-span check,
- * with matrix-wide safe fallback for a large span and per-support exact fallback for a small pivot. Test search is independent
- * experimental code used to benchmark proposed changes without changing production fast search.
+ * Safe search always starts with exact arithmetic. Fast search removes the game's common denominator, checks its exact integer
+ * precision span, equilibrates the complete binary64 game, and solves each reduced symmetric candidate system with Bunch-Kaufman
+ * LDL^T. A large span or inconclusive pivot falls back to exact arithmetic. Test search is an independent copy for experiments.
  */
 class fracessa
 {
@@ -54,7 +54,7 @@ public:
     std::vector<candidate> candidates_;
 
 private:
-    // fracessa owns the rational game used by stability. Fast and test search refer to it, while safe search owns one integer-scaled copy.
+    // fracessa owns the rational game used by stability. Safe owns its integer copy; fast and test own converted double copies.
     linalg::matrix_frc game_matrix_;
     candidate_search::find_candidate_fast find_candidate_fast_;
     candidate_search::find_candidate_safe find_candidate_safe_;

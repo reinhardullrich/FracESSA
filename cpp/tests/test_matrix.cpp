@@ -92,8 +92,9 @@ TEST(FindCandidateFastTest, UsesExactPrecisionSpanCutoff) {
     };
 
     EXPECT_FALSE(exceeds_cutoff(fraction::zero(), fraction(999'999'999), fraction::zero()));
-    EXPECT_TRUE(exceeds_cutoff(fraction::zero(), fraction(1'000'000'000), fraction::zero()));
-    EXPECT_TRUE(exceeds_cutoff(fraction::zero(), fraction("1/1000000000"), fraction::zero()));
+    EXPECT_FALSE(exceeds_cutoff(fraction::zero(), fraction(1'000'000'000), fraction::zero()));
+    EXPECT_FALSE(exceeds_cutoff(fraction::zero(), fraction("1/1000000000"), fraction::zero()));
+    EXPECT_TRUE(exceeds_cutoff(fraction::one(), fraction(1'000'000'000), fraction::one()));
     EXPECT_TRUE(exceeds_cutoff(fraction(1'000'000'000), fraction(1'000'000'001), fraction(1'000'000'000)));
 }
 
@@ -136,7 +137,7 @@ TEST(FindCandidateFastAndTest, SendSmallPivotToExactArithmetic) {
     EXPECT_TRUE(test.find(bitset64{7}, 3));
 }
 
-TEST(FindCandidateTest, SolvesNonsingularZeroDiagonalTwoByTwoPivot) {
+TEST(FindCandidateFastAndTest, SolveNonsingularZeroDiagonalTwoByTwoPivot) {
     /*
      * With strategy 0 as reference, the full-support reduced system is
      *
@@ -151,21 +152,25 @@ TEST(FindCandidateTest, SolvesNonsingularZeroDiagonalTwoByTwoPivot) {
     game(1, 1) = fraction::two();  game(1, 2) = game(2, 1) = fraction::one(); game(2, 2) = fraction(-2);
 
     find_candidate_safe safe(game);
+    find_candidate_fast fast(game);
     find_candidate_test test(game);
+    fast.convert_game_matrix(safe);
     test.convert_game_matrix(safe);
 
+    ASSERT_FALSE(fast.requires_safe_fallback());
     ASSERT_FALSE(test.requires_safe_fallback());
+    EXPECT_FALSE(fast.find(bitset64{7}, 3));
     EXPECT_FALSE(test.find(bitset64{7}, 3));
 }
 
-TEST(FindCandidateTest, RemovesCommonDenominatorAndNormalizesGameOnce) {
+TEST(FindCandidateFastAndTest, RemoveCommonDenominatorAndNormalizeGameOnce) {
     /*
      * Before the final common scale, support {0,1,2}, with strategy 0 as reference, has
      *
      *     H = diag(10^-8, 1),     y = (1/4, 1/4).
      *
-     * Multiplying the complete game by 10^-50 must not make every reduced pivot fall below the absolute cutoff. Test search removes
-     * that common denominator and normalizes the integer game once, then the outside payoff still rejects the support.
+     * Multiplying the complete game by 10^-50 must not make every reduced pivot fall below the absolute cutoff. Fast and test
+     * search remove that common denominator and normalize the integer game once, then the outside payoff still rejects the support.
      */
     const fraction common_scale("1/100000000000000000000000000000000000000000000000000");
     const auto scaled = [&](const char* value) { return fraction(value) * common_scale; };
@@ -182,9 +187,13 @@ TEST(FindCandidateTest, RemovesCommonDenominatorAndNormalizesGameOnce) {
     game(3, 3) = fraction::zero();
 
     find_candidate_safe safe(game);
+    find_candidate_fast fast(game);
     find_candidate_test test(game);
+    fast.convert_game_matrix(safe);
     test.convert_game_matrix(safe);
 
+    ASSERT_FALSE(fast.requires_safe_fallback());
     ASSERT_FALSE(test.requires_safe_fallback());
+    EXPECT_FALSE(fast.find(bitset64{7}, 3));
     EXPECT_FALSE(test.find(bitset64{7}, 3));
 }

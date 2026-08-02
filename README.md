@@ -12,7 +12,7 @@ safe method, a faster heuristic method, and an isolated experimental copy of tha
 ## Why FracESSA
 - Required method choice: `fast` uses binary64 rejection before exact checks;
   `safe` uses exact FLINT arithmetic from the start.
-- Experimental `test` independently copies `fast` so proposed numerical guards can be measured without changing production fast search.
+- Experimental `test` independently copies `fast` so proposed numerical changes can be measured without changing production fast search.
 - Bitset-based support enumeration over a `2^n` search space.
 - Optimized for many repeated operations on small/medium matrix dimensions.
 - Circular-symmetric and general symmetric matrix input support.
@@ -58,10 +58,12 @@ is no default method.
 - `-t, --timing` print analyzer timing in nanoseconds.
 - `-m, --matrixid` optional signed 64-bit matrix ID for logging/verification runs.
 
-`fast` uses an unnormalized binary64 matrix and bordered Gaussian solve. One exact integer precision-span check switches the
-whole matrix to safe search when $P\geq10^9$, and a pivot below $10^{-12}$ sends that support to exact checking. The remaining
-probability and outside-payoff rejections are heuristic, so `fast` is not a mathematical correctness certificate. `safe`
-bypasses floating-point candidate rejection and uses exact arithmetic for every support.
+`fast` removes the game's common denominator and switches the whole matrix to safe search when the remaining exact integer
+precision span satisfies $P\geq10^9$. Otherwise it normalizes and equilibrates the complete binary64 game once, eliminates the
+candidate border, and solves each reduced symmetric system with Bunch-Kaufman $LDL^T$. An inconclusive pivot below $10^{-12}$
+sends that support to exact checking. The remaining probability and outside-payoff rejections are heuristic, so `fast` is not a
+mathematical correctness certificate. `safe` bypasses floating-point candidate rejection and uses exact arithmetic for every
+support.
 
 `test` is an independent source copy of `fast` for numerical experiments. It currently has the same behavior as `fast`.
 
