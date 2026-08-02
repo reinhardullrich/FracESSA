@@ -61,8 +61,8 @@ construction is impossible. Then compare fast and safe candidate contracts over 
 Completed 2026-08-02 for compilers preserving IEEE special-value behavior: both independent paths now return candidate-possible
 after a non-finite reference probability, payoff, threshold, or outside payoff. No exact input is known that reliably reaches
 these guards through the existing precision-span, equilibration, pivot, and solved-coordinate checks, so no artificial test hook
-was added merely to inject an impossible internal state. The complete native and Python suites pass with the guards active. The
-MSVC Release configuration remains open as FP-C03 below.
+was added merely to inject an impossible internal state. The complete native and Python suites pass with the guards active. MSVC
+Release now requests `/fp:precise`; Windows verification is deferred as recorded under FP-C03.
 
 ### FP-C02: Fast-mode regression coverage is incomplete and one comment is stale
 
@@ -84,25 +84,26 @@ Completed 2026-08-02: the CLI black-box test now compares complete candidate out
 `safe` for the small-pivot, positive-probability, and outside-payoff counterexamples. It also checks their expected ESS counts of
 1, 1, and 2. The focused black-box test and all 10 CTest tests pass; all 56 Python tests pass as well.
 
-### FP-C03: MSVC Release disables reliable special-value behavior
+### FP-C03: MSVC Release must preserve special-value behavior
 
-- [ ] Remove `/fp:fast` from the MSVC Release options or replace it with `/fp:precise`.
+- [x] Replace the MSVC Release `/fp:fast` option with `/fp:precise`.
 
 The fast and test paths now rely on standard NaN and infinity propagation plus `std::isfinite()` to select exact fallback.
-`cpp/CMakeLists.txt` still applies `/fp:fast` to every MSVC Release source. Microsoft documents that special values may not
-propagate or behave according to IEEE 754 under that option. The Linux and macOS configurations do not enable an equivalent
-fast-math mode, so this is a Windows Release correctness gap rather than a defect in the fallback branches themselves.
+`cpp/CMakeLists.txt` formerly applied `/fp:fast` to every MSVC Release source, even though Microsoft documents that special values
+may not propagate or behave according to IEEE 754 under that option. MSVC Release now uses `/fp:precise`; Linux and macOS already
+avoid an equivalent fast-math mode.
 
-Required outcome: compile MSVC Release with `/fp:precise`, run the CLI counterexample regressions on Windows, and only then treat
-the non-finite fallback as a cross-platform guarantee.
+Closed 2026-08-02 as a configuration change. No Windows build or regression was run in this task, as requested. Compile the next
+Windows release and run the CLI counterexample regressions before publishing it; that deferred platform verification does not keep
+this source-review point open.
 
 ## Bit-identical or structural simplifications
 
 These changes do not intentionally alter the arithmetic. They should still be tested because they touch the hot solver.
 
-### FP-S01: Reuse the 1-by-1 pivot multiplier
+### FP-S01: Reuse the 1-by-1 pivot multiplier — tested, do not promote
 
-- [ ] Remove the second scaling pass over the accepted 1-by-1 pivot column.
+- [x] Benchmark reusing the multiplier in `find_candidate_test`; leave production fast unchanged.
 
 `factor_bunch_kaufman()` computes
 
@@ -114,24 +115,82 @@ for the Schur update, then traverses the same column again and repeats the same 
 into `system(column, k)` after that column's update instead. This removes one multiplication and the second full column pass for
 every 1-by-1 pivot. The multiplication itself and its input values are unchanged.
 
-### FP-S02: Extract the complement only when it is needed
+Measured 2026-08-02 against the saved `equilibrated-fast` run. Both builds used the same canonical Release/native/LTO settings,
+CPU 2, one persistent Pybind process, native nanosecond medians, the one-second target, and the same 81 matrices of dimensions
+3 through 25. The experiment stored the native `test` method under timing mode `fast` only because the historical SQLite schema
+does not admit `test`; build label `fp-s01-test`, its comment, and its binary hash identify the experimental code.
 
-- [ ] Keep the complement mask at function entry and enumerate its bits only after the support probabilities pass.
+| Panel | Matrices | Median change | Mean change |
+|:---|---:|---:|---:|
+| all | 81 | +0.3064% | +0.2850% |
+| non-circular | 51 | +0.2566% | +0.3038% |
+| circular | 30 | +0.3854% | +0.2530% |
+| dimensions 3-8 | 20 | +1.0169% | +1.1063% |
+| dimensions 9-16 | 28 | +0.4301% | +0.3786% |
+| dimensions 17-25 | 33 | -0.0810% | -0.2922% |
 
-`find_candidate_fast::find()` currently fills `non_support_indices` before factorization. Many supports return during
+All 81 ESS counts matched. The variant won 27 matrices, lost 51, and tied 3. The two long one-sample matrices improved, but that
+does not outweigh the balanced result: ID 45 changed by -3.48% and ID 47 by -5.49%, while the overall panel regressed and the
+large-matrix median was effectively neutral. Decision: do not copy FP-S01 into production fast. Reset test to the production fast
+implementation before starting the next independent experiment.
+
+### FP-S02: Extract the complement only when it is needed — promoted
+
+- [x] Keep the complement mask at function entry and enumerate its bits only after the support probabilities pass.
+
+Before promotion, `find_candidate_fast::find()` filled `non_support_indices` before factorization. Many supports return during
 factorization or probability validation, so this work and its stack array are unused. Outside strategies can be visited directly
 from the existing complement mask with `ctz` plus clear-lowest-bit iteration. Preserve ascending index order.
 
-### FP-S03: Convert and equilibrate one symmetric triangle
+Measured 2026-08-02 against the saved `equilibrated-fast` run. Both builds used the same canonical Release/native/LTO settings,
+CPU 2, one persistent Pybind process, native nanosecond medians, the one-second target, and the same 81 matrices of dimensions
+3 through 25. The experiment stored the native `test` method under timing mode `fast` only because the historical SQLite schema
+does not admit `test`; build label `fp-s02-test`, its comment, and its binary hash identify the experimental code.
 
-- [ ] Convert each exact symmetric entry once and mirror it.
-- [ ] Apply each equilibration product once and mirror it.
+| Panel | Matrices | Median change | Mean change |
+|:---|---:|---:|---:|
+| all | 81 | -0.8086% | -0.0231% |
+| non-circular | 51 | -0.8638% | +0.0989% |
+| circular | 30 | -0.6616% | -0.2305% |
+| dimensions 3-8 | 20 | +3.6021% | +3.9998% |
+| dimensions 9-16 | 28 | -1.5120% | -1.5646% |
+| dimensions 17-25 | 33 | -0.9184% | -1.1533% |
 
-`prepare_normalized_double_game()` currently converts both `A(i,j)` and `A(j,i)`. The equilibration pass likewise computes both
+All 81 ESS counts matched. The variant won 60 matrices, lost 18, and tied 3. Its small-panel regression is concentrated in
+sub-microsecond and few-microsecond cases; the medium and large panels both improve. The change also deletes one 64-byte stack
+array and one eager scan while preserving ascending outside-strategy order. Promoted to fast on 2026-08-02; fast and test retain
+the same implementation.
+
+### FP-S03: Convert and equilibrate one symmetric triangle — promoted
+
+- [x] Convert each exact symmetric entry once and mirror it.
+- [x] Apply each equilibration product once and mirror it.
+
+Before promotion, `prepare_normalized_double_game()` converted both `A(i,j)` and `A(j,i)`. The equilibration pass likewise computed both
 halves. The exact source is symmetric and the scale product is symmetric, so one triangular loop plus the mirrored assignment
 removes duplicate conversion and multiplication without changing the value placed in either half.
 
 This is once-per-game work, so expect a modest gain rather than a large end-to-end change.
+
+Measured 2026-08-02 with FP-S02 retained underneath it. The canonical Release/native/LTO, CPU-2, persistent-Pybind,
+native-nanosecond-median, one-second protocol and the same 81 dimension-3-through-25 matrices were used again. The new session is
+`timing_20260802_fp_s02_s03_triangle`, with build label `fp-s02-s03-test`.
+
+| Panel | Matrices | Combined median vs fast | Combined mean vs fast | FP-S03 median vs FP-S02 | FP-S03 mean vs FP-S02 |
+|:---|---:|---:|---:|---:|---:|
+| all | 81 | -1.9117% | -1.8817% | -0.8333% | -1.8005% |
+| non-circular | 51 | -1.6725% | -1.0522% | -0.6160% | -1.0752% |
+| circular | 30 | -2.4419% | -3.2919% | -1.6412% | -3.0335% |
+| dimensions 3-8 | 20 | -3.2960% | -1.9803% | -6.4912% | -5.7310% |
+| dimensions 9-16 | 28 | -3.2173% | -3.3846% | -1.0477% | -1.8376% |
+| dimensions 17-25 | 33 | -1.4652% | -0.5469% | -0.0740% | +0.6132% |
+
+All 81 ESS counts matched. Combined FP-S02+FP-S03 won 62 matrices, lost 14, and tied 5 against production fast. FP-S03 alone
+won 60 and lost 21 against the saved FP-S02 run. Its direct paired median contribution is -0.8333%; subtracting the two rounded
+cumulative medians suggests about -1.10 percentage points, but medians of per-matrix ratios are not additive and the runs contain
+ordinary timing noise. As expected for once-per-game setup work, the clear gain is in small and medium games, while the large-game
+median is neutral. Promoted together with FP-S02 on 2026-08-02. The temporary shared-helper flag was removed; conversion now always
+uses one triangle, while fast and test retain independent but source-identical equilibration and candidate kernels.
 
 ### FP-S04: Fold precision-span extrema into the collection pass
 

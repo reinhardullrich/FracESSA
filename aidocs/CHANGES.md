@@ -538,3 +538,14 @@ and ESS classification for all 90 canonical matrices. Fast and test now also sen
 accumulations to exact checking, while the CLI regression compares complete fast/test/safe candidate output for all three stored
 historical false rejections. MSVC Release `/fp:fast` remains tracked separately because it does not guarantee IEEE special-value
 behavior.
+238. Preserved non-finite fast fallback on MSVC Release:
+replaced `/fp:fast` with `/fp:precise`, because the candidate paths rely on IEEE NaN and infinity propagation plus
+`std::isfinite()` to select exact fallback. Linux Release tests remain unchanged; Windows compilation and regression verification
+are deferred to the next Windows release build.
+239. Promoted the measured FP-S02 and FP-S03 fast-path simplifications:
+fast now keeps only the outside-support complement mask until factorization and probability validation succeed, then walks its set
+bits directly in ascending order. Exact-to-double conversion and final equilibration scaling each process one symmetric triangle
+and mirror it. The temporary shared conversion flag was removed, and fast/test source differs only in class and header names. On
+the balanced 81-matrix CPU-2 panel, FP-S02 alone improved the median by 0.81%; combined FP-S02+FP-S03 improved it by 1.91%, while
+all ESS counts matched. Release passed all 10 C++/CLI and 56 Python tests, and one promoted-fast pass reproduced all 81 benchmarked
+matrix ESS counts including IDs 45-47 and 91-93.

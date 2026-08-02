@@ -23,7 +23,7 @@ if(MSVC)
         $<$<CONFIG:Release>:/Oi>
         $<$<CONFIG:Release>:/Ot>
         $<$<CONFIG:Release>:/GL>
-        $<$<CONFIG:Release>:/fp:fast>
+        $<$<CONFIG:Release>:/fp:precise>
     )
     add_link_options($<$<CONFIG:Release>:/LTCG>)
     # Suppress noisy warnings from GMP/FLINT headers on Windows

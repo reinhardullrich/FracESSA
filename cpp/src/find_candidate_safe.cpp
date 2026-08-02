@@ -109,7 +109,7 @@ bool find_candidate_safe::prepare_normalized_double_game(unsigned long precision
     slong maximum_exponent = 0;
     static_cast<void>(maximum.to_dbl_2exp(maximum_exponent));
     for (size_t row = 0; row < dimension_; ++row) {
-        for (size_t column = 0; column < dimension_; ++column) {
+        for (size_t column = 0; column <= row; ++column) {
             const auto entry = integer_game_(row, column);
             if (entry.is_zero()) continue;
 
@@ -123,6 +123,7 @@ bool find_candidate_safe::prepare_normalized_double_game(unsigned long precision
             const double value = std::scalbn(mantissa, static_cast<int>(exponent_difference));
             if (value == 0.0 || !std::isfinite(value)) return false;
             result(row, column) = value;
+            result(column, row) = value;
         }
     }
     return true;

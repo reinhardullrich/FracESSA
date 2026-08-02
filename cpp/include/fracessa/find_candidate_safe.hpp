@@ -21,7 +21,8 @@ public:
     // Test whether the exact integer-scaled game spans at least the requested factor without rebuilding that representation.
     bool precision_span_at_least(unsigned long limit) const;
 
-    // Remove the common game denominator, normalize the remaining integer matrix by one power of two, and convert it once for test search.
+    // Remove the common game denominator, normalize the remaining integer matrix by one power of two, convert one symmetric
+    // triangle, and mirror it for double search.
     // False means that the integer entries or their distinct gaps exceed the requested precision span and safe search must be used.
     bool prepare_normalized_double_game(unsigned long precision_span_limit, linalg::matrix_dbl& result) const;
 

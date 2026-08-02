@@ -127,8 +127,8 @@ enumeration requires the exclusive `2^n` bound, so dimension 64 is not
 supported.
 
 Every entry surface requires one of three search methods before the matrix; there is no default. `safe` uses exact arithmetic for
-every candidate decision. `fast` removes the game's common denominator, applies an exact integer precision-span check, normalizes
-and equilibrates the complete binary64 game once, and solves each border-eliminated symmetric candidate system with
+every candidate decision. `fast` removes the game's common denominator, applies an exact integer precision-span check, converts
+and equilibrates one symmetric triangle of the complete binary64 game once, mirrors it, and solves each border-eliminated system with
 Bunch-Kaufman $LDL^T$. A matrix with $P\geq10^9$ switches entirely to `safe`, and a support with an inconclusive pivot below
 $10^{-12}$ reaches exact checking. Its remaining probability and outside-payoff rejections are heuristic. Experimental `test` is
 an independent source copy of `fast`, not a wrapper around it; it currently has identical behavior and can be changed without
@@ -169,15 +169,16 @@ Important implementation points:
   pruning rule: every exact equilibrium support forbids later strict supersets.
 - `find_candidate_fast` reuses the safe solver's denominator-cleared integer game. It switches the complete matrix to safe search
   when the remaining integer entries or distinct gaps give $P\geq10^9$; otherwise one common power-of-two normalization precedes
-  one LAPACK-derived symmetric BIN equilibration $A\mapsto DAD$ of the complete game. Each support eliminates the
+  one LAPACK-derived symmetric BIN equilibration $A\mapsto DAD$ of the complete game. Conversion and final equilibration scaling
+  each process one triangle and mirror it. Each support eliminates the
   payoff/normalization border, forms the transformed reduced Hessian, and solves it with the adapted lower-triangle Bunch-Kaufman
   $LDL^T$ factorization and solve. The transformed normalization vector and row scales recover probabilities and payoffs in the
   original game coordinates. Failed equilibration, every small or non-finite pivot, and every non-finite completed probability or
-  payoff accumulation are inconclusive and reach exact checking. Probability and outside-payoff rejections remain heuristic, so
-  `fast` is not a correctness certificate.
+  payoff accumulation are inconclusive and reach exact checking. Outside strategies are enumerated directly from the complement
+  mask only after factorization and probability checks pass. Probability and outside-payoff rejections remain heuristic, so `fast`
+  is not a correctness certificate.
 - `find_candidate_test` intentionally duplicates fast double storage, equilibration, and reduced-system kernel without sharing its
-  implementation or double state. It currently has the same precision-span, pivot, probability, and outside-payoff decisions as
-  fast.
+  implementation or double state. Its source is currently identical to fast apart from class and header names.
 - `find_candidate_safe` clears the game's rational denominators once, eliminates
   the normalization/payoff border, and constructs the integer-scaled symmetric
   reduced system $dH y=dr$ in reusable FLINT storage. One fraction-free
@@ -342,13 +343,17 @@ non-circular matrices. Same-property alternatives formerly stored at IDs 12
 and 21 were removed; the former contents of IDs 18 and 26 were replaced by the
 published vectors.
 
-The timing snapshot has 400 CPU-2 persistent-Pybind rows. It retains only Werner fast and safe, the July 27 pre-refactor GitHub
-build renamed `classic`, and the paired safe builds immediately before and after the C++ FLINT-wrapper extraction. Classic is
+The timing snapshot has 724 CPU-2 persistent-Pybind rows. It retains Werner fast and safe, the July 27 pre-refactor GitHub build
+renamed `classic`, the paired safe builds immediately before and after the C++ FLINT-wrapper extraction, and four 81-matrix fast
+panels for `equilibrated-fast`, rejected FP-S01, retained FP-S02, and combined FP-S02+FP-S03. The experimental test panels use
+historical timing mode `fast` because the strict schema does not admit `test`; their build labels and comments identify the actual
+native method. Classic is
 revision `32f61679`; it predates both the support-generator redesign and exact $LDL^T$, and its raw-double result mismatches IDs
 38-39. Werner has 87 fast rows and 72 safe rows. The paired builds each have 77 dimension-3-or-larger rows with one-second native
 medians; IDs 65-66 and 90 were not attempted because retained evidence did not establish a sub-30-second run, while pre-wrapper
 ID 47 was measured at 50.394 seconds and then removed. All paired ESS counts match. Build label, revision, and binary hash identify
-every stored build. Timing reports derive matrix dimension, circularity, and the paper-style lower bound
+every stored build. All four newer panels also match their expected ESS counts. Timing reports derive matrix dimension,
+circularity, and the paper-style lower bound
 `gamma_lower_bound = expected_ess ** (1 / dimension)` without storing it in SQLite.
 
 A historical `reduced-hessian-ldlt` benchmark measured 85 matrices; IDs 33-34

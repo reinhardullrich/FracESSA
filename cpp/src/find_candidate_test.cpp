@@ -21,7 +21,7 @@ constexpr size_t kEquilibrationIterations = 100;
  * The symmetric equilibration, indefinite factorization, and solve below adapt the lower-triangle paths of LAPACK 3.12.1
  * DSYEQUB, DSYTF2, and DSYTRS to FracESSA's small row-major matrices and single right-hand side. Changes from LAPACK are
  * zero-based indexing, direct loops in place of BLAS calls, fixed-size caller-owned arrays, and an inconclusive return for failed
- * equilibration or a small or non-finite pivot. The routine names and interfaces are local to this experiment, as requested by
+ * equilibration or a small or non-finite pivot. The routine names and interfaces are local to this implementation, as requested by
  * LAPACK for modified routines.
  *
  * Copyright (c) 1992-2023 The University of Tennessee and The University of Tennessee Research Foundation. All rights reserved.
@@ -160,9 +160,11 @@ bool equilibrate_game_matrix(linalg::matrix_dbl& game, size_t dimension, double*
     }
 
     for (size_t row = 0; row < dimension; ++row) {
-        for (size_t column = 0; column < dimension; ++column) {
-            game(row, column) *= scales[row] * scales[column];
-            if (!std::isfinite(game(row, column))) return false;
+        for (size_t column = 0; column <= row; ++column) {
+            const double value = game(row, column) * (scales[row] * scales[column]);
+            if (!std::isfinite(value)) return false;
+            game(row, column) = value;
+            game(column, row) = value;
         }
     }
     return true;
@@ -364,10 +366,8 @@ bool find_candidate_test::find(const bitset64& support, size_t support_size)
      * adapted LAPACK Bunch-Kaufman LDL^T factorization but deliberately does not use its inertia for stability.
      */
     uint8_t support_indices[bs64::kMaxBitsetDimension];
-    uint8_t non_support_indices[bs64::kMaxBitsetDimension];
     const size_t support_count = bs64::extract_set_indices(support, dimension_, support_indices);
-    const bitset64 complement = bs64::set_all_n_bits(dimension_) & ~support;
-    const size_t non_support_count = bs64::extract_set_indices(complement, dimension_, non_support_indices);
+    bitset64 complement = bs64::set_all_n_bits(dimension_) & ~support;
     assert(support_count == support_size);
     static_cast<void>(support_size);
 
@@ -430,8 +430,9 @@ bool find_candidate_test::find(const bitset64& support, size_t support_size)
 
     const double threshold = payoff + 1e-4 * static_cast<double>(dimension_);
     if (!std::isfinite(threshold)) return true;
-    for (size_t i_pos = 0; i_pos < non_support_count; ++i_pos) {
-        const size_t i = non_support_indices[i_pos];
+    while (complement != 0) {
+        const size_t i = bs64::find_pos_first_set_bit(complement);
+        complement &= complement - 1;
         double rowsum = game_dbl_(i, reference) * reference_coordinate;
         for (size_t position = 0; position < reduced_dimension; ++position) {
             rowsum += game_dbl_(i, support_indices[position + 1]) * solution[position];
