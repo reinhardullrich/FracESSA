@@ -1,6 +1,6 @@
 # Python Review
 
-Last verified: 2026-08-01
+Last verified: 2026-08-02
 
 Scope: maintained Python wrapper, multiprocessing, sinks, generic JSON input,
 and wrapper tests. The native `fracessa_core` extension is reviewed separately
@@ -12,13 +12,12 @@ remove a finding after its fix and regression coverage are complete.
 
 ## Current Validation State
 
-- All 57 PyFracESSA tests passed against the combined Release native module
+- All 60 PyFracESSA tests passed against the combined Release native module
   with PyArrow available.
 - The former JSON/CSV verification, baseline-generation, subprocess benchmark,
   and JSON-fed Callgrind paths have been removed. Their small replacement timing
-  tool keeps one build loaded on a pinned CPU, sizes each matrix/method sample
-  from its first returned native duration, and stores the median returned
-  nanoseconds in the canonical SQLite database.
+  tool keeps one build loaded on a pinned CPU, sizes each matrix/method sample from its matrix-owned calibration, and stores the
+  median returned nanoseconds in the canonical SQLite database. The default target is 0.5 seconds.
 - Generic JSON input requires its configured key, a row list, and object rows;
   malformed schemas fail instead of silently producing no work.
 - `Matrix` validates built-in string/dictionary fields and signed 64-bit
@@ -27,15 +26,19 @@ remove a finding after its fix and regression coverage are complete.
 - The unused input pass-through iterator and its collection imports have been
   deleted.
 - `testdata/fracessa_testdata.sqlite3` passes SQLite integrity and foreign-key
-  checks and contains 630 pairwise-distinct matrices. Its 101 analyzed rows store 49,392 representatives whose multipliers
-  recover 86,387 candidates and 83,466 ESS; 529 rows are catalog-only. Dimensions 2-25 each have at least
+  checks and contains 628 distinct strategically normalized matrices. Its 366 analyzed rows store 56,960 representatives whose
+  multipliers recover 94,046 candidates and 85,303 ESS; 262 rows exceeded the safe calibration cutoff. Dimensions 2-25 each have at least
   one circular and one non-circular matrix, and every distinct matrix from the
   two published Bomze-Schachinger-Ullrich result tables is present once.
-- Its retained timing data have 724 persistent-Pybind median rows spanning Werner, `classic`, paired safe-wrapper, and four
-  fast-path experiment panels. Catalog-only matrices are excluded automatically. Historical raw search mismatches IDs 38-39;
-  retained exact results and all four newer panels match their expected ESS counts. Report rows
+- Its retained timing data have 716 persistent-Pybind median rows spanning Werner, `classic`, paired safe-wrapper, four fast-path
+  experiment panels, and the current 10-row circular-normalization panel. Catalog-only matrices are excluded automatically.
+  Historical rows for seven matrices whose stored values changed were removed; retained exact results and every current panel row
+  match their expected ESS counts. Report rows
   include dimension, circularity, and the derived lower bound
   `gamma_lower_bound = expected_ess ** (1 / dimension)`.
+- All 628 matrices have both calibration fields: fast has 404 measured native durations and 224 cutoff sentinels; safe has 362
+  measurements and 266 sentinels. Safe calibration added 267 exact baselines without changing any prior baseline, candidate,
+  timing, fast-calibration, or catalog-metadata value.
 - Sequential and multiprocessing paths use one flat result dictionary;
   CSV, JSON, and Parquet are the only output sinks.
 - `run` and `run_multiprocessing` are the only public execution functions;

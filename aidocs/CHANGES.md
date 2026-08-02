@@ -677,3 +677,29 @@ classification heading found during the title-page pass.
 checked all 105 printed pages again, re-ran exact-source comparisons for the three TeX-backed papers, verified every
 numbered-equation sequence, all 95 mapped citations, all 120 bibliography entries, both reconstructed numerical tables, all seven
 figure assets, local links, footnotes, and Markdown parsing, and found no further transcription discrepancies.
+260. Added explicit per-matrix timing calibrations:
+stored fast and safe calibration durations as exact integer nanoseconds on `matrices` and made the timing runner use them instead
+of its first measured sample to choose the iteration count. Fast now covers all 630 matrices with 406 positive values and 224
+timeouts after retaining existing values and applying the one-second cutoff only to missing rows; safe retains 77 positive values.
+Missing calibrations stop a run before measurement, the default target is 0.5 seconds, and calibration values remain manually
+maintained matrix metadata rather than benchmark-history rows. A `-1` calibration records a process killed at its cutoff and
+selects one benchmark iteration.
+261. Completed safe calibration and retained its reusable runner:
+added `scripts/calibrate_matrices.py` to fill only null fast or safe calibration fields on CPU 2 with a one-second default cutoff.
+Safe mode also writes missing exact weighted counts, support-size structures, and representative candidate rows atomically. The
+safe pass processed all 553 missing values, producing 364 positive calibrations and 266 cutoff sentinels overall and adding 267
+complete baselines. The database now has 368 analyzed matrices, 57,012 representatives, 94,048 weighted candidates, and 85,305
+weighted ESS. Pre-existing calibration, baseline, candidate, timing, and catalog data remained unchanged by value.
+262. Normalized every eligible circulant matrix into compact zero-diagonal storage:
+added `scripts/normalize_circular_matrices.py`, which audits exact fractions and converts a circulant source matrix by storing
+`A - dJ`, where `d` is its common diagonal value, while recording that exact value in the matrix description. Converted IDs 1,
+38, 39, 41, 43, 44, and 2203 with `d = 0, 0, 100000000000000000000, -1, 0, -1, 1`; documented dimension-one ID 314 as the sole
+full-storage circular exception. Recomputed the seven baselines and fast/safe calibrations: weighted totals remain 94,048
+candidates and 85,305 ESS, while orbit compression reduces stored representatives from 57,012 to 56,962. Removed 18 historical
+timings measured against the old stored matrices and added 14 current-build fast/safe normalization measurements. The database
+now contains 630 source/catalog identities, 628 distinct normalized stored matrices, 48 compact circular rows, and 720 timings.
+263. Removed the newer normalized duplicate matrices:
+IDs 39 and 41 both became the same compact dimension-two game as older ID 1 after subtracting their respective common diagonal
+values. Removed the two newer matrix rows and their cascading candidate, calibration, and four current timing records, leaving 628
+pairwise-distinct stored matrices, 56,960 representatives, 94,046 weighted candidates, 85,303 weighted ESS, 46 compact circular
+rows, and 716 timings. The normalization script now identifies identical compact results and retains the oldest `created_at` row.

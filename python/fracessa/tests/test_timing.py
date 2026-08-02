@@ -29,12 +29,12 @@ class TimingTests(unittest.TestCase):
 
             self.assertEqual(
                 timing._load_matrices(connection, None, "all"),
-                [(1, 2, "0,1,0", 1)],
+                [(1, 2, "0,1,0", 1, None, None)],
             )
             with self.assertRaisesRegex(ValueError, "no candidate baseline"):
                 timing._load_matrices(connection, [2], "all")
 
-    def test_cli_seconds_are_normalized_and_adaptively_sampled(self):
+    def test_cli_seconds_are_normalized_and_calibrated(self):
         with tempfile.TemporaryDirectory() as directory:
             root = Path(directory)
             database = root / "timing.sqlite3"
@@ -44,9 +44,10 @@ class TimingTests(unittest.TestCase):
             connection.execute(
                 """INSERT INTO matrices (
                        matrix_id, dimension, size_class, is_cs, matrix,
+                       fast_calibration_ns,
                        candidate_count, ess_count, candidate_structure,
                        ess_structure, origin
-                   ) VALUES (1, 2, 'small', 0, '0,1,0', 4, 4, '{}', '{}', 'unit')"""
+                   ) VALUES (1, 2, 'small', 0, '0,1,0', 123000, 4, 4, '{}', '{}', 'unit')"""
             )
             connection.commit()
             connection.close()
@@ -114,7 +115,7 @@ class TimingTests(unittest.TestCase):
                     "abc123",
                 ),
             )
-            self.assertIn("iterations=9 median_ns=123000", output.getvalue())
+            self.assertIn("iterations=9 calibration_us=123.000 median_ns=123000", output.getvalue())
 
     def test_native_measurement_at_target_uses_one_run(self):
         calls = []
@@ -126,11 +127,22 @@ class TimingTests(unittest.TestCase):
         with mock.patch(
             "fracessa.timing.perf_counter_ns", side_effect=[0, 5]
         ):
-            result = timing._measure_target(
-                runner, 3, "2#0,1,0", "safe", 1_000_000_000
-            )
+            result = timing._measure_target(runner, 3, "2#0,1,0", "safe", 1_000_000_000, 1_100_000_000)
 
         self.assertEqual(result, (7, 1_100_000_000, 1, 5))
+        self.assertEqual(len(calls), 1)
+
+    def test_timeout_calibration_uses_one_run(self):
+        calls = []
+
+        def runner(matrix_id, matrix, method):
+            calls.append((matrix_id, matrix, method))
+            return 7, 12_000_000_000
+
+        with mock.patch("fracessa.timing.perf_counter_ns", side_effect=[0, 12_000_000_001]):
+            result = timing._measure_target(runner, 3, "2#0,1,0", "fast", 500_000_000, -1)
+
+        self.assertEqual(result, (7, 12_000_000_000, 1, 12_000_000_001))
         self.assertEqual(len(calls), 1)
 
     def test_native_duration_sizes_sample_and_result_is_median(self):
@@ -142,11 +154,40 @@ class TimingTests(unittest.TestCase):
         with mock.patch(
             "fracessa.timing.perf_counter_ns", side_effect=[0, 10_000]
         ):
-            result = timing._measure_target(
-                runner, 3, "2#0,1,0", "safe", 400
-            )
+            result = timing._measure_target(runner, 3, "2#0,1,0", "safe", 400, 100)
 
         self.assertEqual(result, (7, 100, 4, 10_000))
+
+    def test_default_target_is_half_a_second(self):
+        arguments = timing._parser().parse_args(
+            [
+                "run", "--backend", "pybind", "--build-label", "current",
+                "--source-ref", "main", "--revision", "abc123", "--method", "fast", "--cpu", "2",
+            ]
+        )
+        self.assertEqual(arguments.target_seconds, 0.5)
+
+    def test_run_rejects_a_missing_calibration_before_loading_the_binary(self):
+        with tempfile.TemporaryDirectory() as directory:
+            database = Path(directory) / "timing.sqlite3"
+            with sqlite3.connect(database) as connection:
+                connection.executescript(timing.DEFAULT_DATABASE.with_name("schema.sql").read_text())
+                connection.execute(
+                    """INSERT INTO matrices (
+                           matrix_id, dimension, size_class, is_cs, matrix,
+                           candidate_count, ess_count, candidate_structure,
+                           ess_structure, origin
+                       ) VALUES (1, 3, 'small', 0, '0,1,0,0,0,0', 1, 1, '{}', '{}', 'unit')"""
+                )
+
+            arguments = timing._parser().parse_args(
+                [
+                    "run", "--database", str(database), "--backend", "pybind", "--build-label", "current",
+                    "--source-ref", "main", "--revision", "abc123", "--method", "fast", "--cpu", "2",
+                ]
+            )
+            with self.assertRaisesRegex(ValueError, "matrix IDs have no fast calibration: \\[1\\]"):
+                timing._run(arguments)
 
     def test_pybind_method_and_historical_interfaces_are_mapped(self):
         for method in ("fast", "safe"):

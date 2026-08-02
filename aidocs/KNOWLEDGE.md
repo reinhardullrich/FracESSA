@@ -296,9 +296,9 @@ compiled with method-specific settings.
 Both sides of a comparison must be clean revisions built afresh with the same compiler executable and version, CMake version,
 generator, dependency versions, and command above. The current reference toolchain is GCC 16.1.1, CMake 4.3.0, and Ninja 1.13.2.
 A toolchain upgrade starts a new benchmark lineage and must be recorded in the timing comment; it must not be presented as a
-source-only comparison with older rows. Canonical timing then uses the existing CPU-2, persistent-Pybind, one-second native-median
-protocol. An explicitly requested compiler experiment must be labelled as an experiment, record every deviation, and must not
-replace canonical rows.
+source-only comparison with older rows. Canonical timing uses CPU 2, one persistent Pybind process, matrix-owned fast/safe
+calibrations, a 0.5-second default target, and the median native nanosecond duration. An explicitly requested compiler experiment
+must be labelled as an experiment, record every deviation, and must not replace canonical rows.
 
 `cmake --install cpp/build` installs the CLI target only. It does not install
 GMP, MPFR, or FLINT.
@@ -314,16 +314,15 @@ black-box parser test. Wrapper tests use Python `unittest`. Matrix correctness
 is no longer wired as one CTest per matrix.
 
 `testdata/fracessa_testdata.sqlite3` is the canonical matrix, expected-result,
-and timing store. Its strict schema is in `testdata/schema.sql`; the current
-snapshot has 630 pairwise-distinct exact matrices. The 101 analyzed rows have
-49,392 stored candidate representatives; nullable multipliers recover weighted
-totals of 86,387 candidates and 83,466 ESS:
+and timing store. Its strict schema is in `testdata/schema.sql`; the current snapshot has 628 distinct strategically normalized
+matrices. The 366 analyzed rows have 56,960 stored candidate representatives; nullable multipliers recover weighted
+totals of 94,046 candidates and 85,303 ESS:
 circular rows store one smallest dihedral representative and its orbit count,
 while non-circular rows store null. Candidate IDs and row order remain
 reproducibility checks; complete weighted candidate sets and ESS
-classifications are the mathematical contracts. The other 529 rows are
-catalog-only and keep all four baseline-summary fields null as one group; null
-never means zero candidates or zero ESS.
+classifications are the mathematical contracts. The other 262 rows exceeded
+the one-second safe calibration cutoff and keep all four baseline-summary
+fields null as one group; null never means zero candidates or zero ESS.
 
 For optimization-problem collections, import only explicitly stored symmetric
 objective matrices. Do not add matrices whose only role is as a constraint. If
@@ -386,8 +385,9 @@ compact binary decoding matches the exact degree-16 example printed in Magma's
 handbook, and every one of the 4,474 ordinary representatives through degree 63
 was checked for the Hadamard identity and exact symmetry. The separate 638-row
 skew-Hadamard database was also audited; all rows have degrees 36, 44, or 52
-and none is symmetric. The six imports are non-circular, globally distinct,
-and catalog-only.
+and none is symmetric. The six source matrices are globally distinct and catalog-only. Dimension-one ID 314 is mathematically
+circulant but remains in full non-circular storage because the compact representation would contain no values; IDs 315-319 are
+non-circular.
 
 Thirty of the 35 in-range QPLIB problems have an explicitly stored quadratic
 objective. The database retains only these 30 objective Hessians; quadratic-
@@ -461,9 +461,10 @@ Attribution-ShareAlike license without identifying a version.
 IDs 2177-2206 are the 30 exact SDPLIB `F0` objective coefficient matrices whose complete block-diagonal dimensions are at
 most 63. The 92-problem SDPLIB 1.2 mirror has exactly 30 such eligible problems. Only matrix number zero is retained from
 each; all 1,799 `F1...Fm` constraint matrices and separate source blocks are excluded. Exact decimal and scientific tokens
-become reduced fractions. The objectives are pairwise distinct, duplicate no existing database row, and remain catalog-only;
-15 carry `super_large`. `theta1` is circulant but has a nonzero diagonal and therefore cannot use FracESSA's compact
-zero-diagonal circular input. The current GitHub mirror declares GPL-3.0; project metadata makes no broader licensing claim.
+become reduced fractions. The source objectives are pairwise distinct, duplicate no earlier source matrix, and remain catalog-only;
+15 carry `super_large`. `theta1` is circulant with source diagonal `1`; ID 2203 stores the strategically equivalent compact
+zero-diagonal matrix obtained by subtracting `1` from every entry, and its description records that normalization. The current
+GitHub mirror declares GPL-3.0; project metadata makes no broader licensing claim.
 
 Every dimension from 2 through 25 has at least one circular and one
 non-circular matrix. IDs 67-79 fill the previously missing combinations with
@@ -490,18 +491,31 @@ non-circular matrices. Same-property alternatives formerly stored at IDs 12
 and 21 were removed; the former contents of IDs 18 and 26 were replaced by the
 published vectors.
 
-The timing snapshot has 724 CPU-2 persistent-Pybind rows. It retains Werner fast and safe, the July 27 pre-refactor GitHub build
+The timing snapshot has 716 CPU-2 persistent-Pybind rows. It retains Werner fast and safe, the July 27 pre-refactor GitHub build
 renamed `classic`, the paired safe builds immediately before and after the C++ FLINT-wrapper extraction, and four 81-matrix fast
 panels for `equilibrated-fast`, rejected FP-S01, retained FP-S02, and combined FP-S02+FP-S03. The experimental test panels use
 historical timing mode `fast` because the strict schema does not admit `test`; their build labels and comments identify the actual
 native method. Classic is
 revision `32f61679`; it predates both the support-generator redesign and exact $LDL^T$, and its raw-double result mismatches IDs
-38-39. Werner has 87 fast rows and 72 safe rows. The paired builds each have 77 dimension-3-or-larger rows with one-second native
+38-39 in the historical corpus. The retained Werner panels now have 81 fast rows and 66 safe rows. The paired builds each have 77 dimension-3-or-larger rows with one-second native
 medians; IDs 65-66 and 90 were not attempted because retained evidence did not establish a sub-30-second run, while pre-wrapper
 ID 47 was measured at 50.394 seconds and then removed. All paired ESS counts match. Build label, revision, and binary hash identify
 every stored build. All four newer panels also match their expected ESS counts. Timing reports derive matrix dimension,
 circularity, and the paper-style lower bound
 `gamma_lower_bound = expected_ess ** (1 / dimension)` without storing it in SQLite.
+
+Exact circular-storage normalization uses `A - dJ`, never `A - dI`: subtracting the common diagonal value `d` from every entry
+preserves candidates and ESS on the simplex and shifts every payoff by `-d`. `scripts/normalize_circular_matrices.py` performs the
+audit with exact fractions and records `d` in each description. Retained IDs 1, 38, 43, 44, and 2203 use compact normalized
+storage with `d = 0, 0, 0, -1, 1`, respectively. Normalized IDs 39 and 41 duplicated older ID 1 and were removed. ID 314 is
+explicitly retained as the dimension-one full-storage exception. Eighteen stale `classic`/Werner rows for the old matrices were
+replaced by a 10-row current-build fast/safe panel; its dimension-two rows are normalization checks, not aggregate benchmarks.
+
+Matrix-owned fast calibration covers all 628 rows with 404 positive native durations and 224 `-1` timeouts; existing values were
+retained and only missing rows used the current one-second cutoff. Safe calibration covers all 628 rows with 362 positive native
+durations and 266 `-1` timeouts. The reusable `scripts/calibrate_matrices.py` processes only null calibration fields; safe mode also
+stores the complete exact baseline when it finishes within the cutoff. These calibrations choose future iteration counts and are
+not timing-history rows.
 
 A historical `reduced-hessian-ldlt` benchmark measured 85 matrices; IDs 33-34
 were not included in that run. Those rows are no longer in the canonical timing table. All 85 ESS counts matched. Against
@@ -565,11 +579,13 @@ session name groups separately invoked builds. Each row records `source_ref`
 backend, historical `mode` database value, CPU, comment, observed ESS count, target and measured wall time,
 iteration count, and median native elapsed time. One Pybind process stays open
 for every selected method and matrix in a build. New runs require `--method fast` or `--method safe`; adapters map those choices
-onto old Pybind and CLI interfaces when benchmarking historical builds. The first returned native
-duration chooses `ceil(target / duration)` total samples and remains in the
-sample; a duration at or above the target chooses one run. The stored result is
-the median returned `elapsed_ns`. Measured wall time is metadata only and
-never chooses or determines the reported timing. The CLI backend remains
+onto old Pybind and CLI interfaces when benchmarking historical builds. Each matrix row owns nullable `fast_calibration_ns` and
+`safe_calibration_ns` values. Positive values choose `ceil(target / calibration)` samples, while `-1` records a calibration killed
+at its cutoff and chooses one sample; a missing value is a hard error. `scripts/calibrate_matrices.py fast|safe` fills only missing
+values with a one-second default cutoff; safe also records missing exact candidate baselines. Clear a field manually before an
+intentional refresh. Calibrations are not timing-history rows. The default target is 0.5 seconds, and the stored result is the
+median returned `elapsed_ns`. Measured wall time is metadata only and never chooses or determines the reported timing. The CLI
+backend remains
 available for legacy inspection but starts a child process per sample and must
 not be mixed with persistent-Pybind microbenchmarks. Dated material under
 `experiments/` and `aidocs/experiments/` remains immutable historical

@@ -89,14 +89,14 @@ PYTHONPATH=python python3 -m fracessa.timing report latest --baseline main
 `source_ref` records a moving name such as `main`; `revision` records the exact
 commit measured, and the module or executable SHA-256 is captured automatically.
 The default selection is the `small` matrix class. Each matrix/method starts with
-one native sample. Its returned `elapsed_ns` chooses
-`ceil(target / elapsed_ns)` total samples and remains part of the sample; a
-duration at or above the one-second target chooses one run. The stored result is
-the median returned native duration. The Pybind module stays loaded for every
-selected method and matrix in that invocation. Python wall time is recorded as
-metadata only and does not select the sample count or result. Use repeated
-`--matrix-id`, `--size-class`, and `--target-seconds` to change the selection
-or calibration duration.
+the `fast_calibration_ns` or `safe_calibration_ns` value in its database row. Fill missing values with
+`scripts/calibrate_matrices.py fast` or `scripts/calibrate_matrices.py safe`; the safe calibration also stores a missing exact
+candidate baseline when that matrix finishes within the one-second cutoff. The timing runner uses
+`ceil(target / calibration)` samples for positive calibrations; a calibration at or above the target or a `-1` timeout
+sentinel chooses one run. The default target is 0.5 seconds, and a missing calibration is an error. The stored result is the median
+returned native duration. The Pybind module stays loaded for every selected method and matrix in that invocation. Python wall time
+is recorded as metadata only and does not select the sample count or result. Use repeated `--matrix-id`, `--size-class`, and
+`--target-seconds` to change the selection or target duration.
 
 Current Pybind builds supply nanoseconds directly. For a legacy CLI whose
 no-flag method corresponds to today's fast method and whose second output line

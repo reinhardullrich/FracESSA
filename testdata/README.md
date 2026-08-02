@@ -3,11 +3,11 @@
 `fracessa_testdata.sqlite3` is the canonical store for exact test matrices,
 complete expected candidate results where available, and timing data.
 
-The current snapshot contains 630 pairwise-distinct exact matrices. The 101
-analyzed matrices have 49,392 stored candidate representatives whose
-multipliers represent 86,387 candidates and 83,466 ESS; the other 529 catalog
-rows deliberately have null baseline fields because exhaustive analysis has
-not been run.
+The current snapshot contains 628 distinct strategically normalized matrices. The
+366 analyzed matrices have 56,960 stored candidate representatives whose
+multipliers represent 94,046 candidates and 85,303 ESS; the other 262 catalog
+rows have null baseline fields because safe analysis exceeded the one-second
+calibration cutoff.
 
 It contains each distinct matrix from Tables 1 and 2 of the
 Bomze-Schachinger-Ullrich ESS-growth paper exactly once. IDs 18 and 26 hold the
@@ -32,14 +32,45 @@ sign, and outside-payoff margin. Current fast uses its small-pivot and
 precision-span fallbacks to recover them. No complete SQLite matrix suite is
 currently wired into CTest.
 
-The timing table contains 724 CPU-2 persistent-Pybind median rows. It retains
+The timing table contains 716 CPU-2 persistent-Pybind median rows. It retains
 Werner fast and safe, the July 27 pre-refactor GitHub build renamed `classic`,
 the paired safe builds immediately before and after the C++ FLINT-wrapper
-extraction, and four fast-path experiment panels. Catalog-only rows are excluded
-automatically. The paired builds use one-second native medians for 77 matrices
+extraction, four fast-path experiment panels, and a 10-row current-build fast/safe circular-normalization panel. Catalog-only rows
+are excluded automatically. The paired builds use one-second native medians for 77 matrices
 of dimension at least 3; IDs 47, 65-66, and 90 are excluded by the 30-second
 rule. All paired ESS counts match. Build label, revision, and binary hash
 identify every stored build.
+
+Matrix rows contain nullable `fast_calibration_ns` and `safe_calibration_ns` values used only to choose benchmark iteration
+counts. Fast calibration covers all 628 matrices: 404 positive measurements and 224 `-1` timeouts. Existing values were retained,
+and only missing rows used the current one-second cutoff. Safe also covers all 628 matrices: 362 positive measurements and 266
+`-1` timeouts. A missing value prevents timing that matrix and method. A value of `-1` records a calibration run killed at its
+cutoff and selects one benchmark iteration. Positive integer nanoseconds preserve the native value exactly; divide by `1000.0`
+when displaying decimal microseconds.
+
+Run `scripts/calibrate_matrices.py fast` or `scripts/calibrate_matrices.py safe` from the repository root to fill only missing
+calibrations with the canonical Release Pybind module on CPU 2 and a one-second cutoff. Safe calibration also stores complete
+weighted counts, support-size structures, and representative candidate rows for a matrix that finishes within the cutoff.
+Existing calibration and baseline values are never overwritten; clear a calibration field explicitly before intentionally
+refreshing it.
+
+## Circular Storage Normalization
+
+`scripts/normalize_circular_matrices.py` audits every matrix with exact `Fraction` arithmetic. For an eligible circulant matrix
+with common diagonal value `d`, it stores the strategically equivalent zero-diagonal matrix `A - dJ`, where `J` is the all-ones
+matrix, in compact circular form. Subtracting `d` from every entry preserves all best-response comparisons, candidates, and ESS;
+only every payoff changes by `-d`. Subtracting `d` only from the diagonal would not be equivalent.
+
+The retained converted rows and exact recorded constants are ID 1: `0`; ID 38: `0`; ID 43: `0`; ID 44: `-1`; and ID 2203: `1`.
+Each matrix description records its own constant and states that the preceding provenance describes the unnormalized source
+matrix. Normalized IDs 39 and 41 duplicated older ID 1, so the newer rows were removed. ID 314 is the dimension-one exception: it
+is mathematically circulant, but compact storage would contain zero values while the parser requires one value, so it remains full
+and is documented as non-circular storage.
+
+Normalization invalidated and recomputed the affected baselines and calibrations. Eighteen `classic`/Werner timing rows for the
+old stored matrices were removed; the replacement current-build panel contains fast and safe measurements for all five retained
+normalized rows. Its dimension-two rows are retained only as normalization checks and remain excluded from aggregate benchmark
+comparisons.
 
 ## SuiteSparse Imports
 
@@ -51,9 +82,9 @@ The SuiteSparse Matrix Collection import uses the following reproducible rule:
   Every finite decimal or scientific-notation `real` token is converted to its
   exact reduced fraction; this preserves the downloaded file exactly but does
   not claim that an underlying physical model was symbolically rational.
-- The dense exact matrix is stored in FracESSA upper-triangle format, or compact
-  circular format only when exact circular symmetry and a zero diagonal are
-  present.
+- The dense exact matrix is stored in FracESSA upper-triangle format. An exact circulant matrix of dimension at least two is first
+  normalized by subtracting its common diagonal value from every entry, then stored in compact zero-diagonal circular format; the
+  source value and transformation remain in its description.
 - Exact dense rational duplicates are not imported. SuiteSparse ID 2758,
   `Mycielski/mycielskian2`, was skipped because it equals existing matrix ID 1.
 - Dimensions 26-63 are retained but tagged `"super_large"`.
@@ -142,8 +173,9 @@ The ordinary database contains 5,391 inequivalent representatives, of which
 only six are themselves symmetric: representative 1 at each of degrees 1, 2,
 4, 8, 16, and 32. All 638 matrices in the separate skew database have degrees
 36, 44, or 52; all satisfy the skew-Hadamard property and none is symmetric.
-The six retained exact `+/-1` matrices are non-circular and globally distinct.
-They are catalog-only rows at IDs 314-319; degree 32 carries the
+The six retained exact `+/-1` source matrices are globally distinct. Dimension-one ID 314 is mathematically circulant but remains
+in full storage because the compact representation would have no values; IDs 315-319 are non-circular. They are catalog-only rows
+at IDs 314-319; degree 32 carries the
 `"super_large"` tag.
 
 The audited SHA-256 values are
@@ -302,9 +334,10 @@ independent submatrices.
 
 IDs 2177-2206 are the resulting 30 catalog-only objective matrices: four control, 15 H-infinity, two infeasible-dual, two
 infeasible-primal, three quadratic-assignment, one theta, and three truss problems. Exact parsing converts finite decimal
-and scientific-notation tokens to reduced fractions. The matrices are pairwise distinct and duplicate no earlier database
-row; 15 carry the `"super_large"` tag. `theta1` is circulant but has a nonzero diagonal, so it uses the full upper-triangle
-representation rather than FracESSA's compact zero-diagonal circular format. Each row links to its exact source file. The
+and scientific-notation tokens to reduced fractions. The source matrices are pairwise distinct and duplicate no earlier source
+matrix; 15 carry the `"super_large"` tag. `theta1` is circulant with source diagonal `1`; ID 2203 stores the strategically
+equivalent compact matrix obtained by subtracting `1` from every entry, and its description records the transformation. Each row
+links to its exact source file. The
 current GitHub mirror declares GPL-3.0; this catalog makes no broader licensing claim.
 
 ## Tables
@@ -337,6 +370,9 @@ Each row stores one exact matrix input and its summary:
 - `original_id`: identifier used by the source, when one exists.
 - `created_at`: first known project use or current-row creation as
   `YYYY-MM-DD`.
+- `fast_calibration_ns` and `safe_calibration_ns`: nullable native-duration estimates used to choose benchmark sample counts.
+  Positive values are nanoseconds, while `-1` marks a calibration timeout. They are matrix metadata, not benchmark
+  observations.
 
 The stable `matrix_id` remains the program-facing identifier. `origin` preserves
 the existing human provenance text, while `source_url` provides a
@@ -387,14 +423,12 @@ circularity; this value is not stored in the database.
 `python -m fracessa.timing` reads matrices from this database and writes timing
 observations back to `timings`. It is deliberately a sequential, Linux
 CPU-affinity runner, not part of the multiprocessing wrapper. One Pybind process
-stays open for all selected methods and matrices in a build. The first returned
-C++ duration chooses `ceil(target / duration)` total samples and remains part
-of the sample; a duration at or above the target chooses one run. The stored
-result is the median returned `elapsed_ns`. Wall time is recorded as metadata
-but does not choose the sample count or result. The tool also supports legacy
-CLI timers whose output unit is supplied on the command line, but those
-fresh-process rows must not be mixed with persistent-Pybind microbenchmarks. No
-active matrix-verification runner is wired into CTest yet.
+stays open for all selected methods and matrices in a build. The matching matrix calibration chooses
+`ceil(target / calibration)` samples; a calibration at or above the target chooses one run. The default target is 0.5 seconds.
+The stored result is the median returned `elapsed_ns`. Wall time is recorded as metadata but does not choose the sample count or
+result. A missing calibration is a hard error. The tool also supports legacy CLI timers whose output unit is supplied on the
+command line, but those fresh-process rows must not be mixed with persistent-Pybind microbenchmarks. No active
+matrix-verification runner is wired into CTest yet.
 
 The schema is defined in `schema.sql`. The C++ runtime does not read this
 database; the timing tool uses Python's standard `sqlite3` module.

@@ -83,14 +83,15 @@ def _load_matrices(
     connection: sqlite3.Connection,
     matrix_ids: list[int] | None,
     size_class: str,
-) -> list[tuple[int, int, str, int]]:
-    """Load selected matrix IDs, dimensions, values, and expected ESS counts."""
+) -> list[tuple[int, int, str, int, int | None, int | None]]:
+    """Load selected matrices, expected results, and timing calibrations."""
 
     if matrix_ids:
         requested = list(dict.fromkeys(matrix_ids))
         placeholders = ",".join("?" for _ in requested)
         rows = connection.execute(
-            f"""SELECT matrix_id, dimension, matrix, ess_count
+            f"""SELECT matrix_id, dimension, matrix, ess_count,
+                       fast_calibration_ns, safe_calibration_ns
                 FROM matrices WHERE matrix_id IN ({placeholders})
                 ORDER BY matrix_id""",
             requested,
@@ -105,12 +106,14 @@ def _load_matrices(
 
     if size_class == "all":
         rows = connection.execute(
-            """SELECT matrix_id, dimension, matrix, ess_count
+            """SELECT matrix_id, dimension, matrix, ess_count,
+                      fast_calibration_ns, safe_calibration_ns
                FROM matrices WHERE ess_count IS NOT NULL ORDER BY matrix_id"""
         ).fetchall()
     else:
         rows = connection.execute(
-            """SELECT matrix_id, dimension, matrix, ess_count
+            """SELECT matrix_id, dimension, matrix, ess_count,
+                      fast_calibration_ns, safe_calibration_ns
                FROM matrices
                WHERE size_class = ? AND ess_count IS NOT NULL
                ORDER BY matrix_id""",
@@ -252,19 +255,20 @@ def _measure_target(
     matrix: str,
     method: str,
     target_ns: int,
+    calibration_ns: int,
 ) -> tuple[int, int, int, int]:
     """Measure one matrix for about ``target_ns`` and return its native median.
 
-    The first native duration chooses the iteration count and remains part of
-    the sample. Wall time is recorded only as metadata.
+    The stored per-matrix calibration chooses the iteration count. Wall time is
+    recorded only as metadata.
     """
 
     measured_started = perf_counter_ns()
+    iterations = 1 if calibration_ns == -1 else max(1, (target_ns + calibration_ns - 1) // calibration_ns)
     ess_count, first_elapsed_ns = runner(matrix_id, matrix, method)
     if first_elapsed_ns <= 0:
         raise RuntimeError("native timing must be positive")
 
-    iterations = max(1, (target_ns + first_elapsed_ns - 1) // first_elapsed_ns)
     samples = [first_elapsed_ns]
     for _ in range(1, iterations):
         current_ess, current_elapsed_ns = runner(matrix_id, matrix, method)
@@ -321,6 +325,11 @@ def _run(arguments: argparse.Namespace) -> int:
         matrices = _load_matrices(
             connection, arguments.matrix_id, arguments.size_class
         )
+        for method in arguments.method:
+            calibration_offset = 4 if method == "fast" else 5
+            missing = [row[0] for row in matrices if row[calibration_offset] is None]
+            if missing:
+                raise ValueError(f"matrix IDs have no {method} calibration: {missing}")
         existing = connection.execute(
             "SELECT 1 FROM timings WHERE session = ? AND build_label = ? LIMIT 1",
             (session, arguments.build_label),
@@ -347,10 +356,12 @@ def _run(arguments: argparse.Namespace) -> int:
         previous_affinity = _pin_cpu(arguments.cpu)
         try:
             for method in arguments.method:
-                for matrix_id, dimension, values, expected_ess in matrices:
+                for matrix_id, dimension, values, expected_ess, fast_calibration_ns, safe_calibration_ns in matrices:
+                    calibration_ns = fast_calibration_ns if method == "fast" else safe_calibration_ns
+                    assert calibration_ns is not None
                     matrix = f"{dimension}#{values}"
                     ess_count, elapsed_ns, iterations, measured_wall_ns = (
-                        _measure_target(runner, matrix_id, matrix, method, target_ns)
+                        _measure_target(runner, matrix_id, matrix, method, target_ns, calibration_ns)
                     )
                     connection.execute(
                         """INSERT INTO timings (
@@ -381,8 +392,10 @@ def _run(arguments: argparse.Namespace) -> int:
                     )
                     connection.commit()
                     status = "ok" if ess_count == expected_ess else "mismatch"
+                    calibration_us = "timeout" if calibration_ns == -1 else f"{calibration_ns / 1_000:.3f}"
                     print(
                         f"{method} matrix={matrix_id} iterations={iterations} "
+                        f"calibration_us={calibration_us} "
                         f"median_ns={elapsed_ns} "
                         f"measured_s={measured_wall_ns / 1_000_000_000:.6f} "
                         f"ess={ess_count} expected={expected_ess} {status}",
@@ -542,7 +555,7 @@ def _parser() -> argparse.ArgumentParser:
     run.add_argument("--session")
     run.add_argument("--comment", default="")
     run.add_argument("--cpu", type=int, required=True)
-    run.add_argument("--target-seconds", type=float, default=1.0)
+    run.add_argument("--target-seconds", type=float, default=0.5)
     run.add_argument(
         "--size-class", choices=("small", "medium", "large", "all"), default="small"
     )

@@ -39,6 +39,12 @@ CREATE TABLE matrices (
     ),
     original_id TEXT CHECK (original_id IS NULL OR length(original_id) > 0),
     created_at TEXT CHECK (created_at IS NULL OR length(created_at) > 0),
+    fast_calibration_ns INTEGER CHECK (
+        fast_calibration_ns IS NULL OR fast_calibration_ns = -1 OR fast_calibration_ns > 0
+    ),
+    safe_calibration_ns INTEGER CHECK (
+        safe_calibration_ns IS NULL OR safe_calibration_ns = -1 OR safe_calibration_ns > 0
+    ),
     CHECK (
         (candidate_count IS NULL AND ess_count IS NULL AND
          candidate_structure IS NULL AND ess_structure IS NULL) OR
