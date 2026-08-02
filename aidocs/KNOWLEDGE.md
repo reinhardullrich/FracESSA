@@ -1,6 +1,11 @@
 # Project Knowledge
 
-Last verified: 2026-08-02
+Last verified: 2026-08-03
+
+## Worktree Policy
+
+1. Work in the main worktree at `/home/reinhard/projects/fracessa` unless Reinhard explicitly approves another worktree first.
+2. Do not switch to, run project commands in, or modify another worktree without that prior approval.
 
 ## Source-Code Approval Gate
 

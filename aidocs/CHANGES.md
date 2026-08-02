@@ -801,3 +801,5 @@ candidate data atomically with each completed calibration. Fast results are exac
 otherwise a remaining `safe_calibration_ns = -1` marks them as unverified. The first two-minute fast pass was stopped after six
 attempts: IDs 274, 2477, and 216 completed with candidate data, while IDs 2475, 2478, and 217 timed out. There are 319 fast
 timeouts remaining.
+279. Documented the project worktree policy:
+work stays in the main worktree unless Reinhard explicitly approves using another worktree first.
