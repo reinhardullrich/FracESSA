@@ -3,9 +3,9 @@
 `fracessa_testdata.sqlite3` is the canonical store for exact test matrices,
 complete expected candidate results where available, and timing data.
 
-The current snapshot contains 630 pairwise-distinct exact matrices. The 101
+The current snapshot contains 1,108 pairwise-distinct exact matrices. The 101
 analyzed matrices have 49,392 stored candidate representatives whose
-multipliers represent 86,387 candidates and 83,466 ESS; the other 529 catalog
+multipliers represent 86,387 candidates and 83,466 ESS; the other 1,007 catalog
 rows deliberately have null baseline fields because exhaustive analysis has
 not been run.
 
@@ -31,6 +31,14 @@ each former fast per-support candidate condition: the pivot cutoff, probability
 sign, and outside-payoff margin. Current fast uses its small-pivot and
 precision-span fallbacks to recover them. No complete SQLite matrix suite is
 currently wired into CTest.
+
+IDs 2210-2687 are 478 new exact representatives from a combined audit of
+Anymatrix, TypedMatrices.jl, and Matrix Depot. Six additional selected matrices
+were already present and were tagged rather than duplicated. The selection
+covers 51 eligible generator families and 34 documented or structural property
+classifications across the five dimension bands 1-8, 9-16, 17-25, 26-44, and
+45-63. See `../aidocs/reference/MATRIX_GENERATOR_CATALOGUE_AUDIT.md` for the
+complete scope, exclusions, revisions, sampling rule, and validation record.
 
 The timing table contains 724 CPU-2 persistent-Pybind median rows. It retains
 Werner fast and safe, the July 27 pre-refactor GitHub build renamed `classic`,
@@ -306,6 +314,32 @@ and scientific-notation tokens to reduced fractions. The matrices are pairwise d
 row; 15 carry the `"super_large"` tag. `theta1` is circulant but has a nonzero diagonal, so it uses the full upper-triangle
 representation rather than FracESSA's compact zero-diagonal circular format. Each row links to its exact source file. The
 current GitHub mirror declares GPL-3.0; this catalog makes no broader licensing claim.
+
+## Matrix Generator Catalogue Imports
+
+[Anymatrix](https://github.com/north-numerical-computing/anymatrix),
+[TypedMatrices.jl](https://github.com/TypedMatrices/TypedMatrices.jl), and
+[Matrix Depot](https://github.com/JuliaMatrices/MatrixDepot.jl) overlap heavily,
+so they are audited and sampled as one generator catalogue. The eligible pool
+contains 2,678 distinct exact symmetric matrices of dimensions 1 through 63,
+from 51 mathematical families. Deterministic SHA-256 ranking with seed
+`20260802` retains up to three matrices from each populated
+property-by-dimension-band stratum, then ensures that every eligible family has
+at least one representative.
+
+The resulting 484 selected matrices populate 166 property-band strata. Six
+matched existing IDs 48, 49, 314, 1995, 2001, and 2155 exactly; IDs 2210-2687
+contain the other 478. New-row counts by selection band are 81, 94, 90, 107,
+and 106. Twenty-eight new rows use compact zero-diagonal circular storage. Only
+two populated strata contain fewer than three distinct eligible matrices:
+`fixed_size` at dimensions 45-63 has two, and `unimodular` at dimensions 1-8
+has one. The other `unimodular` bands are empty rather than under-sampled.
+
+All formulas and source matrices are evaluated as exact integers or rational
+numbers. Irrational, transcendental, random-real, rectangular, nonsymmetric,
+and dimension-above-63 families are excluded. The complete acceptance and
+rejection audit, source revisions, family list, and exact validation checks are
+recorded in `../aidocs/reference/MATRIX_GENERATOR_CATALOGUE_AUDIT.md`.
 
 ## Tables
 

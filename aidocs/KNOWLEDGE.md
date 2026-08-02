@@ -315,13 +315,13 @@ is no longer wired as one CTest per matrix.
 
 `testdata/fracessa_testdata.sqlite3` is the canonical matrix, expected-result,
 and timing store. Its strict schema is in `testdata/schema.sql`; the current
-snapshot has 630 pairwise-distinct exact matrices. The 101 analyzed rows have
+snapshot has 1,108 pairwise-distinct exact matrices. The 101 analyzed rows have
 49,392 stored candidate representatives; nullable multipliers recover weighted
 totals of 86,387 candidates and 83,466 ESS:
 circular rows store one smallest dihedral representative and its orbit count,
 while non-circular rows store null. Candidate IDs and row order remain
 reproducibility checks; complete weighted candidate sets and ESS
-classifications are the mathematical contracts. The other 529 rows are
+classifications are the mathematical contracts. The other 1,007 rows are
 catalog-only and keep all four baseline-summary fields null as one group; null
 never means zero candidates or zero ESS.
 
@@ -464,6 +464,15 @@ each; all 1,799 `F1...Fm` constraint matrices and separate source blocks are exc
 become reduced fractions. The objectives are pairwise distinct, duplicate no existing database row, and remain catalog-only;
 15 carry `super_large`. `theta1` is circulant but has a nonzero diagonal and therefore cannot use FracESSA's compact
 zero-diagonal circular input. The current GitHub mirror declares GPL-3.0; project metadata makes no broader licensing claim.
+
+IDs 2210-2687 are 478 globally new matrices from the combined Anymatrix, TypedMatrices.jl, and Matrix Depot exact-generator
+audit. Treat the three repositories as one overlapping catalogue. The audited pool contains 2,678 distinct exact symmetric
+matrices from 51 eligible families and 34 property classifications. SHA-256 seed `20260802` selects up to three representatives
+per populated property-by-band stratum over `1-8`, `9-16`, `17-25`, `26-44`, and `45-63`, then adds any family still lacking a
+representative. The final selection has 484 distinct matrices in 166 populated strata; six exact matches at existing IDs 48,
+49, 314, 1995, 2001, and 2155 are tagged rather than duplicated. Twenty-eight new rows use compact circular storage. All new
+rows are catalog-only. The exhaustive source, exclusion, sampling, and validation record is
+`aidocs/reference/MATRIX_GENERATOR_CATALOGUE_AUDIT.md`.
 
 Every dimension from 2 through 25 has at least one circular and one
 non-circular matrix. IDs 67-79 fill the previously missing combinations with

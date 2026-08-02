@@ -677,3 +677,10 @@ classification heading found during the title-page pass.
 checked all 105 printed pages again, re-ran exact-source comparisons for the three TeX-backed papers, verified every
 numbered-equation sequence, all 95 mapped citations, all 120 bibliography entries, both reconstructed numerical tables, all seven
 figure assets, local links, footnotes, and Markdown parsing, and found no further transcription discrepancies.
+260. Audited Anymatrix, TypedMatrices.jl, and Matrix Depot as one exact generator catalogue:
+evaluated 51 eligible symmetric integer or rational families through dimension 63, deduplicated 2,678 exact generated and archived
+matrices, and deterministically selected up to three examples from every populated property-by-dimension-band stratum while retaining
+at least one example from every family. Reused six exact existing rows and added 478 catalog-only matrices at IDs 2210-2687; 28 use
+compact circular storage. Independently verified SQLite integrity, foreign keys, storage shape, exact symmetry, global uniqueness,
+dimension and tag contracts, and a second idempotent selection pass. The database now contains 1,108 pairwise-distinct matrices,
+101 complete baselines, and 1,007 catalog-only rows; candidate and timing data are unchanged.

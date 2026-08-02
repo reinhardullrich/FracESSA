@@ -27,8 +27,8 @@ remove a finding after its fix and regression coverage are complete.
 - The unused input pass-through iterator and its collection imports have been
   deleted.
 - `testdata/fracessa_testdata.sqlite3` passes SQLite integrity and foreign-key
-  checks and contains 630 pairwise-distinct matrices. Its 101 analyzed rows store 49,392 representatives whose multipliers
-  recover 86,387 candidates and 83,466 ESS; 529 rows are catalog-only. Dimensions 2-25 each have at least
+  checks and contains 1,108 pairwise-distinct matrices. Its 101 analyzed rows store 49,392 representatives whose multipliers
+  recover 86,387 candidates and 83,466 ESS; 1,007 rows are catalog-only. Dimensions 2-25 each have at least
   one circular and one non-circular matrix, and every distinct matrix from the
   two published Bomze-Schachinger-Ullrich result tables is present once.
 - Its retained timing data have 724 persistent-Pybind median rows spanning Werner, `classic`, paired safe-wrapper, and four

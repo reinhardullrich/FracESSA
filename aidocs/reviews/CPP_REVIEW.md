@@ -369,8 +369,8 @@ around zero.
   cardinality layer. An independent order-insensitive comparison matched all
   mathematical candidate rows and ESS results across the former 52-matrix
   verification corpus.
-- The canonical SQLite snapshot contains 630 pairwise-distinct matrices. Its 101 analyzed rows store 49,392 candidate
-  representatives whose multipliers recover 86,387 candidates and 83,466 ESS; the other 529 rows are catalog-only.
+- The canonical SQLite snapshot contains 1,108 pairwise-distinct matrices. Its 101 analyzed rows store 49,392 candidate
+  representatives whose multipliers recover 86,387 candidates and 83,466 ESS; the other 1,007 rows are catalog-only.
 - A fixed-seed audit generated 20,000 exact 4-by-4 integer matrices; all 19,890
   nonsingular cases satisfied `A * inverse(A) == I` exactly.
 - Ordinary pushes and pull requests run the same three-platform build and fast
