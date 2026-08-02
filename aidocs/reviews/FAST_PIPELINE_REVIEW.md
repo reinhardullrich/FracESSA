@@ -279,6 +279,24 @@ favorable direction for this matrix. The experiment was reverted and no timing r
 knowingly change an existing fast regression result; that is a behavioral trade-off, not a numerical-stability proof for the
 retained expression.
 
+The exact `find_candidate_safe` counterpart has no rounding trade-off because its reduced system uses denominator-cleared FLINT
+integers. It now stores `A_mm-A_im` directly in the existing right-hand-side entry and reuses that non-owning entry reference in
+`A_ij-A_mj+(A_mm-A_im)`. This removes one exact subtraction and one repeated matrix lookup per lower-triangle entry without an
+allocation or integer copy. Release and ASan/UBSan passed all 10 tests, and complete exact candidate-output hashes matched for all
+76 quick-panel matrices from dimensions 3 through 25.
+
+The first whole-panel timing comparison was discarded: running the entire baseline before the changed build produced an implausible
+40-50% difference that disappeared when the baseline was rerun after the processor had warmed. In the controlled warm reverse pair,
+the CPU-2 persistent-Pybind median improved by `6.02%` overall, `7.30%` for dimensions 9-16, and `6.76%` for dimensions 17-25.
+Non-circular and circular medians improved by `6.95%` and `5.15%`; dimensions 3-8 had a zero median change. The changed build won
+63 matrices, tied 11, and lost two. The exact optimization is retained in the working tree.
+
+Hardware counters confirm that this is executed-work reduction rather than frequency bias. Three Perf repeats on non-circular
+dimension-23 matrix 53 measured `7.48%` fewer instructions, `8.24%` fewer branches, and `6.58%` fewer cycles. On circular
+dimension-25 matrix 70, the corresponding reductions were `6.38%`, `7.30%`, and `5.53%`. One source-level `fmpz_sub` is not one
+machine subtraction: FLINT dispatches arbitrary-precision representation, sign, allocation, and normalization cases. Removing that
+call from every lower-triangle entry of every visited support eliminates billions of instructions over a complete search.
+
 ### FP-E03: Store the reduced scratch in the factorization's traversal order
 
 - [x] Tested and rejected; production and experimental search retain the original row-major lower-triangle storage.

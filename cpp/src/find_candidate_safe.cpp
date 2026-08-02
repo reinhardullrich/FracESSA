@@ -152,16 +152,17 @@ void find_candidate_safe::build_reduced_system(const uint8_t* support_indices, s
 
     for (size_t row = 0; row < reduced_dimension; ++row) {
         const size_t i = support_indices[row + 1];
-        right_hand_side_(row, 0).set_difference(reference_diagonal, integer_game_(i, reference));
+        auto row_offset = right_hand_side_(row, 0);
+        row_offset.set_difference(reference_diagonal, integer_game_(i, reference));
 
-        // The symmetric fraction-free factorization reads only the lower triangle.
+        // The right-hand side d*r_i=A_mm-A_im is also the repeated row term in
+        // d*H_ij=A_ij-A_mj+(A_mm-A_im). The symmetric fraction-free factorization reads only the lower triangle.
         for (size_t column = 0; column <= row; ++column) {
             const size_t j = support_indices[column + 1];
             auto value = reduced_system_(row, column);
             value = integer_game_(i, j);
-            value -= integer_game_(i, reference);
             value -= integer_game_(reference, j);
-            value += reference_diagonal;
+            value += row_offset;
         }
     }
 }
