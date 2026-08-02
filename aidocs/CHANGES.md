@@ -661,3 +661,19 @@ to IDs 2207-2209, remapped their candidate and timing references, and retained t
 restoring superseded benchmark sessions. The merged database contains 630 pairwise-distinct matrices, 101 complete baselines,
 529 catalog-only rows, 49,392 candidate representatives, 86,387 weighted candidates, and 83,466 weighted ESS. SQLite integrity
 and foreign-key checks pass.
+257. Added exact-source Markdown transcriptions of the three Bomze-Schachinger-Ullrich papers:
+located the LaTeX sources that generated the retained 2014, 2015, and 2018 PDFs and copied them beside the papers; extracted the
+complete prose, theorem/proof structure, formulas, tables, figures, acknowledgments, and references into Markdown; and added seven
+rendered figure assets. Audited all 77 PDF pages visually, checked 3,191 LaTeX math spans for balanced syntax, reconciled all 117
+mapped theorem and equation cross-references with the exact sources and printed PDFs, restored the dropped proof labels, and
+corrected the 2018 display sequence to the printed equation numbers 1-27.
+258. Independently re-audited the three TeX-backed paper transcriptions:
+compared their mathematical and prose streams, theorem/proof structure, equation tags, tables, figures, footnotes, citations, and
+references against both the exact TeX sources and retained PDFs; removed one leaked `\cline{1-6}` marker from the 2015 Table 1
+transcription; and corrected references 3-6 and their citations in the 2018 transcription after confirming that an auxiliary file
+from a different draft had supplied the wrong numbering. Restored the 2014 corresponding-author details and the printed 2015
+classification heading found during the title-page pass.
+259. Re-audited all five research-paper transcriptions as one collection:
+checked all 105 printed pages again, re-ran exact-source comparisons for the three TeX-backed papers, verified every
+numbered-equation sequence, all 95 mapped citations, all 120 bibliography entries, both reconstructed numerical tables, all seven
+figure assets, local links, footnotes, and Markdown parsing, and found no further transcription discrepancies.

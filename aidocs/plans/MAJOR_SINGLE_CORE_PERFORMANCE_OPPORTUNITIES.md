@@ -43,7 +43,7 @@ These are existing database measurements, not new tests:
   totals are respectively `347.148 s`, `59.389 s`, and `1437.953 s`.
 - Five structured many-candidate matrices (IDs 66, 65, 90, 64, and 89) account
   for `291.510 s`, or about 84% of the complete verified total.
-- Of 86,152 represented exact candidates in the retained database, 85,249
+- Of 86,152 represented exact candidates in the 87-matrix timing corpus, 85,249
   (98.95%) have extended support equal to support. Thus almost every retained
   candidate reaches the common easy stability case with no unused tied best
   reply.

@@ -68,6 +68,10 @@ Last verified: 2026-08-02
 - Public GitHub introduction: `README.md`
 - `AGENTS.md` must remain a pointer only.
 
+`research/papers/` contains the retained PDFs and complete audited Markdown transcriptions of all five papers. The 2014, 2015,
+and 2018 Bomze-Schachinger-Ullrich papers also retain the exact LaTeX sources that generated their PDFs and seven rendered figure
+assets used by the Markdown versions.
+
 Generated or local-only paths include `cpp/build*/` and experiment `builds/`,
 `sources/`, and `logs/` directories.
 `archive/callgrind/` preserves the four former JSON-fed profiling scripts

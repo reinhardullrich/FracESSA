@@ -351,16 +351,16 @@ around zero.
 
 ## Current Validation State
 
-- The current Release build passes all 10 C++/CLI tests and all 56 Python tests.
+- The current Release build passes all 10 C++/CLI tests and all 57 Python tests.
 - Streaming Gosper enumeration, the 62-by-62 immediate-rejection regression,
   the singular Hadeler rejection, and the late-pivot 3-by-3 LU solve/inverse
   regression pass the current C++/CLI suite.
 - Exact candidate search now validates outside-support strategies before dense
   vector construction and skips that construction when neither output nor
   logging needs it; the focused requested/successful-vector regression passes.
-- The latest complete historical verified-mode sweep matched the stored ESS count for all
-  87 retained SQLite matrices. That long sweep was not rerun for the current
-  local source and regression-test changes.
+- The latest complete historical verified-mode sweep matched the stored ESS count for the 87 matrices present at that time. Each
+  of the 11 later SuiteSparse imports was separately matched candidate-for-candidate against exact mode before insertion. The
+  current fast path was most recently checked on its balanced 81-matrix benchmark panel and on regression IDs 2207-2209.
 - Wrapper tests: see `PYBIND_REVIEW.md` and `PYTHON_REVIEW.md`.
 - The single parser preserves 18-digit direct values and arbitrary-precision
   values, rejects dimensions outside 1-63, and reports failures through
@@ -369,8 +369,8 @@ around zero.
   cardinality layer. An independent order-insensitive comparison matched all
   mathematical candidate rows and ESS results across the former 52-matrix
   verification corpus.
-- The canonical SQLite snapshot stores 49,157 candidate representatives whose
-  multipliers recover 86,152 candidates and 83,377 ESS across 87 matrices.
+- The canonical SQLite snapshot contains 630 pairwise-distinct matrices. Its 101 analyzed rows store 49,392 candidate
+  representatives whose multipliers recover 86,387 candidates and 83,466 ESS; the other 529 rows are catalog-only.
 - A fixed-seed audit generated 20,000 exact 4-by-4 integer matrices; all 19,890
   nonsingular cases satisfied `A * inverse(A) == I` exactly.
 - Ordinary pushes and pull requests run the same three-platform build and fast

@@ -1,10 +1,11 @@
 # From Seven to Eleven: Completely Positive Matrices with High Cp-Rank
 
-**Authors:** Immanuel M. Bomze, Werner Schachinger, Reinhard Ullrich  
-**Affiliation:** University of Vienna, Department of Statistics and Operations Research, 1090 Vienna, Austria  
-**Journal:** *Linear Algebra and its Applications*, Vol. 459, 2014, pp. 208-221  
-**Source version:** Preprint submitted July 16, 2014  
-**Source PDF:** [bomze_schachinger_ullrich_2014_from_seven_to_eleven.pdf](bomze_schachinger_ullrich_2014_from_seven_to_eleven.pdf)  
+**Authors:** Immanuel M. Bomze, Werner Schachinger, Reinhard Ullrich<br>
+**Affiliation:** University of Vienna, Department of Statistics and Operations Research, 1090 Vienna, Austria<br>
+**Corresponding author:** Reinhard Ullrich, reinhard.ullrich@univie.ac.at<br>
+**Journal:** *Linear Algebra and its Applications*, Vol. 459, 2014, pp. 208-221<br>
+**Source version:** Preprint submitted July 16, 2014<br>
+**Source PDF:** [bomze_schachinger_ullrich_2014_from_seven_to_eleven.pdf](bomze_schachinger_ullrich_2014_from_seven_to_eleven.pdf)<br>
 **Exact LaTeX source:** [bomze_schachinger_ullrich_2014_from_seven_to_eleven.tex](bomze_schachinger_ullrich_2014_from_seven_to_eleven.tex)
 
 > Complete text transcription based on the exact LaTeX source that generated the stored PDF. The formulas, theorem and
@@ -19,7 +20,7 @@ standard simplex. Constructing particular instances of ${\mathsf S}$, we are abl
 famous Drew-Johnson-Loewy conjecture (1994) for matrices of order seven through eleven.
 
 **Keywords:** Copositive optimization; completely positive matrices; cp-rank; nonnegative factorization; circular
-symmetry.  
+symmetry.<br>
 **2010 Mathematics Subject Classification:** 15B48; 90C25; 15A23.
 
 ## 1. Introduction

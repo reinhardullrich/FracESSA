@@ -1,10 +1,10 @@
 # New Lower Bounds and Asymptotics for the Cp-Rank
 
-**Authors:** Immanuel M. Bomze, Werner Schachinger, Reinhard Ullrich  
-**Affiliation:** University of Vienna, Austria  
-**Journal:** *SIAM Journal on Matrix Analysis and Applications*, Vol. 36, No. 1, 2015, pp. 20-37  
-**Source version:** November 1, 2014  
-**Source PDF:** [bomze_schachinger_ullrich_2015_new_lower_bounds_cp_rank.pdf](bomze_schachinger_ullrich_2015_new_lower_bounds_cp_rank.pdf)  
+**Authors:** Immanuel M. Bomze, Werner Schachinger, Reinhard Ullrich<br>
+**Affiliation:** University of Vienna, Austria<br>
+**Journal:** *SIAM Journal on Matrix Analysis and Applications*, Vol. 36, No. 1, 2015, pp. 20-37<br>
+**Source version:** November 1, 2014<br>
+**Source PDF:** [bomze_schachinger_ullrich_2015_new_lower_bounds_cp_rank.pdf](bomze_schachinger_ullrich_2015_new_lower_bounds_cp_rank.pdf)<br>
 **Exact LaTeX source:** [bomze_schachinger_ullrich_2015_new_lower_bounds_cp_rank.tex](bomze_schachinger_ullrich_2015_new_lower_bounds_cp_rank.tex)
 
 > Complete text transcription based on the exact LaTeX source that generated the stored PDF. The formulas, theorem and
@@ -21,8 +21,8 @@ $d_n=\left\lfloor\frac{n^2}{4}\right\rfloor$. The famous DJL conjecture (1994) s
 $p_n=\frac{n^2}{2}+\mathcal{O}(n^{3/2})=2d_n+\mathcal{O}(n^{3/2})$, and construct counterexamples to the DJL conjecture
 for all $n\ge 12$ (for orders seven through eleven counterexamples were already given in [4]).
 
-**Keywords:** Copositive optimization; completely positive matrices; nonnegative factorization.  
-**Mathematics Subject Classification:** Primary 15B48; Secondary 90C25, 15A23.
+**Keywords:** Copositive optimization; completely positive matrices; nonnegative factorization.<br>
+**1991 Mathematics Subject Classification:** Primary 15B48; Secondary 90C25, 15A23.
 
 ## 1. Introduction: Motivation, Notations
 
@@ -71,7 +71,7 @@ This argument is made precise in the following results, starting from the observ
 *Proof.* First we show that $\min_{\mathbf x\in P_\mathbf y}\|\mathbf x\|_0 \le r$ for all $\mathbf y\in {\mathbb R}^n_+$ (this is basically Caratheodory's theorem, we include the short argument for the readers' convenience). To this end, choose an $\mathbf x\in P_\mathbf y$ with $m=\|\mathbf x\|_0$ minimal over $P_\mathbf y$. We assume without loss of generality $x_i>0$ for all $i\le m$. If $m>r$ would hold, then there were $\mu_i\in {\mathbb R}$ with $\sum\limits_{i=1}^m \mu_i\mathbf v_i =\mathbf o$ with some $\mu_i > 0$. Further without loss of generality we assume (for some $s\in [1\!:\!m]$) that $\mu_i\le 0$ for $i<s$ while $\mu_i > 0$ and $\frac {x_i}{\mu_i} \ge \frac {x_m}{\mu_m} > 0$ for all $i\in [s\!:\!m]$. Define $z_i := x_i - \frac {x_m}{\mu_m}\mu_i \ge0$ for all $i\in[1\!:\!m]$ and $z_i:=0$ for $i>m$, so that $\|\mathbf z\|_0 \le m-1$ (as also $z_m=0)$. But straightforward calculations show $\sum_i z_i\mathbf v_i = \sum_i x_i\mathbf v_i$, so $\mathbf z\in P_\mathbf y$, in contradiction to the assumptions. Next we use the fact that a vector space over an infinite scalar field is never the union of a finite number of proper subspaces, see [11, p.211]. Define the cone $C:=\left\{\sum_{i=1}^m y_i\mathbf v_i:\mathbf y\in\mathbb{R}^m_+\right\}\subseteq V$ and observe that the linear subspace $L=C-C$ is $r$-dimensional. If we had $\min\limits_{\mathbf x\in P_\mathbf y}\|\mathbf x\|_0<r$ for all $\mathbf y\in \mathbb{R}^m_+$, then $C$ (and thus also $L$) would have to be a subset of $$U:=\bigcup_{\substack{I\subseteq[1 : m] \\ |I|\le r-1}}
 \left\{\sum_{i=1}^m x_i\mathbf v_i:\mathbf x\in\mathbb{R}^m , \, {x_i=0 \mbox{ for all }i\in [1\!:\!m]\setminus I}\right\},$$ which is impossible, since $U$ is a union of finitely many proper subspaces of $L$ (of dimension at most $r-1$). \(\square\)
 
-For a matrix ${\mathsf A}=[\mathbf a_1,\ldots,\mathbf a_k]^\top$ we let ${\mathsf A}^{\langle 2\rangle}:=[\mathbf a_1\otimes\mathbf a_1,\ldots,\mathbf a_k\otimes\mathbf a_k]^\top$, and define the *two-rank* of ${\mathsf A}$ as $$\mbox{rank}^{(2)}\, {\mathsf A}:=\mbox{rank\,}{\mathsf A}^{\langle 2\rangle}\, .$$ For illustration, denote by ${\mathsf B}_i = \mathbf e_i\mathbf e_i^\top\in {\mathbb R}^{n\times n}$. Then ${\mathsf I}_n^{\langle 2\rangle} = [{\mathsf B}_1 | \cdots | {\mathsf B}_n]$. Note that always $\mbox{rank}^{(2)}\, {\mathsf A}\ge\mbox{rank\,}{\mathsf A}$ with equality if $\mbox{rank\,}{\mathsf A}= k$, i.e., if ${\mathsf A}$ itself has full row rank, then also ${\mathsf A}^{\langle 2\rangle}$ has (the same) full row rank. Furthermore we note for later use the trivial relations $\mbox{rank}^{(2)}\, (\alpha {\mathsf A}) = \mbox{rank}^{(2)}\, {\mathsf A}$ if $\alpha>0$, $$\mbox{rank}^{(2)}\, 
+For a matrix ${\mathsf A}=[\mathbf a_1,\ldots,\mathbf a_k]^\top$ we let ${\mathsf A}^{\langle 2\rangle}:=[\mathbf a_1\otimes\mathbf a_1,\ldots,\mathbf a_k\otimes\mathbf a_k]^\top$, and define the *two-rank* of ${\mathsf A}$ as $$\mbox{rank}^{(2)}\, {\mathsf A}:=\mbox{rank\,}{\mathsf A}^{\langle 2\rangle}\, .$$ For illustration, denote by ${\mathsf B}_i = \mathbf e_i\mathbf e_i^\top\in {\mathbb R}^{n\times n}$. Then ${\mathsf I}_n^{\langle 2\rangle} = [{\mathsf B}_1 | \cdots | {\mathsf B}_n]$. Note that always $\mbox{rank}^{(2)}\, {\mathsf A}\ge\mbox{rank\,}{\mathsf A}$ with equality if $\mbox{rank\,}{\mathsf A}= k$, i.e., if ${\mathsf A}$ itself has full row rank, then also ${\mathsf A}^{\langle 2\rangle}$ has (the same) full row rank. Furthermore we note for later use the trivial relations $\mbox{rank}^{(2)}\, (\alpha {\mathsf A}) = \mbox{rank}^{(2)}\, {\mathsf A}$ if $\alpha>0$, $$\mbox{rank}^{(2)}\,
 \bigg[   { {\mathsf A}\atop {\mathsf B}}\bigg]
 \ge \mbox{rank}^{(2)}\, {\mathsf B}\, ,$$ and a slightly less trivial one: $\mbox{rank}^{(2)}\, [{\mathsf A}| {\mathsf B}]\ge \mbox{rank}^{(2)}\, {\mathsf B}$.
 
@@ -321,7 +321,7 @@ The following example shows the construction of a particular sequence $\mathcal{
 +-----------------+------------------+-----------------------+------+-------------------------------------+-----------------------+----------------------------------------------------+-------------------------------------------+--------------------------+
 | $7$             | ${\mathsf J}_7$  | $14$                  | $12$ | ${\mathsf J}_{12}$                  | $50$                  |   $k+15$, $k\!\in\!\mathbb{N}\!\setminus\! \{11\}$ | ${\mathsf J}_{k}\oplus {\mathsf J}_{15}$  | $\rho^{\mathcal J}_k+95$ |
 +-----------------+------------------+-----------------------+------+-------------------------------------+-----------------------+                                                    |                                           |                          |
-| 1-6 $8$         | ${\mathsf J}_8$  | $18$                  | $13$ | ${\mathsf J}_{13}$                  | $65$                  |                                                    |                                           |                          |
+| $8$             | ${\mathsf J}_8$  | $18$                  | $13$ | ${\mathsf J}_{13}$                  | $65$                  |                                                    |                                           |                          |
 +-----------------+------------------+-----------------------+------+-------------------------------------+-----------------------+----------------------------------------------------+-------------------------------------------+--------------------------+
 
 : Matrices ${\mathsf J}_n$ from Example 3.1. See text.

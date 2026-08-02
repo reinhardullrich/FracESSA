@@ -12,7 +12,7 @@ remove a finding after its fix and regression coverage are complete.
 
 ## Current Validation State
 
-- All 56 PyFracESSA tests passed against the combined Release native module
+- All 57 PyFracESSA tests passed against the combined Release native module
   with PyArrow available.
 - The former JSON/CSV verification, baseline-generation, subprocess benchmark,
   and JSON-fed Callgrind paths have been removed. Their small replacement timing
@@ -27,14 +27,13 @@ remove a finding after its fix and regression coverage are complete.
 - The unused input pass-through iterator and its collection imports have been
   deleted.
 - `testdata/fracessa_testdata.sqlite3` passes SQLite integrity and foreign-key
-  checks and contains 87 matrices and 49,157 representatives whose multipliers
-  recover 86,152 candidates and 83,377 ESS. Dimensions 2-25 each have at least
+  checks and contains 630 pairwise-distinct matrices. Its 101 analyzed rows store 49,392 representatives whose multipliers
+  recover 86,387 candidates and 83,466 ESS; 529 rows are catalog-only. Dimensions 2-25 each have at least
   one circular and one non-circular matrix, and every distinct matrix from the
   two published Bomze-Schachinger-Ullrich result tables is present once.
-- Its retained timing data have 670 persistent-Pybind median rows. Werner's default and the preserved pre-mode default are
-  labeled `fast`, while Werner exact is labeled `safe`; the later three-mode snapshot retains its historical labels. Raw search
-  mismatches IDs 38-39, the retired normalized heuristic mismatches IDs 45-47, and exact search matches all matrices. The
-  committed current `fast` build has 78 correct rows covering every matrix with dimension at least 3. Report rows
+- Its retained timing data have 724 persistent-Pybind median rows spanning Werner, `classic`, paired safe-wrapper, and four
+  fast-path experiment panels. Catalog-only matrices are excluded automatically. Historical raw search mismatches IDs 38-39;
+  retained exact results and all four newer panels match their expected ESS counts. Report rows
   include dimension, circularity, and the derived lower bound
   `gamma_lower_bound = expected_ess ** (1 / dimension)`.
 - Sequential and multiprocessing paths use one flat result dictionary;
