@@ -6,6 +6,34 @@
 
 #include <fracessa/supports.hpp>
 
+namespace {
+
+template<class Generator>
+std::vector<std::pair<bitset64, size_t>> generate_circular(size_t dimension) {
+    Generator generator(dimension);
+    std::vector<std::pair<bitset64, size_t>> generated;
+    generator.generate([&](bitset64 support, size_t cardinality) {
+        generated.emplace_back(support, cardinality);
+    });
+    return generated;
+}
+
+template<class Generator>
+std::pair<std::vector<std::pair<bitset64, size_t>>, size_t> generate_circular_with_forbidden(size_t dimension,
+                                                                                           bitset64 forbidden) {
+    Generator generator(dimension);
+    std::vector<std::pair<bitset64, size_t>> generated;
+    size_t multiplier = 0;
+    generator.generate([&](bitset64 support, size_t cardinality) {
+        generated.emplace_back(support, cardinality);
+        if (support == forbidden)
+            multiplier = generator.add_forbidden(support);
+    });
+    return {std::move(generated), multiplier};
+}
+
+} // namespace
+
 TEST(SupportGeneratorTest, NonCircularMatchesNumericFixedCardinalityOrder) {
     NonCircularSupportGenerator generator(5);
     std::vector<std::pair<bitset64, size_t>> generated;
@@ -118,4 +146,28 @@ TEST(SupportGeneratorTest, CircularMultiplierCountsDistinctMasksOnly) {
 
     CircularSupportGenerator full_generator(6);
     EXPECT_EQ(full_generator.add_forbidden(0b111111), 1u);
+}
+
+TEST(SupportGeneratorTest, CircularV3MatchesV1GenerationAndPruning) {
+    for (size_t dimension = 1; dimension <= 24; ++dimension)
+        EXPECT_EQ(generate_circular<CircularSupportGeneratorV3>(dimension),
+                  generate_circular<CircularSupportGenerator>(dimension));
+
+    constexpr size_t dimension = 8;
+    constexpr bitset64 forbidden = 0b00000011;
+    EXPECT_EQ(generate_circular_with_forbidden<CircularSupportGeneratorV3>(dimension, forbidden),
+              generate_circular_with_forbidden<CircularSupportGenerator>(dimension, forbidden));
+}
+
+TEST(SupportGeneratorTest, CircularV3HandlesDimension63) {
+    constexpr size_t dimension = bs64::kMaxBitsetDimension - 1;
+    CircularSupportGeneratorV3 generator(dimension);
+    size_t generated = 0;
+    generator.generate([&](bitset64 support, size_t cardinality) {
+        ++generated;
+        EXPECT_EQ(cardinality, 1u);
+        EXPECT_EQ(support, 1u);
+        EXPECT_EQ(generator.add_forbidden(support), dimension);
+    });
+    EXPECT_EQ(generated, 1u);
 }

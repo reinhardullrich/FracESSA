@@ -1,0 +1,8 @@
+dimension=18
+bracelets=7684
+repetitions=8617
+batches=7
+pilot_ns=440792
+calibrated_ns=348174.21739130432
+median_ns=322802.53939886269
+checksum=12635504342627882444

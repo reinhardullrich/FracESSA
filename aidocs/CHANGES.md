@@ -803,3 +803,24 @@ attempts: IDs 274, 2477, and 216 completed with candidate data, while IDs 2475, 
 timeouts remaining.
 279. Documented the project worktree policy:
 work stays in the main worktree unless Reinhard explicitly approves using another worktree first.
+280. Completed the two-minute fast-timeout retry with explicit multicore scheduling:
+repeating `--cpu ID` now keeps one matrix pinned to each selected core, assigns the next matrix as that core becomes free, and
+leaves SQLite writes in the main process. The pass attempted all 319 previous timeouts; two rows completed before reserving CPU 2,
+and the remaining 317 attempts used performance CPUs 3 through 9. Twenty-one matrices completed and added 683 representative rows
+for 841 weighted candidates and 236 ESS. Two completed through exact fallback and 19 remain unverified fast results. The other 298
+rows timed out: 41 were classified for exact fallback and 257 remained on the fast path. Fast calibration now contains 774
+positive durations and 298 timeout sentinels across all 1,072 matrices.
+281. Completed the circular support generator V1-versus-V2 comparison:
+verified identical candidates, ESS classifications, multipliers, fallback results, and order on all 81 quick-test matrices, plus
+independent arbitrary-forbidden, multiplier, dimension-63, and sanitizer checks. The CPU-2 Release fast-mode benchmark timed the
+33 circular quick cases with a 0.5-second native-duration target. Compact V2 was 41.48% slower at the median and 91.40% slower by
+geometric mean; V1 won 28 cases and matrix 34 was 6.824 times faster with V1. Retained expanded-orbit V1 in production and recorded
+the complete method and table in `experiments/circular_support_v2_2026-08-02/README.md`.
+282. Implemented the 2014 direct fixed-density bracelet algorithm as experimental generator V3:
+copied the source paper into `research/papers/`, extracted its mathematics and binary specialization into Markdown, and independently adapted `BraceFD` in the existing isolated generator harness. V3 matches both independent generators for every support size through dimension 24, emits canonical representatives once and in ascending order, and passes optimized plus ASan/UBSan verification. On the saved CPU-2 three-second panel for dimensions 5-24, V3 is 55.30% faster than V1 at the median and 53.31% faster by geometric mean; at dimension 24 it is 2.86 times as fast. Production remains unchanged pending an end-to-end pruning benchmark.
+283. Promoted V3 to the production circular support generator while retaining V1 and V2:
+integrated V1's callback, expanded forbidden-orbit pruning, and multiplier contract into direct binary `BraceFD`, then changed the
+single circular runtime construction to `CircularSupportGeneratorV3`. V1/V3 generation matches through dimension 24 and V3 covers
+dimension 63; all 81 quick matrices produced byte-identical fast and safe candidate output. Release and ASan/UBSan CTests plus all
+63 Python tests passed. Two CPU-2 persistent-Pybind panels timed 31 circular quick cases; the conservative reverse-order panel was
+19.90% faster at the median overall and 34.70% faster for dimensions 19 and above.

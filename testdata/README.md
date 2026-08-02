@@ -54,7 +54,7 @@ rule. All paired ESS counts match. Build label, revision, and binary hash
 identify every stored build.
 
 Matrix rows contain nullable `fast_calibration_ns` and `safe_calibration_ns` values used only to choose benchmark iteration
-counts. Fast calibration covers all 1,072 matrices with 753 positive measurements and 319 `-1` timeouts; safe has 718 positive
+counts. Fast calibration covers all 1,072 matrices with 774 positive measurements and 298 `-1` timeouts; safe has 718 positive
 measurements and 354 timeouts. No calibration field remains null. A value of `-1` records a calibration run killed at its cutoff
 and selects one benchmark iteration. Positive integer nanoseconds preserve the native value exactly; divide by `1000.0` when
 displaying decimal microseconds.
@@ -64,10 +64,16 @@ calibrations with the canonical Release Pybind module on CPU 2 and a one-second 
 method also stores weighted counts, support-size structures, and representative candidate rows for a matrix that finishes.
 Existing calibration and baseline values are never overwritten; clear a calibration field explicitly before intentionally
 refreshing it. Use `scripts/calibrate_matrices.py fast|safe --retry-timeouts --cutoff-seconds 120` to retry only the selected
-method's `-1` rows once. A completed fast result is exact when `safe_fallback` is non-null; otherwise it remains an unverified fast
-result when safe calibration is still `-1`.
+method's `-1` rows once. Repeat `--cpu ID` to process matrices concurrently on explicitly selected cores; one matrix remains
+pinned to each core and SQLite writes stay serialized. A completed fast result is exact when `safe_fallback` is non-null;
+otherwise it remains an unverified fast result when safe calibration is still `-1`.
 The calibration script classifies the whole-matrix fast fallback before starting the timed process, so even a killed calibration
 stores the correct `safe_fallback` value.
+
+The August 2 two-minute fast retry attempted all 319 previous timeouts. Two rows completed before CPU 2 was reserved, and the
+remaining work used performance CPUs 3 through 9. Twenty-one matrices completed, adding 683 representative rows for 841 weighted
+candidates and 236 ESS; two results used exact fallback and 19 remain unverified fast results. The other 298 matrices timed out:
+41 were classified for exact fallback and 257 remained on the fast path.
 
 ## Circular Storage Normalization
 

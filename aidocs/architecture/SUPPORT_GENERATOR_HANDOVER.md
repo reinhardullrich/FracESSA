@@ -29,8 +29,8 @@ Each concrete generator owns the matrix dimension, the cardinality sweep, its
 recursive state, and the forbidden-support rules discovered during analysis.
 
 - `NonCircularSupportGenerator` uses fixed-cardinality binary DFS.
-- `CircularSupportGenerator` uses fixed-content FKM-style necklace recursion
-  followed by reflection reduction, so it emits one bracelet representative.
+- Production `CircularSupportGeneratorV3` uses direct fixed-density bracelet recursion, placing one selected bit per recursive
+  step and rejecting reflected duplicates during construction.
 - Both emit cardinality ascending first and numeric mask ascending second.
 - Both pass exactly one support and its cardinality to the analyzer at a time.
 - Both activate newly forbidden supports only when moving to the next
@@ -52,7 +52,7 @@ generator.generate([&](bitset64 support, size_t support_size) {
 ```
 
 `generate()` is recursive. When it finds a support, it calls the consumer
-synchronously while the DFS or FKM call stack is still alive. After the callback
+synchronously while the DFS or bracelet call stack is still alive. After the callback
 returns, recursion continues from exactly the saved position. The callback is a
 template defined in the header, so the compiler can inline it; there is no
 `std::function`, virtual dispatch, or allocation per support.
@@ -105,8 +105,8 @@ Two explicit matrix-type branches are shorter and clearer than a virtual base,
 adapter, or type-erased wrapper. They also keep the per-support hot path free of
 runtime dispatch.
 
-The same reasoning applies to the experimental third implementation: it exists
-for a later comparison, not as justification for a hierarchy.
+The same reasoning applies to the three retained circular implementations: keeping historical and experimental algorithms does
+not justify a runtime hierarchy.
 
 ## Circular Output And Multiplier
 
@@ -125,7 +125,16 @@ generator still registers every distinct rotation and reflection of an exact
 candidate support as compact forbidden masks. One canonical mask alone is not
 enough because canonicalization does not preserve subset relationships.
 
-## Experimental `CircularSupportGeneratorV2`
+## Retained Circular Generators
+
+`CircularSupportGenerator` is V1: fixed-content FKM necklace recursion followed by reflection reduction. It remains available for
+regression and performance comparisons but is no longer wired into production.
+
+`CircularSupportGeneratorV3` is the production path. It is the binary specialization of Karim-Alamgir-Husnine `BraceFD`: each
+recursive step places one selected bit and skips the zero run before it, while the paper's reversal state rejects mirror branches
+during construction. V3 retains V1's callback, expanded forbidden-orbit masks, and independently calculated orbit multiplier.
+
+### Experimental `CircularSupportGeneratorV2`
 
 `cpp/include/fracessa/supports.hpp` also contains
 `CircularSupportGeneratorV2`. It is explicitly test-only and is not wired into
@@ -142,11 +151,11 @@ whether the reflected necklace is the same rotation class. The multiplier is
 therefore `period` or `2 * period` and is cached for the synchronous
 `add_forbidden()` call.
 
-The compact representation is not assumed to be faster: it saves stored orbit
-masks but performs more bit-parallel work in the recursive pruning test. A
-future focused comparison test and end-to-end benchmark must decide whether V2
-or the expanded production representation should remain. Until then,
-`CircularSupportGenerator` is the only production circular path.
+The compact representation is correct but slower. The focused 2026-08-02 fast-mode benchmark verified identical results on all 81
+quick-test matrices and timed the 33 circular cases. V2 was slower by 41.48% at the median and 91.40% by geometric mean; matrix 34
+was 6.824 times slower. V1 was faster on 28 cases, equal on three, and V2 won only two sub-microsecond dimension-2/3 measurements.
+The expanded forbidden-orbit representation therefore remains in V3; only V2's compact pruning representation was rejected. See
+`experiments/circular_support_v2_2026-08-02/README.md` for the complete method and table.
 
 ## Validation Record
 
@@ -161,10 +170,14 @@ reported orbit multiplier, exercised arbitrary forbidden rules, and covered the
 dimension-63 boundary. The temporary V2 checker passed in Release and under
 ASan/UBSan.
 
+The production V3 promotion compared V1 and V3 generation through dimension 24, covered V3's dimension-63 boundary, and produced
+byte-identical fast and safe candidate output on all 81 quick-test matrices. Release and ASan/UBSan CTests plus all 63 Python tests
+passed. Two CPU-2 persistent-Pybind panels found conservative reverse-order median runtime reductions of 19.90% overall and 34.70%
+for dimensions 19 and above. See `experiments/direct_bracelet_generation_2026-07-29/PRODUCTION_V3_COMPARISON_2026-08-03.md`.
+
 ## Remaining Work
 
-- Add the planned permanent V1-versus-V2 comparison test when the generator test
-  framework is ready, then benchmark and keep only the justified representation.
+- Do not revisit V1 or V2 for production unless a new end-to-end measurement beats V3 while preserving the same pruning contract.
 - Do not replace the callback with `next_support()` without a measured reason
   that justifies a resumable generator implementation.
 - Do not funnel generator registration into `analyze_support()` unless the

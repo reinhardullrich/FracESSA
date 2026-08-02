@@ -172,11 +172,13 @@ Important implementation points:
   callback and never materializes the complete frontier or a cardinality layer.
   The generator owns the cardinality sweep and calls the analyzer with both the
   mask and its size. `NonCircularSupportGenerator` uses fixed-cardinality binary DFS;
-  `CircularSupportGenerator` uses fixed-content FKM necklace recursion plus
-  reflection reduction. Both prune partial branches against earlier exact
+  production `CircularSupportGeneratorV3` uses the direct binary fixed-density
+  bracelet recursion of Karim-Alamgir-Husnine. Both prune partial branches against earlier exact
   candidate supports bucketed by lowest bit. Circular rules expand every
   distinct rotation/reflection only as compact forbidden masks. The analyzer
   stores one solved bracelet representative with their count as `multiplier`.
+  The former FKM-plus-reflection implementation remains available as `CircularSupportGenerator` (V1), and compact
+  bit-parallel `CircularSupportGeneratorV2` also remains test-only.
   See `plans/SUPPORT_GENERATORS.md`.
 - Newly found exact candidates are pending until the next cardinality, keeping
   each generator layer's pruning rules stable. Stability is irrelevant to this
@@ -553,15 +555,21 @@ removed IDs 38 and 44 in favor of ID 1. Zero-game consolidation removed ID 43 in
 dimension-one consolidation left ID 314 as the sole full-storage exception. Eighteen stale `classic`/Werner rows for the old
 matrices were replaced by a current-build fast/safe panel; after both cleanups it has four rows for IDs 1 and 2203.
 
-Fast calibration covers all 1,072 matrices with 753 positive durations and 319 `-1` timeouts; safe calibration has 718 positive
+Fast calibration covers all 1,072 matrices with 774 positive durations and 298 `-1` timeouts; safe calibration has 718 positive
 durations and 354 timeouts. No calibration remains null.
 The reusable
 `scripts/calibrate_matrices.py` processes only null calibration fields by default;
 either method also stores missing candidate data when it finishes within the cutoff. Its `fast|safe --retry-timeouts` form
 processes only that method's `-1` rows, runs each matrix once, and leaves unsuccessful rows at `-1`; the retained two-minute pass
-uses `--cutoff-seconds 120`. A completed fast result is exact when `safe_fallback` is non-null; otherwise it is explicitly an
-unverified fast result while `safe_calibration_ns` remains `-1`. These calibrations choose future iteration counts and are not
-timing-history rows.
+uses `--cutoff-seconds 120`. Repeating `--cpu ID` processes matrices concurrently with one child pinned to each selected core
+while the main process serializes SQLite writes. A completed fast result is exact when `safe_fallback` is non-null; otherwise it
+is explicitly an unverified fast result while `safe_calibration_ns` remains `-1`. These calibrations choose future iteration
+counts and are not timing-history rows.
+
+The August 2 fast retry attempted all 319 previous timeouts with a 120-second per-matrix cutoff. Two rows completed before CPU 2
+was reserved; the remaining 317 attempts used performance CPUs 3 through 9. Twenty-one matrices completed, adding 683
+representative rows for 841 weighted candidates and 236 ESS. Two completed through exact fallback and 19 are unverified fast
+results. The remaining 298 timeouts comprise 41 exact-fallback classifications and 257 unverified fast rows.
 
 A historical `reduced-hessian-ldlt` benchmark measured 85 matrices; IDs 33-34
 were not included in that run. Those rows are no longer in the canonical timing table. All 85 ESS counts matched. Against

@@ -1,8 +1,7 @@
-# Support Generators With DFS And FKM
+# Support Generators With DFS And Direct Bracelets
 
-Status: implemented in production on 2026-07-30. A compact bit-parallel
-alternative exists as a test-only class; its permanent comparison test and
-end-to-end benchmark remain future work.
+Status: implemented in production. Non-circular generation uses DFS; circular generation uses V3 direct fixed-density bracelet
+recursion. The former V1 FKM generator and compact bit-parallel V2 remain available for regression comparisons.
 
 ## Purpose
 
@@ -11,7 +10,7 @@ after an exact candidate is found. This document records the production design
 and the experiments that led to it:
 
 - fixed-cardinality depth-first search (DFS) for general symmetric games;
-- fixed-content necklace/bracelet generation for circular-symmetric games;
+- direct fixed-density bracelet generation for circular-symmetric games;
 - candidate pruning inside the generator, so forbidden subtrees are never
   generated;
 - no complete `2^n` frontier or complete cardinality layer.
@@ -36,8 +35,8 @@ generator.generate(callback):
 The two paths differ only in their generator:
 
 - non-circular: a binary fixed-cardinality DFS;
-- circular: an FKM-style fixed-content necklace recursion plus bracelet
-  reduction, with the same forbidden-subset test inserted into its branches.
+- circular: Karim-Alamgir-Husnine direct fixed-density bracelet recursion, with the same forbidden-subset test inserted whenever a
+  selected bit is added.
 
 Each generator's constructor receives only the matrix dimension. Its single
 `generate(callback)` call owns the complete cardinality sweep and supplies both
@@ -100,10 +99,8 @@ from the current period, or choose the next larger symbol and start a new
 period. For binary supports, the content is fixed by the required number of
 ones.
 
-The production circular generator is best described precisely as
-"fixed-content FKM-style necklace recursion followed by reflection reduction."
-It first emits one representative per rotation class, then retains one of the
-two reflected rotation classes to obtain bracelets.
+This describes retained V1. Production V3 instead specializes the paper's `BraceFD` recursion to binary supports: it places one
+selected bit per recursion, skips the intervening zero run, and tracks reversal order while constructing the bracelet.
 
 ## Former Eager Production Behavior
 
@@ -294,7 +291,7 @@ avoidable pieces:
 
 ## Integrated Candidate Pruning In FKM
 
-FKM is already a recursive tree, so production uses the same monotone DFS
+FKM is already a recursive tree, so V1 uses the same monotone DFS
 argument without generating a complete bracelet first.
 
 The recursion assigns the binary word from its most significant position toward
@@ -515,13 +512,13 @@ gate predicts it. The discovered candidate family is matrix-specific.
   generator-only win at dimension 24.
 
 Conclusion: circular orbit reduction is the strongest measured opportunity.
-The simpler FKM-plus-reflection generator remains the preferred base until an
-end-to-end result justifies the more complex direct bracelet recursion.
+The later V3 end-to-end comparison justified the direct fixed-density recursion and promoted it to production while retaining V1
+and V2 for comparison.
 
 ## Implemented Shape
 
-`cpp/include/fracessa/supports.hpp` contains two production classes with the
-same compile-time interface and no inheritance:
+`cpp/include/fracessa/supports.hpp` contains the two production paths and two retained circular alternatives with the same
+compile-time interface and no inheritance:
 
 ```cpp
 template<class Consumer>
@@ -530,15 +527,16 @@ void generate(Consumer&& consume); // consume(support, support_size)
 // NonCircularSupportGenerator
 void add_forbidden(bitset64 support);
 
-// CircularSupportGenerator
+// CircularSupportGeneratorV3
 size_t add_forbidden(bitset64 support); // distinct-orbit multiplier
 ```
 
 - `NonCircularSupportGenerator` uses fixed-cardinality binary DFS and preserves
   increasing numeric mask order.
-- `CircularSupportGenerator` uses fixed-content FKM recursion, reflection
-  reduction, expanded dihedral forbidden masks, and returns their distinct
-  orbit size as the candidate multiplier.
+- Production `CircularSupportGeneratorV3` uses direct fixed-density bracelet recursion, expanded dihedral forbidden masks, and
+  returns their distinct orbit size as the candidate multiplier.
+- `CircularSupportGenerator` retains V1's FKM recursion and reflection reduction. `CircularSupportGeneratorV2` retains the compact
+  bit-parallel pruning experiment. Neither is selected by `fracessa`.
 - `fracessa::analyze_support()` runs the optional fast heuristic, then safe
   exact candidate analysis, and owns exact stability classification.
 - `fracessa::finalize_candidate()` owns representative IDs, weighted ESS counting,
@@ -555,9 +553,9 @@ has no virtual call, `std::function`, or per-support matrix-type branch.
 `CircularSupportGeneratorV2` is present in `supports.hpp` as a test-only third
 class. It stores one forbidden representative and uses two 64-bit alignment
 masks to test rotations and reflections in parallel. It is not wired into
-production. Add the permanent comparison test and benchmark it against expanded
-production forbidden masks; keep it only if end-to-end time or memory improves
-materially and the proof remains understandable.
+production. The 2026-08-02 quick-test comparison proved identical results but found V2 41.48% slower at the median and 91.40%
+slower by geometric mean across the 33 circular cases, with slowdowns reaching 6.824 times. Keep the expanded production masks;
+the complete results are in `experiments/circular_support_v2_2026-08-02/README.md`.
 
 ## Future Experimental Measurements
 
