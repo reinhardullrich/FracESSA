@@ -114,6 +114,181 @@ private:
     }
 };
 
+// V3: Karim-Alamgir-Husnine BraceFD specialized to binary fixed-density words. The
+// recursion places one 1-bit at a time and skips the zero runs between them.
+// The paper's reversal tests prune mirror branches during recursion.
+class V3BraceletGenerator {
+public:
+    explicit V3BraceletGenerator(size_t dimension)
+        : dimension_(dimension)
+    {}
+
+    const std::vector<uint64_t>& generate(size_t support_size)
+    {
+        bracelets_.clear();
+        support_size_ = support_size;
+        support_ = 0;
+        positions_.fill(0);
+        prefix_density_.fill(0);
+
+        if (support_size == 0) {
+            bracelets_.push_back(0);
+            return bracelets_;
+        }
+        if (support_size == 1) {
+            bracelets_.push_back(1);
+            return bracelets_;
+        }
+        if (support_size == dimension_) {
+            bracelets_.push_back((1ULL << dimension_) - 1ULL);
+            return bracelets_;
+        }
+
+        positions_[support_size_] = dimension_;
+        prefix_density_[dimension_] = static_cast<uint8_t>(support_size_);
+        const size_t first_latest = dimension_ - support_size_ + 1;
+        const size_t first_earliest = (dimension_ - 1) / support_size_ + 1;
+
+        for (size_t first = first_latest;; --first) {
+            positions_[1] = first;
+            set_position(first);
+            prefix_density_[first] = 1;
+            generate_bracelets(1, 1, first - 1, false);
+            clear_position(first);
+            prefix_density_[first] = 0;
+            if (first == first_earliest) {
+                break;
+            }
+        }
+        return bracelets_;
+    }
+
+private:
+    size_t dimension_;
+    size_t support_size_ = 0;
+    uint64_t support_ = 0;
+    std::array<size_t, kMaxDimension + 2> positions_ {};
+    std::array<uint8_t, kMaxDimension + 2> prefix_density_ {};
+    std::vector<uint64_t> bracelets_;
+
+    bool position_is_set(size_t position) const noexcept
+    {
+        return (support_ & (1ULL << (dimension_ - position))) != 0;
+    }
+
+    void set_position(size_t position) noexcept
+    {
+        support_ |= 1ULL << (dimension_ - position);
+    }
+
+    void clear_position(size_t position) noexcept
+    {
+        support_ &= ~(1ULL << (dimension_ - position));
+    }
+
+    // Return 1 when the current prefix is smaller than its reversal, 0 when
+    // equal, and -1 when the reversal is smaller and the branch must stop.
+    int check_reverse(size_t end_position) const noexcept
+    {
+        for (size_t position = positions_[1]; position <= (end_position + 1) / 2; ++position) {
+            const bool forward = position_is_set(position);
+            const bool reverse = position_is_set(end_position - position + 1);
+            if (forward < reverse) {
+                return 1;
+            }
+            if (forward > reverse) {
+                return -1;
+            }
+        }
+        return 0;
+    }
+
+    bool update_reverse_result(size_t density, size_t palindrome_prefix, bool reverse_smaller) const noexcept
+    {
+        const size_t latest_position = positions_[density];
+        if (latest_position > (dimension_ - palindrome_prefix) / 2 + palindrome_prefix) {
+            const size_t mirrored_position = dimension_ - latest_position + palindrome_prefix + 1;
+            const size_t mirrored_density = prefix_density_[mirrored_position];
+            // Every newly placed binary symbol is 1, so a zero mirrored density means 1 > 0.
+            if (mirrored_density == 0) {
+                reverse_smaller = false;
+            } else if (mirrored_density < density) {
+                // Equality identifies the latest symbol itself, whose following zero run is not known yet.
+                const size_t latest_zero_run = latest_position - positions_[density - 1] - 1;
+                const size_t mirrored_zero_run = positions_[mirrored_density + 1] - positions_[mirrored_density] - 1;
+                if (latest_zero_run > mirrored_zero_run) {
+                    reverse_smaller = true;
+                }
+            }
+        }
+        return reverse_smaller;
+    }
+
+    // The fixed-density necklace algorithm places the final 1 directly at n.
+    // In binary, a final value exists exactly in these two cases from PrintD.
+    void emit_final(size_t period_density, size_t palindrome_prefix, bool reverse_smaller)
+    {
+        const size_t next_position = (support_size_ / period_density) * positions_[period_density] + positions_[support_size_ % period_density];
+        if (next_position < dimension_
+            || (next_position == dimension_ && support_size_ % period_density != 0)) {
+            return;
+        }
+
+        set_position(dimension_);
+        reverse_smaller = update_reverse_result(support_size_, palindrome_prefix, reverse_smaller);
+        if (!reverse_smaller) {
+            bracelets_.push_back(support_);
+        }
+        clear_position(dimension_);
+    }
+
+    void generate_bracelets(size_t density, size_t period_density, size_t palindrome_prefix, bool reverse_smaller)
+    {
+        reverse_smaller = update_reverse_result(density, palindrome_prefix, reverse_smaller);
+
+        if (density >= support_size_ - 1) {
+            emit_final(period_density, palindrome_prefix, reverse_smaller);
+            return;
+        }
+
+        size_t tail = dimension_ - (support_size_ - density) + 1;
+        const size_t periodic_position = positions_[density + 1 - period_density] + positions_[period_density];
+        if (periodic_position <= tail) {
+            size_t next_palindrome_prefix = palindrome_prefix;
+            bool next_reverse_smaller = reverse_smaller;
+            positions_[density + 1] = periodic_position;
+            set_position(periodic_position);
+            prefix_density_[periodic_position] = static_cast<uint8_t>(density + 1);
+
+            bool recurse = true;
+            if (positions_[1] == periodic_position - positions_[density]) {
+                const int reverse_order = check_reverse(periodic_position - 1);
+                if (reverse_order == 0) {
+                    next_palindrome_prefix = periodic_position - 1;
+                    next_reverse_smaller = false;
+                }
+                recurse = reverse_order != -1;
+            }
+            if (recurse) {
+                generate_bracelets(density + 1, period_density, next_palindrome_prefix, next_reverse_smaller);
+            }
+
+            clear_position(periodic_position);
+            prefix_density_[periodic_position] = 0;
+            tail = periodic_position - 1;
+        }
+
+        for (size_t position = tail; position > positions_[density]; --position) {
+            positions_[density + 1] = position;
+            set_position(position);
+            prefix_density_[position] = static_cast<uint8_t>(density + 1);
+            generate_bracelets(density + 1, density + 1, palindrome_prefix, reverse_smaller);
+            clear_position(position);
+            prefix_density_[position] = 0;
+        }
+    }
+};
+
 // Karim-Sawada-Alamgir-Husnine BraceletFC specialized to two symbols. Unlike
 // the FKM path, reversal order is tracked during recursion, so rejected mirror
 // necklaces are never completed and rescanned.
@@ -381,12 +556,15 @@ bool verify(size_t maximum_dimension)
 {
     for (size_t dimension = 1; dimension <= maximum_dimension; ++dimension) {
         FkmBraceletGenerator fkm(dimension);
+        V3BraceletGenerator v3(dimension);
         DirectFixedContentBraceletGenerator direct(dimension);
         size_t total = 0;
 
         for (size_t support_size = 1; support_size <= dimension; ++support_size) {
             std::vector<uint64_t> expected = fkm.generate(support_size);
+            std::vector<uint64_t> v3_actual = v3.generate(support_size);
             std::vector<uint64_t> actual = direct.generate(support_size);
+            const bool v3_sorted = std::is_sorted(v3_actual.begin(), v3_actual.end());
             for (uint64_t& support : expected) {
                 support = canonical_bracelet(support, dimension);
             }
@@ -394,14 +572,29 @@ bool verify(size_t maximum_dimension)
                 support = canonical_bracelet(support, dimension);
             }
             std::sort(expected.begin(), expected.end());
+            std::sort(v3_actual.begin(), v3_actual.end());
             std::sort(actual.begin(), actual.end());
 
-            if (std::adjacent_find(actual.begin(), actual.end()) != actual.end()
+            if (!v3_sorted
+                || std::adjacent_find(v3_actual.begin(), v3_actual.end()) != v3_actual.end()
+                || v3_actual != expected
+                || std::adjacent_find(actual.begin(), actual.end()) != actual.end()
                 || actual != expected) {
                 std::cerr << "Mismatch at n=" << dimension
                           << " k=" << support_size
                           << " fkm=" << expected.size()
+                          << " v3=" << v3_actual.size()
                           << " direct=" << actual.size() << '\n';
+                for (const uint64_t support : expected) {
+                    if (!std::binary_search(v3_actual.begin(), v3_actual.end(), support)) {
+                        std::cerr << "v3 missing support=" << support << '\n';
+                    }
+                }
+                for (const uint64_t support : v3_actual) {
+                    if (!std::binary_search(expected.begin(), expected.end(), support)) {
+                        std::cerr << "v3 extra support=" << support << '\n';
+                    }
+                }
                 return false;
             }
             total += actual.size();
@@ -416,7 +609,8 @@ volatile uint64_t benchmark_sink = 0;
 double median(std::vector<double> values)
 {
     std::sort(values.begin(), values.end());
-    return values[values.size() / 2];
+    const size_t middle = values.size() / 2;
+    return values.size() % 2 == 0 ? (values[middle - 1] + values[middle]) / 2.0 : values[middle];
 }
 
 template <typename Generator>
@@ -484,7 +678,7 @@ void usage(const char* program)
 {
     std::cerr << "Usage:\n"
               << "  " << program << " verify [MAX_DIMENSION]\n"
-              << "  " << program << " benchmark {fkm|direct} DIMENSION [TARGET_SECONDS]\n";
+              << "  " << program << " benchmark {fkm|v3|direct} DIMENSION [TARGET_SECONDS]\n";
 }
 
 } // namespace
@@ -504,6 +698,9 @@ int main(int argc, char** argv)
             }
             if (std::string_view(argv[2]) == "fkm") {
                 return benchmark<FkmBraceletGenerator>(dimension, target_seconds);
+            }
+            if (std::string_view(argv[2]) == "v3") {
+                return benchmark<V3BraceletGenerator>(dimension, target_seconds);
             }
             if (std::string_view(argv[2]) == "direct") {
                 return benchmark<DirectFixedContentBraceletGenerator>(dimension, target_seconds);

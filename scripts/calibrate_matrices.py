@@ -5,6 +5,7 @@ from __future__ import annotations
 
 import argparse
 from collections import Counter
+from concurrent.futures import FIRST_COMPLETED, ThreadPoolExecutor, wait
 import json
 from multiprocessing import get_context
 from multiprocessing.connection import Connection
@@ -287,13 +288,16 @@ def calibrate(
     method: str,
     module_dir: Path,
     database: Path,
-    cpu_id: int,
+    cpu_ids: list[int],
     cutoff_seconds: float,
     retry_timeouts: bool,
 ) -> None:
     available_cpus = set(os.sched_getaffinity(0))
-    if cpu_id not in available_cpus:
-        raise ValueError(f"CPU {cpu_id} is unavailable; choose one of {sorted(available_cpus)}")
+    if not cpu_ids or len(cpu_ids) != len(set(cpu_ids)):
+        raise ValueError("provide at least one CPU without duplicates")
+    unavailable_cpus = sorted(set(cpu_ids) - available_cpus)
+    if unavailable_cpus:
+        raise ValueError(f"CPUs {unavailable_cpus} are unavailable; choose from {sorted(available_cpus)}")
     if cutoff_seconds <= 0:
         raise ValueError("cutoff must be positive")
     if not database.is_file():
@@ -326,37 +330,63 @@ def calibrate(
                 ORDER BY dimension, matrix_id"""
         ).fetchall()
         started = monotonic()
-        for position, (matrix_id, dimension, values, candidate_count, ess_count) in enumerate(rows, start=1):
-            matrix = f"{dimension}#{values}"
-            classified_fallback = fracessa_core.classify_safe_fallback(matrix)
-            if classified_fallback is not None and classified_fallback not in SAFE_FALLBACKS:
-                raise RuntimeError(f"matrix {matrix_id}: unknown classified safe fallback {classified_fallback!r}")
-            needs_baseline = candidate_count is None
-            calibration_ns, baseline, failure, observed_fallback = _run_one(
-                context,
-                module_dir,
-                cpu_id,
-                cutoff_seconds,
-                method,
-                matrix_id,
-                matrix,
-                needs_baseline,
-                ess_count,
-                retry_timeouts,
-            )
-            if method == "fast" and observed_fallback is not None and observed_fallback != classified_fallback:
-                raise RuntimeError(
-                    f"matrix {matrix_id}: computed safe fallback {observed_fallback!r} != classified {classified_fallback!r}"
+        row_iterator = iter(rows)
+        worker_count = min(len(cpu_ids), len(rows))
+        if worker_count == 0:
+            return
+
+        with ThreadPoolExecutor(max_workers=worker_count) as executor:
+            in_flight = {}
+
+            def submit(row, cpu_id: int) -> None:
+                matrix_id, dimension, values, candidate_count, ess_count = row
+                matrix = f"{dimension}#{values}"
+                classified_fallback = fracessa_core.classify_safe_fallback(matrix)
+                if classified_fallback is not None and classified_fallback not in SAFE_FALLBACKS:
+                    raise RuntimeError(f"matrix {matrix_id}: unknown classified safe fallback {classified_fallback!r}")
+                future = executor.submit(
+                    _run_one,
+                    context,
+                    module_dir,
+                    cpu_id,
+                    cutoff_seconds,
+                    method,
+                    matrix_id,
+                    matrix,
+                    candidate_count is None,
+                    ess_count,
+                    retry_timeouts,
                 )
-            _store_result(connection, method, matrix_id, calibration_ns, baseline, retry_timeouts, classified_fallback)
-            calibration = failure or ("timeout" if calibration_ns == -1 else f"{calibration_ns / 1_000:.3f} us")
-            baseline_status = " baseline=filled" if baseline is not None else ""
-            print(
-                f"[{position}/{len(rows)}] matrix={matrix_id} dimension={dimension} calibration={calibration}{baseline_status} "
-                f"safe_fallback={classified_fallback or 'null'} "
-                f"total_minutes={(monotonic() - started) / 60:.2f}",
-                flush=True,
-            )
+                in_flight[future] = (cpu_id, matrix_id, dimension, classified_fallback)
+
+            for cpu_id in cpu_ids[:worker_count]:
+                submit(next(row_iterator), cpu_id)
+
+            position = 0
+            while in_flight:
+                completed, _ = wait(in_flight, return_when=FIRST_COMPLETED)
+                for future in completed:
+                    cpu_id, matrix_id, dimension, classified_fallback = in_flight.pop(future)
+                    calibration_ns, baseline, failure, observed_fallback = future.result()
+                    if method == "fast" and observed_fallback is not None and observed_fallback != classified_fallback:
+                        raise RuntimeError(
+                            f"matrix {matrix_id}: computed safe fallback {observed_fallback!r} != "
+                            f"classified {classified_fallback!r}"
+                        )
+                    _store_result(connection, method, matrix_id, calibration_ns, baseline, retry_timeouts, classified_fallback)
+                    position += 1
+                    calibration = failure or ("timeout" if calibration_ns == -1 else f"{calibration_ns / 1_000:.3f} us")
+                    baseline_status = " baseline=filled" if baseline is not None else ""
+                    print(
+                        f"[{position}/{len(rows)}] matrix={matrix_id} dimension={dimension} cpu={cpu_id} "
+                        f"calibration={calibration}{baseline_status} safe_fallback={classified_fallback or 'null'} "
+                        f"total_minutes={(monotonic() - started) / 60:.2f}",
+                        flush=True,
+                    )
+
+                    next_row = next(row_iterator, None)
+                    if next_row is not None:
+                        submit(next_row, cpu_id)
     finally:
         connection.close()
 
@@ -366,7 +396,7 @@ def main() -> None:
     parser.add_argument("method", choices=("fast", "safe"))
     parser.add_argument("--module-dir", type=Path, default=DEFAULT_MODULE_DIR)
     parser.add_argument("--database", type=Path, default=DEFAULT_DATABASE)
-    parser.add_argument("--cpu", type=int, default=2)
+    parser.add_argument("--cpu", type=int, action="append", metavar="ID", help="CPU ID; repeat to run matrices in parallel")
     parser.add_argument("--cutoff-seconds", type=float, default=DEFAULT_CUTOFF_SECONDS)
     parser.add_argument("--retry-timeouts", action="store_true")
     arguments = parser.parse_args()
@@ -374,7 +404,7 @@ def main() -> None:
         arguments.method,
         arguments.module_dir.resolve(),
         arguments.database.resolve(),
-        arguments.cpu,
+        arguments.cpu or [2],
         arguments.cutoff_seconds,
         arguments.retry_timeouts,
     )

@@ -1,4 +1,4 @@
-# Direct Fixed-Content Bracelet Generation
+# Direct Bracelet Generation Experiments
 
 Date: 2026-07-29
 
@@ -101,6 +101,43 @@ algorithm should not replace FKM unconditionally. It is a credible large-
 dimension generator, but its end-to-end value must still be measured inside
 the bracelet-pruning search before any production choice.
 
+## V3: direct fixed-density generation
+
+The follow-up implementation called **V3** is an independent binary C++17 adaptation of `BraceFD` from Karim, Alamgir, and Husnine's 2014 paper *Generating fixed density bracelets of arbitrary base*. Unlike the fixed-content generator above, V3 places one one-bit per recursive call and skips the intervening zero run. The final one-bit is placed directly at position `n`, as required by the paper's fixed-density necklace completion test.
+
+V3 was compared with both existing generators for every dimension `1..24` and every support size. It produced exactly the same `352,697` orbits at dimension 24, with no duplicate, noncanonical, or out-of-order representatives. The optimized build and the AddressSanitizer/UndefinedBehaviorSanitizer build both passed through dimension 24. Saved verification output is in `results/verification_v3_release.txt` and `results/verification_v3_sanitized.txt`.
+
+Only V3 was newly timed; the unchanged V1 and direct fixed-content columns below come from the saved three-second run. Negative change means V3 is faster.
+
+| n | Bracelets | V1: FKM + reflection (us) | V3 (us) | V3 vs V1 |
+|---:|---:|---:|---:|---:|
+| 5 | 7 | 0.233 | 0.151 | -35.31% |
+| 6 | 12 | 0.395 | 0.569 | +44.00% |
+| 7 | 17 | 0.630 | 0.590 | -6.32% |
+| 8 | 29 | 1.127 | 0.700 | -37.88% |
+| 9 | 45 | 1.973 | 1.156 | -41.41% |
+| 10 | 77 | 3.519 | 1.764 | -49.88% |
+| 11 | 125 | 6.321 | 2.686 | -57.50% |
+| 12 | 223 | 11.694 | 4.609 | -60.59% |
+| 13 | 379 | 21.453 | 8.278 | -61.41% |
+| 14 | 686 | 41.971 | 14.712 | -64.95% |
+| 15 | 1,223 | 138.197 | 27.043 | -80.43% |
+| 16 | 2,249 | 175.073 | 51.306 | -70.69% |
+| 17 | 4,111 | 358.402 | 165.041 | -53.95% |
+| 18 | 7,684 | 721.960 | 322.803 | -55.29% |
+| 19 | 14,309 | 1,419.753 | 682.770 | -51.91% |
+| 20 | 27,011 | 2,682.011 | 1,293.187 | -51.78% |
+| 21 | 50,963 | 5,131.472 | 2,293.634 | -55.30% |
+| 22 | 96,908 | 9,894.982 | 4,089.496 | -58.67% |
+| 23 | 184,409 | 19,252.769 | 7,321.643 | -61.97% |
+| 24 | 352,697 | 37,712.679 | 13,183.846 | -65.04% |
+
+Across dimensions `5..24`, V3 is `55.30%` faster at the median and `53.31%` faster by geometric mean. At dimension 24 it is `2.86x` as fast as V1. Full dimensions `2..24`, both comparator columns, and raw V3 batches are saved in `results/paired_v3_3s.tsv` and `results/raw/n*_v3.txt`.
+
+V3 subsequently passed its production gate while preserving dynamic forbidden-support pruning and candidate multipliers. V1 and
+V2 remain available for comparison, while FracESSA now selects V3 for circular matrices. The end-to-end correctness and timing
+record is in `PRODUCTION_V3_COMPARISON_2026-08-03.md`.
+
 ## Reproduce
 
 ```bash
@@ -108,6 +145,7 @@ cd experiments/direct_bracelet_generation_2026-07-29
 ./build.sh
 ./builds/compare_bracelet_generators_san verify 24
 ./benchmark.sh 3
+taskset -c 2 ./builds/compare_bracelet_generators benchmark v3 24 3
 ```
 
 ## Primary Sources
@@ -119,3 +157,6 @@ cd experiments/direct_bracelet_generation_2026-07-29
 - J. Sawada,
   [Generating Bracelets in Constant Amortized Time](https://www.cis.uoguelph.ca/~sawada/papers/brace.pdf),
   SIAM Journal on Computing 31(1), 2001.
+- S. Karim, Z. Alamgir, and S. M. Husnine,
+  [Generating Fixed-Density Bracelets of Arbitrary Base](https://doi.org/10.1080/00207160.2013.805753),
+  *International Journal of Computer Mathematics* 91(3), 2014.

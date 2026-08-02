@@ -76,7 +76,7 @@ fracessa::fracessa(search_method method, const linalg::matrix_frc& matrix, bool 
     }
 
     if (is_cs) {
-        CircularSupportGenerator generator(dimension_);
+        CircularSupportGeneratorV3 generator(dimension_);
         size_t last_logged_support_size = 0;
         // This lambda is the callback. The generator calls it once for each circular representative and supplies both the
         // mask and its size.
