@@ -321,7 +321,7 @@ run without that option.
 - The second and third matrices show that pivot fallback alone leaves independent false rejections in both remaining per-support
   inequalities; current fast's precision-span gate sends both complete matrices to safe search.
 
-These counterexamples are stored in the canonical SQLite matrix set as IDs 91, 92, and 93 respectively.
+These counterexamples are stored in the canonical SQLite matrix set as IDs 2207, 2208, and 2209 respectively.
 
 ## Precision-Span and Small-Pivot Mitigation
 

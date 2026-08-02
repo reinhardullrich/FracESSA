@@ -10,20 +10,40 @@ CREATE TABLE matrices (
     ),
     is_cs INTEGER NOT NULL CHECK (is_cs IN (0, 1)),
     matrix TEXT NOT NULL CHECK (length(matrix) > 0),
-    candidate_count INTEGER NOT NULL CHECK (candidate_count >= 0),
-    ess_count INTEGER NOT NULL CHECK (ess_count BETWEEN 0 AND candidate_count),
-    candidate_structure TEXT NOT NULL CHECK (
-        json_valid(candidate_structure) AND
-        json_type(candidate_structure) = 'object'
+    candidate_count INTEGER CHECK (candidate_count >= 0),
+    ess_count INTEGER CHECK (ess_count BETWEEN 0 AND candidate_count),
+    candidate_structure TEXT CHECK (
+        candidate_structure IS NULL OR (
+            json_valid(candidate_structure) AND
+            json_type(candidate_structure) = 'object'
+        )
     ),
-    ess_structure TEXT NOT NULL CHECK (
-        json_valid(ess_structure) AND
-        json_type(ess_structure) = 'object'
+    ess_structure TEXT CHECK (
+        ess_structure IS NULL OR (
+            json_valid(ess_structure) AND
+            json_type(ess_structure) = 'object'
+        )
     ),
     origin TEXT NOT NULL CHECK (length(origin) > 0),
     tags TEXT NOT NULL DEFAULT '[]' CHECK (
         json_valid(tags) AND
         json_type(tags) = 'array'
+    ),
+    name TEXT CHECK (name IS NULL OR length(name) > 0),
+    family TEXT CHECK (family IS NULL OR length(family) > 0),
+    subfamily TEXT CHECK (subfamily IS NULL OR length(subfamily) > 0),
+    description TEXT CHECK (description IS NULL OR length(description) > 0),
+    source_url TEXT CHECK (source_url IS NULL OR length(source_url) > 0),
+    original_format TEXT CHECK (
+        original_format IS NULL OR length(original_format) > 0
+    ),
+    original_id TEXT CHECK (original_id IS NULL OR length(original_id) > 0),
+    created_at TEXT CHECK (created_at IS NULL OR length(created_at) > 0),
+    CHECK (
+        (candidate_count IS NULL AND ess_count IS NULL AND
+         candidate_structure IS NULL AND ess_structure IS NULL) OR
+        (candidate_count IS NOT NULL AND ess_count IS NOT NULL AND
+         candidate_structure IS NOT NULL AND ess_structure IS NOT NULL)
     )
 ) STRICT;
 

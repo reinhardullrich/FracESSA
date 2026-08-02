@@ -549,3 +549,115 @@ and mirror it. The temporary shared conversion flag was removed, and fast/test s
 the balanced 81-matrix CPU-2 panel, FP-S02 alone improved the median by 0.81%; combined FP-S02+FP-S03 improved it by 1.91%, while
 all ESS counts matched. Release passed all 10 C++/CLI and 56 Python tests, and one promoted-fast pass reproduced all 81 benchmarked
 matrix ESS counts including IDs 45-47 and 91-93.
+240. Extended the canonical matrix catalog metadata:
+added names, family and subfamily classifications, descriptions, source URLs, original formats and IDs, and approximate
+creation or first-use dates to all 87 matrix rows. Legacy REF fixtures are explicitly classified as historical, with January
+1 used as a documented placeholder when only the year is known; no mathematical matrix, candidate, or timing data changed.
+241. Imported the small symmetric SuiteSparse corpus:
+selected all 12 real, square, numerically symmetric SuiteSparse matrices of dimension at most 30; converted Matrix Market
+pattern, integer, and finite real tokens to exact FracESSA rational input; skipped SuiteSparse ID 2758 because its dense matrix
+duplicates existing ID 1; and added the other 11 as IDs 91-101 with complete exact candidate baselines and source metadata.
+Exact and verified candidate output matched for every import. Dimension 27 ID 92 carries the new `super_large` tag; the
+canonical database now contains 98 distinct matrices, 49,388 representatives, 86,383 weighted candidates, and 83,462 ESS.
+242. Audited the finite NIST Matrix Market repository under the same import rule:
+the official order-below-31 square search returned seven files, but none produced a new distinct symmetric game. `CAN 24`
+exactly duplicates ID 91; `FIDAP005` is the same source matrix as ID 92 with fewer printed digits; four files are unsymmetric;
+and NIST withdrew its incorrect `LAP 25` Matrix Market assembly. IDs 91-92 now retain the NIST pages as alternate provenance
+and carry `nist_matrix_market`; parameterized generators remain outside the finite downloadable-file audit.
+243. Extended the exact matrix catalog through the parser's dimension-63 limit:
+re-audited all 56 real square SuiteSparse files through order 63, retained 28 exact-symmetric sources, skipped ID 2758 as an
+existing exact duplicate, and added 16 new catalog-only rows as IDs 102-117. Extended the finite NIST symmetric search through
+order 63; its nine downloads add only exact or rounded SuiteSparse provenance, while `LAP 25` remains withdrawn. Audited all
+136 fixed QAPLIB instances, tested A and B independently, retained 182 in-range symmetric occurrences, removed 30 internal
+duplicates, and added 152 exact distinct matrices as IDs 118-269 with DOI and CC BY 4.0 attribution. Made the four baseline
+summary fields nullable only as an all-or-none catalog state, and made the timing runner skip such rows by default or reject
+their explicit selection. The canonical database now has 266 pairwise-distinct matrices, 98 complete baselines, 168 catalog-only
+rows, 49,388 representatives, 86,383 weighted candidates, and 83,462 ESS. All 55 Python tests, exact source round-trips,
+SQLite quick/integrity checks, foreign keys, and global dense deduplication pass; analyzer source is unchanged.
+244. Imported the explicit symmetric TSPLIB95 subset:
+audited all 111 files in the official symmetric-TSP archive, selected the 17 instances declaring
+`EDGE_WEIGHT_TYPE: EXPLICIT`, excluded six above dimension 63, and added the 11 remaining exact integer matrices as
+catalog-only IDs 270-280. Expanded all three retained TSPLIB storage layouts and matched every edge exactly against the
+independent official XML files; all imports are non-circular and globally distinct. The canonical database now contains
+277 matrices, 98 complete baselines, and 179 catalog-only rows; candidate and timing data are unchanged.
+245. Imported the in-range Biq Mac Library corpus:
+audited all 468 files in the official archive as 343 logical instances, verified all 125 dense/sparse pairs exactly, and
+retained the 33 instances through dimension 63: 10 Beasley, 13 Glover-Kochenberger-Alidaee, and 10 Rudy Max-Cut matrices.
+Expanded sparse symmetric-Q files and Max-Cut edge lists exactly, matched all 46 retained individual files byte-for-byte
+against the aggregate archive, and found no internal or existing dense duplicates. Added the non-circular matrices as
+catalog-only IDs 281-313. The database now contains 310 matrices, 98 complete baselines, and 212 catalog-only rows;
+candidate and timing data are unchanged.
+246. Imported the exact symmetric subset of Magma's Hadamard databases:
+verified the ordinary and skew archives against Magma's published hashes, decoded their compact binary index/data format,
+and cross-checked the decoder against the exact degree-16 handbook example. Audited all 4,474 ordinary representatives
+through degree 63 and all 638 skew representatives; only six ordinary matrices are symmetric, one each at degrees 1, 2,
+4, 8, 16, and 32, while no skew matrix is symmetric. Added the six globally distinct `+/-1` matrices as catalog-only IDs
+314-319. The database now contains 316 matrices, 98 complete baselines, and 218 catalog-only rows; candidate and timing
+data are unchanged.
+247. Imported the in-range QPLIB quadratic matrix corpus:
+used QPLIB's official statistics to select all 35 of 453 problems with at most 63 variables, downloaded their canonical
+`.qplib` files, and parsed every explicitly stored objective and quadratic-constraint lower triangle with exact rational
+arithmetic. Mirrored each lower triangle to its symmetric Hessian and independently matched all 2,475 matrix occurrences
+against PyQPLIB 0.1.7. Exact dense deduplication collapsed 869 repeated occurrences, leaving 1,606 globally new,
+non-circular catalog rows at IDs 320-1925 with complete alternate provenance. The database now contains 1,922 matrices,
+98 complete baselines, and 1,824 catalog-only rows; candidate and timing data are unchanged.
+248. Imported the in-range OR-Library matrix corpus:
+audited every locally maintained family in the current index plus the still-hosted urban-transit page and retained only
+explicitly stored exact rational square matrices with
+dimension at most 63 and exact symmetry. The eligible source occurrences include binary-quadratic, capacitated spanning-tree,
+aircraft-separation, CAB hub-location, portfolio-correlation, and urban-transit-demand matrices; recovered the now-missing
+official `td1` and `td2` files from their 2011 Internet Archive snapshots. Removed ten repeated `capmst` occurrences and one
+repeated portfolio occurrence, rejected every asymmetric or nonnumeric table, and added 57 globally new non-circular
+catalog rows as IDs 1926-1982. The database now contains 1,979 matrices, 98 complete baselines, and 1,881 catalog-only rows;
+candidate and timing data are unchanged.
+249. Audited the COMPl_e_ib 1.1 control benchmark library:
+constructed its 168 state matrices from the official MATLAB source and data files, excluded 57 above FracESSA's dimension-63
+limit, and found that none of the 111 in-range state matrices is exactly symmetric. Control-channel arrays and synthesized
+identity, zero, and weighting matrices are not independent benchmark matrices, so no catalog row or database value changed.
+250. Audited the SLICOT model-reduction benchmark collection:
+excluded 17 of its 18 linear-system models because their orders exceed 63, then checked the sole in-range order-48 building
+model and found its state matrix `A` asymmetric. Its official `build.mat` is byte-identical to COMPl_e_ib's already-audited
+`lah.mat`, so no catalog row or database value changed.
+251. Imported the in-range KONECT adjacency-matrix corpus:
+downloaded and exactly reconstructed all 23 available unipartite network files through dimension 63, retained all nine
+undirected matrices plus the directed but reciprocal `moreno_taro` matrix, and rejected the other 13 directed matrices as
+asymmetric. Excluded seven rectangular bipartite files, mapped Dolphins and Zachary karate club to exact existing IDs 114-115
+as alternate provenance, and added the eight globally new non-circular matrices as catalog-only IDs 1983-1990. The database
+now contains 1,987 matrices, 98 complete baselines, and 1,889 catalog-only rows; candidate and timing data are unchanged.
+252. Added a deterministic House of Graphs stratified sample:
+audited all 23,988 canonical graphs with dimensions 1-63 against their API adjacency lists, crossed five dimension bands with
+ten structural/control categories, and selected up to three per populated stratum by SHA-256 rank with seed `20260802`. One
+45-63 disconnected-cyclic stratum contained only one graph and one graph overlapped two strata, leaving 147 unique exact
+zero-diagonal `0/1` adjacency matrices. None duplicates an existing dense matrix; eight use compact circular storage. Added
+them as catalog-only IDs 1991-2137 with source IDs, canonical graph6 values, names, selected strata, and source links. The
+database now contains 2,134 matrices, 98 complete baselines, and 2,036 catalog-only rows; candidate and timing data are
+unchanged.
+253. Reduced the QPLIB corpus to objective matrices only:
+removed all 1,576 distinct rows whose only retained role was a quadratic constraint and preserved the 30 explicitly stored
+quadratic objectives. Exact comparison confirmed that the objectives are pairwise distinct and duplicate no pre-QPLIB row;
+no removed constraint-only row matched the pre-QPLIB database. Existing matrix IDs were not renumbered, so the resulting gaps
+between IDs 320 and 1925 are intentional. The database now contains 558 matrices, 98 complete baselines, and 460 catalog-only
+rows; candidate and timing data are unchanged. Recorded objective-only import as the general policy for optimization-problem
+collections while preserving independently sourced copies of the same mathematical matrix.
+254. Added a deterministic Network Data Repository sample:
+audited the current 6,628-row graph-category index, identified 1,241 entries reporting dimensions 1-63, crossed their source
+categories with five dimension bands, and ranked candidates by SHA-256 with seed `20260802`. Inspected the downloaded source
+archives directly and accepted only square exact-symmetric Matrix Market files or edge lists explicitly undirected or exactly
+reciprocal; rejected rectangular and unsymmetric data, temporal streams, bipartite tables without a square adjacency matrix,
+malformed files, and every case requiring forced symmetrization. Skipped exact existing and within-sample duplicates and
+added 39 globally new catalog rows at IDs 2138-2176: 15 animal-social, 15 cheminformatics, six protein, two DIMACS, and one
+biological matrix. All source archives round-trip exactly; one matrix uses compact circular storage. The database now contains
+597 matrices, 98 complete baselines, and 499 catalog-only rows; candidate and timing data are unchanged.
+255. Imported SDPLIB objective matrices only:
+audited all 92 problems in the SDPLIB 1.2 mirror, selected the 30 whose complete block-diagonal dimensions are at most 63,
+and retained exactly one `F0` objective coefficient matrix from each. Parsed SDPA sparse integer, decimal, and scientific
+tokens as exact fractions and expanded the source blocks into complete symmetric matrices. Excluded all 1,799 `F1...Fm`
+constraint matrices and did not catalog individual blocks. The 30 objectives are pairwise and globally distinct and occupy
+catalog-only IDs 2177-2206; 15 carry the `super_large` tag. The database now contains 627 matrices, 98 complete baselines,
+and 529 catalog-only rows; candidate and timing data are unchanged.
+256. Combined the expanded matrix catalog with the candidate-search optimization branch:
+retained all 627 catalog rows from `main`, moved the branch's three fast false-rejection regressions from colliding IDs 91-93
+to IDs 2207-2209, remapped their candidate and timing references, and retained the branch's curated 724 timing rows instead of
+restoring superseded benchmark sessions. The merged database contains 630 pairwise-distinct matrices, 101 complete baselines,
+529 catalog-only rows, 49,392 candidate representatives, 86,387 weighted candidates, and 83,466 weighted ESS. SQLite integrity
+and foreign-key checks pass.
