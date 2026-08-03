@@ -28,32 +28,7 @@ binary64 rejection can therefore still lose an exact candidate. The boundary and
 
 ## Open findings
 
-| Priority | ID | Work | Expected impact |
-|:---:|:---|:---|:---|
-| 1 | FP-S04 | Fold precision-span extrema into its collection pass | Small once-per-game simplification |
-| 2 | FP-S05 | Delete unused `matrix_dbl` operations | Readability only |
-
-FP-S04 and FP-S05 do not justify another abstraction.
-
-### FP-S04: Fold precision-span extrema into the collection pass
-
-- [ ] Track the minimum and maximum nonzero absolute entry while collecting references for sorting.
-- [ ] After sorting, scan only adjacent distinct gaps.
-- [ ] Remove the unused one-argument `precision_span_at_least()` and its `include_game_denominator` branch.
-
-The 2026-08-03 recheck confirms that the one-argument overload still has no caller. Sorting remains necessary to find the smallest
-exact nonzero pairwise gap, but the separate post-sort scan over all entries for extrema is unnecessary. Active fast preparation
-always uses the denominator-free definition.
-
-The reference vector and its one allocation should remain: sorting references is simpler than copying arbitrary-precision
-integers. This is once-per-game work, so the likely end-to-end gain is small.
-
-### FP-S05: Delete unused `matrix_dbl` operations
-
-- [ ] Remove mutable `matrix_dbl::data()` and `matrix_dbl::swap_rows()`.
-
-The 2026-08-03 caller recheck found no use of either operation. This is readability cleanup, not a speed optimization; it needs no
-new test or abstraction.
+No open findings remain from this review.
 
 ## Completed, rejected, and deliberately retained
 
@@ -182,6 +157,28 @@ C++ tests passed. In the requested one-call CPU-2 comparison, the 77 performance
 almost exactly evenly: 39 improved and 38 regressed. The median change was `-0.0006%`, effectively zero, while summed runtime
 regressed by `0.1201%`. The arithmetic mean was not informative because the test call for matrix 2207 paid the process's one-time
 exact-fallback initialization. The experiment showed no measurable gain and does not justify changing the numerical core.
+
+#### FP-S04: Fold precision-span extrema into the collection pass — rejected
+
+- [x] Tested in the shared precision-span helper and restored the original separate scan.
+
+The experiment collected the minimum and maximum nonzero absolute entries while gathering references for sorting, then scanned
+only adjacent distinct gaps after the sort. It also removed the unused denominator-aware overload and branch. This eliminated one
+short cached traversal per game, but interleaved FLINT comparisons with the otherwise simple reference-collection loop.
+
+All 81 quick matrices produced identical complete candidate output, fallback classifications, and expected ESS counts, and all 10
+Release C++ tests passed. The canonical CPU-2 comparison used each stored calibration to target 0.5 seconds per build on the 77
+performance-eligible matrices: 17 improved, 15 tied, and 45 regressed. The median, mean, and summed-runtime changes were
+`+0.2177%`, `+0.0425%`, and `+0.4995%`. The all-zero dimension-50 matrix improved by 16.07% because the experiment returned before
+sorting its zero references, but that special-case gain did not justify the broad regression or changing the clearer general path.
+
+#### FP-S05: Delete unused `matrix_dbl` operations — completed
+
+- [x] Removed mutable `matrix_dbl::data()` and `matrix_dbl::swap_rows()` after a complete active-caller audit found no use.
+
+The similarly named calls elsewhere belong to `std::vector`, the exact integer and fraction types, or the retained rational LU
+class. Removing the two dead operations also removed the unused `<utility>` include and corrected the class comment. This is a
+readability reduction with no intended runtime effect; both Release configurations built successfully and all 10 C++ tests passed.
 
 ### Reviewed and deliberately retained
 

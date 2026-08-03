@@ -2,7 +2,6 @@
 #define RATIONAL_LINALG_MATRIX_DOUBLE_HPP
 
 #include <cstddef>
-#include <utility>
 #include <vector>
 
 namespace linalg {
@@ -11,8 +10,8 @@ namespace linalg {
  * Row-major dense double storage for fast candidate search.
  *
  * This is reusable numerical scratch space, not the exact game representation.
- * It deliberately provides only unchecked indexing, direct storage access, and
- * complete row swaps needed by the small bordered systems. Avoiding a generic
+ * It deliberately provides only zero-initialized storage, unchecked indexing,
+ * and the row count needed by the small reduced systems. Avoiding a generic
  * matrix abstraction keeps these millions of operations cheap.
  */
 class matrix_dbl {
@@ -23,7 +22,6 @@ public:
 
 
     size_t rows() const noexcept { return rows_; }
-    std::vector<double>& data() noexcept { return data_; }
 
     double& operator()(size_t i, size_t j) {
         return data_[i * cols_ + j];
@@ -31,14 +29,6 @@ public:
 
     const double& operator()(size_t i, size_t j) const {
         return data_[i * cols_ + j];
-    }
-
-    void swap_rows(size_t i, size_t j) {
-        if (i == j) return;
-        // Pivoting must also move the augmented right-hand-side columns.
-        for (size_t k = 0; k < cols_; ++k) {
-            std::swap((*this)(i, k), (*this)(j, k));
-        }
     }
 
 private:
