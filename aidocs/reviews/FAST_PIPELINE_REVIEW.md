@@ -32,12 +32,10 @@ binary64 rejection can therefore still lose an exact candidate. The boundary and
 |:---:|:---|:---|:---|
 | 1 | FP-E01 | Store inverse pivot blocks for the double solve | The only remaining local hot-path experiment with a plausible measurable gain |
 | 2 | FP-S04 | Fold precision-span extrema into its collection pass | Small once-per-game simplification |
-| 3 | FP-A01 | Avoid the temporary full FLINT rational matrix | Safe setup only; retain only if a benchmark justifies the extra exact code |
-| 4 | FP-S05 | Delete unused `matrix_dbl` operations | Readability only |
-| 5 | FP-E04 | Fuse the right-hand-side transformation into factorization | Deferred: more coupling for a smaller expected gain |
+| 3 | FP-S05 | Delete unused `matrix_dbl` operations | Readability only |
 
-Prototype FP-E01 and FP-E04 only in `find_candidate_test` because they change binary64 representation or operation order. Promote
-either only after exact-result comparison and a balanced benchmark. FP-S04, FP-A01, and FP-S05 do not justify another abstraction.
+Prototype FP-E01 only in `find_candidate_test` because it changes binary64 representation or operation order. Promote it only after
+exact-result comparison and a balanced benchmark. FP-S04 and FP-S05 do not justify another abstraction.
 
 ### FP-E01: Store inverse pivot blocks for the solve
 
@@ -64,30 +62,12 @@ always uses the denominator-free definition.
 The reference vector and its one allocation should remain: sorting references is simpler than copying arbitrary-precision
 integers. This is once-per-game work, so the likely end-to-end gain is small.
 
-### FP-A01: Avoid the temporary full FLINT rational matrix
-
-- [ ] Prototype direct denominator clearing in `matrix_int::set_from_fraction_matrix()`.
-
-The 2026-08-03 recheck confirms that the wrapper still allocates an `fmpq_mat`, copies every entry from `matrix_frc`, asks FLINT to
-clear denominators, and destroys the temporary. A direct version needs two passes: compute the least common positive denominator,
-then write each numerator multiplied by its exact scale.
-
-This removes one full matrix allocation and copy per game, not per support. It is a larger exact-arithmetic change and may lose to
-FLINT's optimized bulk routine. Retain it only if the implementation stays short and a safe benchmark shows a repeatable gain.
-
 ### FP-S05: Delete unused `matrix_dbl` operations
 
 - [ ] Remove mutable `matrix_dbl::data()` and `matrix_dbl::swap_rows()`.
 
 The 2026-08-03 caller recheck found no use of either operation. This is readability cleanup, not a speed optimization; it needs no
 new test or abstraction.
-
-### FP-E04: Fuse the forward right-hand-side transformation into factorization
-
-- [ ] Defer unless profiling identifies the triangular solve as material after FP-E01.
-
-Factorization could update the single right-hand side while applying each pivot, leaving only the backward solve. This removes one
-triangular traversal but couples factorization and solve and makes verification harder. Its expected gain is smaller than FP-E01.
 
 ## Completed, rejected, and deliberately retained
 
@@ -135,6 +115,31 @@ eager scan and one 64-byte stack array.
 
 Added on top of FP-S02, its direct paired median contribution was 0.8333%; combined FP-S02 and FP-S03 improved 1.9117% against the
 original fast panel. All 81 ESS counts matched.
+
+#### FP-E04: Fuse the forward right-hand-side transformation into factorization — promoted
+
+- [x] Fast and test apply each pivot and forward right-hand-side update during factorization, leaving only the backward solve.
+
+This removes one triangular traversal but couples factorization and solve. All 10 Release tests, all 63 Python tests, all 10
+ASan/UBSan tests, and complete candidate output for all 81 quick matrices matched production fast before promotion.
+
+The requested single-call benchmark improved 61, tied 1, and regressed 15 of the 77 performance-eligible matrices. Its median,
+mean, and summed-runtime changes were `-3.61%`, `-2.74%`, and `-3.02%`. The median changes were `-4.01%` for dimensions 9--16 and
+`-4.40%` for dimensions 17 and above. The isolated single-run regressions include noisy short cases and matrix 31 at `+18.58%`;
+the broad larger-matrix result justified promotion to production fast.
+
+#### FP-A01: Avoid the temporary full FLINT rational matrix — rejected
+
+- [x] Tested direct two-pass denominator clearing; retained FLINT's bulk matrix conversion.
+
+The direct version needed no second full matrix: it first accumulated the least common positive denominator, then wrote each
+scaled numerator directly into the existing `matrix_int` destination. It passed all 10 Release tests, all 63 Python tests, all 10
+ASan/UBSan tests, and matched every expected ESS count in the complete 81-matrix quick benchmark.
+
+It was nevertheless slower. Across the 77 performance-eligible matrices of dimension at least 3, it improved 14, tied 2, and
+regressed 61. The median, mean, and summed-runtime changes were `+1.18%`, `+0.93%`, and `+1.15%`. The removed allocation occurs only
+once per game, while the replacement performs entry-by-entry LCM, exact division, and multiplication. Retain the temporary
+`fmpq_mat` because FLINT's optimized bulk conversion is measurably faster end to end.
 
 #### FP-E02: Reuse the reduced-system row offset
 
