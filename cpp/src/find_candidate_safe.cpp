@@ -232,12 +232,6 @@ bool find_candidate_safe::find(const bitset64& support, size_t support_size, can
         if (!ffldlt_workspace_.solve_inplace(solution_numerators_, solution_denominator_, reduced_system_, right_hand_side_, inertia)) return false;
         reduced_hessian_is_negative_definite_ = inertia.positive == 0;
 
-        // FLINT rationals require a positive denominator. Negating both sides leaves every exact solution value unchanged.
-        if (solution_denominator_.sign() < 0) {
-            solution_denominator_.negate();
-            solution_numerators_.negate();
-        }
-
         // The solved entries are the probabilities for S without the reference. Recover the reference probability from x_m=1-sum(y).
         reference_numerator_ = solution_denominator_;
         for (size_t position = 0; position < reduced_dimension; ++position) {
