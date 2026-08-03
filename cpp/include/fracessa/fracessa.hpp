@@ -1,6 +1,7 @@
 #ifndef FRACESSA_HPP
 #define FRACESSA_HPP
 
+#include <array>
 #include <cstdint>
 #include <vector>
 #include <memory>
@@ -48,7 +49,10 @@ public:
     fracessa(fracessa&&) = delete;
     fracessa& operator=(fracessa&&) = delete;
 
+    size_t candidate_count_ = 0;
     size_t ess_count_ = 0;
+    std::array<size_t, 64> candidate_structure_{};
+    std::array<size_t, 64> ess_structure_{};
     candidate_search::safe_fallback safe_fallback_ = candidate_search::safe_fallback::none;
     // Populated only when with_candidates is true.
     std::vector<candidate> candidates_;

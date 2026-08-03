@@ -65,6 +65,9 @@ TEST(IntegrationTest, CircularSymmetricStoresOneRepresentative) {
     fracessa analyzer(search_method::safe, B, true, true, false, false);
 
     ASSERT_EQ(analyzer.ess_count_, 5u);
+    EXPECT_EQ(analyzer.candidate_count_, 5u);
+    EXPECT_EQ(analyzer.candidate_structure_[3], 5u);
+    EXPECT_EQ(analyzer.ess_structure_[3], 5u);
     ASSERT_EQ(analyzer.candidates_.size(), 1u);
 
     const auto& candidate = analyzer.candidates_[0];

@@ -142,7 +142,7 @@ def _receive(messages: Connection, process, timeout_seconds: float, matrix_id: i
 
 
 def _check_result(result: dict, matrix_id: int) -> int:
-    if result["status"] != 0 or not result["success"]:
+    if result["status"] != 0:
         raise RuntimeError(f"matrix {matrix_id}: {result['error_message'] or 'native computation failed'}")
     elapsed_ns = int(result["elapsed_ns"])
     if elapsed_ns <= 0:

@@ -737,8 +737,8 @@ the same run ID. Cleanup errors never replace an active operation error.
 All maintained wrapper execution paths return one flat dictionary. Candidate
 rows are plain dictionaries; there are no Python result-row classes. Circular
 rows contain one bracelet representative with an integer `multiplier`;
-non-circular rows use `None`. `candidate_count` is the number of returned
-representatives, while `ess_count` remains the weighted mathematical total.
+non-circular rows use `None`. The complete `candidate_count`, `ess_count`, `candidate_structure`, and `ess_structure` are always
+returned; `include_candidates` controls only whether the individual representative rows are included.
 
 No production wrapper or matrix workflow imposes a per-matrix computation
 timeout. A matrix may legitimately run for hours. Worker-liveness handling must

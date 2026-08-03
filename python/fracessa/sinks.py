@@ -13,7 +13,6 @@ _SUMMARY_FIELDS = (
     "run_id",
     "matrix_id",
     "status",
-    "success",
     "ess_count",
     "elapsed_ns",
     "safe_fallback",

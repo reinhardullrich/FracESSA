@@ -16,7 +16,6 @@ def _sample_result(matrix_id: int = 3) -> dict:
         "run_id": "run1",
         "matrix_id": matrix_id,
         "status": 0,
-        "success": True,
         "ess_count": 1,
         "elapsed_ns": 12,
         "safe_fallback": None,

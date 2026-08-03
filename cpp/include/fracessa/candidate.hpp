@@ -7,6 +7,7 @@
 #include <string>
 #include <sstream>
 #include <iomanip>
+#include <limits>
 
 /*
  * Result of the exact equilibrium test for one support.
@@ -61,7 +62,7 @@ class candidate
             oss << ";" << is_ess << ";"
                 << stability << ";"
                 << payoff << ";"
-                << std::fixed << std::setprecision(6) << payoff_dbl;
+                << std::setprecision(std::numeric_limits<double>::max_digits10) << payoff_dbl;
             return oss.str();
         }
 

@@ -34,7 +34,6 @@ def _fake_result(matrix_id: int) -> dict:
         "run_id": "unit",
         "matrix_id": matrix_id,
         "status": 0,
-        "success": True,
         "ess_count": 1,
         "elapsed_ns": 1,
         "safe_fallback": None,

@@ -64,7 +64,6 @@ class ParquetSink:
                 ("run_id", pa.string()),
                 ("matrix_id", pa.int64()),
                 ("status", pa.int32()),
-                ("success", pa.bool_()),
                 ("ess_count", pa.int64()),
                 ("elapsed_ns", pa.int64()),
                 ("safe_fallback", pa.string()),

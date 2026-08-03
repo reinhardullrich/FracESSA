@@ -1,7 +1,7 @@
 cmake_minimum_required(VERSION 3.18)
 
 project(fracessa
-    VERSION 1.0.0
+    VERSION 2026.8.3.1
     DESCRIPTION "FRACESSA - Fractional ESS Analyzer"
     LANGUAGES CXX C
 )
@@ -177,6 +177,7 @@ target_link_libraries(fracessa_lib PUBLIC
 
 
 add_executable(fracessa src/main.cpp)
+target_compile_definitions(fracessa PRIVATE FRACESSA_VERSION="${PROJECT_VERSION}")
 
 target_link_libraries(fracessa PRIVATE
     fracessa_lib

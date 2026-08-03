@@ -1,5 +1,6 @@
 #include <pybind11/pybind11.h>
 
+#include <array>
 #include <chrono>
 #include <cstdint>
 #include <mutex>
@@ -42,9 +43,11 @@ struct NativeCandidate {
 
 struct NativeResult {
     int status = kStatusInternalError;
-    bool success = false;
     std::string error_message;
+    size_t candidate_count = 0;
     size_t ess_count = 0;
+    std::array<size_t, 64> candidate_structure{};
+    std::array<size_t, 64> ess_structure{};
     long long elapsed_ns = 0;
     candidate_search::safe_fallback safe_fallback = candidate_search::safe_fallback::none;
     std::vector<NativeCandidate> candidates;
@@ -84,7 +87,6 @@ NativeResult compute_matrix_impl(
             matrix_parser::parse_matrix_string(matrix, parsed_matrix, is_cs);
         } catch (const std::invalid_argument& e) {
             result.status = kStatusParseError;
-            result.success = false;
             result.error_message = e.what();
             return result;
         }
@@ -99,10 +101,12 @@ NativeResult compute_matrix_impl(
         const auto end = std::chrono::steady_clock::now();
 
         result.elapsed_ns = std::chrono::duration_cast<std::chrono::nanoseconds>(end - start).count();
+        result.candidate_count = analyzer.candidate_count_;
         result.ess_count = analyzer.ess_count_;
+        result.candidate_structure = analyzer.candidate_structure_;
+        result.ess_structure = analyzer.ess_structure_;
         result.safe_fallback = analyzer.safe_fallback_;
         result.status = kStatusOk;
-        result.success = true;
 
         if (include_candidates) {
             // Copy all C++ data before the GIL is reacquired below.
@@ -127,12 +131,10 @@ NativeResult compute_matrix_impl(
         return result;
     } catch (const std::exception& e) {
         result.status = kStatusExecError;
-        result.success = false;
         result.error_message = e.what();
         return result;
     } catch (...) {
         result.status = kStatusInternalError;
-        result.success = false;
         result.error_message = "Unknown internal error";
         return result;
     }
@@ -156,9 +158,19 @@ py::dict compute_matrix(
     // The release object above has restored the GIL; Python allocation is safe.
     py::dict out;
     out["status"] = native.status;
-    out["success"] = native.success;
     out["error_message"] = native.error_message;
+    out["candidate_count"] = native.candidate_count;
     out["ess_count"] = native.ess_count;
+    py::dict candidate_structure;
+    py::dict ess_structure;
+    for (size_t support_size = 1; support_size < native.candidate_structure.size(); ++support_size) {
+        if (native.candidate_structure[support_size])
+            candidate_structure[py::int_(support_size)] = native.candidate_structure[support_size];
+        if (native.ess_structure[support_size])
+            ess_structure[py::int_(support_size)] = native.ess_structure[support_size];
+    }
+    out["candidate_structure"] = std::move(candidate_structure);
+    out["ess_structure"] = std::move(ess_structure);
     out["elapsed_ns"] = native.elapsed_ns;
     const auto fallback = candidate_search::safe_fallback_name(native.safe_fallback);
     if (fallback.empty())
@@ -241,8 +253,9 @@ Compute one matrix with native C++ core and return structured results.
 method: fast, safe, or test; required before matrix.
 
 Returns a dict with keys:
-- status, success, error_message
-- ess_count, elapsed_ns, safe_fallback
+- status, error_message
+- candidate_count, ess_count, candidate_structure, ess_structure
+- elapsed_ns, safe_fallback
 - candidates (list of dict rows)
 )doc"
     );

@@ -94,6 +94,22 @@ jobs:
     - name: Build
       run: cmake --build cpp/build --config Release -j 4
 
+    - name: Verify release tag matches binary version
+      if: startsWith(github.ref, 'refs/tags/v')
+      shell: bash
+      run: |
+        if [[ "$RUNNER_OS" == "Windows" ]]; then
+          binary="cpp/build/Release/fracessa.exe"
+        else
+          binary="cpp/build/fracessa"
+        fi
+        expected="${GITHUB_REF_NAME#v}"
+        actual="$("$binary" --version | tr -d '\r\n')"
+        if [[ "$actual" != "$expected" ]]; then
+          echo "Release tag $GITHUB_REF_NAME does not match binary version $actual" >&2
+          exit 1
+        fi
+
     # --- TEST ---
     - name: Test core and wrapper suites
       shell: bash

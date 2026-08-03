@@ -46,9 +46,8 @@ built-in Python integer in the signed 64-bit range (booleans are rejected),
 `matrix` must be a string, and `metadata` must be a dictionary or `None`.
 
 Every computation returns one plain dictionary with `run_id`, `matrix_id`,
-`status`, `ess_count`, `elapsed_ns`, `safe_fallback`, `candidate_count`,
-`error_message`, `candidates`, and `metadata`. `candidates` is a list of plain
-dictionaries; there are no result-row classes or conversion step.
+`status`, `candidate_count`, `ess_count`, `candidate_structure`, `ess_structure`, `elapsed_ns`, `safe_fallback`, `error_message`,
+`candidates`, and `metadata`. `candidates` is a list of plain dictionaries; there are no result-row classes or conversion step.
 
 `safe_fallback` is `None` unless `fast` bypassed double search for the complete matrix. The possible reasons are
 `"precision_span"`, `"equilibration_invalid"`, and `"equilibration_non_convergence"`. An inconclusive pivot for one support does
@@ -56,8 +55,8 @@ not set this field.
 
 Each candidate dictionary has a nullable `multiplier`: circular matrices return
 one bracelet representative with its orbit count, while ordinary candidates use
-`None`. `candidate_count` counts returned representatives; `ess_count` remains
-the weighted mathematical total.
+`None`. The complete candidate and ESS counts and their support-size structures are always returned, independently of
+`include_candidates`. That option controls only whether the individual representative rows are included.
 
 A matrix may use full CLI form (`"3#4,13/2,..."`) or values only when
 `metadata["dimension"]` is present.

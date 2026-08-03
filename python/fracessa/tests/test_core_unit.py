@@ -30,9 +30,11 @@ class _FakeNative:
             ]
         return {
             "status": 0,
-            "success": True,
             "error_message": "",
+            "candidate_count": 2,
             "ess_count": 2,
+            "candidate_structure": {1: 1, 2: 1},
+            "ess_structure": {2: 2},
             "elapsed_ns": 1234,
             "safe_fallback": "precision_span",
             "candidates": candidates,
@@ -55,7 +57,9 @@ class CoreUnitTests(unittest.TestCase):
         self.assertEqual(result["ess_count"], 2)
         self.assertEqual(result["elapsed_ns"], 1234)
         self.assertEqual(result["safe_fallback"], "precision_span")
-        self.assertEqual(result["candidate_count"], 1)
+        self.assertEqual(result["candidate_count"], 2)
+        self.assertEqual(result["candidate_structure"], {1: 1, 2: 1})
+        self.assertEqual(result["ess_structure"], {2: 2})
         self.assertEqual(result["candidates"][0]["candidate_id"], 7)
 
     def test_compute_matrix_adds_dimension_prefix_from_metadata(self):
@@ -67,7 +71,7 @@ class CoreUnitTests(unittest.TestCase):
             result = core.compute_matrix(method="safe", matrix=matrix, config=cfg, run_id="unit")
 
         self.assertEqual(fake.last_kwargs["matrix"], "2#0,1,0")
-        self.assertEqual(result["candidate_count"], 0)
+        self.assertEqual(result["candidate_count"], 2)
 
     def test_compute_matrix_values_only_without_dimension_fails(self):
         fake = _FakeNative()

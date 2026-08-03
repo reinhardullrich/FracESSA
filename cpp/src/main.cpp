@@ -14,7 +14,7 @@ int main(int argc, char *argv[])
      * This file is only the command-line adapter: parse options and one matrix,
      * run the native analyzer, then print its stable line-oriented result.
      */
-    argparse::ArgumentParser program("fracessa", "3.0.0");
+    argparse::ArgumentParser program("fracessa", FRACESSA_VERSION);
     program.add_description("FRACESSA - Fractional ESS Analyzer");
 
     program.add_argument("-c", "--candidates").help("include candidates").implicit_value(true).default_value(false);

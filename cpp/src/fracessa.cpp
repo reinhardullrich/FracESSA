@@ -183,8 +183,13 @@ void fracessa::finalize_candidate(std::optional<size_t> multiplier) {
     candidate_.multiplier = multiplier;
     ++candidate_.candidate_id;
 
-    if (candidate_.is_ess)
-        ess_count_ += multiplier.value_or(1);
+    const size_t count = multiplier.value_or(1);
+    candidate_count_ += count;
+    candidate_structure_[candidate_.support_size] += count;
+    if (candidate_.is_ess) {
+        ess_count_ += count;
+        ess_structure_[candidate_.support_size] += count;
+    }
 
     if (conf_with_candidates_ || conf_with_log_)
         candidates_.push_back(candidate_);

@@ -12,6 +12,7 @@ import argparse
 import re
 import subprocess
 import sys
+import tempfile
 from pathlib import Path
 
 
@@ -67,7 +68,7 @@ def assert_failure_with_stderr(
 
 
 def assert_candidate_header_matches_rows(fracessa_exe: Path) -> None:
-    result = run_case(fracessa_exe, ["--candidates", "safe", "2#0,1,0"])
+    result = run_case(fracessa_exe, ["--candidates", "safe", "1#1/3"])
     if result.returncode != 0:
         raise AssertionError(
             f"candidate_columns: expected success, got rc={result.returncode}, stderr={result.stderr.strip()}"
@@ -84,6 +85,50 @@ def assert_candidate_header_matches_rows(fracessa_exe: Path) -> None:
             raise AssertionError(
                 f"candidate_columns: header has {header_count} fields, candidate row has {row_count}"
             )
+    payoff_double = lines[2].rsplit(";", 1)[1]
+    if payoff_double != "0.33333333333333331":
+        raise AssertionError(f"candidate_columns: expected round-trip binary64 output, got {payoff_double}")
+
+
+def assert_logged_candidates_match_sorted_output(fracessa_exe: Path) -> None:
+    matrix = "13#7,18,18,10,7,10"
+    with tempfile.TemporaryDirectory() as directory:
+        result = subprocess.run(
+            [str(fracessa_exe.resolve()), "--candidates", "--log", "safe", matrix],
+            capture_output=True,
+            text=True,
+            timeout=30.0,
+            cwd=directory,
+        )
+        if result.returncode != 0:
+            raise AssertionError(
+                f"logged_candidate_ids: expected success, got rc={result.returncode}, stderr={result.stderr.strip()}"
+            )
+
+        output_lines = [line.strip() for line in result.stdout.splitlines() if line.strip()]
+        if output_lines[0] != "143" or len(output_lines[2:]) != 7:
+            raise AssertionError("logged_candidate_ids: wrong ESS total or representative count")
+
+        expected_rows = output_lines[1:]
+        expected_ids = list(range(1, len(expected_rows)))
+        actual_ids = [int(row.split(";", 1)[0]) for row in expected_rows[1:]]
+        if actual_ids != expected_ids:
+            raise AssertionError(f"logged_candidate_ids: output IDs are not sequential: {actual_ids}")
+
+        log_path = Path(directory) / "log" / "fracessa.log"
+        marker = "] [info] "
+        log_payloads = [
+            line.split(marker, 1)[1]
+            for line in log_path.read_text(encoding="utf-8").splitlines()
+            if marker in line
+        ]
+        header_positions = [index for index, payload in enumerate(log_payloads) if payload == expected_rows[0]]
+        if not header_positions:
+            raise AssertionError("logged_candidate_ids: candidate header missing from log")
+        start = header_positions[-1]
+        logged_rows = log_payloads[start:start + len(expected_rows)]
+        if logged_rows != expected_rows:
+            raise AssertionError("logged_candidate_ids: logged rows differ from sorted CLI candidate output")
 
 
 def main() -> int:
@@ -173,12 +218,7 @@ def main() -> int:
 
     # Other success paths
     assert_success_with_ess_output(fracessa_exe, ["safe", "5#1,3"], "circular_success")
-    cyclic_result = assert_success_with_ess_output(
-        fracessa_exe, ["--candidates", "safe", "13#7,18,18,10,7,10"], "automatic_cyclic_filter"
-    )
-    cyclic_lines = [line.strip() for line in cyclic_result.stdout.splitlines() if line.strip()]
-    if cyclic_lines[0] != "143" or len(cyclic_lines[2:]) != 7:
-        raise AssertionError("automatic cyclic symmetry filter returned the wrong ESS total or representative count")
+    assert_logged_candidates_match_sorted_output(fracessa_exe)
     assert_failure_with_stderr(
         fracessa_exe,
         ["--cyclic-symmetry-filter", "safe", "5#1,3"],

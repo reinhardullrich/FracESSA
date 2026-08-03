@@ -30,9 +30,12 @@ class NativeIntegrationTests(unittest.TestCase):
             run_id="native_single",
         )
 
-        self.assertTrue(result["success"])
+        self.assertNotIn("success", result)
         self.assertEqual(result["status"], 0)
+        self.assertEqual(result["candidate_count"], 1)
         self.assertEqual(result["ess_count"], 1)
+        self.assertEqual(result["candidate_structure"], {2: 1})
+        self.assertEqual(result["ess_structure"], {2: 1})
         self.assertIsNone(result["safe_fallback"])
         self.assertEqual(result["matrix_id"], matrix_id)
         self.assertEqual(result["candidates"][0]["matrix_id"], matrix_id)
@@ -51,8 +54,8 @@ class NativeIntegrationTests(unittest.TestCase):
                 safe = run("safe", matrix, RunConfig(include_candidates=True), run_id=f"native_safe_{matrix_id}")
                 fast = run("fast", matrix, RunConfig(include_candidates=True), run_id=f"native_fast_{matrix_id}")
 
-                self.assertTrue(safe["success"])
-                self.assertTrue(fast["success"])
+                self.assertEqual(safe["status"], 0)
+                self.assertEqual(fast["status"], 0)
                 self.assertEqual(safe["ess_count"], 1)
                 self.assertEqual(fast["ess_count"], 1)
 
@@ -81,7 +84,6 @@ class NativeIntegrationTests(unittest.TestCase):
         native = load_native_module()
         result = native.compute_matrix("unknown", "2#0,1,0")
 
-        self.assertFalse(result["success"])
         self.assertEqual(result["status"], 4)
 
     def test_removed_native_mode_keyword_is_rejected(self):
@@ -136,9 +138,17 @@ class NativeIntegrationTests(unittest.TestCase):
         )
 
         self.assertEqual(result["ess_count"], 5)
-        self.assertEqual(result["candidate_count"], 1)
+        self.assertEqual(result["candidate_count"], 5)
+        self.assertEqual(result["candidate_structure"], {3: 5})
+        self.assertEqual(result["ess_structure"], {3: 5})
         self.assertEqual(len(result["candidates"]), 1)
         self.assertEqual(result["candidates"][0]["multiplier"], 5)
+
+        without_rows = run("safe", Matrix(matrix_id=2, matrix="5#1,3"), RunConfig(include_candidates=False))
+        self.assertEqual(without_rows["candidate_count"], 5)
+        self.assertEqual(without_rows["candidate_structure"], {3: 5})
+        self.assertEqual(without_rows["ess_structure"], {3: 5})
+        self.assertEqual(without_rows["candidates"], [])
 
     def test_invalid_matrix_strings_return_parser_error(self):
         invalid_matrices = {
@@ -151,7 +161,6 @@ class NativeIntegrationTests(unittest.TestCase):
         for matrix, error_message in invalid_matrices.items():
             with self.subTest(matrix=matrix):
                 result = run("safe", Matrix(matrix_id=1, matrix=matrix), run_id="invalid")
-                self.assertFalse(result["success"])
                 self.assertEqual(result["status"], 1)
                 self.assertEqual(result["error_message"], error_message)
 
