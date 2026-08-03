@@ -62,13 +62,22 @@ displaying decimal microseconds.
 Run `scripts/calibrate_matrices.py fast` or `scripts/calibrate_matrices.py safe` from the repository root to fill only missing
 calibrations with the canonical Release Pybind module on CPU 2 and a one-second cutoff. When candidate fields are missing, either
 method also stores weighted counts, support-size structures, and representative candidate rows for a matrix that finishes.
-Existing calibration and baseline values are never overwritten; clear a calibration field explicitly before intentionally
-refreshing it. Use `scripts/calibrate_matrices.py fast|safe --retry-timeouts --cutoff-seconds 120` to retry only the selected
+These per-method commands never overwrite existing calibration or baseline values; clear a calibration field explicitly before
+intentionally refreshing it. Use `scripts/calibrate_matrices.py fast|safe --retry-timeouts --cutoff-seconds 120` to retry only the selected
 method's `-1` rows once. Repeat `--cpu ID` to process matrices concurrently on explicitly selected cores; one matrix remains
 pinned to each core and SQLite writes stay serialized. A completed fast result is exact when `safe_fallback` is non-null;
 otherwise it remains an unverified fast result when safe calibration is still `-1`.
 The calibration script classifies the whole-matrix fast fallback before starting the timed process, so even a killed calibration
 stores the correct `safe_fallback` value.
+
+Run `scripts/calibrate_matrices.py audit` for the ordered full consistency-calibration pass. It dispatches
+`dimension ASC, matrix_id ASC`, runs fast before safe, and sizes each method to approximately one second from its previous
+calibration. Each method independently uses the greater of 120 seconds and 120% of its positive stored calibration; a missing or
+`-1` calibration uses 120 seconds. A fast timeout skips safe and sets both calibrations to `-1`. A non-null fast
+`safe_fallback` copies the exact fast measurement to safe instead of running safe again. The pass compares complete candidate
+output, fills missing results, preserves conflicting stored results, and commits after every matrix. Repeated `--cpu ID` options
+run matrices concurrently; each matrix's fast and safe work remains on its assigned CPU. By default the command resumes rows whose
+`calibration_timestamp` is null; `--refresh-all` starts a new pass over every row.
 
 The August 2 two-minute fast retry attempted all 319 previous timeouts. Two rows completed before CPU 2 was reserved, and the
 remaining work used performance CPUs 3 through 9. Twenty-one matrices completed, adding 683 representative rows for 841 weighted
@@ -422,6 +431,10 @@ Each row stores one exact matrix input and its summary:
 - `fast_calibration_ns` and `safe_calibration_ns`: nullable native-duration estimates used to choose benchmark sample counts.
   Positive values are nanoseconds, while `-1` marks a calibration timeout. They are matrix metadata, not benchmark
   observations.
+- `calibration_timestamp`: ISO-8601 UTC timestamp of the latest full consistency-calibration attempt.
+- `calibration_comment`: human-readable, indented, append-only JSON array of full calibration attempts. Every entry records its
+  timestamp, target, actual CPU, fast and safe cutoffs, requested and completed iterations, measured calibrations, fallback
+  handling, and any mismatch or filled candidate data.
 - `safe_fallback`: null when fast search prepares and uses its double matrix, otherwise `precision_span`,
   `equilibration_invalid`, or `equilibration_non_convergence`. This records only a whole-matrix switch to safe search; an exact
   retry for one support does not set it.
