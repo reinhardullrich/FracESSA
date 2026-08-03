@@ -79,6 +79,8 @@ Output format:
 - optional line 3 (`-t`): `null`, `precision_span`, `equilibration_invalid`, or `equilibration_non_convergence`
 - optional extra lines (`-c`): candidate CSV rows
 
+Candidate CSV and log rows print `payoff_dbl` with enough significant digits to reconstruct the original binary64 value.
+
 ## Build Dependencies
 - C++17 compiler
 - CMake >= 3.18
@@ -89,6 +91,12 @@ Notes:
 - Third-party C++ dependencies (`spdlog`, `argparse`, `googletest`, `pybind11`) are pulled by CMake `FetchContent`.
 - First configure in a fresh `cpp/build/` directory requires internet access unless dependencies are cached.
 - Current Linux and macOS release binaries dynamically link GMP/MPFR/FLINT; they are not universal standalone binaries.
+
+## Versioning
+
+FracESSA uses calendar versions in the form `YEAR.MONTH.DAY.RELEASE_OF_DAY`, for example `2026.8.3.1`. The final number starts at
+1 each day and increments for additional releases on that date. CMake owns the version compiled into the CLI; a release tag must
+contain the same value with a `v` prefix, such as `v2026.8.3.1`, or the release workflow stops before publishing artifacts.
 
 ## Repository Layout
 - `cpp/`: core engine, tests, and local build

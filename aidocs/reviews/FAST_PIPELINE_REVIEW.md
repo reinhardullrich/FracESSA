@@ -3,9 +3,9 @@
 Last verified: 2026-08-03
 
 Scope: the complete binary64 candidate path from integer game preparation through `find_candidate_fast`, plus the exact handoff
-that protects candidates which fast cannot reject. This is an actionable checklist, not a transcript of every experiment.
-Correctness comes first; speed changes are retained only when they help a balanced panel of small and large, circular and
-non-circular games while keeping the code readable.
+that protects candidates which fast cannot reject. This maintained audit record identifies open findings and retains completed or
+rejected experiments when their evidence prevents repeated work. Correctness comes first; speed changes are retained only when they
+help a balanced panel of small and large, circular and non-circular games while keeping the code readable.
 
 Status:
 
@@ -131,9 +131,10 @@ transposition saves little and makes construction less efficient.
 
 #### FP-G01: Direct circular support generation — completed with V3
 
-- [x] V2 was benchmarked against V1 and retained test-only.
+- [x] V2 was benchmarked against V1 and retained as a historical failed experiment.
 - [x] Direct fixed-density bracelet generator V3 was implemented, verified, benchmarked, and made production.
-- [x] V1 and V2 remain test-only at the user's explicit request.
+- [x] V1 remains for comparisons. V2 was slower than V1 and V3, never entered production, and remains only to record the rejected
+  design.
 
 V3 and V1 emitted identical ordered representatives through dimension 24, matched a dynamic forbidden-support run, and passed the
 dimension-63 boundary. Complete quick-set candidate output matched in both fast and safe modes, with all C++, sanitizer, and Python

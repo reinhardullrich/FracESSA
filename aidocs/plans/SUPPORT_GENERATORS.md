@@ -1,7 +1,10 @@
 # Support Generators With DFS And Direct Bracelets
 
 Status: implemented in production. Non-circular generation uses DFS; circular generation uses V3 direct fixed-density bracelet
-recursion. The former V1 FKM generator and compact bit-parallel V2 remain available for regression comparisons.
+recursion. The former V1 FKM generator remains available for comparisons. Compact bit-parallel V2 is deliberately retained as a
+failed experiment; it was slower than V1 and V3 and never entered production.
+
+Document role: current implemented design plus retained proofs, rejected alternatives, and benchmark evidence.
 
 ## Purpose
 
@@ -393,8 +396,8 @@ contained in `P`.
 This stores only one mask per candidate orbit, but each query costs roughly
 `popcount(S)` rotations and intersections per candidate representative. It may
 move more work into the hot branch test than explicit orbit expansion. The
-test-only `CircularSupportGeneratorV2` implements this representation for a
-future benchmark against Option A; production does not call it.
+retained experimental `CircularSupportGeneratorV2` implements this representation; production does not call it, and it currently
+has no test.
 
 ### More elaborate representations
 
@@ -470,10 +473,9 @@ forbidden masks therefore remains necessary even though output is compressed.
 
 ## Experimental Evidence Already Available
 
-The full experiment report and raw results are retained on branch
-`choice-one-candidate-filter` in
+The full experiment report and raw results are retained in
 `aidocs/experiments/SUPPORT_FRONTIER_2026-07-29.md` and the corresponding
-`experiments/` directories.
+top-level `experiments/` directories.
 
 ### Streaming Gosper
 
@@ -512,8 +514,8 @@ gate predicts it. The discovered candidate family is matrix-specific.
   generator-only win at dimension 24.
 
 Conclusion: circular orbit reduction is the strongest measured opportunity.
-The later V3 end-to-end comparison justified the direct fixed-density recursion and promoted it to production while retaining V1
-and V2 for comparison.
+The later V3 end-to-end comparison justified the direct fixed-density recursion and promoted it to production. V1 remains for
+comparison; V2 remains only as evidence of the rejected compact-pruning design.
 
 ## Implemented Shape
 
@@ -548,14 +550,14 @@ The two generator objects are selected once per matrix with two explicit
 branches. Their templated callback is compiler-inlineable; the support hot path
 has no virtual call, `std::function`, or per-support matrix-type branch.
 
-### Optional compact orbit test
+### Retained compact orbit experiment
 
-`CircularSupportGeneratorV2` is present in `supports.hpp` as a test-only third
-class. It stores one forbidden representative and uses two 64-bit alignment
-masks to test rotations and reflections in parallel. It is not wired into
-production. The 2026-08-02 quick-test comparison proved identical results but found V2 41.48% slower at the median and 91.40%
-slower by geometric mean across the 33 circular cases, with slowdowns reaching 6.824 times. Keep the expanded production masks;
-the complete results are in `experiments/circular_support_v2_2026-08-02/README.md`.
+`CircularSupportGeneratorV2` is present in `supports.hpp` as a deliberately retained failed experiment with no current caller or
+test. It stores one forbidden representative and uses two 64-bit alignment masks to test rotations and reflections in parallel.
+It never entered production. The 2026-08-02 quick-test comparison proved identical results but found V2 41.48% slower at the median
+and 91.40% slower by geometric mean across the 33 circular cases, with slowdowns reaching 6.824 times. V3 later superseded V1 and
+is also faster than V2. Keep V2's source as a record of the rejected approach, but keep V3's expanded production masks; the complete
+V1/V2 results are in `experiments/circular_support_v2_2026-08-02/README.md`.
 
 ## Future Experimental Measurements
 

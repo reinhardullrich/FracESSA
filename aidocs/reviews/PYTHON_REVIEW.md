@@ -1,18 +1,22 @@
 # Python Review
 
-Last verified: 2026-08-02
+Last verified: 2026-08-03
 
 Scope: maintained Python wrapper, multiprocessing, sinks, generic JSON input,
 and wrapper tests. The native `fracessa_core` extension is reviewed separately
 in `PYBIND_REVIEW.md`. No active matrix-verification runner exists. Sequential
 timing uses the canonical SQLite database under `testdata/`.
 
-Correctness is ranked before speed. This file contains unresolved findings only;
-remove a finding after its fix and regression coverage are complete.
+Correctness is ranked before speed. This maintained audit record keeps current open findings, if any, plus validation evidence and
+completed decisions that prevent rejected wrapper designs from being repeated.
+
+## Open Findings
+
+None.
 
 ## Current Validation State
 
-- All 60 PyFracESSA tests passed against the combined Release native module
+- All 63 PyFracESSA tests passed against the combined Release native module
   with PyArrow available.
 - The former JSON/CSV verification, baseline-generation, subprocess benchmark,
   and JSON-fed Callgrind paths have been removed. Their small replacement timing
@@ -26,19 +30,21 @@ remove a finding after its fix and regression coverage are complete.
 - The unused input pass-through iterator and its collection imports have been
   deleted.
 - `testdata/fracessa_testdata.sqlite3` passes SQLite integrity and foreign-key
-  checks and contains 1,105 distinct strategically normalized matrices. Its 754 analyzed rows store 66,542 representatives whose
-  multipliers recover 104,888 candidates and 91,733 ESS; 351 rows remain catalog-only. Dimensions 2-25 each have at least
+  checks and contains 1,072 distinct strategically normalized matrices. Its 780 analyzed rows store 67,875 representatives whose
+  multipliers recover 106,401 candidates and 91,950 ESS; 762 baselines are exact or exact-fallback, 18 are unverified fast-only,
+  and 292 rows remain catalog-only. Dimensions 2-25 each have at least
   one circular and one non-circular matrix, and every distinct matrix from the
   two published Bomze-Schachinger-Ullrich result tables is present once.
-- Its retained timing data have 716 persistent-Pybind median rows spanning Werner, `classic`, paired safe-wrapper, four fast-path
-  experiment panels, and the current 10-row circular-normalization panel. Catalog-only matrices are excluded automatically.
+- Its retained timing data have 892 persistent-Pybind median rows spanning Werner, `classic`, current quick-suite, paired
+  safe-wrapper, four fast-path experiment panels, the fast-timeout retry, and circular normalization. Catalog-only matrices are
+  excluded automatically.
   Historical rows for seven matrices whose stored values changed were removed; retained exact results and every current panel row
   match their expected ESS counts. Report rows
   include dimension, circularity, and the derived lower bound
   `gamma_lower_bound = expected_ess ** (1 / dimension)`.
-- Fast calibration covers all 1,105 rows with 741 measured durations and 364 cutoff sentinels; the 477 generator-catalogue rows
-  contributed 337 measurements and 140 sentinels. Safe calibration covers all rows with 751 measured durations and 354 sentinels;
-  the new rows contributed 332 complete baselines and 145 sentinels.
+- Fast calibration has 780 measured durations and 292 cutoff sentinels; safe calibration has 762 measured durations and 310
+  sentinels. No field is null, all 1,072 rows have audit timestamps, and whole-matrix fallback counts are 955 null, 45
+  `precision_span`, four `equilibration_invalid`, and 68 `equilibration_non_convergence`.
 - Sequential and multiprocessing paths use one flat result dictionary;
   CSV, JSON, and Parquet are the only output sinks.
 - `run` and `run_multiprocessing` are the only public execution functions;
@@ -47,8 +53,8 @@ remove a finding after its fix and regression coverage are complete.
 - `run_multiprocessing` keeps the same parameter order as `run` and adds only a
   final optional `MPConfig`; `MPConfig()` defaults to the CPUs available to the
   Python process.
-- `RunConfig()` contains analysis options only. `run`, `run_multiprocessing`, and `compute_matrix` require `fast` or `safe` as
-  their first argument; there is no default method.
+- `RunConfig()` contains analysis options only. `run`, `run_multiprocessing`, and `compute_matrix` require `fast`, `safe`, or
+  experimental `test` as their first argument; there is no default method.
 - Multiprocessing serializes results inside workers before queueing them, so a
   return-trip serialization failure exits the worker instead of hanging.
 - Multiprocessing uses one shared matrix queue and one shared result queue, yields

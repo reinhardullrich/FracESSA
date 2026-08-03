@@ -151,6 +151,10 @@ exactly permuting the solved vector, support, and extended support; their system
 multiplier class exists, the helper disengages after its one-time detection pass and the legacy V3 path continues unchanged. The
 filter never runs on non-circular input and does not alter `fast`, `safe`, or `test` semantics.
 
+Candidate CSV and log rows use `std::numeric_limits<double>::max_digits10` significant digits for `payoff_dbl`, so the text can be
+read back as the same binary64 value. Candidate rows are logged only after affine reconstruction, final sorting, and deterministic
+ID reassignment; logging therefore uses the same row order and IDs as candidate output.
+
 Every result exposes `safe_fallback`: null means the selected fast/test method reached its double search, while `precision_span`,
 `equilibration_invalid`, or `equilibration_non_convergence` identifies the whole-matrix preparation step that switched the run to
 safe search. A per-support exact retry does not set it. CLI timing output prints this as line 3; Pybind and all Python sinks use the
@@ -188,8 +192,9 @@ Important implementation points:
   A small outer cyclic symmetry helper additionally removes multiplier-equivalent bracelets from solving and registers each
   distinct dihedral orbit inside the verified affine orbit through the same V3 `add_forbidden()` path. Candidate output still
   contains one reconstructed row for every such dihedral orbit. V3's recursion itself remains unchanged.
-  The former FKM-plus-reflection implementation remains available as `CircularSupportGenerator` (V1), and compact
-  bit-parallel `CircularSupportGeneratorV2` also remains test-only.
+  The former FKM-plus-reflection implementation remains available as `CircularSupportGenerator` (V1). The compact bit-parallel
+  `CircularSupportGeneratorV2` is deliberately retained as a failed experiment: it was correct but slower than both V1 and
+  production V3, never entered production, and currently has no caller or test. Keep it as evidence against repeating that design.
   See `plans/SUPPORT_GENERATORS.md`.
 - Newly found exact candidates are pending until the next cardinality, keeping
   each generator layer's pruning rules stable. Stability is irrelevant to this
@@ -341,15 +346,15 @@ black-box parser test. Wrapper tests use Python `unittest`. Matrix correctness
 is no longer wired as one CTest per matrix.
 
 `testdata/fracessa_testdata.sqlite3` is the canonical matrix, expected-result,
-and timing store. Its strict schema is in `testdata/schema.sql`; the current snapshot has 1,064 distinct strategically normalized
-matrices. The 713 analyzed rows have 65,800 stored candidate representatives; nullable multipliers recover weighted
-totals of 104,098 candidates and 91,134 ESS:
+and timing store. Its strict schema is in `testdata/schema.sql`; the current snapshot has 1,072 distinct strategically normalized
+matrices. The 780 analyzed rows have 67,875 stored candidate representatives; nullable multipliers recover weighted totals of
+106,401 candidates and 91,950 ESS:
 circular rows store one smallest dihedral representative and its orbit count,
 while non-circular rows store null. Candidate IDs and row order remain
 reproducibility checks; complete weighted candidate sets and ESS
-classifications are the mathematical contracts. Of the 351 catalog-only rows, 206 exceeded the two-minute safe retry cutoff and
-145 generator-catalogue rows exceeded their initial one-second safe cutoff. They keep all four baseline-summary fields null as one
-group; null never means zero candidates or zero ESS. SQLite enforces stored-input uniqueness on `(dimension, matrix)`;
+classifications are the mathematical contracts. Of the analyzed rows, 762 have exact or exact-fallback baselines and 18 retain
+unverified fast-only baselines. The other 292 rows are catalog-only and keep all four baseline-summary fields null; null never
+means zero candidates or zero ESS. SQLite enforces stored-input uniqueness on `(dimension, matrix)`;
 `matrix` alone cannot be unique because compact input omits its dimension. Import audits additionally reject matrices whose stored
 value vectors have the same dimension and circular-storage flag and differ only by a positive nonzero rational multiplier; they
 retain the lowest matrix ID. Negative multipliers remain distinct because they reverse payoff comparisons.
@@ -542,16 +547,18 @@ published vectors.
 
 IDs 2688-2695 store the eight previously missing payoff games derived from the 2014 and 2015 Bomze-Schachinger-Ullrich
 copositive constructions at dimensions 6, 7, 8, 9, 11, 12, 13, and 14. They use the primitive integer transformation
-`A = (dJ - S) / g`, where `d` is the common diagonal and `g` is the positive gcd; on the simplex this turns each isolated
-copositive zero into a global strict maximizer and hence an ESS. Exact safe analysis gives ESS counts `8, 14, 20, 30, 33, 60,
-108, 192`, respectively. The papers state 18 zeroes at dimension 8 and 27 at dimension 9; the complete ESS search finds two and
-three additional nonglobal strict local maxima. The order-15 `S15` construction was already present as ID 24 with 360 ESS.
+`A = (dJ - S) / g`, where `d` is the common diagonal and `g` is the positive gcd; on the simplex this turns each
+isolated copositive zero into an isolated global maximizer, hence a strict local maximizer and ESS.
+Exact safe analysis gives ESS counts `8, 14, 20, 30, 33, 60, 108, 192`, respectively.
+The papers state 18 zeroes at dimension 8 and 27 at dimension 9; the complete ESS search finds two and three additional
+nonglobal strict local maxima. The order-15 `S15` construction was
+already present as ID 24 with 360 ESS.
 
-The timing snapshot has 710 CPU-2 persistent-Pybind rows. It retains Werner fast and safe, the July 27 pre-refactor GitHub build
-renamed `classic`, the paired safe builds immediately before and after the C++ FLINT-wrapper extraction, and four 81-matrix fast
-panels for `equilibrated-fast`, rejected FP-S01, retained FP-S02, and combined FP-S02+FP-S03. The experimental test panels use
-historical timing mode `fast` because the strict schema does not admit `test`; their build labels and comments identify the actual
-native method. Classic is
+The timing snapshot has 892 CPU-2 persistent-Pybind rows. It retains 81-row `classic` fast, current quick-suite fast and safe,
+`equilibrated-fast`, rejected FP-S01, retained FP-S02, combined FP-S02+FP-S03, and Werner very-unsafe panels; 20 current fast-timeout
+retry rows; 77-row safe panels immediately before and after the C++ FLINT-wrapper extraction; 66 Werner exact rows; and two fast
+plus two safe circular-normalization rows. The experimental test panels use historical timing mode `fast` because the strict schema
+does not admit `test`; their build labels and comments identify the actual native method. Classic is
 revision `32f61679`; it predates both the support-generator redesign and exact $LDL^T$, and its raw-double result mismatches IDs
 38-39 in the historical corpus. The retained Werner panels now have 81 fast rows and 66 safe rows. The paired builds each have 77 dimension-3-or-larger rows with one-second native
 medians; IDs 65-66 and 90 were not attempted because retained evidence did not establish a sub-30-second run, while pre-wrapper
@@ -569,8 +576,10 @@ removed IDs 38 and 44 in favor of ID 1. Zero-game consolidation removed ID 43 in
 dimension-one consolidation left ID 314 as the sole full-storage exception. Eighteen stale `classic`/Werner rows for the old
 matrices were replaced by a current-build fast/safe panel; after both cleanups it has four rows for IDs 1 and 2203.
 
-Fast calibration covers all 1,072 matrices with 774 positive durations and 298 `-1` timeouts; safe calibration has 718 positive
-durations and 354 timeouts. No calibration remains null.
+Fast calibration covers all 1,072 matrices with 780 positive durations and 292 `-1` timeouts; safe calibration has 762 positive
+durations and 310 timeouts. No calibration remains null, and all 1,072 rows have a completed audit timestamp. Whole-matrix
+classification records 955 rows without fallback, 45 `precision_span`, four `equilibration_invalid`, and 68
+`equilibration_non_convergence` fallbacks.
 The reusable
 `scripts/calibrate_matrices.py` processes only null calibration fields by default;
 either method also stores missing candidate data when it finishes within the cutoff. Its `fast|safe --retry-timeouts` form
@@ -682,8 +691,8 @@ fast and safe routes, but no complete SQLite matrix suite is currently wired int
 
 `cpp/src/pybind_module.cpp` exposes the C++ analyzer as the native
 `fracessa_core` module. It owns Python/native argument and result conversion,
-native status codes, GIL release, and native timing. Binding-specific open
-findings are tracked in `reviews/PYBIND_REVIEW.md`, separately from both the
+native status codes, GIL release, and native timing. Binding-specific audit
+state is recorded in `reviews/PYBIND_REVIEW.md`, separately from both the
 analyzer core and Python orchestration.
 
 The safe parser throws `std::invalid_argument` with a detailed diagnostic and
@@ -777,6 +786,10 @@ PyArrow before the wrapper suite, so binding and Parquet coverage cannot turn
 into successful skips. Packaging, artifact upload, write permission, and GitHub
 release publication run only for `v*` tags.
 
+The project uses calendar versions in the form `YEAR.MONTH.DAY.RELEASE_OF_DAY`. `cpp/CMakeLists.txt` is the single source of truth;
+the CLI receives `PROJECT_VERSION` at compile time. Tagged release CI removes the leading `v` from `GITHUB_REF_NAME` and requires
+the remainder to equal the version reported by the built executable before tests, artifact renaming, or publication continue.
+
 The artifacts are architecture-specific and are not uniformly self-contained:
 
 - Linux is x86-64 and currently depends on system FLINT at runtime.
@@ -795,9 +808,9 @@ libraries, but the current release configuration uses system FLINT.
 - `CHANGES.md` is the append-only human-readable history. Update it when a
   meaningful project change benefits from a concise historical record; read it
   only when history or drift matters.
-- `reviews/CPP_REVIEW.md`, `reviews/PYBIND_REVIEW.md`, and
-  `reviews/PYTHON_REVIEW.md` contain only unresolved findings for their
-  respective implementation areas.
+- Review documents are maintained audit records. They identify current open
+  findings, if any, and may retain completed or rejected decisions and measured
+  evidence when that prevents work from being repeated.
 - Dated experiment reports are immutable snapshots and must state their scope.
 - Git remains authoritative for exact diffs and commit history.
 - Do not store generated source concatenations, session transcripts, or stale

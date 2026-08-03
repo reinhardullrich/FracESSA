@@ -1,15 +1,13 @@
 # Support Generator Design Handover
 
-Status: implemented on `main`; the certified-filter worktree uses the same
-generator architecture unchanged.
+Status: implemented on `main`.
 
-This is a durable design handover, not a transcript of the implementation
-session. The detailed algorithms, proofs, counterexamples, and benchmarks remain
-in [`../plans/SUPPORT_GENERATORS.md`](../plans/SUPPORT_GENERATORS.md).
+Document role: concise current architecture plus retained design decisions. The detailed algorithms, proofs, failed alternatives,
+and benchmarks remain in [`../plans/SUPPORT_GENERATORS.md`](../plans/SUPPORT_GENERATORS.md).
 
-## Branch Context
+## Historical Development Context
 
-The current worktree contains three connected phases:
+The implemented design followed three connected phases:
 
 1. the temporary numerical candidate-search experiments;
 2. the support-frontier and circular-bracelet experiments that established the
@@ -17,9 +15,8 @@ The current worktree contains three connected phases:
 3. the production one-support-at-a-time generators and compressed circular
    candidate output.
 
-Production now requires `fast` or `safe` before the matrix. Fast uses the
-historical raw-double heuristic before exact confirmation; safe starts with
-exact candidate solving. There is no default method.
+Current execution surfaces require `fast`, `safe`, or experimental `test` before the matrix. Fast and test use independent
+binary64 candidate filters before exact confirmation; safe starts with exact candidate solving. There is no default method.
 
 ## Agreed Production Architecture
 
@@ -66,11 +63,9 @@ to outperform the inline callback. The callback was therefore retained because
 it is the simplest implementation of these recursive algorithms, not because a
 pull interface would be incorrect.
 
-The callback receives both the support mask and support size because the
-generator owns the cardinality loop. When an exact candidate is found,
-`add_forbidden()` is called synchronously before the callback returns. This is
-especially important for the test-only V2 generator, whose returned multiplier
-belongs to the support most recently emitted to that callback.
+The callback receives both the support mask and support size because the generator owns the cardinality loop. When an exact
+candidate is found, `add_forbidden()` is called synchronously before the callback returns. This is especially important for the
+retained experimental V2 generator, whose returned multiplier belongs to the support most recently emitted to that callback.
 
 ## Candidate And Pruning Lifecycle
 
@@ -143,9 +138,9 @@ during construction. V3 retains V1's callback, expanded forbidden-orbit masks, a
 
 ### Experimental `CircularSupportGeneratorV2`
 
-`cpp/include/fracessa/supports.hpp` also contains
-`CircularSupportGeneratorV2`. It is explicitly test-only and is not wired into
-production.
+`cpp/include/fracessa/supports.hpp` also contains `CircularSupportGeneratorV2`. It is deliberately retained historical experiment
+source with no current caller or test. V2 was slower than V1 and V3, never entered production, and is not a future production
+candidate unless new measurements overturn that result.
 
 V2 stores one forbidden support per bracelet orbit. During recursion it uses
 two 64-bit alignment masks to test all rotations and reflections in parallel.
@@ -161,7 +156,8 @@ therefore `period` or `2 * period` and is cached for the synchronous
 The compact representation is correct but slower. The focused 2026-08-02 fast-mode benchmark verified identical results on all 81
 quick-test matrices and timed the 33 circular cases. V2 was slower by 41.48% at the median and 91.40% by geometric mean; matrix 34
 was 6.824 times slower. V1 was faster on 28 cases, equal on three, and V2 won only two sub-microsecond dimension-2/3 measurements.
-The expanded forbidden-orbit representation therefore remains in V3; only V2's compact pruning representation was rejected. See
+V3 later superseded V1 and is also faster than V2. The expanded forbidden-orbit representation therefore remains in V3; only V2's
+compact pruning representation was rejected. Its source remains so the failed approach is not accidentally repeated. See
 `experiments/circular_support_v2_2026-08-02/README.md` for the complete method and table.
 
 ## Validation Record
@@ -184,11 +180,10 @@ for dimensions 19 and above. See `experiments/direct_bracelet_generation_2026-07
 
 ## Remaining Work
 
-- Do not revisit V1 or V2 for production unless a new end-to-end measurement beats V3 while preserving the same pruning contract.
+- Keep V2 as historical evidence, not as a production candidate. Revisit it only if a new end-to-end measurement beats V3 while
+  preserving the same pruning contract.
 - Do not replace the callback with `next_support()` without a measured reason
   that justifies a resumable generator implementation.
 - Do not funnel generator registration into `analyze_support()` unless the
   surrounding architecture changes enough to remove, rather than hide, the
   current type differences.
-- After this branch is merged and updated `main` is verified, remove the
-  `choice-one` worktree and delete the local and remote feature branch.

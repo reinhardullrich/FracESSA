@@ -2,10 +2,12 @@
 
 Status: historical; local correctness and performance verification is recorded below.
 
-Current status: this document records the completed temporary-default phase. The normalized heuristic was later removed because
-it fixed raw-double failures 38-39 but introduced failures 45-47; it was not a monotonic safety improvement. Production now
-requires either `fast`, the historical unnormalized raw-double heuristic with matrix-wide safe fallback checks, or `safe`, the
-exact-only path. The verified proof and all old mode flags were removed. The remainder of this document is historical.
+Document role: failed-approach history. The normalized heuristic fixed raw-double failures 38-39 but introduced failures 45-47;
+it was not a monotonic safety improvement and was removed. At the end of this phase, production required either `fast`, the
+historical unnormalized raw-double heuristic with matrix-wide safe fallback checks, or `safe`, the exact-only path. The current
+method contract is in [`../KNOWLEDGE.md`](../KNOWLEDGE.md); reusable numerical counterexamples are in
+[`../correctness/FAST_CANDIDATE_FALSE_REJECTION.md`](../correctness/FAST_CANDIDATE_FALSE_REJECTION.md). The remainder of this
+document is historical.
 
 Branch: `choice-one-candidate-filter`
 
@@ -442,5 +444,5 @@ unsafe danger veto a correctness proof.
 
 ## Historical Outcome
 
-The later verified proof was implemented and then removed. Production now exposes only the required `fast` and `safe` methods
-described at the top of this historical document.
+The later verified proof was implemented and then removed. At the end of this historical phase, production exposed only the
+required `fast` and `safe` methods described at the top.

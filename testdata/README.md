@@ -3,9 +3,9 @@
 `fracessa_testdata.sqlite3` is the canonical store for exact test matrices,
 complete expected candidate results where available, and timing data.
 
-The current snapshot contains 1,072 distinct strategically normalized matrices. The 721 exact baselines and three additional
-unverified fast results have 66,227 stored candidate representatives whose multipliers represent 104,595 candidates and 91,613
-ESS. The other 348 rows have null candidate fields.
+The current snapshot contains 1,072 distinct strategically normalized matrices. The 762 exact or exact-fallback baselines and 18
+additional unverified fast-only results have 67,875 stored candidate representatives whose multipliers represent 106,401
+candidates and 91,950 ESS. The other 292 rows are catalog-only and have null candidate fields.
 
 It contains each distinct matrix from Tables 1 and 2 of the
 Bomze-Schachinger-Ullrich ESS-growth paper exactly once. IDs 18 and 26 hold the
@@ -17,10 +17,11 @@ deterministic random-integer coverage matrices; together with the existing rows,
 every dimension from 2 through 25 has at least one circular and one non-circular
 matrix. IDs 45-47 preserve the unsafe-filter, LU-boundary, and failed-proof
 verified-search regressions. IDs 2688-2695 are the eight previously missing payoff games obtained from the 2014 and 2015
-Bomze-Schachinger-Ullrich copositive constructions. Each stores the primitive integer form of `(dJ-S)/g`, so the papers' isolated
-copositive zeroes become global strict maximizers and therefore ESS. Exact safe analysis finds the published lower-bound counts,
-plus two additional ESS for the order-8 game and three for the order-9 game; order-15 source matrix `S15` was already present as
-ID 24. IDs 91-117 originally held SuiteSparse Matrix Collection
+Bomze-Schachinger-Ullrich copositive constructions. Each stores the primitive integer form of `(dJ-S)/g`, so the papers'
+isolated copositive zeroes become isolated global maximizers, hence strict local maximizers and ESS.
+Exact safe analysis finds the published lower-bound counts, plus two additional ESS for the order-8 game and three for the
+order-9 game. The order-15
+source matrix `S15` was already present as ID 24. IDs 91-117 originally held SuiteSparse Matrix Collection
 imports, IDs 118-269 are QAPLIB imports, and IDs 270-280 are TSPLIB95 imports.
 IDs 281-313 are Biq Mac Library imports, and IDs 314-319 are Magma Hadamard
 database imports. Thirty QPLIB objective imports retain their original IDs
@@ -44,18 +45,19 @@ selection covers 51 eligible generator families and 34 documented or structural 
 bands. See `../aidocs/reference/MATRIX_GENERATOR_CATALOGUE_AUDIT.md` for the complete scope, exclusions, revisions, sampling rule,
 and validation record.
 
-The timing table retains CPU-2 persistent-Pybind median rows for
-Werner fast and safe, the July 27 pre-refactor GitHub build renamed `classic`,
-the paired safe builds immediately before and after the C++ FLINT-wrapper
-extraction, four fast-path experiment panels, and a four-row current-build fast/safe circular-normalization panel. Catalog-only rows
-are excluded automatically. The paired builds use one-second native medians for 77 matrices
+The timing table contains 892 CPU-2 persistent-Pybind median rows: 81-row `classic`, current quick-suite fast and safe,
+`equilibrated-fast`, FP-S01, FP-S02, FP-S02+FP-S03, and Werner very-unsafe panels; 20 current fast-timeout retry rows; 77-row safe
+panels immediately before and after the C++ FLINT-wrapper extraction; 66 Werner exact rows; and four current circular-normalization
+rows split equally between fast and safe. Catalog-only rows are excluded automatically. The paired builds use one-second native medians for 77 matrices
 of dimension at least 3; IDs 47, 65-66, and 90 are excluded by the 30-second
 rule. All paired ESS counts match. Build label, revision, and binary hash
 identify every stored build.
 
 Matrix rows contain nullable `fast_calibration_ns` and `safe_calibration_ns` values used only to choose benchmark iteration
-counts. Fast calibration covers all 1,072 matrices with 774 positive measurements and 298 `-1` timeouts; safe has 718 positive
-measurements and 354 timeouts. No calibration field remains null. A value of `-1` records a calibration run killed at its cutoff
+counts. Fast calibration covers all 1,072 matrices with 780 positive measurements and 292 `-1` timeouts; safe has 762 positive
+measurements and 310 timeouts. No calibration field remains null, and every row has a completed audit timestamp. The current
+whole-matrix classifications are 955 without fallback, 45 `precision_span`, four `equilibration_invalid`, and 68
+`equilibration_non_convergence`. A value of `-1` records a calibration run killed at its cutoff
 and selects one benchmark iteration. Positive integer nanoseconds preserve the native value exactly; divide by `1000.0` when
 displaying decimal microseconds.
 

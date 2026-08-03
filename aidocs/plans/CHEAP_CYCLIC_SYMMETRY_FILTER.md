@@ -3,6 +3,9 @@
 Status: implemented and always active for circular-symmetric matrices. Correctness verification and the experimental on/off
 benchmark are complete.
 
+Document role: current behavior plus the retained implementation and promotion record. Future-tense passages below are the
+original plan; `Always-On Circular Behavior` and the implementation/validation sections describe the current system.
+
 ## Goal
 
 Circular-symmetric games currently solve one support per binary bracelet, so rotations and reflections are already removed by
@@ -99,8 +102,8 @@ The matrix comparisons must use `fraction` equality. There is no tolerance and n
 testing every possible multiplier costs only $O(n\varphi(n))$ exact comparisons once per game.
 
 Because the matrix is symmetric, $a$ and $-a$ produce supports in the same dihedral orbit. Store only one representative of each
-pair in $H/\{\pm1\}$. If this quotient contains only the identity class, the helper is inactive and every generated bracelet passes
-immediately.
+class in $H/\{\pm1\}$; for $n=2$, the residues $1$ and $-1$ coincide. If this quotient contains only the identity class, the helper
+is inactive and every generated bracelet passes immediately.
 
 ### Why filtering bracelets is correct
 
@@ -204,8 +207,8 @@ $$
 C_D(aS),\qquad a\in H/\{\pm1\}.
 $$
 
-There are at most $\varphi(n)/2$ such bracelet images. Deduplicate them in a fixed local array; a short linear scan is simpler than
-a hash table and candidate supports are much rarer than generated supports.
+There are at most $\varphi(n)/2$ such bracelet images for $n>2$, and exactly one possible class for $n=2$. Deduplicate them in a
+fixed local array; a short linear scan is simpler than a hash table and candidate supports are much rarer than generated supports.
 
 For every distinct bracelet image, call the existing
 

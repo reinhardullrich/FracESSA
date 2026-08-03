@@ -1,6 +1,6 @@
 # Pybind Review
 
-Last verified: 2026-08-01
+Last verified: 2026-08-03
 
 Scope: the native `fracessa_core` extension boundary in
 `cpp/src/pybind_module.cpp`, including argument/result conversion, native status
@@ -8,25 +8,18 @@ codes, GIL handling, timing exposed through the binding, and binding-specific
 integration behavior. The analyzer core belongs to `CPP_REVIEW.md`; Python
 orchestration belongs to `PYTHON_REVIEW.md`.
 
-Correctness is ranked before speed. This file contains unresolved findings only;
-remove a finding after its fix and regression coverage are complete.
+Correctness is ranked before speed. This maintained audit record keeps current open findings, if any, plus validation evidence and
+completed boundary decisions that prevent contract drift.
 
-## Simplicity
+## Open Findings
 
-### P3: `success` duplicates the status code
-
-`NativeResult::success` at `cpp/src/pybind_module.cpp:45` is always equivalent
-to `status == STATUS_OK`; the Python wrapper and sinks carry both fields without
-using `success` for control flow.
-
-Required outcome: delete the duplicate field through the native dictionary,
-wrapper result, sink schemas, tests, and documentation. Callers can compare the
-status when needed.
+None.
 
 ## Current Validation State
 
-- The combined Release build passed all 10 C++/CLI tests and all 56 PyFracESSA
+- The combined Release build passed all 10 C++/CLI tests and all 63 PyFracESSA
   tests with the native module and PyArrow available.
+- Results use the integer `status` plus `error_message` contract without a redundant success Boolean.
 - Every safe-parser rejection returns the single `PARSE_ERROR` status plus the
   shared parser's detailed diagnostic without reparsing or writing to `stderr`.
 - The native result preserves the analyzer's `size_t` ESS count through Pybind;
@@ -36,8 +29,8 @@ status when needed.
 - Native candidate conversion has an exact 11-field value-and-type contract
   regression. Ordinary rows use `multiplier=None`; one circular regression
   returns a representative with `multiplier=5` and a weighted ESS count of 5.
-- The binding requires `fast` or `safe` before the matrix; there is no default or compatibility alias, and unknown methods return
-  `EXEC_ERROR`.
+- The binding requires `fast`, `safe`, or experimental `test` before the matrix; there is no default or compatibility alias, and
+  unknown methods return `EXEC_ERROR`.
 - Native single-process and multiprocessing integration tests pass.
 - One process-wide native mutex serializes logging-enabled analyzer calls from
   Python threads while non-logging calls remain concurrent.

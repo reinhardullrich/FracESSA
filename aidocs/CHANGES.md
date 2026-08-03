@@ -880,3 +880,31 @@ each solved affine orbit now reconstructs one exact candidate row per distinct r
 own dihedral multiplier bounded by twice the dimension. The affine group remains internal to solve reduction and pruning; it is
 never folded into an ambiguous matrix-specific output multiplier. All 200 generated extra-symmetry matrices match the former
 filter-off candidate output byte for byte in fast and safe mode, and all 19 stored extra-symmetry database baselines remain exact.
+296. Adopted calendar versioning with release-tag enforcement:
+made `cpp/CMakeLists.txt` the single version source using `YEAR.MONTH.DAY.RELEASE_OF_DAY`, compiled that value into the CLI instead
+of keeping a second hardcoded version, and made tagged CI reject any `v*` tag whose value differs from the built executable.
+297. Aligned logged candidates and CLI floating-point output:
+added a black-box affine-symmetry regression that requires the final logged candidate rows and IDs to equal sorted CLI output, and
+replaced six-decimal `payoff_dbl` formatting with the standard round-trip binary64 precision in both output paths.
+298. Simplified the result status contract:
+removed the redundant `success` Boolean from native results, the Python wrapper, sinks, tests, and public documentation; callers and
+the calibration script now use the integer `status` plus `error_message` contract. All 63 Python tests and the focused calibration
+contract check pass.
+299. Separated current documentation from retained history and research:
+reorganized the documentation index by role, refreshed the live API, database, timing, calibration, and validation facts, and made
+review ownership explicit. Failed numerical and performance approaches remain preserved as historical evidence, while obsolete
+feature-branch instructions and the completed handover checklist were removed.
+300. Re-audited the documentation cleanup against source, SQLite, and the mathematical references:
+corrected the current V2 generator status and the $n=2$ exception to the cyclic multiplier-class bound, and recorded the inaccurate
+source comment that says only ESS supports trigger pruning. The implementation already prunes after every exact equilibrium, as
+justified by Bomze's support criterion; no production source changed.
+301. Corrected documentation-cleanup defects found by the mathematical re-audit:
+fixed the research-paper directory and indexed the two rook-symmetry notes, removed one remaining stale `test-only` label from the
+unused V2 generator, and described the copositive construction precisely as producing isolated global, therefore strict local,
+maximizers and ESS.
+302. Recorded the final V2 support-generator decision:
+V2 was a correct experiment but slower than both V1 and production V3, never entered production, and remains intentionally in the
+source as evidence of a rejected design. Removed the conflicting review recommendation to delete it.
+303. Corrected the C++ search-orchestration comment:
+documented that every exact equilibrium support triggers strict-superset pruning, while stability classification determines only
+whether the candidate is an ESS. Removed the resolved documentation-only finding from the C++ review; runtime behavior is unchanged.

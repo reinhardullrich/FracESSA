@@ -46,7 +46,7 @@ built-in Python integer in the signed 64-bit range (booleans are rejected),
 `matrix` must be a string, and `metadata` must be a dictionary or `None`.
 
 Every computation returns one plain dictionary with `run_id`, `matrix_id`,
-`status`, `success`, `ess_count`, `elapsed_ns`, `safe_fallback`, `candidate_count`,
+`status`, `ess_count`, `elapsed_ns`, `safe_fallback`, `candidate_count`,
 `error_message`, `candidates`, and `metadata`. `candidates` is a list of plain
 dictionaries; there are no result-row classes or conversion step.
 
@@ -62,10 +62,10 @@ the weighted mathematical total.
 A matrix may use full CLI form (`"3#4,13/2,..."`) or values only when
 `metadata["dimension"]` is present.
 
-Every execution call requires `"fast"` or `"safe"` before the matrix; there is no default. Fast applies the exact precision-span
-gate, converts and equilibrates the complete game once, and then uses binary64 candidate rejection. A matrix-wide preparation
-failure uses safe exact candidate checks instead. Safe bypasses every floating-point candidate procedure. Matrix input always uses
-the validating native parser.
+Every execution call requires `"fast"`, `"safe"`, or experimental `"test"` before the matrix; there is no default. Fast and test
+apply the exact precision-span gate, convert and equilibrate the complete game once, and then use independent binary64 candidate
+implementations. A matrix-wide preparation failure uses safe exact candidate checks instead. Safe bypasses every floating-point
+candidate procedure. Matrix input always uses the validating native parser.
 
 `elapsed_ns` is always the native analyzer duration measured with a monotonic
 clock. There is deliberately no computation timeout.

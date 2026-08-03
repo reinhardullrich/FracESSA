@@ -4,7 +4,9 @@ Date: 2026-08-02
 
 ## Question
 
-Compare the production `CircularSupportGenerator` (V1), which expands each forbidden candidate into its distinct rotation/reflection masks once, with the test-only `CircularSupportGeneratorV2`, which stores one representative and tests all alignments with bit rotations during every pruning query.
+Compare the then-production `CircularSupportGenerator` (V1), which expands each forbidden candidate into its distinct
+rotation/reflection masks once, with the experimental `CircularSupportGeneratorV2`, which stores one representative and tests all
+alignments with bit rotations during every pruning query.
 
 ## Correctness
 
@@ -80,4 +82,9 @@ Summary across the 33 circular quick-test matrices:
 
 ## Decision
 
-Keep V1 in production. V1 expands each orbit once and then performs cheap subset tests in the recursive hot path. V2 saves a modest number of stored `uint64_t` masks but repeatedly scans representatives and performs rotations for every pruning query. The compact representation is correct, but its speed tradeoff is decisively worse for this workload. Do not revisit V2 unless forbidden-orbit memory becomes a measured problem.
+At the time, the result was to keep V1 in production. V1 expands each orbit once and then performs cheap subset tests in the
+recursive hot path. V2 saves a modest number of stored `uint64_t` masks but repeatedly scans representatives and performs rotations
+for every pruning query. The compact representation is correct, but its speed tradeoff is decisively worse for this workload.
+
+V2 never entered production. V3 later superseded V1 and is also faster than V2. The V2 source remains deliberately preserved as a
+record of this failed experiment so the same design is not tested again without new evidence.

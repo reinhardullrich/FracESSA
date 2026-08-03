@@ -1,23 +1,18 @@
 # C++ Review
 
-Last verified: 2026-08-01
+Last verified: 2026-08-03
 
 Scope: active C++ analyzer core, CLI, shared parser, CMake, C++/CTest coverage,
 and the release workflow. The native Python binding is reviewed separately in
 `PYBIND_REVIEW.md`. Frozen experiment source copies are excluded except where a
 dated result is cited as evidence.
 
-Correctness is ranked before speed. This file records unresolved findings first,
-then explicit reassessment decisions so closed or conditional findings do not
-silently reappear in later reviews. Remove an unresolved finding after its fix
-and regression coverage are complete.
+Correctness is ranked before speed. This maintained audit record lists open findings first, then retains measured decisions and
+reassessments when they prevent rejected or conditional work from silently reappearing.
 
-## Ponytail Simplification Findings
+## Open Findings
 
-`cpp/include/fracessa/supports.hpp:236-371`: delete: the 136-line experimental
-`CircularSupportGeneratorV2` has no caller or test. Delete it and its private
-`cpp/include/fracessa/bitset64.hpp:75-82` `rot_left()` helper; nothing replaces
-them.
+### Ponytail Simplification
 
 `cpp/include/fracessa/bitset64.hpp:148-165`: delete:
 `is_smallest_representation()` is used only by its own test at
@@ -33,7 +28,13 @@ to one fixed index array. Delete its self-focused tests at
 `cpp/tests/test_bitset64.cpp:44-108` and `:222-229`; production set iteration
 already uses `extract_set_indices()`.
 
-Net: approximately 250 production and self-testing lines can be deleted.
+Net: approximately 105 production and self-testing lines can be deleted.
+
+### Retained V2 experiment
+
+`cpp/include/fracessa/supports.hpp:236-371` and its `bs64::rot_left()` helper are intentionally retained. V2 was a correct compact
+bit-parallel pruning experiment, but benchmarks found it slower than V1 and V3, and it never entered production. Keeping the source
+records the rejected design and prevents the same experiment from being repeated; it is therefore not an open simplification item.
 
 ## Allocation And Reallocation Audit
 
@@ -351,7 +352,7 @@ around zero.
 
 ## Current Validation State
 
-- The current Release build passes all 10 C++/CLI tests and all 60 Python tests.
+- The current Release build passes all 10 C++/CLI tests and all 63 Python tests.
 - Streaming Gosper enumeration, the 62-by-62 immediate-rejection regression,
   the singular Hadeler rejection, and the late-pivot 3-by-3 LU solve/inverse
   regression pass the current C++/CLI suite.
@@ -369,13 +370,13 @@ around zero.
   cardinality layer. An independent order-insensitive comparison matched all
   mathematical candidate rows and ESS results across the former 52-matrix
   verification corpus.
-- The canonical SQLite snapshot contains 1,064 distinct strategically normalized matrices. Its 713 analyzed rows store 65,800
-  candidate representatives whose multipliers recover 104,098 candidates and 91,134 ESS. The 351 catalog-only rows comprise 206
-  earlier safe timeouts and 145 generator-catalogue rows that exceeded their initial one-second safe cutoff.
+- The canonical SQLite snapshot contains 1,072 distinct strategically normalized matrices. Its 780 analyzed rows store 67,875
+  candidate representatives whose multipliers recover 106,401 candidates and 91,950 ESS; 762 baselines are exact or exact-fallback,
+  18 are unverified fast-only, and 292 rows remain catalog-only.
 - A fixed-seed audit generated 20,000 exact 4-by-4 integer matrices; all 19,890
   nonsingular cases satisfied `A * inverse(A) == I` exactly.
-- Ordinary pushes and pull requests run the same three-platform build and fast
-  test matrix as tags; artifact packaging and publication remain tag-only.
+- Ordinary pushes and pull requests run the Ubuntu and macOS build/test matrix. Tags add Windows; artifact packaging and
+  publication remain tag-only.
 - Wrapper integration regressions exercise database IDs 46 and 2208 through fast
   and safe methods; no complete SQLite matrix-verification runner is wired into
   CTest or CI.

@@ -14,7 +14,8 @@
  *
  * The constructor performs the full enumeration process. Supports are scanned
  * by increasing size, and each support runs through candidate detection plus
- * stability classification. Confirmed ESS supports trigger superset pruning.
+ * stability classification. Every exact equilibrium support triggers superset
+ * pruning; stability determines only whether that candidate is an ESS.
  */
 
 search_method parse_search_method(std::string_view name)
