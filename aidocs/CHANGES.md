@@ -831,3 +831,27 @@ two-minute minimum or 120% of the previous per-method calibration as its cutoff,
 results, and preserves mismatches in the log. Repeated CPU options run matrices concurrently while keeping a matrix's fast and safe
 calls pinned to the same performance core. Fast runs precede safe runs; a fast timeout skips safe, while a whole-matrix safe fallback
 supplies both calibrations.
+285. Added the automorphism-group and gamma research note:
+derived the published dimension-24 record as a 3-by-8 rook matrix with complete group `S_3 x S_8`, verified that its 15,120 ESS
+form one full-group orbit, and recorded its quadratic form, spectrum, the general rectangular rook construction, and untested
+high-symmetry inputs through dimension 30. The note keeps maximizing `gamma = ESS_count^(1/n)` as the objective and treats group
+size only as a means of reducing equivalent support calculations.
+286. Added the dimension-2-to-30 rectangular-rook automorphism ranking:
+ranked every nondegenerate factorization `n = m * k` by the exact full group order, including the extra transposition symmetry for
+square grids. Dimensions with fewer than three such factorizations are marked explicitly, and the note separates this finite rook
+family from the broader problem of classifying all possible matrix automorphism groups.
+287. Added exact symbolic matrix templates to the rectangular-rook ranking:
+proved that two distinct off-diagonal variables are minimal, recorded every available compact circular string, and marked the
+non-coprime grids that require full symmetric input. The templates use `A` for the same-row-or-column relation and `B` otherwise.
+288. Added the general three-variable rook templates:
+renamed the minimum representation to `P`/`Q` and added `A`/`B`/`C` compact strings that distinguish same-row, same-column, and
+unrelated cells. Square grids are marked separately because three distinct values remove the row-column transposition symmetry.
+289. Added the theoretical one-orbit gamma ceiling to every rook group:
+computed the largest possible support orbit after the smallest unavoidable stabilizer, rather than assuming every group element
+always gives a distinct support. Each row now records that orbit size and its `orbit_size^(1/n)` value.
+290. Added the absolute theoretical gamma ceiling for dimensions 2 through 30:
+recorded the independent Sperner bound
+`gamma_max(n) = binomial(n, floor(n/2))^(1/n)` beside every group-specific one-orbit ceiling.
+291. Added the largest ESS count currently found at each dimension:
+queried all matrix families in the canonical database and placed `MAX(matrices.ess_count)` for dimensions 2 through 30 beside
+the group-specific orbit ceiling and the absolute Sperner ceiling.
