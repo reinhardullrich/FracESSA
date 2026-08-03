@@ -1,0 +1,389 @@
+# Cheap Cyclic Symmetry Filter
+
+Status: implementation plan. No production code has been changed for this idea yet.
+
+## Goal
+
+Circular-symmetric games currently solve one support per binary bracelet, so rotations and reflections are already removed by
+`CircularSupportGeneratorV3`. Some circular matrices have further exact symmetries because their repeated payoff values are
+arranged compatibly with multiplication of cyclic strategy indices.
+
+The first implementation should detect those cheap symmetries once per game and discard equivalent bracelet representatives
+after V3 generates them but before `fracessa::analyze_support()` solves them.
+
+The intended pipeline is:
+
+```text
+V3 generates one dihedral bracelet representative
+    -> exact affine-symmetry filter
+        -> skip an equivalent representative, or
+        -> solve one retained representative
+            -> expand an exact candidate over its full detected orbit
+            -> register every orbit member for later superset pruning
+```
+
+This is an additional orbit reduction around V3, not a replacement for V3.
+
+## Explicit Opt-In Parameter
+
+The cyclic symmetry filter must be disabled by default. It runs only when the caller explicitly switches it on.
+
+Use the public name **cyclic symmetry filter** consistently:
+
+- CLI: `--cyclic-symmetry-filter`;
+- Python `RunConfig` and native binding: `cyclic_symmetry_filter=False`;
+- C++ constructor/configuration: `bool cyclic_symmetry_filter = false`.
+
+The option is effective only for a matrix already identified as circular symmetric. For a non-circular matrix it is an inactive
+no-op; it must never attempt to infer circular structure from a general matrix. Enabling it must not change the selected candidate
+search method: `fast`, `safe`, and `test` continue to mean exactly what they mean now.
+
+This explicit switch serves two purposes:
+
+- the existing bracelet behavior and output remain the default;
+- the new representative and multiplier semantics can be tested and benchmarked deliberately before they are considered for a
+  future default.
+
+## Scope
+
+The first version will detect affine multiplier symmetries of the cyclic indices:
+
+$$
+i\longmapsto ai+b\pmod n,
+$$
+
+where $\gcd(a,n)=1$. Translations $b$ are already rotations, and $a=-1$ is already reflection. The useful new cases are valid
+multipliers other than $\pm1$.
+
+The first version will not:
+
+- run a general colored-graph automorphism package;
+- recognize rook graphs or product-grid groups such as $S_3\times S_8$;
+- replace the fixed-density bracelet recursion with a generalized canonical generator;
+- assume that repeated payoff values alone create a symmetry;
+- precompute or store exponential support tables.
+
+Those exclusions are intentional. The affine filter is exact, small, dependency-free, and directly testable. More general matrix
+automorphisms can be considered only after this version has a measured benefit.
+
+## Mathematical Basis
+
+For a circular matrix, index strategies by $\mathbb Z_n$ and write
+
+$$
+A_{ij}=c_{j-i\bmod n}.
+$$
+
+A unit $a\in(\mathbb Z/n\mathbb Z)^\times$ is a matrix automorphism exactly when
+
+$$
+c_{ad\bmod n}=c_d
+\qquad\text{for every }d\in\mathbb Z_n.
+$$
+
+Equivalently, it is sufficient to compare the exact entries in row zero:
+
+$$
+A_{0,d}=A_{0,ad\bmod n}
+\qquad\text{for every }d.
+$$
+
+Define the detected multiplier group
+
+$$
+H=\left\{a\in(\mathbb Z/n\mathbb Z)^\times:A_{0,d}=A_{0,ad}\text{ for every }d\right\}.
+$$
+
+Together with translations, these multipliers give the verified affine group
+
+$$
+G=\mathbb Z_n\rtimes H.
+$$
+
+The matrix comparisons must use `fraction` equality. There is no tolerance and no double conversion. At the supported dimensions,
+testing every possible multiplier costs only $O(n\varphi(n))$ exact comparisons once per game.
+
+Because the matrix is symmetric, $a$ and $-a$ produce supports in the same dihedral orbit. Store only one representative of each
+pair in $H/\{\pm1\}$. If this quotient contains only the identity class, the helper is inactive and every generated bracelet passes
+immediately.
+
+### Why filtering bracelets is correct
+
+Let $D_n$ be the rotation/reflection group already handled by V3, and let
+
+$$
+C_D(S)=\min\{gS:g\in D_n\}
+$$
+
+be the smallest integer mask in the dihedral orbit of support $S$. V3 emits exactly these masks.
+
+The affine multipliers act on dihedral orbits. For each V3 result $S$, calculate
+
+$$
+C_G(S)=\min_{a\in H} C_D(aS).
+$$
+
+Solve $S$ exactly when $S=C_G(S)$. Every $G$-orbit therefore contributes one retained bracelet and all other equivalent
+bracelets are skipped before any candidate system is built.
+
+This is safe because every tested multiplier is a literal permutation $P$ satisfying
+
+$$
+P^TAP=A.
+$$
+
+It preserves the candidate equations, positivity and outside-payoff conditions, and ESS stability. A candidate or ESS on $S$
+exists exactly when the permuted candidate or ESS exists on $aS$.
+
+## Current Insertion Point
+
+The circular branch in `cpp/src/fracessa.cpp` currently has the exact lifecycle needed by this change:
+
+1. `CircularSupportGeneratorV3::generate()` emits one bracelet and its cardinality.
+2. The callback calls `analyze_support()`.
+3. An exact candidate is passed to `generator.add_forbidden()`.
+4. `add_forbidden()` expands its complete dihedral orbit and returns the number of distinct concrete masks.
+5. `finalize_candidate()` stores that number as the output multiplier and uses it for the ESS total.
+
+The new filter belongs between steps 1 and 2. V3's recursion, reversal checks, fixed-density order, and forbidden-mask buckets should
+remain unchanged.
+
+## Proposed Design
+
+### 1. Add one small circular-affine helper
+
+Add a focused header under `cpp/include/fracessa/`, provisionally named `circular_affine_symmetry.hpp`. It should own:
+
+- the dimension;
+- the verified representatives of $H/\{\pm1\}$;
+- the precomputed bit permutation for each retained multiplier;
+- dihedral canonicalization of a transformed support;
+- the two operations needed by the orchestration code:
+  - `is_representative(support)`;
+  - iteration over the distinct bracelet images of a support.
+
+Keep this helper independent of candidate solving and stability. It deals only with exact matrix symmetry and support masks.
+
+Precompute destination bits once, so applying $a$ to a support does not perform a modulo operation for every emitted bracelet:
+
+```text
+destination[a][i] = 1 << ((a * i) mod n)
+```
+
+Transform a support by walking only its set bits with `ctz64()` and OR-ing their precomputed destinations. The dimension is below
+64, so fixed stack arrays are sufficient. No hash table or heap allocation is required in the per-bracelet path.
+
+### 2. Detect valid multipliers once
+
+Construct the helper only when both `is_cs` and `cyclic_symmetry_filter` are true. Otherwise, execute the existing circular path
+unchanged. When enabled, for every $a$ from 1 to $n-1$:
+
+1. reject it unless `std::gcd(a, n) == 1`;
+2. compare `game_matrix_(0, d)` with `game_matrix_(0, (a * d) % n)` for all offsets $d$;
+3. retain it only when every exact comparison succeeds;
+4. collapse the equivalent pair $a$ and $n-a$.
+
+The existing `is_cs` contract already says that the input is symmetric circulant. This feature should not add a second full
+circulant-matrix validator to the hot program path.
+
+### 3. Filter immediately before solving
+
+At the beginning of the V3 callback:
+
+```cpp
+if (!symmetry.is_representative(support))
+    return;
+```
+
+`is_representative()` should return `true` immediately when no extra multiplier exists. Otherwise, for each retained multiplier it
+transforms the support and scans its rotations and reflected rotations. It can reject as soon as any concrete image is numerically
+smaller than the already-canonical V3 support. It does not need to allocate or materialize the complete orbit.
+
+V3's `emitted_` state must continue to describe bracelets generated by V3, not bracelets accepted by this outer filter. Therefore,
+the filter must stay outside the recursion and must not affect V3's cardinality early-stop rule.
+
+### 4. Reuse V3 for enlarged candidate pruning and counting
+
+When a retained support is an exact candidate, enumerate the distinct values
+
+$$
+C_D(aS),\qquad a\in H/\{\pm1\}.
+$$
+
+There are at most $\varphi(n)/2$ such bracelet images. Deduplicate them in a fixed local array; a short linear scan is simpler than
+a hash table and candidate supports are much rarer than generated supports.
+
+For every distinct bracelet image, call the existing
+
+```cpp
+generator.add_forbidden(image)
+```
+
+and sum its return values. This gives both required results without changing V3:
+
+- every concrete support in the verified affine orbit becomes a future forbidden subset;
+- the sum is the number of distinct concrete supports in the complete affine orbit and therefore the candidate multiplier.
+
+Distinct dihedral orbits are disjoint, so summing their individual sizes is exact. Do not multiply the old dihedral multiplier by
+`H.size()`: stabilizers can make that product wrong.
+
+Registering the complete affine orbit is also the invariant that makes the outer representative filter compatible with dynamic
+superset pruning. The forbidden family remains closed under $G$: if pruning removes the smallest bracelet in an affine orbit, the
+corresponding transformed forbidden support removes every other bracelet in that orbit as well. It is not correct to filter by the
+larger group while continuing to register only the old dihedral candidate orbit.
+
+The callback becomes conceptually:
+
+```cpp
+if (!symmetry.is_representative(support))
+    return;
+
+if (analyze_support(support, support_size)) {
+    size_t multiplier = 0;
+    symmetry.for_each_distinct_bracelet_image(candidate_.support, [&](bitset64 image) {
+        multiplier += generator.add_forbidden(image);
+    });
+    finalize_candidate(multiplier);
+}
+```
+
+The full-support shortcut remains unchanged: the full support has orbit size one under every permutation.
+
+## Expected Example
+
+For the published dimension-24 rook matrix, all units modulo 24 preserve the compact payoff pattern:
+
+$$
+H=\{1,5,7,11,13,17,19,23\}.
+$$
+
+After identifying $a$ with $-a$, four multiplier classes remain. The filter can therefore merge up to four ordinary bracelet
+classes before solving.
+
+It will not recover the complete $S_3\times S_8$ automorphism group. That larger group can merge up to 5,040 dihedral classes in a
+generic orbit, but recognizing and generating under it is a separate project. The affine experiment must not claim those savings.
+
+## Files To Change During Implementation
+
+- `cpp/src/main.cpp`
+  - add the opt-in `--cyclic-symmetry-filter` flag and pass it to `fracessa`.
+- `cpp/include/fracessa/fracessa.hpp`
+  - add the final optional `cyclic_symmetry_filter` constructor parameter and store its configuration.
+- `cpp/include/fracessa/circular_affine_symmetry.hpp`
+  - exact multiplier detection;
+  - precomputed bit permutations;
+  - representative test;
+  - distinct bracelet-image iteration.
+- `cpp/src/fracessa.cpp`
+  - preserve the current path when the option is off;
+  - construct the helper in the circular branch only when the option is on;
+  - filter before `analyze_support()`;
+  - call `add_forbidden()` for every distinct bracelet image and sum the multipliers.
+- `cpp/src/pybind_module.cpp`, `python/fracessa/types.py`, and `python/fracessa/core.py`
+  - expose and forward `cyclic_symmetry_filter=False` without changing existing callers.
+- `cpp/tests/test_supports.cpp`
+  - focused group, canonicalization, orbit, and pruning tests.
+- `cpp/tests/test_integration.cpp`
+  - end-to-end weighted candidate and ESS comparisons.
+- CLI and Python interface tests
+  - verify that the option is accepted, forwarded, and off by default.
+- `aidocs/architecture/SUPPORT_GENERATOR_HANDOVER.md` and `aidocs/plans/SUPPORT_GENERATORS.md`
+  - only after promotion, document that circular output represents the detected affine orbit rather than only the dihedral orbit.
+
+Apart from forwarding the new CLI option, no matrix-parser, candidate-solver, stability, or database-schema change should be
+needed for the experiment.
+
+## Correctness Tests
+
+### Detection
+
+- A circular matrix with distinct distance values detects only $\{\pm1\}$ and leaves the helper inactive.
+- An $n=8$ matrix with the required equality between distance classes 1 and 3 detects multiplication by 3.
+- A matrix with repeated values in positions not preserved by a multiplier does not accept that multiplier.
+- The published $n=24$ rook matrix detects all eight units and four classes modulo sign.
+
+### Support orbits
+
+For manageable dimensions, enumerate every nonempty support by brute force and independently form its complete affine orbit.
+Verify that:
+
+- V3 plus the filter retains exactly one representative per affine orbit;
+- the retained representative is the smallest integer mask in that orbit;
+- distinct-bracelet iteration covers the complete orbit exactly once after V3 expands each image;
+- the summed multiplier equals the number of distinct concrete masks, including supports with nontrivial stabilizers.
+
+### Forbidden-superset pruning
+
+Add one candidate support through the new path and generate the next cardinalities. Confirm that no emitted support contains any
+affine image of the candidate. Include a support whose rotations, reflections, and multiplier images have different smallest set
+bits so every V3 forbidden bucket is exercised.
+
+### End-to-end results
+
+- Run every affected fixture with the option off and confirm byte-identical legacy output.
+- Compare an affected circular matrix with the same full matrix run as non-circular. Expand compressed output and compare exact
+  candidates and ESS order-independently when the option is on.
+- Run the published dimension-24 matrix with the option on and preserve its exact represented totals: 15,120 candidates and
+  15,120 ESS.
+- Verify candidate vectors, supports, payoffs, ESS flags, and weighted multipliers independently of candidate IDs.
+- Run all existing CTests plus the maintained Python verification suite in Release and ASan/UBSan builds.
+
+The representative rows and candidate IDs are expected to change for affected circular matrices. That is an output compression
+change, not a mathematical change, and must be validated before any baseline is regenerated.
+
+## Performance Experiment
+
+Instrument the experimental build, not production, with:
+
+- V3 bracelets emitted;
+- bracelets rejected by the affine filter;
+- calls to `analyze_support()`;
+- exact candidates found;
+- distinct affine bracelet images registered;
+- concrete forbidden masks registered;
+- time spent detecting multipliers;
+- time spent in the representative filter;
+- total end-to-end time.
+
+Benchmark:
+
+1. circular quick-test matrices with no extra multiplier, to measure the inactive-path overhead;
+2. synthetic $n=8$ and other small matrices with known multiplier symmetry;
+3. the published dimension-24 rook matrix (matrix 34);
+4. any stored circular rook-family matrices for which runtime is practical;
+5. both `fast` and `safe`, because the value of avoiding a solve differs greatly between them.
+
+For every benchmarked binary and matrix, first measure the default option-off path as the baseline, then measure the option-on
+path. Do not mix option-on results into ordinary `fast` or `safe` calibration rows without labeling the configuration.
+
+Use the project's persistent-process benchmark method, pin both compared builds to the same CPU, and compare per-matrix medians.
+The experiment should also report solver-call reduction separately from runtime so a weak result can be diagnosed.
+
+## Promotion Criteria
+
+Promote the filter only if all of the following hold:
+
+- exact expanded candidates and ESS are unchanged on every validation matrix;
+- every multiplier and forbidden orbit passes independent brute-force checks;
+- affected matrices show a material end-to-end gain;
+- ordinary circular matrices have no meaningful regression;
+- the implementation remains the small outer filter described here and does not complicate V3's recursion.
+
+After promotion:
+
+1. update the circular multiplier documentation;
+2. regenerate affected candidate baselines and database rows only after the independent comparison passes;
+3. refresh current calibration timings for affected matrices;
+4. record the measured reduction and the fact that the method detects only the affine subgroup, not the complete automorphism
+   group.
+
+## Deferred Extensions
+
+Only measured evidence should justify a second phase. Possible later work is:
+
+- a special constant-off-diagonal case, where $\operatorname{Aut}(A)=S_n$ and one support per cardinality is sufficient;
+- an exact recognizer for rectangular rook matrices and row/column support canonicalization;
+- a general colored-graph automorphism tool;
+- direct generation under a larger group instead of post-bracelet filtering.
+
+These are deliberately not part of the first implementation.
