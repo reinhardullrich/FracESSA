@@ -4,6 +4,7 @@
 #include <utility>
 #include <vector>
 
+#include <fracessa/circular_affine_symmetry.hpp>
 #include <fracessa/supports.hpp>
 
 namespace {
@@ -170,4 +171,55 @@ TEST(SupportGeneratorTest, CircularV3HandlesDimension63) {
         EXPECT_EQ(generator.add_forbidden(support), dimension);
     });
     EXPECT_EQ(generated, 1u);
+}
+
+TEST(CircularAffineSymmetryTest, DetectsAndFiltersExactMultiplierSymmetry) {
+    const linalg::matrix_frc matrix = linalg::create_circular_symmetric(
+        8, {linalg::fraction(7), linalg::fraction(11), linalg::fraction(7), linalg::fraction(13)});
+    CircularAffineSymmetry symmetry(matrix);
+
+    ASSERT_EQ(symmetry.multiplier_class_count(), 2u);
+    EXPECT_TRUE(symmetry.is_representative(0b00000011));
+    EXPECT_FALSE(symmetry.is_representative(0b00001001));
+
+    CircularSupportGeneratorV3 generator(8);
+    size_t representative_count = 0;
+    generator.generate([&](bitset64 support, size_t) {
+        if (symmetry.is_representative(support)) ++representative_count;
+    });
+    EXPECT_EQ(representative_count, 23u);
+}
+
+TEST(CircularAffineSymmetryTest, RepeatedValuesAloneDoNotCreateASymmetry) {
+    const linalg::matrix_frc matrix = linalg::create_circular_symmetric(
+        8, {linalg::fraction(7), linalg::fraction(7), linalg::fraction(11), linalg::fraction(13)});
+    CircularAffineSymmetry symmetry(matrix);
+
+    EXPECT_EQ(symmetry.multiplier_class_count(), 1u);
+    EXPECT_TRUE(symmetry.is_representative(0b00001001));
+}
+
+TEST(CircularAffineSymmetryTest, EnlargedOrbitReusesExistingDihedralExpansion) {
+    const linalg::matrix_frc matrix = linalg::create_circular_symmetric(
+        8, {linalg::fraction(7), linalg::fraction(11), linalg::fraction(7), linalg::fraction(13)});
+    CircularAffineSymmetry symmetry(matrix);
+    CircularSupportGeneratorV3 generator(8);
+
+    size_t bracelet_images = 0;
+    size_t multiplier = 0;
+    symmetry.for_each_distinct_bracelet_image(0b00000011, [&](bitset64 image) {
+        ++bracelet_images;
+        multiplier += generator.add_forbidden(image);
+    });
+
+    EXPECT_EQ(bracelet_images, 2u);
+    EXPECT_EQ(multiplier, 16u);
+}
+
+TEST(CircularAffineSymmetryTest, DetectsPublishedDimension24MultiplierClasses) {
+    const linalg::matrix_frc matrix = linalg::create_circular_symmetric(
+        24, {15, 15, 7, 15, 15, 7, 15, 7, 7, 15, 15, 7});
+    CircularAffineSymmetry symmetry(matrix);
+
+    EXPECT_EQ(symmetry.multiplier_class_count(), 4u);
 }

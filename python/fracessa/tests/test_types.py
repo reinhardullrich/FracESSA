@@ -10,6 +10,7 @@ class TypesTests(unittest.TestCase):
         cfg = RunConfig()
         self.assertFalse(hasattr(cfg, "timeout_s"))
         self.assertFalse(hasattr(cfg, "mode"))
+        self.assertFalse(cfg.cyclic_symmetry_filter)
 
     def test_search_method_is_required_and_validated(self):
         for method in ("fast", "safe", "test"):

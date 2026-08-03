@@ -855,3 +855,11 @@ recorded the independent Sperner bound
 291. Added the largest ESS count currently found at each dimension:
 queried all matrix families in the canonical database and placed `MAX(matrices.ess_count)` for dimensions 2 through 30 beside
 the group-specific orbit ceiling and the absolute Sperner ceiling.
+292. Implemented the opt-in cyclic symmetry filter:
+added exact affine multiplier detection for circular matrices, filtered multiplier-equivalent V3 bracelets before solving, and
+reused V3's existing dihedral expansion to preserve enlarged-orbit pruning and exact output multipliers. The feature is disabled
+by default and exposed as CLI `--cyclic-symmetry-filter`, Python `RunConfig.cyclic_symmetry_filter`, and a final optional native
+constructor parameter. All 10 C++/CLI tests, all 63 Python tests, and the ASan/UBSan CTests pass. Independent fast and safe audits
+of all 33 circular quick-test matrices expanded both output forms to identical exact candidate-support classifications; 18 of the
+66 method/matrix runs had extra affine multipliers. Matrix 34 preserves 15,120 candidates and 15,120 ESS while compressing 345
+dihedral representative rows to 93 affine representative rows.

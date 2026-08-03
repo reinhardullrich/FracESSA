@@ -57,6 +57,11 @@ is no default method.
 - `-f, --fullsupport` evaluate full support first.
 - `-t, --timing` print analyzer timing in nanoseconds and the whole-matrix safe fallback.
 - `-m, --matrixid` optional signed 64-bit matrix ID for logging/verification runs.
+- `--cyclic-symmetry-filter` opt into additional exact affine-symmetry reduction for a circular-symmetric matrix; off by default.
+
+The cyclic symmetry filter checks exact index multipliers that preserve the complete circular matrix, then solves only one
+bracelet from each detected affine orbit. It has no effect on non-circular input and does not change the selected `fast`, `safe`,
+or `test` candidate method.
 
 `fast` removes the game's common denominator and switches the whole matrix to safe search when the remaining exact integer
 precision span satisfies $P\geq10^9$. Otherwise it normalizes and equilibrates the complete binary64 game once, eliminates the

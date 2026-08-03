@@ -70,7 +70,8 @@ NativeResult compute_matrix_impl(
     bool include_candidates,
     bool full_support,
     bool enable_logging,
-    std::int64_t matrix_id)
+    std::int64_t matrix_id,
+    bool cyclic_symmetry_filter)
 {
     NativeResult result;
 
@@ -95,7 +96,8 @@ NativeResult compute_matrix_impl(
         }
 
         const auto start = std::chrono::steady_clock::now();
-        ::fracessa analyzer(method, parsed_matrix, is_cs, include_candidates, full_support, enable_logging, matrix_id);
+        ::fracessa analyzer(method, parsed_matrix, is_cs, include_candidates, full_support, enable_logging, matrix_id,
+                            cyclic_symmetry_filter);
         const auto end = std::chrono::steady_clock::now();
 
         result.elapsed_ns = std::chrono::duration_cast<std::chrono::nanoseconds>(end - start).count();
@@ -144,13 +146,15 @@ py::dict compute_matrix(
     bool include_candidates,
     bool full_support,
     bool enable_logging,
-    std::int64_t matrix_id)
+    std::int64_t matrix_id,
+    bool cyclic_symmetry_filter)
 {
     NativeResult native;
     {
         // compute_matrix_impl touches no Python objects and may run for hours.
         py::gil_scoped_release release;
-        native = compute_matrix_impl(method, matrix, include_candidates, full_support, enable_logging, matrix_id);
+        native = compute_matrix_impl(method, matrix, include_candidates, full_support, enable_logging, matrix_id,
+                                     cyclic_symmetry_filter);
     }
 
     // The release object above has restored the GIL; Python allocation is safe.
@@ -235,10 +239,12 @@ PYBIND11_MODULE(fracessa_core, m)
         py::arg("full_support") = false,
         py::arg("enable_logging") = false,
         py::arg("matrix_id") = std::int64_t{-1},
+        py::arg("cyclic_symmetry_filter") = false,
         R"doc(
 Compute one matrix with native C++ core and return structured results.
 
 method: fast, safe, or test; required before matrix.
+cyclic_symmetry_filter: opt-in additional affine symmetry reduction for circular matrices.
 
 Returns a dict with keys:
 - status, success, error_message

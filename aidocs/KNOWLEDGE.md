@@ -143,6 +143,12 @@ $10^{-12}$ reaches exact checking. Its remaining probability and outside-payoff 
 an independent source copy of `fast`, not a wrapper around it; it currently has identical behavior and can be changed without
 changing production fast search.
 
+The optional cyclic symmetry filter is disabled by default. CLI callers enable it with `--cyclic-symmetry-filter`; Python callers
+set `RunConfig(cyclic_symmetry_filter=True)`. It applies only to compact circular-symmetric input. The filter detects exact affine
+index multipliers $i\mapsto ai+b\pmod n$ from the rational game, filters V3 bracelet representatives before candidate solving,
+expands every exact candidate over the detected affine orbit for pruning, and stores that complete distinct-orbit size as the
+candidate multiplier. Non-circular input ignores the option. The option does not alter `fast`, `safe`, or `test` semantics.
+
 Every result exposes `safe_fallback`: null means the selected fast/test method reached its double search, while `precision_span`,
 `equilibration_invalid`, or `equilibration_non_convergence` identifies the whole-matrix preparation step that switched the run to
 safe search. A per-support exact retry does not set it. CLI timing output prints this as line 3; Pybind and all Python sinks use the
@@ -177,6 +183,9 @@ Important implementation points:
   candidate supports bucketed by lowest bit. Circular rules expand every
   distinct rotation/reflection only as compact forbidden masks. The analyzer
   stores one solved bracelet representative with their count as `multiplier`.
+  With the opt-in cyclic symmetry filter, a small outer helper additionally removes multiplier-equivalent bracelets and registers
+  each distinct dihedral orbit inside the verified affine orbit through the same V3 `add_forbidden()` path. V3's recursion itself
+  remains unchanged.
   The former FKM-plus-reflection implementation remains available as `CircularSupportGenerator` (V1), and compact
   bit-parallel `CircularSupportGeneratorV2` also remains test-only.
   See `plans/SUPPORT_GENERATORS.md`.
@@ -229,6 +238,8 @@ Important implementation points:
 Key files:
 
 - `cpp/include/fracessa/bitset64.hpp`: support-mask primitives.
+- `cpp/include/fracessa/circular_affine_symmetry.hpp`: exact opt-in affine multiplier detection, bracelet filtering, and orbit
+  image enumeration for circular matrices.
 - `cpp/include/fracessa/supports.hpp`: support generation and pruning.
 - `cpp/include/linalg/integer.hpp` and `cpp/include/linalg/matrix_integer.hpp`: header-only owning C++ wrappers around FLINT exact
   integers and integer matrices.
@@ -721,9 +732,9 @@ No production wrapper or matrix workflow imposes a per-matrix computation
 timeout. A matrix may legitimately run for hours. Worker-liveness handling must
 not be implemented as a computation timeout.
 
-`RunConfig()` contains only analysis options. `run`, `run_multiprocessing`, and `compute_matrix` require `"fast"`, `"safe"`, or
-experimental `"test"` as their first argument; there is no default method. Fast and test can miss candidates and ESS results,
-while safe bypasses every floating-point candidate procedure.
+`RunConfig()` contains only analysis options, including the default-off `cyclic_symmetry_filter` boolean. `run`,
+`run_multiprocessing`, and `compute_matrix` require `"fast"`, `"safe"`, or experimental `"test"` as their first argument; there is
+no default method. Fast and test can miss candidates and ESS results, while safe bypasses every floating-point candidate procedure.
 
 `run` and `run_multiprocessing` are the only public execution functions. Both
 accept a required method followed by one `Matrix` or an iterable and accept an optional sink. One matrix

@@ -1,8 +1,10 @@
 #include <fracessa/fracessa.hpp>
 #include <fracessa/bitset64.hpp>
+#include <fracessa/circular_affine_symmetry.hpp>
 #include <fracessa/supports.hpp>
 #include <linalg/matrix_fraction.hpp>
 
+#include <optional>
 #include <stdexcept>
 #include <string>
 
@@ -24,7 +26,7 @@ search_method parse_search_method(std::string_view name)
 
 fracessa::fracessa(search_method method, const linalg::matrix_frc& matrix, bool is_cs, bool with_candidates,
                    bool full_support, bool with_log,
-                   std::int64_t matrix_id)
+                   std::int64_t matrix_id, bool cyclic_symmetry_filter)
     : game_matrix_(matrix)
     , find_candidate_fast_(game_matrix_)
     , find_candidate_safe_(game_matrix_)
@@ -34,6 +36,7 @@ fracessa::fracessa(search_method method, const linalg::matrix_frc& matrix, bool 
     , method_(method)
     , conf_full_support_(full_support)
     , conf_with_log_(with_log)
+    , conf_cyclic_symmetry_filter_(cyclic_symmetry_filter)
     , candidate_()
     , logger_()
 {
@@ -77,18 +80,32 @@ fracessa::fracessa(search_method method, const linalg::matrix_frc& matrix, bool 
 
     if (is_cs) {
         CircularSupportGeneratorV3 generator(dimension_);
+        std::optional<CircularAffineSymmetry> symmetry;
+        if (conf_cyclic_symmetry_filter_) {
+            symmetry.emplace(game_matrix_);
+            if (symmetry->multiplier_class_count() == 1) symmetry.reset();
+        }
         size_t last_logged_support_size = 0;
         // This lambda is the callback. The generator calls it once for each circular representative and supplies both the
         // mask and its size.
         generator.generate([&](bitset64 support, size_t support_size) {
             if (conf_full_support_ && support_size == dimension_)
                 return;
+            if (symmetry && !symmetry->is_representative(support))
+                return;
             if (conf_with_log_ && support_size != last_logged_support_size) {
                 logger_->info("Searching support size {}:", support_size);
                 last_logged_support_size = support_size;
             }
             if (analyze_support(support, support_size)) {
-                const size_t multiplier = generator.add_forbidden(candidate_.support);
+                size_t multiplier = 0;
+                if (symmetry) {
+                    symmetry->for_each_distinct_bracelet_image(candidate_.support, [&](bitset64 image) {
+                        multiplier += generator.add_forbidden(image);
+                    });
+                } else {
+                    multiplier = generator.add_forbidden(candidate_.support);
+                }
                 finalize_candidate(multiplier);
             }
         });

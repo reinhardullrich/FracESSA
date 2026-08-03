@@ -1,6 +1,7 @@
 # Cheap Cyclic Symmetry Filter
 
-Status: implementation plan. No production code has been changed for this idea yet.
+Status: implemented as an opt-in feature; correctness verification is complete, while a canonical repeated benchmark remains
+required before considering it as a default.
 
 ## Goal
 

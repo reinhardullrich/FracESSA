@@ -74,3 +74,36 @@ TEST(IntegrationTest, CircularSymmetricStoresOneRepresentative) {
     EXPECT_TRUE(candidate.is_ess);
     EXPECT_EQ(candidate.support_size, 3u);
 }
+
+TEST(IntegrationTest, CyclicSymmetryFilterPreservesRepresentedResults) {
+    const matrix_frc matrix = create_circular_symmetric(8, {fraction(1), fraction(-3), fraction(1), fraction(-3)});
+
+    fracessa legacy(search_method::safe, matrix, true, true, false, false);
+    fracessa filtered(search_method::safe, matrix, true, true, false, false, -1, true);
+
+    auto represented_candidates = [](const fracessa& analyzer) {
+        size_t count = 0;
+        for (const candidate& row : analyzer.candidates_)
+            count += row.multiplier.value_or(1);
+        return count;
+    };
+
+    EXPECT_EQ(filtered.ess_count_, legacy.ess_count_);
+    EXPECT_EQ(represented_candidates(filtered), represented_candidates(legacy));
+    EXPECT_LT(filtered.candidates_.size(), legacy.candidates_.size());
+}
+
+TEST(IntegrationTest, CyclicSymmetryFilterIsInactiveForNonCircularInput) {
+    matrix_frc matrix(3, 3);
+    matrix(0, 0) = 0; matrix(0, 1) = 1; matrix(0, 2) = 2;
+    matrix(1, 0) = 1; matrix(1, 1) = 0; matrix(1, 2) = 3;
+    matrix(2, 0) = 2; matrix(2, 1) = 3; matrix(2, 2) = 0;
+
+    fracessa without_option(search_method::safe, matrix, false, true, false, false);
+    fracessa with_option(search_method::safe, matrix, false, true, false, false, -1, true);
+
+    EXPECT_EQ(with_option.ess_count_, without_option.ess_count_);
+    ASSERT_EQ(with_option.candidates_.size(), without_option.candidates_.size());
+    for (size_t i = 0; i < with_option.candidates_.size(); ++i)
+        EXPECT_EQ(with_option.candidates_[i].to_string(), without_option.candidates_[i].to_string());
+}

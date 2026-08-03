@@ -43,13 +43,14 @@ class CoreUnitTests(unittest.TestCase):
     def test_compute_matrix_uses_cli_string_if_already_prefixed(self):
         fake = _FakeNative()
         matrix = Matrix(matrix_id=11, matrix="2#0,1,0")
-        cfg = RunConfig(include_candidates=True)
+        cfg = RunConfig(include_candidates=True, cyclic_symmetry_filter=True)
 
         with mock.patch("fracessa.core.load_native_module", return_value=fake):
             result = core.compute_matrix(method="fast", matrix=matrix, config=cfg, run_id="unit")
 
         self.assertEqual(fake.last_kwargs["matrix"], "2#0,1,0")
         self.assertEqual(fake.last_kwargs["method"], "fast")
+        self.assertTrue(fake.last_kwargs["cyclic_symmetry_filter"])
         self.assertEqual(result["matrix_id"], 11)
         self.assertEqual(result["ess_count"], 2)
         self.assertEqual(result["elapsed_ns"], 1234)
@@ -66,6 +67,7 @@ class CoreUnitTests(unittest.TestCase):
             result = core.compute_matrix(method="safe", matrix=matrix, config=cfg, run_id="unit")
 
         self.assertEqual(fake.last_kwargs["matrix"], "2#0,1,0")
+        self.assertFalse(fake.last_kwargs["cyclic_symmetry_filter"])
         self.assertEqual(result["candidate_count"], 0)
 
     def test_compute_matrix_values_only_without_dimension_fails(self):
