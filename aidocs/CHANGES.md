@@ -824,3 +824,10 @@ single circular runtime construction to `CircularSupportGeneratorV3`. V1/V3 gene
 dimension 63; all 81 quick matrices produced byte-identical fast and safe candidate output. Release and ASan/UBSan CTests plus all
 63 Python tests passed. Two CPU-2 persistent-Pybind panels timed 31 circular quick cases; the conservative reverse-order panel was
 19.90% faster at the median overall and 34.70% faster for dimensions 19 and above.
+284. Added resumable full consistency calibration:
+`matrices.calibration_timestamp` records the latest full audit and `calibration_comment` retains an append-only JSON history.
+`scripts/calibrate_matrices.py audit` processes matrices by dimension and matrix ID, targets one second of native samples, uses a
+two-minute minimum or 120% of the previous per-method calibration as its cutoff, validates complete candidate data, fills missing
+results, and preserves mismatches in the log. Repeated CPU options run matrices concurrently while keeping a matrix's fast and safe
+calls pinned to the same performance core. Fast runs precede safe runs; a fast timeout skips safe, while a whole-matrix safe fallback
+supplies both calibrations.

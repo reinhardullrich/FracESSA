@@ -3,6 +3,7 @@
 #include <cstddef>
 #include <cstdint>
 #include <string_view>
+#include <vector>
 
 #include <fracessa/bitset64.hpp>
 #include <fracessa/candidate.hpp>
@@ -62,6 +63,10 @@ private:
     void ensure_candidate_vector(candidate& result) const;
 
     size_t dimension_;
+    // Dense (reference, row, column) storage makes a cache hit one byte check and one direct array access. Entries are still
+    // calculated lazily; the deliberately unused combinations cost less than two MiB even at dimension 64.
+    std::vector<linalg::integer> reduced_entry_cache_;
+    std::vector<std::uint8_t> reduced_entry_cache_ready_;
     size_t reduced_dimension_ = 0;
     bool reduced_hessian_is_negative_definite_ = false;
     linalg::fraction_free_ldlt_workspace ffldlt_workspace_;

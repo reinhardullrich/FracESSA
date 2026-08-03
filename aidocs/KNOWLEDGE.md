@@ -566,6 +566,18 @@ while the main process serializes SQLite writes. A completed fast result is exac
 is explicitly an unverified fast result while `safe_calibration_ns` remains `-1`. These calibrations choose future iteration
 counts and are not timing-history rows.
 
+`scripts/calibrate_matrices.py audit` is the resumable full consistency-calibration pass. It dispatches matrices in
+`dimension ASC, matrix_id ASC` order, runs fast before safe, and uses each positive stored calibration to request
+`ceil(1 second / calibration)` native samples. Each method independently uses
+`max(120 seconds, 1.2 * its stored calibration)`; null and `-1` use 120 seconds. A fast timeout skips safe and sets both
+calibrations to `-1`; a non-null fast `safe_fallback` supplies both exact
+calibrations without a second safe run. Complete candidate output is compared with stored data, missing data is filled, and
+conflicting stored data is preserved. `calibration_timestamp` stores the latest audit time, while `calibration_comment` is an
+human-readable, indented, append-only JSON history containing the assigned CPU, actual cutoffs, and all outcomes. Repeated
+`--cpu ID` options run matrices concurrently while keeping each matrix's fast and safe calls on the same CPU. Each matrix commits
+independently. The default
+selects only rows without an audit timestamp; `--refresh-all` deliberately starts a new audit over every row.
+
 The August 2 fast retry attempted all 319 previous timeouts with a 120-second per-matrix cutoff. Two rows completed before CPU 2
 was reserved; the remaining 317 attempts used performance CPUs 3 through 9. Twenty-one matrices completed, adding 683
 representative rows for 841 weighted candidates and 236 ESS. Two completed through exact fallback and 19 are unverified fast

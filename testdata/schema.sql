@@ -52,6 +52,12 @@ CREATE TABLE matrices (
     safe_calibration_ns INTEGER CHECK (
         safe_calibration_ns IS NULL OR safe_calibration_ns = -1 OR safe_calibration_ns > 0
     ),
+    calibration_timestamp TEXT CHECK (
+        calibration_timestamp IS NULL OR calibration_timestamp GLOB '????-??-??T??:??:??Z'
+    ),
+    calibration_comment TEXT NOT NULL DEFAULT '[]' CHECK (
+        json_valid(calibration_comment) AND json_type(calibration_comment) = 'array'
+    ),
     safe_fallback TEXT CHECK (
         safe_fallback IS NULL OR safe_fallback IN (
             'precision_span', 'equilibration_invalid', 'equilibration_non_convergence'
@@ -120,7 +126,7 @@ CREATE TABLE timings (
 
 CREATE VIEW matrix_overview AS
 SELECT matrix_id, dimension, is_cs, matrix,
-       fast_calibration_ns, safe_calibration_ns,
+       fast_calibration_ns, safe_calibration_ns, calibration_timestamp, calibration_comment,
        candidate_count, ess_count, candidate_structure, ess_structure,
        gamma_lower_bound, safe_fallback,
        size_class, origin, tags, name, family, subfamily, description,

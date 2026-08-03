@@ -213,11 +213,11 @@ void swap_active_coordinates(linalg::matrix_dbl& system, size_t active_start, si
 }
 
 /*
- * Compute P*L*D*L^T*P^T in the lower triangle of system. pivots uses LAPACK's one-based sign convention: a positive entry marks
- * a 1x1 block, while equal negative entries mark a 2x2 block. Returning false means the double result is inconclusive and exact
- * arithmetic must decide the support.
+ * Compute P*L*D*L^T*P^T in the lower triangle of system while applying the same pivots and forward L*D solve to the single right-hand
+ * side. pivots uses LAPACK's one-based sign convention: a positive entry marks a 1x1 block, while equal negative entries mark a 2x2
+ * block. Returning false means the double result is inconclusive and exact arithmetic must decide the support.
  */
-bool factor_bunch_kaufman(linalg::matrix_dbl& system, size_t dimension, int* pivots)
+bool factor_and_forward_solve_bunch_kaufman(linalg::matrix_dbl& system, size_t dimension, int* pivots, double* solution)
 {
     size_t k = 0;
     while (k < dimension) {
@@ -260,6 +260,7 @@ bool factor_bunch_kaufman(linalg::matrix_dbl& system, size_t dimension, int* piv
 
         const size_t block_last = k + pivot_size - 1;
         swap_active_coordinates(system, k, block_last, pivot_index, dimension, pivot_size);
+        if (pivot_index != block_last) std::swap(solution[block_last], solution[pivot_index]);
 
         if (pivot_size == 1) {
             const double pivot = system(k, k);
@@ -271,7 +272,11 @@ bool factor_bunch_kaufman(linalg::matrix_dbl& system, size_t dimension, int* piv
                 const double multiplier = system(column, k) * inverse_pivot;
                 for (size_t row = column; row < dimension; ++row) system(row, column) -= system(row, k) * multiplier;
             }
-            for (size_t row = k + 1; row < dimension; ++row) system(row, k) *= inverse_pivot;
+            for (size_t row = k + 1; row < dimension; ++row) {
+                system(row, k) *= inverse_pivot;
+                solution[row] -= system(row, k) * solution[k];
+            }
+            solution[k] /= pivot;
 
             pivots[k] = static_cast<int>(pivot_index + 1);
         } else {
@@ -295,7 +300,13 @@ bool factor_bunch_kaufman(linalg::matrix_dbl& system, size_t dimension, int* piv
                 }
                 system(column, k) = first_multiplier;
                 system(column, k + 1) = second_multiplier;
+                solution[column] -= first_multiplier * solution[k] + second_multiplier * solution[k + 1];
             }
+
+            const double first_rhs = solution[k] / off_diagonal;
+            const double second_rhs = solution[k + 1] / off_diagonal;
+            solution[k] = (lower_diagonal * first_rhs - second_rhs) / determinant_factor;
+            solution[k + 1] = (upper_diagonal * second_rhs - first_rhs) / determinant_factor;
 
             pivots[k] = pivots[k + 1] = -static_cast<int>(pivot_index + 1);
         }
@@ -306,39 +317,10 @@ bool factor_bunch_kaufman(linalg::matrix_dbl& system, size_t dimension, int* piv
     return true;
 }
 
-/* Solve the single right-hand side in place using the lower-triangle factorization above. */
-bool solve_bunch_kaufman(const linalg::matrix_dbl& system, size_t dimension, const int* pivots, double* solution)
+/* Finish the single right-hand side with the backward L^T solve, then undo the stored interchanges. */
+bool solve_bunch_kaufman_backward(const linalg::matrix_dbl& system, size_t dimension, const int* pivots, double* solution)
 {
-    // Solve L*D*y=P^T*b, applying each stored interchange immediately before its triangular update.
-    size_t k = 0;
-    while (k < dimension) {
-        if (pivots[k] > 0) {
-            const size_t pivot_index = static_cast<size_t>(pivots[k] - 1);
-            if (pivot_index != k) std::swap(solution[k], solution[pivot_index]);
-            for (size_t row = k + 1; row < dimension; ++row) solution[row] -= system(row, k) * solution[k];
-            solution[k] /= system(k, k);
-            ++k;
-        } else {
-            const size_t pivot_index = static_cast<size_t>(-pivots[k] - 1);
-            if (pivot_index != k + 1) std::swap(solution[k + 1], solution[pivot_index]);
-            for (size_t row = k + 2; row < dimension; ++row) {
-                solution[row] -= system(row, k) * solution[k] + system(row, k + 1) * solution[k + 1];
-            }
-
-            const double off_diagonal = system(k + 1, k);
-            const double first_diagonal = system(k, k) / off_diagonal;
-            const double second_diagonal = system(k + 1, k + 1) / off_diagonal;
-            const double determinant_factor = first_diagonal * second_diagonal - 1.0;
-            const double first_rhs = solution[k] / off_diagonal;
-            const double second_rhs = solution[k + 1] / off_diagonal;
-            solution[k] = (second_diagonal * first_rhs - second_rhs) / determinant_factor;
-            solution[k + 1] = (first_diagonal * second_rhs - first_rhs) / determinant_factor;
-            k += 2;
-        }
-    }
-
-    // Solve L^T*x=y in reverse order, then undo each corresponding interchange.
-    k = dimension;
+    size_t k = dimension;
     while (k > 0) {
         const size_t block_last = k - 1;
         if (pivots[block_last] > 0) {
@@ -431,8 +413,8 @@ bool find_candidate_test::find(const bitset64& support, size_t support_size)
         }
 
         int pivots[bs64::kMaxBitsetDimension];
-        if (!factor_bunch_kaufman(reduced_system_, reduced_dimension, pivots)
-            || !solve_bunch_kaufman(reduced_system_, reduced_dimension, pivots, solution)) {
+        if (!factor_and_forward_solve_bunch_kaufman(reduced_system_, reduced_dimension, pivots, solution)
+            || !solve_bunch_kaufman_backward(reduced_system_, reduced_dimension, pivots, solution)) {
             return true;
         }
 

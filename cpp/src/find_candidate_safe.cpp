@@ -20,6 +20,8 @@ namespace candidate_search {
  */
 find_candidate_safe::find_candidate_safe(const linalg::matrix_frc& game_matrix)
     : dimension_(game_matrix.rows())
+    , reduced_entry_cache_(dimension_ * dimension_ * dimension_)
+    , reduced_entry_cache_ready_(dimension_ * dimension_ * dimension_, 0)
     , ffldlt_workspace_(dimension_)
 {
     integer_game_.set_from_fraction_matrix(game_matrix, game_denominator_);
@@ -149,20 +151,30 @@ void find_candidate_safe::build_reduced_system(const uint8_t* support_indices, s
 {
     const size_t reference = support_indices[0];
     const auto reference_diagonal = integer_game_(reference, reference);
+    const size_t reference_cache_offset = reference * dimension_ * dimension_;
 
     for (size_t row = 0; row < reduced_dimension; ++row) {
         const size_t i = support_indices[row + 1];
         auto row_offset = right_hand_side_(row, 0);
         row_offset.set_difference(reference_diagonal, integer_game_(i, reference));
 
+        // The cache is physically dense so that fixing m and i once per row leaves only direct [j] access in the inner loop.
+        // Zero is a valid reduced entry, hence the separate byte array records whether each exact value has been calculated.
+        const size_t cache_row_offset = reference_cache_offset + i * dimension_;
+        auto* cached_values = reduced_entry_cache_.data() + cache_row_offset;
+        auto* cached_ready = reduced_entry_cache_ready_.data() + cache_row_offset;
+
         // The right-hand side d*r_i=A_mm-A_im is also the repeated row term in
         // d*H_ij=A_ij-A_mj+(A_mm-A_im). The symmetric fraction-free factorization reads only the lower triangle.
         for (size_t column = 0; column <= row; ++column) {
             const size_t j = support_indices[column + 1];
-            auto value = reduced_system_(row, column);
-            value = integer_game_(i, j);
-            value -= integer_game_(reference, j);
-            value += row_offset;
+            auto& cached_value = cached_values[j];
+            if (!cached_ready[j]) {
+                cached_value.set_difference(integer_game_(i, j), integer_game_(reference, j));
+                cached_value += row_offset;
+                cached_ready[j] = 1;
+            }
+            reduced_system_(row, column) = cached_value;
         }
     }
 }
@@ -219,12 +231,6 @@ bool find_candidate_safe::find(const bitset64& support, size_t support_size, can
         linalg::fraction_free_ldlt_inertia inertia;
         if (!ffldlt_workspace_.solve_inplace(solution_numerators_, solution_denominator_, reduced_system_, right_hand_side_, inertia)) return false;
         reduced_hessian_is_negative_definite_ = inertia.positive == 0;
-
-        // FLINT rationals require a positive denominator. Negating both sides leaves every exact solution value unchanged.
-        if (solution_denominator_.sign() < 0) {
-            solution_denominator_.negate();
-            solution_numerators_.negate();
-        }
 
         // The solved entries are the probabilities for S without the reference. Recover the reference probability from x_m=1-sum(y).
         reference_numerator_ = solution_denominator_;

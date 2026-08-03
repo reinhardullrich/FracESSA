@@ -50,9 +50,10 @@ public:
     }
 
     /*
-     * Solve system*X = right_hand_side*denominator for a nonsingular symmetric integer system while recording its exact inertia. The lower triangle
-     * of system is read and overwritten by the fraction-free factorization; right_hand_side is also overwritten. X and right_hand_side currently
-     * have one column. Returns 1 for a nonsingular system and 0 for a singular system. Outputs are undefined after a zero return.
+     * Solve system*X = right_hand_side*denominator for a nonsingular symmetric integer system while recording its exact inertia. The returned
+     * denominator is positive. The lower triangle of system is read and overwritten by the fraction-free factorization; right_hand_side is also
+     * overwritten. X and right_hand_side currently have one column. Returns 1 for a nonsingular system and 0 for a singular system. Outputs are
+     * undefined after a zero return.
      */
     int solve_inplace(matrix_int& solution, integer& denominator, matrix_int& system, matrix_int& right_hand_side,
                       fraction_free_ldlt_inertia& inertia)
@@ -144,9 +145,13 @@ public:
 
         inertia.positive = positive_inertia;
         inertia.negative = static_cast<slong>(dimension) - positive_inertia;
-        fmpz_set(raw_denominator, entry(raw_system, dimension - 1, dimension - 1));
+        // Back substitution is linear in the common denominator. Starting with the absolute final pivot therefore gives every numerator the
+        // matching sign directly and avoids negating the complete solution vector after the solve.
+        fmpz_abs(raw_denominator, entry(raw_system, dimension - 1, dimension - 1));
+        assert(fmpz_sgn(raw_denominator) > 0);
 
-        // Back substitution stays integral: with det(system) as the common denominator, every solution numerator is a Cramer determinant.
+        // Back substitution stays integral: with |det(system)| as the common denominator, every solution numerator is the correspondingly signed
+        // Cramer determinant.
         for (size_t row = dimension; row-- > 0; ) {
             fmpz* numerator = solution_entry(raw_solution, row);
             fmpz_mul(numerator, raw_denominator, rhs_entry(raw_right_hand_side, row));
@@ -357,8 +362,9 @@ inline int solve_fraction_free_ldlt_inplace(matrix_int& solution, integer& denom
 }
 
 /*
- * FLINT-style convenience interface. Like fmpz_mat_solve_fflu, this preserves the const inputs and computes integer X and denominator satisfying
- * system*X = right_hand_side*denominator. Repeated hot-path callers should use the in-place overload above to avoid copying and allocation.
+ * FLINT-style convenience interface. Like fmpz_mat_solve_fflu, this preserves the const inputs and computes integer X and a positive denominator
+ * satisfying system*X = right_hand_side*denominator. Repeated hot-path callers should use the in-place overload above to avoid copying and
+ * allocation.
  */
 inline int solve_fraction_free_ldlt(matrix_int& solution, integer& denominator, const matrix_int& system,
                                     const matrix_int& right_hand_side, fraction_free_ldlt_inertia& inertia)
