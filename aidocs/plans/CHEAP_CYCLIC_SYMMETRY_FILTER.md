@@ -268,7 +268,7 @@ generic orbit, but recognizing and generating under it is a separate project. Th
 - `cpp/src/fracessa.cpp`
   - construct the helper in the circular branch and disengage it when only the identity class exists;
   - filter before `analyze_support()`;
-  - call `add_forbidden()` for every distinct bracelet image and sum the multipliers.
+  - call `add_forbidden()` for every distinct bracelet image and finalize one candidate row with that image's dihedral multiplier.
 - `cpp/tests/test_supports.cpp`
   - focused group, canonicalization, orbit, and pruning tests.
 - `cpp/tests/cli_parser_blackbox.py`

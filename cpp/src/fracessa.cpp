@@ -39,7 +39,7 @@ fracessa::fracessa(search_method method, const linalg::matrix_frc& matrix, bool 
     , candidate_()
     , logger_()
 {
-    if (conf_with_candidates_)
+    if (conf_with_candidates_ || conf_with_log_)
         candidates_.reserve(250 * dimension_);
 
     if (conf_with_log_) {
@@ -59,6 +59,15 @@ fracessa::fracessa(search_method method, const linalg::matrix_frc& matrix, bool 
         logger_->info("game matrix:\n{}", game_matrix_.to_log_string());
     }
 
+    // Candidate rows are logged only after their final ordering and IDs are known. Logging-only runs retain them temporarily.
+    const auto finish_candidate_output = [&]() {
+        if (conf_with_log_ && !candidates_.empty()) {
+            logger_->info("{}", candidate::header());
+            for (const candidate& row : candidates_) logger_->info("{}", row.to_string());
+        }
+        if (!conf_with_candidates_) candidates_.clear();
+    };
+
     if (method_ == search_method::fast) {
         find_candidate_fast_.convert_game_matrix(find_candidate_safe_);
         safe_fallback_ = find_candidate_fast_.safe_fallback_reason();
@@ -73,8 +82,10 @@ fracessa::fracessa(search_method method, const linalg::matrix_frc& matrix, bool 
         const bitset64 full_support_mask = bs64::set_all_n_bits(dimension_);
         if (analyze_support(full_support_mask, dimension_))
             finalize_candidate(is_cs ? std::optional<size_t>{1} : std::nullopt);
-        if (ess_count_ > 0)
+        if (ess_count_ > 0) {
+            finish_candidate_output();
             return;
+        }
     }
 
     if (is_cs) {
@@ -122,7 +133,7 @@ fracessa::fracessa(search_method method, const linalg::matrix_frc& matrix, bool 
             }
         });
 
-        if (conf_with_candidates_ && symmetry) {
+        if ((conf_with_candidates_ || conf_with_log_) && symmetry) {
             std::sort(candidates_.begin(), candidates_.end(), [](const candidate& left, const candidate& right) {
                 return left.support_size < right.support_size || (left.support_size == right.support_size && left.support < right.support);
             });
@@ -145,6 +156,8 @@ fracessa::fracessa(search_method method, const linalg::matrix_frc& matrix, bool 
             }
         });
     }
+
+    finish_candidate_output();
 }
 
 bool fracessa::analyze_support(bitset64 support, size_t support_size) {
@@ -172,10 +185,6 @@ void fracessa::finalize_candidate(std::optional<size_t> multiplier) {
     if (candidate_.is_ess)
         ess_count_ += multiplier.value_or(1);
 
-    if (conf_with_candidates_)
+    if (conf_with_candidates_ || conf_with_log_)
         candidates_.push_back(candidate_);
-    if (conf_with_log_) {
-        logger_->info("{}", candidate::header());
-        logger_->info("{}", candidate_.to_string());
-    }
 }
