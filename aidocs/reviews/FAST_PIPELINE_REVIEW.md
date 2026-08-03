@@ -30,24 +30,10 @@ binary64 rejection can therefore still lose an exact candidate. The boundary and
 
 | Priority | ID | Work | Expected impact |
 |:---:|:---|:---|:---|
-| 1 | FP-E01 | Store inverse pivot blocks for the double solve | The only remaining local hot-path experiment with a plausible measurable gain |
-| 2 | FP-S04 | Fold precision-span extrema into its collection pass | Small once-per-game simplification |
-| 3 | FP-S05 | Delete unused `matrix_dbl` operations | Readability only |
+| 1 | FP-S04 | Fold precision-span extrema into its collection pass | Small once-per-game simplification |
+| 2 | FP-S05 | Delete unused `matrix_dbl` operations | Readability only |
 
-Prototype FP-E01 only in `find_candidate_test` because it changes binary64 representation or operation order. Promote it only after
-exact-result comparison and a balanced benchmark. FP-S04 and FP-S05 do not justify another abstraction.
-
-### FP-E01: Store inverse pivot blocks for the solve
-
-- [ ] Test storing the inverse 1-by-1 or 2-by-2 `D` block after its factor update.
-
-Factorization already computes the inverse 1-by-1 pivot. For a 2-by-2 pivot it also computes the diagonal ratios, determinant
-factor, and inverse block scale. `solve_bunch_kaufman()` recomputes these values and performs several divisions. After the trailing
-update no longer needs the original block, factorization could store the inverse block coefficients and solve could use
-multiplications and additions.
-
-This may save divisions, but it changes representation and rounding in the numerical core. It is an experiment, not an automatic
-cleanup.
+FP-S04 and FP-S05 do not justify another abstraction.
 
 ### FP-S04: Fold precision-span extrema into the collection pass
 
@@ -181,6 +167,21 @@ tests passing.
 On the 31 circular quick matrices of dimension at least 3, V3 improved the median by 23.68% when V1 ran first and 19.90% in reverse
 order. The conservative reverse order had 30 wins and one tie; dimensions 19 and above improved 34.70% at the median. Full evidence
 is in [`PRODUCTION_V3_COMPARISON_2026-08-03.md`](../../experiments/direct_bracelet_generation_2026-07-29/PRODUCTION_V3_COMPARISON_2026-08-03.md).
+
+#### FP-E01: Reuse the inverse 2-by-2 pivot-block scale — rejected
+
+- [x] Tested only in `find_candidate_test`; production fast remained unchanged and test was restored to match it.
+
+After FP-E04 fused the forward right-hand-side solve into factorization, the original proposal no longer had a separate solve in
+which to store inverse pivot blocks. The remaining experiment reused factorization's existing `inverse_block_scale` for the
+2-by-2 right-hand side, replacing four divisions with two multiplications. The forms are algebraically equal but round differently
+in binary64.
+
+All 81 quick matrices produced identical complete fast and test candidate output and their expected ESS counts, and all 10 Release
+C++ tests passed. In the requested one-call CPU-2 comparison, the 77 performance-eligible matrices of dimension at least 3 split
+almost exactly evenly: 39 improved and 38 regressed. The median change was `-0.0006%`, effectively zero, while summed runtime
+regressed by `0.1201%`. The arithmetic mean was not informative because the test call for matrix 2207 paid the process's one-time
+exact-fallback initialization. The experiment showed no measurable gain and does not justify changing the numerical core.
 
 ### Reviewed and deliberately retained
 
