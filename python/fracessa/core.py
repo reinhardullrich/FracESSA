@@ -144,7 +144,6 @@ def compute_matrix(method: SearchMethod, matrix: Matrix, config: RunConfig, run_
         full_support=config.full_support,
         enable_logging=config.enable_logging,
         matrix_id=matrix_id,
-        cyclic_symmetry_filter=config.cyclic_symmetry_filter,
     )
 
     candidates = [

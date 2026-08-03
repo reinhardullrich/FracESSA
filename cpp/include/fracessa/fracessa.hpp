@@ -42,8 +42,7 @@ class fracessa
 {
 public:
     fracessa(search_method method, const linalg::matrix_frc& matrix, bool is_cs, bool with_candidates = false,
-             bool full_support = false,
-             bool with_log = false, std::int64_t matrix_id = -1, bool cyclic_symmetry_filter = false);
+             bool full_support = false, bool with_log = false, std::int64_t matrix_id = -1);
     fracessa(const fracessa&) = delete;
     fracessa& operator=(const fracessa&) = delete;
     fracessa(fracessa&&) = delete;
@@ -68,7 +67,6 @@ private:
     search_method method_;
     bool conf_full_support_;
     bool conf_with_log_;
-    bool conf_cyclic_symmetry_filter_;
 
     candidate candidate_;
 
@@ -78,8 +76,7 @@ private:
     // True means an exact equilibrium was found and may prune later supports.
     bool analyze_support(bitset64 support, size_t support_size);
 
-    // Count and optionally output the one exact candidate in candidate_.
-    // Circular representatives carry their distinct active symmetry-orbit size.
+    // Count and optionally output the candidate in candidate_. Circular rows carry only their distinct dihedral-orbit size.
     void finalize_candidate(std::optional<size_t> multiplier);
 
     // Classify the exact candidate already stored in candidate_.

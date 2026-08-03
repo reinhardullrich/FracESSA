@@ -19,6 +19,12 @@ class CircularAffineSymmetry {
 private:
     static constexpr size_t kMaxMultiplierClasses = (bs64::kMaxBitsetDimension + 1) / 2;
 
+    struct CanonicalImage {
+        bitset64 support;
+        size_t right_shifts;
+        bool reflected;
+    };
+
     size_t dimension_;
     size_t multiplier_class_count_ = 0;
     std::array<std::array<bitset64, bs64::kMaxBitsetDimension>, kMaxMultiplierClasses> destination_bits_;
@@ -38,17 +44,17 @@ private:
         return transformed;
     }
 
-    inline bitset64 canonical_dihedral(bitset64 support) const noexcept {
-        bitset64 smallest = support;
+    inline CanonicalImage canonical_dihedral(bitset64 support) const noexcept {
+        CanonicalImage smallest{support, 0, false};
         bitset64 current = support;
         for (size_t shift = 1; shift < dimension_; ++shift) {
             current = bs64::rot_one_right(current, dimension_);
-            if (current < smallest) smallest = current;
+            if (current < smallest.support) smallest = {current, shift, false};
         }
 
         current = bs64::reflect(support, dimension_);
         for (size_t shift = 0; shift < dimension_; ++shift) {
-            if (current < smallest) smallest = current;
+            if (current < smallest.support) smallest = {current, shift, true};
             current = bs64::rot_one_right(current, dimension_);
         }
         return smallest;
@@ -73,6 +79,20 @@ public:
 
     inline size_t multiplier_class_count() const noexcept {
         return multiplier_class_count_;
+    }
+
+    inline size_t image_position(size_t position, size_t multiplier_class, bool reflected, size_t right_shifts) const noexcept {
+        size_t image = ctz64(destination_bits_[multiplier_class][position]);
+        if (reflected) image = dimension_ - 1 - image;
+        return (image + dimension_ - right_shifts) % dimension_;
+    }
+
+    inline bitset64 image_mask(bitset64 support, size_t multiplier_class, bool reflected, size_t right_shifts) const noexcept {
+        bitset64 image = transform(support, multiplier_class);
+        if (reflected) image = bs64::reflect(image, dimension_);
+        for (size_t shift = 0; shift < right_shifts; ++shift)
+            image = bs64::rot_one_right(image, dimension_);
+        return image;
     }
 
     // V3 already emitted the smallest member of the identity multiplier's dihedral orbit. Reject as soon as another verified
@@ -102,17 +122,17 @@ public:
         size_t image_count = 0;
 
         for (size_t multiplier_class = 0; multiplier_class < multiplier_class_count_; ++multiplier_class) {
-            const bitset64 image = canonical_dihedral(transform(support, multiplier_class));
+            const CanonicalImage image = canonical_dihedral(transform(support, multiplier_class));
             bool seen = false;
             for (size_t i = 0; i < image_count; ++i) {
-                if (images[i] == image) {
+                if (images[i] == image.support) {
                     seen = true;
                     break;
                 }
             }
             if (!seen) {
-                images[image_count++] = image;
-                callback(image);
+                images[image_count++] = image.support;
+                callback(image.support, multiplier_class, image.reflected, image.right_shifts);
             }
         }
     }

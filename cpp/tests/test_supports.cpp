@@ -206,14 +206,18 @@ TEST(CircularAffineSymmetryTest, EnlargedOrbitReusesExistingDihedralExpansion) {
     CircularSupportGeneratorV3 generator(8);
 
     size_t bracelet_images = 0;
-    size_t multiplier = 0;
-    symmetry.for_each_distinct_bracelet_image(0b00000011, [&](bitset64 image) {
+    size_t represented_supports = 0;
+    symmetry.for_each_distinct_bracelet_image(0b00000011, [&](bitset64 image, size_t multiplier_class,
+                                                               bool reflected, size_t right_shifts) {
         ++bracelet_images;
-        multiplier += generator.add_forbidden(image);
+        EXPECT_EQ(symmetry.image_mask(0b00000011, multiplier_class, reflected, right_shifts), image);
+        const size_t multiplier = generator.add_forbidden(image);
+        EXPECT_LE(multiplier, 16u);
+        represented_supports += multiplier;
     });
 
     EXPECT_EQ(bracelet_images, 2u);
-    EXPECT_EQ(multiplier, 16u);
+    EXPECT_EQ(represented_supports, 16u);
 }
 
 TEST(CircularAffineSymmetryTest, DetectsPublishedDimension24MultiplierClasses) {

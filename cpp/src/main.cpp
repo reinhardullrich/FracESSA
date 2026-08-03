@@ -21,7 +21,6 @@ int main(int argc, char *argv[])
     program.add_argument("-l", "--log").help("output log file").implicit_value(true).default_value(false);
     program.add_argument("-f", "--fullsupport").help("search full support directly").implicit_value(true).default_value(false);
     program.add_argument("-t", "--timing").help("output computation time in nanoseconds and the safe fallback").implicit_value(true).default_value(false);
-    program.add_argument("--cyclic-symmetry-filter").help("enable the cyclic symmetry filter").implicit_value(true).default_value(false);
     program.add_argument("-m", "--matrixid").help("optional matrix ID").scan<'i', std::int64_t>().default_value(std::int64_t{-1});
     program.add_argument("method").help("candidate search method: fast, safe, or test");
     program.add_argument("matrix").help("the matrix to compute");
@@ -35,7 +34,6 @@ int main(int argc, char *argv[])
     const auto logger = program.get<bool>("--log");
     const auto fullsupport = program.get<bool>("--fullsupport");
     const auto timing = program.get<bool>("--timing");
-    const auto cyclic_symmetry_filter = program.get<bool>("--cyclic-symmetry-filter");
     const auto matrix_id = program.get<std::int64_t>("--matrixid");
 
     search_method method;
@@ -55,7 +53,7 @@ int main(int argc, char *argv[])
 
     try {
         auto start_time = std::chrono::steady_clock::now();
-        ::fracessa x(method, A, is_cs, candidates, fullsupport, logger, matrix_id, cyclic_symmetry_filter);
+        ::fracessa x(method, A, is_cs, candidates, fullsupport, logger, matrix_id);
         auto end_time = std::chrono::steady_clock::now();
 
         // Consumers expect ESS count first, optional timing and fallback next, then candidate CSV.

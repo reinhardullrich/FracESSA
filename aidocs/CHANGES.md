@@ -863,3 +863,20 @@ constructor parameter. All 10 C++/CLI tests, all 63 Python tests, and the ASan/U
 of all 33 circular quick-test matrices expanded both output forms to identical exact candidate-support classifications; 18 of the
 66 method/matrix runs had extra affine multipliers. Matrix 34 preserves 15,120 candidates and 15,120 ESS while compressing 345
 dihedral representative rows to 93 affine representative rows.
+293. Replaced the shared linear-time support reflection with a fixed 64-bit reversal:
+kept `bs64::reflect()` inline, used six constant bit-swap stages plus one alignment shift, and checked it against the direct
+definition for every dimension from 0 through 64. Release and ASan/UBSan suites pass, and both canonical binaries produced
+identical candidate output for all 200 cyclic-symmetry experiment matrices in fast and safe mode. Two half-second CPU-2 passes
+with reversed build order measured combined per-matrix median reductions of 0.50%/0.67% on ordinary circular fast/safe cases and
+1.54%/1.41% when the cyclic symmetry filter found extra multipliers; the dimension-50 case improved by about 7.6% in the
+reverse-order pass. The absence of an ordinary-case regression and the repeatable extra-symmetry gain justified retaining it.
+294. Made the cyclic symmetry filter automatic for circular matrices:
+removed the CLI flag, Python `RunConfig` field, native binding argument, and C++ constructor configuration. Every circular matrix
+now performs exact multiplier detection once; the helper disengages immediately when it finds only the identity class. The 101
+no-extra cases among 120 stored circular matrices and completed fast/safe median on/off ratios of 1.0000 justified deleting the
+experimental switch. Non-circular matrices remain unchanged.
+295. Preserved the universal dihedral candidate-output contract under the affine filter:
+each solved affine orbit now reconstructs one exact candidate row per distinct rotation/reflection orbit, and every row keeps its
+own dihedral multiplier bounded by twice the dimension. The affine group remains internal to solve reduction and pruning; it is
+never folded into an ambiguous matrix-specific output multiplier. All 200 generated extra-symmetry matrices match the former
+filter-off candidate output byte for byte in fast and safe mode, and all 19 stored extra-symmetry database baselines remain exact.

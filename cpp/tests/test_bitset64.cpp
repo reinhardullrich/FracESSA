@@ -157,6 +157,25 @@ TEST(Bitset64Test, ReflectExactPatternAndRoundTrip) {
     EXPECT_EQ(bs64::reflect(reflected, 6), bits);
 }
 
+TEST(Bitset64Test, ReflectMatchesDirectDefinitionForEveryDimension) {
+    constexpr bitset64 samples[] = {
+        0ULL,
+        ~0ULL,
+        0x0123456789abcdefULL,
+        0xaaaaaaaaaaaaaaaaULL,
+        1ULL << 63,
+    };
+
+    for (size_t dimension = 0; dimension <= 64; ++dimension) {
+        for (const bitset64 bits : samples) {
+            bitset64 expected = 0;
+            for (size_t i = 0; i < dimension; ++i)
+                expected |= ((bits >> i) & 1ULL) << (dimension - 1 - i);
+            EXPECT_EQ(bs64::reflect(bits, dimension), expected) << "dimension=" << dimension;
+        }
+    }
+}
+
 
 TEST(Bitset64Test, IsSmallestRepresentation) {
     bitset64 bits = 0ULL;

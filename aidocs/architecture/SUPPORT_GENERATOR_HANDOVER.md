@@ -114,12 +114,13 @@ By default, circular matrices store only the smallest integer support in each co
 non-null `multiplier` is the number of distinct raw supports represented by that row; it can be one. Non-circular candidates use a
 null multiplier.
 
-The opt-in `--cyclic-symmetry-filter` / `RunConfig(cyclic_symmetry_filter=True)` path detects exact affine index multipliers once
-from the rational circular matrix. It filters V3 output before `analyze_support()` and stores one representative per detected
-affine orbit. For an exact candidate it canonicalizes each multiplier image back to a bracelet, deduplicates those bracelets, and
-calls V3's existing `add_forbidden()` for each one. The summed return values are the complete affine-orbit multiplier, and the
-expanded forbidden family remains closed under the same verified group. V3's recursion is unchanged, and the feature is inactive
-for non-circular matrices.
+Every circular matrix automatically detects exact affine index multipliers once from the rational game. The helper filters V3
+output before `analyze_support()`. For an exact candidate it canonicalizes each multiplier image back to a bracelet, deduplicates
+those bracelets, and calls V3's existing `add_forbidden()` for each one, so the forbidden family remains closed under the verified
+affine group. It also reconstructs one candidate row for every distinct dihedral image by exactly permuting the solved vector,
+support, and extended support. Each row's multiplier therefore retains its universal meaning—only distinct rotations and
+reflections, at most $2n$—and no matrix-specific symmetry information is required to expand the output. V3's recursion is
+unchanged, the helper disengages when it finds no extra multiplier, and it never runs for non-circular matrices.
 
 Candidate and ESS totals remain mathematical totals, so circular ESS rows are
 counted with their multiplier. The nullable field replaced `shift_reference`

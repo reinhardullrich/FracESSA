@@ -84,10 +84,14 @@ inline bitset64 rot_left(bitset64 bits, size_t shift, size_t n) noexcept {
 // Mirror strategy i to n-1-i. Rotations of this result cover every reflection
 // axis of a circular support.
 inline bitset64 reflect(bitset64 bits, size_t n) noexcept {
-  bitset64 reflected = 0;
-  for (size_t i = 0; i < n; ++i)
-    reflected |= ((bits >> i) & 1ULL) << (n - 1 - i);
-  return reflected;
+  if (n == 0) return 0;
+  bits = ((bits >> 1) & 0x5555555555555555ULL) | ((bits & 0x5555555555555555ULL) << 1);
+  bits = ((bits >> 2) & 0x3333333333333333ULL) | ((bits & 0x3333333333333333ULL) << 2);
+  bits = ((bits >> 4) & 0x0f0f0f0f0f0f0f0fULL) | ((bits & 0x0f0f0f0f0f0f0f0fULL) << 4);
+  bits = ((bits >> 8) & 0x00ff00ff00ff00ffULL) | ((bits & 0x00ff00ff00ff00ffULL) << 8);
+  bits = ((bits >> 16) & 0x0000ffff0000ffffULL) | ((bits & 0x0000ffff0000ffffULL) << 16);
+  bits = (bits >> 32) | (bits << 32);
+  return bits >> (64 - n);
 }
 
 inline bool is_set_at_pos(bitset64 bits, size_t pos) noexcept {

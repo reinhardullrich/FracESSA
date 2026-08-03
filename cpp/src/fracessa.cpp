@@ -4,6 +4,7 @@
 #include <fracessa/supports.hpp>
 #include <linalg/matrix_fraction.hpp>
 
+#include <algorithm>
 #include <optional>
 #include <stdexcept>
 #include <string>
@@ -25,8 +26,7 @@ search_method parse_search_method(std::string_view name)
 }
 
 fracessa::fracessa(search_method method, const linalg::matrix_frc& matrix, bool is_cs, bool with_candidates,
-                   bool full_support, bool with_log,
-                   std::int64_t matrix_id, bool cyclic_symmetry_filter)
+                   bool full_support, bool with_log, std::int64_t matrix_id)
     : game_matrix_(matrix)
     , find_candidate_fast_(game_matrix_)
     , find_candidate_safe_(game_matrix_)
@@ -36,7 +36,6 @@ fracessa::fracessa(search_method method, const linalg::matrix_frc& matrix, bool 
     , method_(method)
     , conf_full_support_(full_support)
     , conf_with_log_(with_log)
-    , conf_cyclic_symmetry_filter_(cyclic_symmetry_filter)
     , candidate_()
     , logger_()
 {
@@ -80,11 +79,8 @@ fracessa::fracessa(search_method method, const linalg::matrix_frc& matrix, bool 
 
     if (is_cs) {
         CircularSupportGeneratorV3 generator(dimension_);
-        std::optional<CircularAffineSymmetry> symmetry;
-        if (conf_cyclic_symmetry_filter_) {
-            symmetry.emplace(game_matrix_);
-            if (symmetry->multiplier_class_count() == 1) symmetry.reset();
-        }
+        std::optional<CircularAffineSymmetry> symmetry(std::in_place, game_matrix_);
+        if (symmetry->multiplier_class_count() == 1) symmetry.reset();
         size_t last_logged_support_size = 0;
         // This lambda is the callback. The generator calls it once for each circular representative and supplies both the
         // mask and its size.
@@ -98,17 +94,40 @@ fracessa::fracessa(search_method method, const linalg::matrix_frc& matrix, bool 
                 last_logged_support_size = support_size;
             }
             if (analyze_support(support, support_size)) {
-                size_t multiplier = 0;
                 if (symmetry) {
-                    symmetry->for_each_distinct_bracelet_image(candidate_.support, [&](bitset64 image) {
-                        multiplier += generator.add_forbidden(image);
+                    std::optional<candidate> solved_candidate;
+                    if (conf_with_candidates_ || conf_with_log_) solved_candidate = candidate_;
+
+                    symmetry->for_each_distinct_bracelet_image(candidate_.support,
+                            [&](bitset64 image, size_t multiplier_class, bool reflected, size_t right_shifts) {
+                        const size_t multiplier = generator.add_forbidden(image);
+                        if (solved_candidate) {
+                            const size_t previous_candidate_id = candidate_.candidate_id;
+                            candidate_ = *solved_candidate;
+                            candidate_.candidate_id = previous_candidate_id;
+                            candidate_.support = image;
+                            candidate_.extended_support = symmetry->image_mask(
+                                solved_candidate->extended_support, multiplier_class, reflected, right_shifts);
+                            for (size_t position = 0; position < dimension_; ++position) {
+                                const size_t image_position = symmetry->image_position(
+                                    position, multiplier_class, reflected, right_shifts);
+                                candidate_.vector(image_position, 0) = solved_candidate->vector(position, 0);
+                            }
+                        }
+                        finalize_candidate(multiplier);
                     });
                 } else {
-                    multiplier = generator.add_forbidden(candidate_.support);
+                    finalize_candidate(generator.add_forbidden(candidate_.support));
                 }
-                finalize_candidate(multiplier);
             }
         });
+
+        if (conf_with_candidates_ && symmetry) {
+            std::sort(candidates_.begin(), candidates_.end(), [](const candidate& left, const candidate& right) {
+                return left.support_size < right.support_size || (left.support_size == right.support_size && left.support < right.support);
+            });
+            for (size_t index = 0; index < candidates_.size(); ++index) candidates_[index].candidate_id = index + 1;
+        }
     } else {
         NonCircularSupportGenerator generator(dimension_);
         size_t last_logged_support_size = 0;

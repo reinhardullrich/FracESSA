@@ -173,14 +173,18 @@ def main() -> int:
 
     # Other success paths
     assert_success_with_ess_output(fracessa_exe, ["safe", "5#1,3"], "circular_success")
-    cyclic_off = assert_success_with_ess_output(fracessa_exe, ["safe", "8#7,11,7,13"], "cyclic_filter_off")
-    cyclic_on = assert_success_with_ess_output(
-        fracessa_exe,
-        ["--cyclic-symmetry-filter", "safe", "8#7,11,7,13"],
-        "cyclic_filter_on",
+    cyclic_result = assert_success_with_ess_output(
+        fracessa_exe, ["--candidates", "safe", "13#7,18,18,10,7,10"], "automatic_cyclic_filter"
     )
-    if first_non_empty_line(cyclic_on.stdout) != first_non_empty_line(cyclic_off.stdout):
-        raise AssertionError("cyclic symmetry filter changed the represented ESS count")
+    cyclic_lines = [line.strip() for line in cyclic_result.stdout.splitlines() if line.strip()]
+    if cyclic_lines[0] != "143" or len(cyclic_lines[2:]) != 7:
+        raise AssertionError("automatic cyclic symmetry filter returned the wrong ESS total or representative count")
+    assert_failure_with_stderr(
+        fracessa_exe,
+        ["--cyclic-symmetry-filter", "safe", "5#1,3"],
+        "Unknown argument: --cyclic-symmetry-filter",
+        "cyclic_filter_flag_removed",
+    )
     assert_success_with_ess_output(
         fracessa_exe,
         ["--matrixid", "9223372036854775807", "safe", "2#0,1,0"],

@@ -63,13 +63,11 @@ class RunConfig:
         full_support: Request full-support analysis from the native engine.
         include_candidates: Include candidate dictionaries in each result.
         enable_logging: Enable native logging for sequential execution only.
-        cyclic_symmetry_filter: Enable additional affine symmetry reduction for circular matrices.
     """
 
     full_support: bool = False
     include_candidates: bool = False
     enable_logging: bool = False
-    cyclic_symmetry_filter: bool = False
 
 @dataclass(slots=True)
 class MPConfig:

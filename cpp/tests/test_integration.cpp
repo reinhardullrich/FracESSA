@@ -75,11 +75,11 @@ TEST(IntegrationTest, CircularSymmetricStoresOneRepresentative) {
     EXPECT_EQ(candidate.support_size, 3u);
 }
 
-TEST(IntegrationTest, CyclicSymmetryFilterPreservesRepresentedResults) {
+TEST(IntegrationTest, AutomaticCyclicSymmetryPreservesRepresentedResults) {
     const matrix_frc matrix = create_circular_symmetric(8, {fraction(1), fraction(-3), fraction(1), fraction(-3)});
 
-    fracessa legacy(search_method::safe, matrix, true, true, false, false);
-    fracessa filtered(search_method::safe, matrix, true, true, false, false, -1, true);
+    fracessa exhaustive(search_method::safe, matrix, false, true, false, false);
+    fracessa circular(search_method::safe, matrix, true, true, false, false);
 
     auto represented_candidates = [](const fracessa& analyzer) {
         size_t count = 0;
@@ -88,22 +88,17 @@ TEST(IntegrationTest, CyclicSymmetryFilterPreservesRepresentedResults) {
         return count;
     };
 
-    EXPECT_EQ(filtered.ess_count_, legacy.ess_count_);
-    EXPECT_EQ(represented_candidates(filtered), represented_candidates(legacy));
-    EXPECT_LT(filtered.candidates_.size(), legacy.candidates_.size());
-}
+    EXPECT_EQ(circular.ess_count_, exhaustive.ess_count_);
+    EXPECT_EQ(represented_candidates(circular), represented_candidates(exhaustive));
+    ASSERT_EQ(circular.candidates_.size(), 2u);
+    EXPECT_LT(circular.candidates_.size(), exhaustive.candidates_.size());
 
-TEST(IntegrationTest, CyclicSymmetryFilterIsInactiveForNonCircularInput) {
-    matrix_frc matrix(3, 3);
-    matrix(0, 0) = 0; matrix(0, 1) = 1; matrix(0, 2) = 2;
-    matrix(1, 0) = 1; matrix(1, 1) = 0; matrix(1, 2) = 3;
-    matrix(2, 0) = 2; matrix(2, 1) = 3; matrix(2, 2) = 0;
-
-    fracessa without_option(search_method::safe, matrix, false, true, false, false);
-    fracessa with_option(search_method::safe, matrix, false, true, false, false, -1, true);
-
-    EXPECT_EQ(with_option.ess_count_, without_option.ess_count_);
-    ASSERT_EQ(with_option.candidates_.size(), without_option.candidates_.size());
-    for (size_t i = 0; i < with_option.candidates_.size(); ++i)
-        EXPECT_EQ(with_option.candidates_[i].to_string(), without_option.candidates_[i].to_string());
+    EXPECT_EQ(circular.candidates_[0].support, 0b00000011u);
+    EXPECT_EQ(circular.candidates_[1].support, 0b00001001u);
+    for (const candidate& row : circular.candidates_) {
+        ASSERT_TRUE(row.multiplier.has_value());
+        EXPECT_EQ(*row.multiplier, 8u);
+    }
+    EXPECT_EQ(circular.candidates_[1].vector(0, 0), fraction(1, 2));
+    EXPECT_EQ(circular.candidates_[1].vector(3, 0), fraction(1, 2));
 }
