@@ -979,3 +979,6 @@ arbitrary-precision integers, without a fixed digit limit, while identifying `pa
 kept it as an introduction and practical quick-start, reduced the algorithm description, qualified completeness as a `safe`
 guarantee, defined the simplex indices, documented platform minima and the one-dimensional compact-input exception, made build
 commands portable, and checked the CLI/Python result descriptions against their live outputs.
+
+324. Removed duplicated search-method documentation:
+deleted the redundant algorithm section and kept `safe` versus `fast` in one authoritative place.

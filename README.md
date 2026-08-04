@@ -29,22 +29,13 @@ the number of ESS and can also return their exact probability vectors, supports,
 The nonempty support space has size $2^n-1$, so running time can grow quickly with the dimension and structure of the matrix.
 FracESSA is optimized for repeated operations on many small support systems.
 
-## How the search works
-
-FracESSA examines the nonempty supports in increasing size and skips supports made redundant by exact results or matrix symmetries.
-`safe` makes every candidate decision with exact arithmetic. `fast` uses floating-point arithmetic to discard many supports quickly,
-then checks every surviving candidate and every stability decision exactly. The faster filter can miss candidates, but each candidate
-it retains is reconstructed exactly.
-
 ## Capabilities and limitations
 
-FracESSA accepts symmetric payoff matrices whose entries are integers or exact fractions. With `safe`, it finds every equilibrium
-candidate and every ESS rather than stopping after one solution. FracESSA parses every input entry as an exact rational number, and
-every reported `vector` and `payoff` is exact as well. Each rational is a numerator divided by a denominator, both backed by
-arbitrary-precision integers, so there is no fixed limit on the
-number of digits; the practical limits are available memory and computation time. `fast` additionally creates a floating-point copy
-for filtering, but it does not replace the exact input or round the exact results. The separate `payoff_dbl` field is only a convenient
-binary64 approximation of the exact `payoff`. The search method affects completeness, not the exactness of those results.
+FracESSA accepts symmetric payoff matrices whose entries are integers or exact fractions. It parses every input entry as an exact
+rational number, and every reported `vector` and `payoff` is exact as well. Each rational is a numerator divided by a denominator,
+both backed by arbitrary-precision integers, so there is no fixed limit on the number of digits; the practical limits are available
+memory and computation time. The separate `payoff_dbl` field is only a convenient binary64 approximation of the exact `payoff`.
+This exact representation is independent of the selected search method.
 
 The main limitations are:
 
