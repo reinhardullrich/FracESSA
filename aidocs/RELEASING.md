@@ -14,6 +14,16 @@ The workflow refuses to run from another branch or to reuse an existing version 
 
 Only after every build succeeds does the workflow create the matching tag and GitHub release. It attaches five direct CLI binaries, then publishes the wheels and source distribution to PyPI through the `pypi` GitHub environment and PyPI trusted publishing. A failed build therefore creates neither a tag nor a release. No API token is stored. Linux artifacts target glibc 2.28 or newer, and release builds disable `-march=native`.
 
+The direct CLI filenames are deliberately user-facing; Python wheel filenames retain their standardized platform tags:
+
+```text
+fracessa-<version>-macos-apple-silicon-arm64
+fracessa-<version>-macos-intel-64bit
+fracessa-<version>-linux-intel-amd-64bit
+fracessa-<version>-linux-arm64
+fracessa-<version>-windows-intel-amd-64bit.exe
+```
+
 Release jobs run from `main`, so their vcpkg binary caches are shared by later releases. GMP, MPFR, and FLINT rebuild only when their versions or release triplets change.
 
 FracESSA and the complete statically linked release are distributed under GPL-3.0-or-later. The release page links the license,
