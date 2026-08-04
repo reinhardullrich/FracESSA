@@ -3,9 +3,9 @@
 `fracessa_testdata.sqlite3` is the canonical store for exact test matrices,
 complete expected candidate results where available, and timing data.
 
-The current snapshot contains 1,372 distinct strategically normalized matrices. The 1,061 exact or exact-fallback baselines and 18
-additional unverified fast-only results have 68,704 stored candidate representatives whose multipliers represent 112,378
-candidates and 96,727 ESS. The other 293 rows are catalog-only and have null candidate fields.
+The current snapshot contains 1,375 distinct strategically normalized matrices. The 1,064 exact or exact-fallback baselines and 18
+additional unverified fast-only results have 68,707 stored candidate representatives whose multipliers represent 112,381
+candidates and 96,730 ESS. The other 293 rows are catalog-only and have null candidate fields.
 
 It contains each distinct matrix from Tables 1 and 2 of the
 Bomze-Schachinger-Ullrich ESS-growth paper exactly once. IDs 18 and 26 hold the
@@ -36,6 +36,11 @@ sign, and outside-payoff margin. Current fast uses its small-pivot and
 precision-span fallbacks to recover them. No complete SQLite matrix suite is
 currently wired into CTest.
 
+IDs 2996-2998 preserve three exact full-support ESS that current fast search falsely rejects through its probability check. They
+include failures with accepted pivots above $10^{-12}$, $10^{-10}$, and $10^{-2}$. Each row stores the exact safe candidate and a
+human-readable calibration log stating the observed fast failure. ID 2998 has fast calibration `-1` because its failed
+full-support decision would otherwise continue into an impractical exhaustive dimension-33 search.
+
 IDs 2210-2687 contain 450 retained exact representatives from a combined audit of Anymatrix, TypedMatrices.jl, and Matrix
 Depot. The raw selection contributed 478 rows. Circular normalization removed exact duplicate ID 2215; the positive-scale audit
 then removed IDs 2212-2214, 2220, and 2254 in favor of older strategically equivalent rows, dimension-one consolidation
@@ -45,18 +50,19 @@ selection covers 51 eligible generator families and 34 documented or structural 
 bands. See `../aidocs/reference/MATRIX_GENERATOR_CATALOGUE_AUDIT.md` for the complete scope, exclusions, revisions, sampling rule,
 and validation record.
 
-The timing table contains 892 CPU-2 persistent-Pybind median rows: 81-row `classic`, current quick-suite fast and safe,
+The timing table contains 2,357 CPU-2 persistent-Pybind median rows: the previous 892-row collection of 81-row `classic`, current quick-suite fast and safe,
 `equilibrated-fast`, FP-S01, FP-S02, FP-S02+FP-S03, and Werner very-unsafe panels; 20 current fast-timeout retry rows; 77-row safe
 panels immediately before and after the C++ FLINT-wrapper extraction; 66 Werner exact rows; and four current circular-normalization
-rows split equally between fast and safe. Catalog-only rows are excluded automatically. The paired builds use one-second native medians for 77 matrices
+rows split equally between fast and safe, plus 820 Werner very-unsafe and 645 Werner exact historical rows added on August 4.
+Catalog-only rows are excluded automatically. The paired builds use one-second native medians for 77 matrices
 of dimension at least 3; IDs 47, 65-66, and 90 are excluded by the 30-second
 rule. All paired ESS counts match. Build label, revision, and binary hash
 identify every stored build.
 
 Matrix rows contain nullable `fast_calibration_ns` and `safe_calibration_ns` values used only to choose benchmark iteration
-counts. Fast calibration covers all 1,372 matrices with 1,079 positive measurements and 293 `-1` timeouts; safe has 1,061 positive
+counts. Fast calibration covers all 1,375 matrices with 1,081 positive measurements and 294 `-1` timeouts; safe has 1,064 positive
 measurements and 311 timeouts. No calibration field remains null, and every row has a completed audit timestamp. The current
-whole-matrix classifications are 1,165 without fallback, 135 `precision_span`, four `equilibration_invalid`, and 68
+whole-matrix classifications are 1,168 without fallback, 135 `precision_span`, four `equilibration_invalid`, and 68
 `equilibration_non_convergence`. A value of `-1` records a calibration run killed at its cutoff
 and selects one benchmark iteration. Positive integer nanoseconds preserve the native value exactly; divide by `1000.0` when
 displaying decimal microseconds.
