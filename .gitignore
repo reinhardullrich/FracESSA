@@ -65,6 +65,10 @@ __pycache__/
 zzz_altes_zeug.tar.gz
 old_code_backup.tar.gz
 
+# Local research sources and preserved predecessor projects
+/research/papers/
+/zzz_legacy/
+
 # OS files
 .DS_Store
 Thumbs.db

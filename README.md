@@ -29,8 +29,8 @@ optimized for repeated operations on many small support systems.
 The potential search space consists of the $2^n-1$ nonempty supports, processed by increasing cardinality without
 storing the full frontier. For a general matrix, a bitwise depth-first generator streams the supports; for a
 circular-symmetric matrix, a fixed-density bracelet generator keeps one representative from each rotation/reflection
-class, and an exact affine-symmetry filter removes further equivalent cases. Following
-[Bomze's support criterion](research/papers/bomze_1992.md), every exact equilibrium support rules out all of its
+class, and an exact affine-symmetry filter removes further equivalent cases. Following Bomze's support criterion,
+every exact equilibrium support rules out all of its
 strict supersets, so those branches are pruned before their systems are built. For each remaining support of size $k$,
 FracESSA uses the simplex normalization to eliminate one probability and removes the equilibrium payoff from the
 bordered system, producing a symmetric $(k-1)\times(k-1)$ reduced Hessian. In `safe`, one exact fraction-free
@@ -245,7 +245,6 @@ multiprocessing, JSON input, CSV/JSON/Parquet output, and every result field.
 - [Test-matrix database](testdata/README.md)
 - [Release procedure](aidocs/RELEASING.md)
 - [Technical documentation index](aidocs/INDEX.md)
-- [Research papers](research/papers/)
 
 ## License
 
