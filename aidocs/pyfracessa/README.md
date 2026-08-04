@@ -268,6 +268,6 @@ PYTHONPATH=python python3 -m unittest discover \
 The suite includes unit tests plus mandatory native single-process,
 multithreaded-logging, and multiprocessing integration tests. Build
 `fracessa_core` first with `./build.sh`; a missing module is a test failure.
-GitHub runs Linux and macOS builds on pull requests and `main`. Windows is
-temporarily restricted to release tags until its dependency installation is
-fast enough for normal CI. Release tags package and publish binaries.
+Ordinary pushes and pull requests run no GitHub Actions. The manually started
+release workflow builds and tests all supported platforms before creating its
+tag, publishing the standalone archives, and publishing `pyfracessa`.

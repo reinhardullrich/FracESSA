@@ -782,30 +782,30 @@ require a built-in integer dimension.
 
 ## Release Workflow
 
-`.github/workflows/release.yml` builds and checks Ubuntu and macOS with Python
-3.14 for pull requests and `main`; feature branches are not built a second time
-by the push trigger. Windows is temporarily restricted to pushed `v*` tags
-until its dependency installation is fast enough for normal CI. Native
-integration tests require the built module, and each platform build installs
-PyArrow before the wrapper suite, so binding and Parquet coverage cannot turn
-into successful skips. Packaging, artifact upload, write permission, and GitHub
-release publication run only for `v*` tags.
+`.github/workflows/release.yml` runs only through manual `workflow_dispatch` from
+the default `main` branch. Ordinary pushes and pull requests run no GitHub
+Actions. The workflow builds standalone CLI archives and CPython 3.11-3.14
+wheels for Linux x86-64, Linux ARM64, macOS Intel, macOS Apple Silicon, and
+Windows x86-64, plus one source distribution.
 
-The project uses calendar versions in the form `YEAR.MONTH.DAY.RELEASE_OF_DAY`. `cpp/CMakeLists.txt` is the single source of truth;
-the CLI receives `PROJECT_VERSION` at compile time. Tagged release CI removes the leading `v` from `GITHUB_REF_NAME` and requires
-the remainder to equal the version reported by the built executable before tests, artifact renaming, or publication continue.
+The project uses calendar versions in the form
+`YEAR.MONTH.DAY.RELEASE_OF_DAY`. `cpp/CMakeLists.txt` is the single source of
+truth, and the CLI receives `PROJECT_VERSION` at compile time. Release
+validation rejects another selected branch, a missing version, or an already
+existing `vVERSION` tag. After every CLI, wheel, installation smoke test, and
+source build succeeds, the GitHub release job creates that tag at the tested
+`main` commit and attaches the five CLI archives. PyPI trusted publishing runs
+after the GitHub release. Failed builds therefore create no tag or release.
 
-The artifacts are architecture-specific and are not uniformly self-contained:
+The vcpkg binary archives for GMP, MPFR, FLINT, and build helpers use
+`actions/cache` keys based on the pinned vcpkg release and triplet definitions.
+Because manual release runs execute on `main`, later releases can restore the
+default-branch caches; release-tag caches cannot be shared across tag names.
 
-- Linux is x86-64 and currently depends on system FLINT at runtime.
-- macOS is ARM64 and currently records a Homebrew FLINT dylib path.
-- Windows is x86-64 and currently links its third-party/runtime dependencies
-  statically.
-
-GitHub installing dependencies on its runners makes compilation succeed; it
-does not install those dependencies on an end user's machine. Published
-`v0.22` and `v0.24` macOS binaries used statically linked mathematical
-libraries, but the current release configuration uses system FLINT.
+The architecture-specific CLI archives statically link their third-party
+mathematical libraries. Linux targets glibc 2.28 or newer and also statically
+links the GCC and C++ runtimes; macOS targets version 11 or newer; Windows uses
+the static C runtime. Release builds disable native-CPU code generation.
 
 ## Documentation Policy
 

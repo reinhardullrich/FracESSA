@@ -1,9 +1,7 @@
 name: Release
 
 on:
-  push:
-    tags:
-      - "v*"
+  workflow_dispatch:
 
 permissions:
   contents: read
@@ -14,19 +12,31 @@ jobs:
     runs-on: ubuntu-latest
     outputs:
       version: ${{ steps.version.outputs.version }}
+      tag: ${{ steps.version.outputs.tag }}
     steps:
       - uses: actions/checkout@v6
       - id: version
-        name: Match tag to CMake project version
+        name: Validate release version
         shell: bash
+        env:
+          DEFAULT_BRANCH: ${{ github.event.repository.default_branch }}
         run: |
+          if [[ "$GITHUB_REF_NAME" != "$DEFAULT_BRANCH" ]]; then
+            echo "Run releases from $DEFAULT_BRANCH, not $GITHUB_REF_NAME" >&2
+            exit 1
+          fi
           version="$(sed -n 's/^[[:space:]]*VERSION[[:space:]]\+\([0-9][0-9.]*\)[[:space:]]*$/\1/p' cpp/CMakeLists.txt)"
-          expected="${GITHUB_REF_NAME#v}"
-          if [[ -z "$version" || "$version" != "$expected" ]]; then
-            echo "Release tag $GITHUB_REF_NAME does not match CMake version ${version:-<missing>}" >&2
+          if [[ -z "$version" ]]; then
+            echo "Missing CMake project version" >&2
+            exit 1
+          fi
+          tag="v$version"
+          if git ls-remote --exit-code --tags origin "refs/tags/$tag" >/dev/null 2>&1; then
+            echo "Release tag $tag already exists" >&2
             exit 1
           fi
           echo "version=$version" >> "$GITHUB_OUTPUT"
+          echo "tag=$tag" >> "$GITHUB_OUTPUT"
 
   cli-unix:
     name: CLI / ${{ matrix.platform }}
@@ -249,7 +259,7 @@ jobs:
 
   publish-pypi:
     name: Publish pyfracessa to PyPI
-    needs: [wheels-linux, wheels-macos, wheels-windows, sdist]
+    needs: [github-release, wheels-linux, wheels-macos, wheels-windows, sdist]
     runs-on: ubuntu-latest
     environment: pypi
     permissions:
@@ -266,7 +276,7 @@ jobs:
 
   github-release:
     name: Publish GitHub release
-    needs: [validate-version, cli-unix, cli-windows, publish-pypi]
+    needs: [validate-version, cli-unix, cli-windows, wheels-linux, wheels-macos, wheels-windows, sdist]
     runs-on: ubuntu-latest
     permissions:
       contents: write
@@ -280,6 +290,8 @@ jobs:
       - name: Create GitHub release
         uses: softprops/action-gh-release@v3
         with:
+          tag_name: ${{ needs.validate-version.outputs.tag }}
+          target_commitish: ${{ github.sha }}
           files: |
             dist/*.tar.gz
             dist/*.zip
