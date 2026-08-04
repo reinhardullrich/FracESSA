@@ -42,7 +42,7 @@ class NativeIntegrationTests(unittest.TestCase):
         self.assertIsNone(result["candidates"][0]["multiplier"])
 
     def test_fast_and_safe_route_native(self):
-        database = Path(__file__).resolve().parents[3] / "testdata/fracessa_testdata.sqlite3"
+        database = Path(__file__).resolve().parents[2] / "testdata/fracessa_testdata.sqlite3"
         with closing(sqlite3.connect(database)) as connection:
             rows = connection.execute(
                 "SELECT matrix_id, dimension, matrix FROM matrices WHERE matrix_id IN (46, 2208) ORDER BY matrix_id"
@@ -61,7 +61,7 @@ class NativeIntegrationTests(unittest.TestCase):
 
     def test_whole_matrix_safe_fallback_is_exposed(self):
         native = load_native_module()
-        database = Path(__file__).resolve().parents[3] / "testdata/fracessa_testdata.sqlite3"
+        database = Path(__file__).resolve().parents[2] / "testdata/fracessa_testdata.sqlite3"
         with closing(sqlite3.connect(database)) as connection:
             dimension, values = connection.execute(
                 "SELECT dimension, matrix FROM matrices WHERE matrix_id = 2109"

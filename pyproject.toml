@@ -36,7 +36,6 @@ minimum-version = "build-system.requires"
 cmake.source-dir = "cpp"
 cmake.build-type = "Release"
 wheel.packages = ["python/fracessa"]
-wheel.exclude = ["fracessa/tests/**"]
 sdist.inclusion-mode = "manual"
 sdist.exclude = ["**"]
 sdist.include = [

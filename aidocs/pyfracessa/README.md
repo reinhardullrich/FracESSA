@@ -262,7 +262,7 @@ volume.
 
 ```bash
 PYTHONPATH=python python3 -m unittest discover \
-  -s python/fracessa/tests -p 'test_*.py'
+  -s python/tests -p 'test_*.py'
 ```
 
 The suite includes unit tests plus mandatory native single-process,

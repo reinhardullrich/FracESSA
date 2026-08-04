@@ -276,7 +276,7 @@ The implementation is limited to these source files.
 | --- | --- |
 | `python/fracessa/types.py` | Expose no parser selector in `RunConfig`. |
 | `python/fracessa/core.py` | Call pybind without a parser selector. |
-| `python/fracessa/tests/test_core_unit.py` | Assert no parser selector reaches pybind. |
+| `python/tests/test_core_unit.py` | Assert no parser selector reaches pybind. |
 
 ### Documentation
 

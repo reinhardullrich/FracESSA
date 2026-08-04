@@ -31,7 +31,7 @@ Makefile
 __pycache__/
 *.py[cod]
 *.pyd
-/.venv/
+/python/.venv/
 /env/
 /venv/
 .tox/

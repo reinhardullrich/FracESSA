@@ -13,4 +13,4 @@ fi
 
 CTEST_JOBS="$(nproc)"
 ctest --test-dir cpp/build --output-on-failure -j "${CTEST_JOBS}"
-PYTHONPATH=python python3 -m unittest discover -s python/fracessa/tests -p "test_*.py"
+PYTHONPATH=python python3 -m unittest discover -s python/tests -p "test_*.py"
