@@ -997,3 +997,7 @@ the canonical SQLite database.
 327. Published the FracESSA project website:
 added a responsive static landing page using the existing logo, crawl metadata, `robots.txt`, and a sitemap; deployed it through a
 dedicated GitHub Pages workflow; and connected the repository homepage to `https://reinhardullrich.github.io/fracessa/`.
+
+328. Prepared release 2026.8.5.1:
+updated the package homepage to the project website, made the README logo resolve on PyPI, and clarified that ordinary pushes can
+deploy GitHub Pages but do not start release builds.

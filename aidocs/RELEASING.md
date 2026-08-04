@@ -1,6 +1,7 @@
 # Releasing FracESSA
 
-Ordinary pushes and pull requests run no GitHub Actions. A release starts only when the `Release` workflow is manually run from `main`.
+Ordinary pushes and pull requests run no release builds. The separate Pages workflow deploys site changes. A release starts only
+when the `Release` workflow is manually run from `main`.
 
 1. Set the calendar version in `cpp/CMakeLists.txt` using `YYYY.M.D.N`, where `N` starts at 1 and increments for additional releases on the same day.
 2. Commit and push the release-ready source.
