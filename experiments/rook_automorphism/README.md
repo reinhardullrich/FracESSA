@@ -4,16 +4,16 @@
 
 Search the three-variable compact rook matrices from
 [`research/ROOK_AUTOMORPHISM_GROUPS_N2_TO_N30.md`](../../research/ROOK_AUTOMORPHISM_GROUPS_N2_TO_N30.md) over expanding integer
-triples $(A,B,C)$ and retain the largest safely verified ESS count found for every dimension and rook group.
+triples $(A,B,C)$ and retain the largest ESS count found for every dimension and rook group.
 
-The previous numerical seed was
+The previously known numerical example was
 
 $$
 (A,B,C)=(7,7,15).
 $$
 
-For the published $3\times8$, $n=24$ game this gives 15,120 ESS. That is the only established rook-family incumbent in the source
-notes; the other $7/7/15$ templates are proposed inputs whose ESS counts still need to be measured.
+For the published $3\times8$, $n=24$ game this gives 15,120 ESS. The current run retains already verified $(7,7,15)$ results as
+incumbents, but they do not advance the search frontier: enumeration starts at $0,+1,-1,+2,-2,\ldots$.
 
 ## Initial Scope
 
@@ -64,15 +64,14 @@ For example:
 | `+2` | `0,+1,-1,+2` | $4^3-3^3=37$ |
 | `-2` | `0,+1,-1,+2,-2` | $5^3-4^3=61$ |
 
-For each value stage, generate one deterministic stream ordered by dimension, grid rank, and triple order. Send that complete
-stream directly to one multiprocessing run. Workers take whichever matrix is next; there is no batching, waiting, or separate run
-by family or dimension. The `+2` stage is complete only after every enabled matrix through $n=30$ has returned. Then the `-2`
-stage begins.
+Give every dimension and rook group the same deterministic job indices. Merge those streams by job index and then by ascending
+dimension and grid rank, and send the merged stream to one multiprocessing run. A value stage controls queue priority only; it is
+neither a barrier nor a save boundary. If one matrix from `-1` is still running, idle workers immediately continue with queued `+2`
+jobs from any group.
 
-The value stage controls generation order only; it is not a save boundary.
-
-The search is infinite, so the runner takes an explicit final value stage. Increasing it continues the same result store rather
-than starting again.
+The search is effectively infinite. The default final value stage is `+1000000`; stages are generated lazily, so this does not
+precompute or store a million stages. The bounded multiprocessing window stays full while the saved per-group frontiers remain the
+restart authority.
 
 ## Exact Redundancies
 
@@ -109,35 +108,27 @@ state in memory and atomically replaces this file through a temporary file every
 interval configurable as `--checkpoint-seconds`; use 30 seconds for long searches once the runner is established. Also write on
 normal completion and on a handled interrupt.
 
-The root of `state.json` is grouped first by decimal dimension and then by the `m x k` rook group. Each group has exactly two
-objects, `work` and `result`:
+The root of `state.json` uses one `dimension:group` key for each search, for example `10:2x5`. Each group has exactly two objects,
+`work` and `result`:
 
 ```json
 {
-  "6": {
-    "2x3": {
-      "work": {
-        "active_stage": null,
-        "last_received": null,
-        "completed_through": null,
-        "received_in_stage": 0,
-        "expected_in_stage": 0,
-        "best_unverified_fast": null
-      },
-      "result": null
-    }
+  "10:2x5": {
+    "work": {
+      "last_received": null,
+      "completed_through": null
+    },
+    "result": null
   }
 }
 ```
 
 For every dimension plus rook group, `work` stores:
 
-- `active_stage`: the index and value of the stage currently being searched;
 - `last_received`: the most recently returned job index, value stage, and $(A,B,C)$, for human-visible progress;
 - `completed_through`: the contiguous completion frontier—the largest deterministic job index for which that job and every
   smaller job index in the group have returned successfully;
-- the value stage and $(A,B,C)$ belonging to `completed_through`;
-- received and expected counts for the active value stage.
+- the value stage and $(A,B,C)$ belonging to `completed_through`.
 
 Multiprocessing completes jobs out of order, so `last_received` alone cannot be a resume point: an earlier job may still be
 running. In memory, each group keeps a set of returned job indices above `completed_through`. Whenever the next consecutive index
@@ -148,25 +139,25 @@ The later in-memory set is deliberately not written to disk. On restart, regener
 interval when one old job runs much longer than the following jobs, but it can never skip an unfinished matrix. That is the chosen
 trade-off for keeping `state.json` small and simple.
 
-`result` is `null` until the group has a safely verified maximum. It then stores result details only for that specific dimension
+`result` is `null` until the group has a maximum. It then stores result details only for that specific dimension
 and rook group. Every maximum contains:
 
 - `matrix`: the complete substituted FracESSA matrix string, including its `dimension#` prefix;
-- `A`, `B`, and `C`: the integer triple that produced it;
+- `variables`: the integer triple $[A,B,C]$ that produced it;
 - `candidate_count` and `ess_count`: the complete totals;
 - `candidate_structure`, mapping each support size to its complete candidate count;
 - `ess_structure`, mapping each support size to its complete ESS count;
-- `safe_elapsed_ns`: the native safe timing;
-- `safe_fallback`: the safe-fallback value.
+- `fast_elapsed_ns`: the native fast timing.
 
-The structures use JSON objects with decimal support sizes as keys, matching the canonical matrix database convention. The file
-never stores candidate vectors, individual supports, payoffs, or candidate rows.
+The structures use JSON objects with decimal support sizes as keys, matching the canonical matrix database convention. Variable
+triples and both structure objects are kept on one line to make the state easier to scan. The file never stores candidate vectors,
+individual supports, payoffs, or candidate rows.
 
-After a value stage is complete, report:
+After the requested search range is complete, report:
 
-- the best safely verified ESS count and its first record-setting triple for each dimension and rook group;
+- the best ESS count and its first record-setting triple for each dimension and rook group;
 - $\gamma=\operatorname{ESS}^{1/n}$ for comparisons across dimensions;
-- elapsed work, completed triples, failures, and the largest completely finished value stage.
+- the final requested value stage.
 
 The runner accepts `--max-dimension`, initially 30. If $n=30$ or $n=28$ proves impractical, restart with a lower value. Existing
 higher-dimensional results and progress remain stored and can be resumed later by raising the limit again.
@@ -174,43 +165,30 @@ higher-dimensional results and progress remain stored and can be resumed later b
 The maintained multiprocessing API deliberately has no per-matrix timeout. Keep the first runner on that simple API. If a
 high-dimensional job actually blocks useful progress, add the
 calibration runner's disposable-child timeout pattern in a second step; do not build a custom replaceable-worker pool before it is
-needed. Stopping and restarting an incomplete value stage may repeat returned jobs above a stalled contiguous frontier, but it
-never loses a verified maximum or skips an unfinished job.
+needed. Stopping and restarting an incomplete search may repeat returned jobs above a stalled contiguous frontier, but it
+never loses a maximum or skips an unfinished job.
 
-## Fast Search And Strict-Record Verification
+## Fast Search
 
-`fast` returns exact results for the supports it keeps, but its floating-point rejection is not a proof and can undercount ESS.
-The experiment deliberately uses this fixed workflow:
+`fast` returns exact results for the supports it keeps. Its floating-point rejection can miss candidates and therefore hide a
+record, but it cannot invent candidates. The experiment deliberately uses this fixed workflow:
 
 1. Run every generated triple with `fast`.
-2. Give each returned ESS count and job key to the Python main thread, which updates the in-memory completed ranges,
-   `last_received`, and current fast maximum for that dimension and rook group.
-3. Run that triple with `safe` immediately only when its fast count is strictly larger than the current safely verified record for
-   its dimension and rook group. The native result supplies the complete candidate and ESS counts and structures without returning
-   individual candidate rows.
-4. Replace the record only with the safe result. Keep the new record in memory and include it in the next periodic atomic
-   `state.json` replacement; print it to standard output immediately.
-5. An equal fast count is a tie, not a new record, and does not trigger `safe`.
+2. Give each result and job key to the Python main thread, which updates the completed ranges and `last_received`.
+3. If its ESS count is strictly larger than the current record, retain its complete counts, structures, matrix, variables, and fast
+   timing; print it immediately and include it in the next periodic atomic `state.json` replacement.
+4. Treat an equal count as a tie, not a new record.
 
-Fast results arrive in multiprocessing completion order. That order can change how many intermediate strict records require a
-safe check, but it cannot turn an equal count into a record. A checkpoint taken before a safe result returns contains the completed
-fast job but not the unverified record. Therefore each group's `work` object also keeps its best unverified fast tuple; startup
-safe-checks any such tuple that exceeds that group's verified record before resuming fast jobs.
-
-The $3\times8$ seed $(7,7,15)$ initializes the verified `24 -> 3x8` record at 15,120 ESS. The same seed is run once for every
-other grid to establish its fast result; it triggers safe verification because every other dimension-and-group result starts at
-$-1$. Thus each group's first completed fast result establishes a real safe-verified baseline even when its ESS count is zero.
-
-Every retained record is exact because it has passed `safe`, but this remains a heuristic search: a false rejection in `fast`
-could hide a tuple whose true safe count would have set a record.
+Fast results arrive in multiprocessing completion order. That order can change which equal maximum is retained first, but it cannot
+change the maximum count. The zero game is handled analytically. Existing incumbents affect only the record to beat; they never mark
+any search triple as completed. This remains a heuristic search because a false rejection in `fast` could hide a true record.
 
 ## Record Validation
 
-Whenever safe verification establishes a new record:
+Before adding a final winner to the canonical matrix database:
 
-1. store its exact ESS count and timing immediately;
-2. rerun the final winner once in `safe` with candidates enabled before considering it for the canonical matrix database;
-3. compare its complete candidate output on the repeated run, not only the ESS count.
+1. rerun it once in `safe` with candidates enabled;
+2. compare its complete candidate output, not only the ESS count.
 
 ## First Implementation
 
@@ -232,12 +210,27 @@ Run the source-only self-check without loading the native extension:
 python3 experiments/rook_automorphism/search.py --self-check
 ```
 
-Search through the `-2` value stage for every included group through dimension 30:
+Start the effectively continuous search through the default `+1000000` limit:
 
 ```bash
-python3 experiments/rook_automorphism/search.py --through=-2
+python3 experiments/rook_automorphism/search.py
 ```
 
-The default checkpoint interval is 10 seconds and the default state file is `experiments/rook_automorphism/state.json`. Use
-`--checkpoint-seconds 30` for a long run and `--max-dimension` to postpone the largest groups. Restarting the same command resumes
-from the contiguous completion frontier stored in that file.
+The runner uses CPUs 3 through 8 by default, leaving CPUs 0, 1, 2, and 9 free. Pass plain CPU IDs to override that set:
+
+```bash
+python3 experiments/rook_automorphism/search.py --cpu 3 4 5 6
+```
+
+Run only one or more selected dimensions while preserving every other saved frontier:
+
+```bash
+python3 experiments/rook_automorphism/search.py --dimension 14 18 --through 1000000000
+```
+
+One worker is created per selected CPU, and Linux CPU affinity restricts the parent and inherited workers to that set. Startup,
+pipeline progress, new records, and the final summary are printed to the
+terminal. The default checkpoint interval is 10 seconds and the default state file is `experiments/rook_automorphism/state.json`.
+Use `--checkpoint-seconds 30` for a long run, `--dimension` for an explicit set, `--max-dimension` to postpone the largest groups,
+or `--through` for a deliberately bounded test. `--dimension` and `--max-dimension` are mutually exclusive. Restarting the same
+command resumes each selected group from its contiguous completion frontier stored in that file; unselected groups remain unchanged.

@@ -242,6 +242,12 @@ Important implementation points:
   uses the exact precision-span gate and treats small pivots as inconclusive. The retired normalized heuristic fixed IDs 38-39 but
   introduced misses on IDs 45-47 and is not a production method.
 
+### Known Deferred Source Cleanup
+
+Three C++ helpers have no production caller: `bs64::is_smallest_representation()` and `bs64::find_pos_next_set_bit()` are exercised
+only by their dedicated tests, while mutable `matrix_frc::data()` has no caller. These are low-priority readability cleanups, not
+correctness or speed findings. Remove each helper together with its self-focused tests only after explicit source-change approval.
+
 Key files:
 
 - `cpp/include/fracessa/bitset64.hpp`: support-mask primitives. Its inline reflection uses a fixed six-stage 64-bit reversal and
@@ -683,17 +689,17 @@ speed-ratio summaries. Dated material under
 `experiments/` and `aidocs/experiments/` remains immutable historical
 evidence.
 
-Database IDs 45-47 preserve the retired normalized-heuristic correctness regressions tracked in `reviews/CPP_REVIEW.md`, and IDs
-2207-2209 preserve the three former fast per-support false rejections. The wrapper integration suite checks IDs 46 and 2208 through
-fast and safe routes, but no complete SQLite matrix suite is currently wired into `./test.sh` or release CI.
+Database IDs 45-47 preserve the retired normalized-heuristic correctness regressions, and IDs 2207-2209 preserve the three former
+fast per-support false rejections. Their exact constructions are documented in `correctness/FAST_CANDIDATE_FALSE_REJECTION.md`.
+The wrapper integration suite checks IDs 46 and 2208 through fast and safe routes, but no complete SQLite matrix suite is currently
+wired into `./test.sh` or release CI.
 
 ## Pybind Boundary
 
 `cpp/src/pybind_module.cpp` exposes the C++ analyzer as the native
 `fracessa_core` module. It owns Python/native argument and result conversion,
-native status codes, GIL release, and native timing. Binding-specific audit
-state is recorded in `reviews/PYBIND_REVIEW.md`, separately from both the
-analyzer core and Python orchestration.
+native status codes, GIL release, and native timing. This section records the current native-boundary contract; the public Python
+contract is in `pyfracessa/README.md`.
 
 The safe parser throws `std::invalid_argument` with a detailed diagnostic and
 does not write to `stderr`. The CLI catches and prints that diagnostic; Pybind
@@ -808,9 +814,8 @@ libraries, but the current release configuration uses system FLINT.
 - `CHANGES.md` is the append-only human-readable history. Update it when a
   meaningful project change benefits from a concise historical record; read it
   only when history or drift matters.
-- Review documents are maintained audit records. They identify current open
-  findings, if any, and may retain completed or rejected decisions and measured
-  evidence when that prevents work from being repeated.
+- `history/` contains explicitly dated completed decisions and rejected experiments. Those files contain no open tasks and are not
+  current architecture or validation records.
 - Dated experiment reports are immutable snapshots and must state their scope.
 - Git remains authoritative for exact diffs and commit history.
 - Do not store generated source concatenations, session transcripts, or stale

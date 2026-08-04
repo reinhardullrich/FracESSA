@@ -546,7 +546,6 @@ a deterministic mathematical decision rather than a compiler-dependent guess.
 
 Related files:
 
-- `../reviews/CPP_REVIEW.md`: maintained C++ audit record.
 - `../experiments/speed_comparison_2026-07-26/MICROBENCHMARK_COMPARISON.md`:
   persistent-process speed comparison.
 - `../../testdata/fracessa_testdata.sqlite3`: regression inputs 36 and 37.

@@ -1,20 +1,15 @@
-# Fast Candidate Pipeline Review
+# Fast Candidate Pipeline Experiments
 
-Last verified: 2026-08-03
+Status: historical decision record completed on 2026-08-03. This file contains no open tasks and is not the source of current
+architecture or validation facts. Use `../KNOWLEDGE.md` for the live pipeline and
+`../correctness/FAST_CANDIDATE_FALSE_REJECTION.md` for its known correctness boundary.
 
-Scope: the complete binary64 candidate path from integer game preparation through `find_candidate_fast`, plus the exact handoff
-that protects candidates which fast cannot reject. This maintained audit record identifies open findings and retains completed or
-rejected experiments when their evidence prevents repeated work. Correctness comes first; speed changes are retained only when they
-help a balanced panel of small and large, circular and non-circular games while keeping the code readable.
+This record preserves completed and rejected binary64 candidate-path experiments whose measurements prevent unproductive work from
+being repeated without new evidence.
 
-Status:
+## Conclusion At Completion
 
-- `[ ]` is open.
-- `[x]` is completed, rejected after measurement, or deliberately retained.
-
-## Overall conclusion
-
-The current algebra is coherent: it clears denominators once, applies one common binary scale, equilibrates the complete game,
+The production algebra at completion was coherent: it cleared denominators once, applied one common binary scale, equilibrated the complete game,
 builds the reduced symmetric candidate system, factors it with Bunch-Kaufman LDLT, recovers probabilities and payoff, and hands
 every surviving support to exact arithmetic.
 
@@ -25,10 +20,6 @@ Fast remains a heuristic prefilter, not a proof. The precision-span cutoff and s
 counterexamples, but the remaining binary64 probability and outside-payoff rejections have no general error bound. A false
 binary64 rejection can therefore still lose an exact candidate. The boundary and concrete examples are documented in
 [`FAST_CANDIDATE_FALSE_REJECTION.md`](../correctness/FAST_CANDIDATE_FALSE_REJECTION.md).
-
-## Open findings
-
-No open findings remain from this review.
 
 ## Completed, rejected, and deliberately retained
 
@@ -199,23 +190,13 @@ readability reduction with no intended runtime effect; both Release configuratio
 - [x] The common denominator is cleared once, equilibration runs once per game, exact inertia is reused, and public exact vectors are
   materialized only for successful candidates that need output or logging.
 
-## Retained evidence
+## Validation At Completion
 
-- Current native C++/CLI suite: 10 of 10 passed.
-- Current Python suite: 63 of 63 passed.
-- Current sanitizer suite: 10 of 10 passed.
+- Native C++/CLI suite: 10 of 10 passed.
+- Python suite: 63 of 63 passed.
+- Sanitizer suite: 10 of 10 passed.
 - Fixed-seed historical comparison: 7,750 integer games matched between fast and safe candidate results.
 - Constructed historical comparison: 2,441 positive full-support candidates produced no fast miss.
 - The latest 81-matrix exact quick comparison and timing run matched every expected ESS count.
 
 These checks are evidence, not a proof for the remaining binary64 inequality decisions.
-
-## Completion rule for an open item
-
-1. Make the smallest readable change in `find_candidate_test` when rounding can change; otherwise use the owning production
-   location directly.
-2. Run the focused unit or black-box regression.
-3. Compare candidate and ESS results with safe mode.
-4. For a speed claim, report per-matrix native-nanosecond changes on a balanced panel.
-5. Promote a successful numerical experiment only after explicit approval.
-6. Move the item into the completed section with its retained or rejected evidence.

@@ -280,12 +280,10 @@ The implementation is limited to these source files.
 
 ### Documentation
 
-Update `README.md`, `aidocs/KNOWLEDGE.md`, `aidocs/INDEX.md`, this architecture
-document, `aidocs/pyfracessa/README.md`, `aidocs/reviews/CPP_REVIEW.md`, and
-`aidocs/CHANGES.md` in the implementation task. Keep the P0 review finding open
-but replace its obsolete IDs 38-39 evidence with the preserved unsafe
-counterexamples; this phase improves an explicitly unsafe mode and does not
-make the default mathematically correct.
+The implementation task updated `README.md`, `aidocs/KNOWLEDGE.md`, this architecture document, `aidocs/pyfracessa/README.md`, and
+`aidocs/CHANGES.md`. The former review finding was later resolved; the durable counterexamples now live in
+`aidocs/correctness/FAST_CANDIDATE_FALSE_REJECTION.md`. This phase improved an explicitly unsafe mode and did not make the default
+mathematically correct.
 
 The CLI and Python documentation must say plainly that no flag and
 `exact=False` use a heuristic filter that can miss candidates and ESS

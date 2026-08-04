@@ -8,16 +8,9 @@ rationale; its status line and this index determine which.
 
 1. Read repository-root `AGENTS.md`.
 2. Read `KNOWLEDGE.md`.
-3. Read `reviews/CPP_REVIEW.md` before reviewing or changing C++ correctness,
-   hot paths, parsing, CMake, CTest, or release behavior.
-4. Read `reviews/PYBIND_REVIEW.md` before reviewing or changing the native
-   `fracessa_core` boundary, result/status conversion, GIL behavior, or native
-   timing.
-5. Read `reviews/PYTHON_REVIEW.md` before reviewing or changing the Python API,
-   multiprocessing, sinks, or wrapper tests.
-6. Read `CHANGES.md` only when history matters, when diagnosing drift, or when
+3. Read `CHANGES.md` only when history matters, when diagnosing drift, or when
    the user asks what changed.
-7. Read only the task-specific references below.
+4. Read only the task-specific references below.
 
 ## Current Truth
 
@@ -25,17 +18,6 @@ rationale; its status line and this index determine which.
   project policy.
 - `pyfracessa/README.md`: public PyFracESSA and multiprocessing API.
 - `../testdata/README.md`: canonical SQLite test-data and timing schema.
-
-## Maintained Audit Records
-
-These files contain current open findings, if any, plus retained decisions and
-measurements that prevent rejected work from being repeated.
-
-- `reviews/CPP_REVIEW.md`: C++ correctness, speed, build, and release audit.
-- `reviews/FAST_PIPELINE_REVIEW.md`: binary64 candidate-path correctness and
-  performance audit.
-- `reviews/PYBIND_REVIEW.md`: native Python binding and boundary audit.
-- `reviews/PYTHON_REVIEW.md`: Python correctness, speed, and API audit.
 
 ## Current Design And Technical Reference
 
@@ -67,10 +49,15 @@ measurements that prevent rejected work from being repeated.
   related search directions.
 - `../research/ROOK_AUTOMORPHISM_GROUPS_N2_TO_N30.md`: rectangular-rook group orders, compact symbolic matrices, orbit ceilings,
   empirical ESS counts, and Sperner bounds through dimension 30.
+- `../research/THREE_BY_K_ROOK_ESS_SEQUENCES.md`: derivation, exact finite verification, support counts, and gamma values for the
+  two compact $3\times k$ rook ESS sequences.
 
 ## Historical Records And Fixed Evidence
 
 - `CHANGES.md`: append-only human-readable history of meaningful project work.
+- `history/CPP_PERFORMANCE_EXPERIMENTS_2026-08-03.md`: completed C++ allocation and implementation experiments, especially
+  measured changes that were rejected.
+- `history/FAST_PIPELINE_EXPERIMENTS_2026-08-03.md`: completed and rejected binary64 candidate-path experiments.
 - `architecture/UNSAFE_CANDIDATE_FILTER.md`: failed temporary normalized-filter
   phase, including why it was removed and the measurements worth retaining.
 - `reference/MATRIX_GENERATOR_CATALOGUE_AUDIT.md`: immutable catalogue-import
@@ -85,8 +72,7 @@ measurements that prevent rejected work from being repeated.
 - Update the owning maintained document in the same task as a behavior change.
 - Append to `CHANGES.md` when a human-readable historical record is useful;
   do not rewrite its previous entries.
-- Review files may retain completed or rejected decisions when their evidence
-  prevents repeated work; make open findings explicit.
+- Dated files under `history/` contain no open tasks and are never current architecture or validation records.
 - Keep current facts out of dated experiment reports.
 - Do not add session histories, generated source dumps, duplicate completed
   reviews, or stale profiling output.

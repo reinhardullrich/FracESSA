@@ -1,40 +1,10 @@
-# C++ Review
+# C++ Allocation And Performance Experiments
 
-Last verified: 2026-08-03
+Status: historical decision record completed on 2026-08-03. This file contains no open tasks and is not the source of current
+architecture or validation facts. Use `../KNOWLEDGE.md` for current behavior.
 
-Scope: active C++ analyzer core, CLI, shared parser, CMake, C++/CTest coverage,
-and the release workflow. The native Python binding is reviewed separately in
-`PYBIND_REVIEW.md`. Frozen experiment source copies are excluded except where a
-dated result is cited as evidence.
-
-Correctness is ranked before speed. This maintained audit record lists open findings first, then retains measured decisions and
-reassessments when they prevent rejected or conditional work from silently reappearing.
-
-## Open Findings
-
-### Ponytail Simplification
-
-`cpp/include/fracessa/bitset64.hpp:148-165`: delete:
-`is_smallest_representation()` is used only by its own test at
-`cpp/tests/test_bitset64.cpp:161-168`. Delete both; nothing replaces them.
-
-`cpp/include/linalg/matrix_double.hpp:26` and
-`cpp/include/linalg/matrix_fraction.hpp:51`: delete: the mutable matrix `data()`
-accessors have no caller. Nothing replaces them.
-
-`cpp/include/fracessa/bitset64.hpp:105-112`: delete:
-`find_pos_next_set_bit()` has no production caller after copositivity switched
-to one fixed index array. Delete its self-focused tests at
-`cpp/tests/test_bitset64.cpp:44-108` and `:222-229`; production set iteration
-already uses `extract_set_indices()`.
-
-Net: approximately 105 production and self-testing lines can be deleted.
-
-### Retained V2 experiment
-
-`cpp/include/fracessa/supports.hpp:236-371` and its `bs64::rot_left()` helper are intentionally retained. V2 was a correct compact
-bit-parallel pruning experiment, but benchmarks found it slower than V1 and V3, and it never entered production. Keeping the source
-records the rejected design and prevents the same experiment from being repeated; it is therefore not an open simplification item.
+This record preserves measured C++ allocation and implementation experiments, especially rejected changes whose results prevent
+the same work from being repeated without new evidence.
 
 ## Allocation And Reallocation Audit
 
@@ -350,33 +320,3 @@ around zero.
   CMake's `-O3 -DNDEBUG` plus the project throughput flags and Release-only IPO.
   The fresh Debug CLI built and ran, while the then-current Release and sanitizer suites passed.
 
-## Current Validation State
-
-- The current Release build passes all 10 C++/CLI tests and all 63 Python tests.
-- Streaming Gosper enumeration, the 62-by-62 immediate-rejection regression,
-  the singular Hadeler rejection, and the late-pivot 3-by-3 LU solve/inverse
-  regression pass the current C++/CLI suite.
-- Exact candidate search now validates outside-support strategies before dense
-  vector construction and skips that construction when neither output nor
-  logging needs it; the focused requested/successful-vector regression passes.
-- The latest complete historical verified-mode sweep matched the stored ESS count for the 87 matrices present at that time. Each
-  of the 11 later SuiteSparse imports was separately matched candidate-for-candidate against exact mode before insertion. The
-  current fast path was most recently checked on its balanced 81-matrix benchmark panel and on regression IDs 2207-2209.
-- Wrapper tests: see `PYBIND_REVIEW.md` and `PYTHON_REVIEW.md`.
-- The single parser preserves 18-digit direct values and arbitrary-precision
-  values, rejects dimensions outside 1-63, and reports failures through
-  `std::invalid_argument`.
-- Production DFS/FKM generators retain no complete support frontier or
-  cardinality layer. An independent order-insensitive comparison matched all
-  mathematical candidate rows and ESS results across the former 52-matrix
-  verification corpus.
-- The canonical SQLite snapshot contains 1,072 distinct strategically normalized matrices. Its 780 analyzed rows store 67,875
-  candidate representatives whose multipliers recover 106,401 candidates and 91,950 ESS; 762 baselines are exact or exact-fallback,
-  18 are unverified fast-only, and 292 rows remain catalog-only.
-- A fixed-seed audit generated 20,000 exact 4-by-4 integer matrices; all 19,890
-  nonsingular cases satisfied `A * inverse(A) == I` exactly.
-- Ordinary pushes and pull requests run the Ubuntu and macOS build/test matrix. Tags add Windows; artifact packaging and
-  publication remain tag-only.
-- Wrapper integration regressions exercise database IDs 46 and 2208 through fast
-  and safe methods; no complete SQLite matrix-verification runner is wired into
-  CTest or CI.

@@ -908,3 +908,11 @@ source as evidence of a rejected design. Removed the conflicting review recommen
 303. Corrected the C++ search-orchestration comment:
 documented that every exact equilibrium support triggers strict-superset pruning, while stability classification determines only
 whether the candidate is an ESS. Removed the resolved documentation-only finding from the C++ review; runtime behavior is unchanged.
+304. Retired the completed review folder:
+removed duplicate Pybind and Python validation ledgers, moved the unique C++ and fast-pipeline benchmark decisions into explicitly
+dated `history/` records, and moved the three still-valid low-priority dead-code notes into `KNOWLEDGE.md`. Removed stale startup
+routing and repaired all live cross-references; no source code changed.
+305. Derived and recorded the two compact three-by-$k$ rook ESS sequences:
+interpreted supports as spanning trees of $K_{3,k}$, proved the cycle obstruction for nonnegative interaction curvature,
+counted the $k=3s+1$ and $k=3s+2$ support orbits, and exactly verified representative ESS through game dimension 60. The new
+research note distinguishes constructed lower bounds from complete counts and records the slight dimension-30 gamma improvement.

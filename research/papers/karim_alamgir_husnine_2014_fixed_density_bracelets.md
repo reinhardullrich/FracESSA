@@ -17,23 +17,23 @@ For a binary support mask, “density” is exactly support cardinality. The pap
 
 ## Objects and notation
 
-A length-​\(n\) word over \(\{0,\ldots,k-1\}\) has density \(d\) when exactly \(d\) symbols are nonzero. The paper writes
+A length-​$n$ word over $\{0,\ldots,k-1\}$ has density $d$ when exactly $d$ symbols are nonzero. The paper writes
 
-\[
+$$
 \mathcal B_k(n,d)
-\]
+$$
 
 for the set of lexicographically smallest representatives under rotations and reversal.
 
-For FracESSA, \(k=2\). A word is a support mask, its ones are supported strategies, and
+For FracESSA, $k=2$. A word is a support mask, its ones are supported strategies, and
 
-\[
+$$
 d=|S|.
-\]
+$$
 
-Thus the required objects are precisely \(\mathcal B_2(n,d)\) for support sizes \(d=1,\ldots,n\).
+Thus the required objects are precisely $\mathcal B_2(n,d)$ for support sizes $d=1,\ldots,n$.
 
-The paper uses the fundamental theorem of necklaces. If a prenecklace \(\alpha\) has longest Lyndon prefix length \(p\), appending a symbol \(b\) preserves the prenecklace property exactly when the repeated-prefix symbol is no larger than \(b\). Repeating that symbol preserves \(p\); choosing a larger one makes the new word length the next Lyndon-prefix length.
+The paper uses the fundamental theorem of necklaces. If a prenecklace $\alpha$ has longest Lyndon prefix length $p$, appending a symbol $b$ preserves the prenecklace property exactly when the repeated-prefix symbol is no larger than $b$. Repeating that symbol preserves $p$; choosing a larger one makes the new word length the next Lyndon-prefix length.
 
 ## Why this differs from the current production generator
 
@@ -50,13 +50,13 @@ The earlier experimental direct `BraceletFC` generator implements the 2013 **fix
 
 The optimized recursion is called `BraceFD(t,p,r,RS)` in the paper.
 
-- \(t\): number of nonzero symbols already placed.
-- \(a_t\): position of the \(t\)-th nonzero symbol. The positions are strictly increasing.
-- \(b_{a_t}\): value of that nonzero symbol. In the binary specialization this is always one and need not be stored.
-- \(p\): density of the longest Lyndon prefix; \(a_p\) is its length in word positions.
-- \(r\): length of the longest prefix that is equal to its reversal and is still relevant to the final bracelet comparison.
-- \(RS\): result accumulated for the comparison of the suffix after position \(r\) with its reversal.
-- \(s_i\): density of the prefix ending at position \(i\). The algorithm only needs this value at nonzero positions.
+- $t$: number of nonzero symbols already placed.
+- $a_t$: position of the $t$-th nonzero symbol. The positions are strictly increasing.
+- $b_{a_t}$: value of that nonzero symbol. In the binary specialization this is always one and need not be stored.
+- $p$: density of the longest Lyndon prefix; $a_p$ is its length in word positions.
+- $r$: length of the longest prefix that is equal to its reversal and is still relevant to the final bracelet comparison.
+- $RS$: result accumulated for the comparison of the suffix after position $r$ with its reversal.
+- $s_i$: density of the prefix ending at position $i$. The algorithm only needs this value at nonzero positions.
 
 The complete word array is conceptually initialized to zero. Placing a nonzero symbol changes one position; backtracking restores that position to zero.
 
@@ -64,41 +64,41 @@ For FracESSA, the word itself can be a `uint64_t` mask. The position array still
 
 ## Fixed-density recursion
 
-Assume \(t\) nonzero symbols have already been placed. The next recursive call places symbol \(t+1\).
+Assume $t$ nonzero symbols have already been placed. The next recursive call places symbol $t+1$.
 
 The latest position at which it can be placed while leaving enough positions for all remaining symbols is
 
-\[
+$$
 \operatorname{tail}=n-(d-t)+1.
-\]
+$$
 
 The repeated-prefix continuation required by the necklace recurrence is
 
-\[
+$$
 \operatorname{max}=a_{t+1-p}+a_p.
-\]
+$$
 
-If \(\operatorname{max}\leq\operatorname{tail}\), the algorithm first tries that periodic continuation. For an arbitrary alphabet, it tries the repeated symbol and then larger nonzero symbols. In the binary case there is only symbol one, so this becomes one branch.
+If $\operatorname{max}\leq\operatorname{tail}$, the algorithm first tries that periodic continuation. For an arbitrary alphabet, it tries the repeated symbol and then larger nonzero symbols. In the binary case there is only symbol one, so this becomes one branch.
 
 It then tries every remaining position
 
-\[
+$$
 j=\operatorname{max}-1,\operatorname{max}-2,\ldots,a_t+1,
-\]
+$$
 
-or starts at `tail` when the periodic continuation lies beyond `tail`. Choosing one of these earlier positions starts a new Lyndon prefix, so the next period-density parameter is \(t+1\).
+or starts at `tail` when the periodic continuation lies beyond `tail`. Choosing one of these earlier positions starts a new Lyndon prefix, so the next period-density parameter is $t+1$.
 
-The important computational consequence is that zero runs are skipped rather than created one zero at a time. Recursion depth is \(d\), not \(n\).
+The important computational consequence is that zero runs are skipped rather than created one zero at a time. Recursion depth is $d$, not $n$.
 
-The final nonzero symbol is not generated recursively. When \(t=d-1\), it is placed directly at position \(n\), and a constant-time necklace-period test determines whether the completed word is a necklace.
+The final nonzero symbol is not generated recursively. When $t=d-1$, it is placed directly at position $n$, and a constant-time necklace-period test determines whether the completed word is a necklace.
 
 The fixed-density necklace completion uses
 
-\[
+$$
 \operatorname{next}
 =
 \left\lfloor\frac{d}{p}\right\rfloor a_p+a_{d\bmod p}.
-\]
+$$
 
 If `next < n`, the partial word cannot complete a necklace. Equality determines whether the last symbol repeats the prefix or starts a new period. For binary words the last symbol value is fixed to one, so the arbitrary-alphabet value loop disappears.
 
@@ -108,53 +108,53 @@ The paper applies the bracelet criterion incrementally instead of generating all
 
 Every nonconstant binary necklace begins with a longest zero run. Only reverse rotations beginning with the same zero run can be lexicographically smaller. The algorithm therefore calls its reversal check only when the current prenecklace has the form
 
-\[
+$$
 0^i\,u\,0^i\,c,
-\]
+$$
 
 where the first and second zero runs have equal length and the surrounding symbols are nonzero.
 
 The check compares the current prefix with its reversal from the first nonzero position toward the midpoint:
 
 - prefix smaller: keep the branch;
-- equal: keep the branch and extend the palindromic-prefix length \(r\);
+- equal: keep the branch and extend the palindromic-prefix length $r$;
 - reversal smaller: discard the branch.
 
-The remaining final comparison concerns the suffix after \(r\). In the ordinary bracelet algorithm one new character is appended per recursive call, so one mirrored character can be compared at each step. Fixed-density recursion may jump across several zeros at once. The paper restores constant work by observing that every jump contains only one newly appended nonzero symbol. It compares that symbol with the corresponding mirrored symbol and, if they are equal, compares the two zero-run lengths.
+The remaining final comparison concerns the suffix after $r$. In the ordinary bracelet algorithm one new character is appended per recursive call, so one mirrored character can be compared at each step. Fixed-density recursion may jump across several zeros at once. The paper restores constant work by observing that every jump contains only one newly appended nonzero symbol. It compares that symbol with the corresponding mirrored symbol and, if they are equal, compares the two zero-run lengths.
 
 Let
 
-\[
+$$
 e=n-a_t+r+1.
-\]
+$$
 
-The zero run beginning at \(e+1\) has length
+The zero run beginning at $e+1$ has length
 
-\[
+$$
 \ell_{e+1}=a_{s_e+1}-a_{s_e}-1.
-\]
+$$
 
-This lets the algorithm update `RS` without scanning the skipped zeros. The prefix-density metadata \(s_i\) is updated only when a nonzero symbol is placed.
+This lets the algorithm update `RS` without scanning the skipped zeros. The prefix-density metadata $s_i$ is updated only when a nonzero symbol is placed.
 
 ## Initialization and edge cases
 
-The paper treats \(0<d<n\) in the main algorithm. The all-zero and all-nonzero words are trivial.
+The paper treats $0<d<n$ in the main algorithm. The all-zero and all-nonzero words are trivial.
 
 The first nonzero position ranges downward from
 
-\[
+$$
 n-d+1
-\]
+$$
 
 to
 
-\[
+$$
 \left\lfloor\frac{n-1}{d}\right\rfloor+1.
-\]
+$$
 
-The position of the last nonzero symbol is fixed at \(a_d=n\). Each initialization then calls the recursive generator with one nonzero symbol already placed.
+The position of the last nonzero symbol is fixed at $a_d=n$. Each initialization then calls the recursive generator with one nonzero symbol already placed.
 
-For its binary CAT proof, the paper assumes \(d\leq n/2\). It refers \(d>n/2\) to the fixed-content bracelet algorithm. Complementing a binary bracelet gives a bijection between cardinalities \(d\) and \(n-d\), but the complemented raw word is not necessarily the required canonical representative or in the required order.
+For its binary CAT proof, the paper assumes $d\leq n/2$. It refers $d>n/2$ to the fixed-content bracelet algorithm. Complementing a binary bracelet gives a bijection between cardinalities $d$ and $n-d$, but the complemented raw word is not necessarily the required canonical representative or in the required order.
 
 This distinction matters to FracESSA. Complement generation is valid for an isolated complete layer after canonicalization, but it is not automatically compatible with dynamic forbidden-subset pruning because complementation reverses inclusion.
 
@@ -162,7 +162,7 @@ This distinction matters to FracESSA. Complement generation is valid for an isol
 
 The algorithm first generates only fixed-density necklaces. It then removes every necklace for which a reversed rotation is lexicographically smaller. Consequently each dihedral orbit contributes exactly one bracelet representative.
 
-The paper states this as: `InitFixed()` lists every member of \(\mathcal B_k(n,d)\) exactly once and in lexicographic order.
+The paper states this as: `InitFixed()` lists every member of $\mathcal B_k(n,d)$ exactly once and in lexicographic order.
 
 For a FracESSA implementation, this produces the same raw representative and ascending order required by the existing circular generator, provided the binary position-to-bit convention preserves word lexicographic order.
 
@@ -181,7 +181,7 @@ This is an amortized bound for generating a complete fixed-density layer. It doe
 
 ## Binary specialization for FracESSA
 
-The following general-paper machinery disappears for \(k=2\):
+The following general-paper machinery disappears for $k=2$:
 
 - no loop over nonzero symbol values;
 - no storage for nonzero values, because every nonzero is one;
@@ -194,7 +194,7 @@ The retained state can be small fixed arrays plus one mask:
 - positions of placed ones;
 - prefix density at the relevant positions;
 - current support mask;
-- \(t,p,r,RS\).
+- $t,p,r,RS$.
 
 This is the paper's most promising advantage over the already benchmarked fixed-content `BraceletFC`: it removes both the general alphabet machinery and recursion through explicit zero symbols.
 
@@ -220,7 +220,7 @@ The project implementation should therefore be treated as an independent adaptat
 
 ## Initial assessment
 
-This paper is a credible route to a substantial generator-only speedup because it attacks work that the current and 2013 algorithms both retain: walking through zero positions. It is most attractive for sparse layers, exactly where \(d\ll n\).
+This paper is a credible route to a substantial generator-only speedup because it attacks work that the current and 2013 algorithms both retain: walking through zero positions. It is most attractive for sparse layers, exactly where $d\ll n$.
 
 It is not yet evidence of a full FracESSA speedup. Matrix solving usually dominates, and production pruning changes the recursion tree. The proper next gate is an isolated binary implementation with order-insensitive correctness checks followed by generator-only measurements over complete layers. Production integration should wait for those results.
 
