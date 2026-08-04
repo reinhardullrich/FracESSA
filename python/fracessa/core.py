@@ -80,7 +80,7 @@ def load_native_module():
                 continue
 
         raise ModuleNotFoundError(
-            "Could not import native module 'fracessa_core'. Build it first with ./build.sh"
+            "Could not import native module 'fracessa_core'. Build it with CMake as described in README.md"
         )
 
 

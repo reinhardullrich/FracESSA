@@ -61,6 +61,9 @@ whole-matrix classifications are 955 without fallback, 45 `precision_span`, four
 and selects one benchmark iteration. Positive integer nanoseconds preserve the native value exactly; divide by `1000.0` when
 displaying decimal microseconds.
 
+The database-maintenance helpers described below live in the local-only, ignored `scripts/` directory. They are preserved in the
+maintainer worktree but are not included in public GitHub clones or releases.
+
 Run `scripts/calibrate_matrices.py fast` or `scripts/calibrate_matrices.py safe` from the repository root to fill only missing
 calibrations with the canonical Release Pybind module on CPU 2 and a one-second cutoff. When candidate fields are missing, either
 method also stores weighted counts, support-size structures, and representative candidate rows for a matrix that finishes.

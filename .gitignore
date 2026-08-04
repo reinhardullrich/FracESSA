@@ -46,9 +46,10 @@ __pycache__/
 /cpp/log/
 /cpp/callgrind/callgrind.out.*
 
-# Local research and experiments
+# Local research, experiments, and maintenance scripts
 /research/
 /experiments/
+/scripts/
 
 # Local backups and archives
 *.bak

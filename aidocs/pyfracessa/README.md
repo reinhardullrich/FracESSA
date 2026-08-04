@@ -15,7 +15,8 @@ The native module is built for the selected interpreter and must be imported by 
 repository instead:
 
 ```bash
-./build.sh
+cmake -S cpp -B cpp/build -DCMAKE_BUILD_TYPE=Release
+cmake --build cpp/build -j"$(nproc)"
 PYTHONPATH=python python3 your_script.py
 ```
 
@@ -97,10 +98,8 @@ PYTHONPATH=python python3 -m fracessa.timing report latest --baseline main
 commit measured, and the module or executable SHA-256 is captured automatically.
 The default selection is the `small` matrix class; `--size-class` also accepts `medium`, `large`, `super_large`, and `all`. Each
 matrix/method starts with
-the `fast_calibration_ns` or `safe_calibration_ns` value in its database row. Fill missing values with
-`scripts/calibrate_matrices.py fast` or `scripts/calibrate_matrices.py safe`; the safe calibration also stores a missing exact
-candidate baseline when that matrix finishes within the one-second cutoff. To retry only safe `-1` rows once with a two-minute
-cutoff, use `scripts/calibrate_matrices.py safe --retry-timeouts --cutoff-seconds 120`. The timing runner uses
+the `fast_calibration_ns` or `safe_calibration_ns` value in its database row. These values are maintained with local-only database
+helpers that are intentionally excluded from public clones and releases. The timing runner uses
 `ceil(target / calibration)` samples for positive calibrations; a calibration at or above the target or a `-1` timeout
 sentinel chooses one run. The default target is 0.5 seconds, and a missing calibration is an error. The stored result is the median
 returned native duration. The Pybind module stays loaded for every selected method and matrix in that invocation. Python wall time
@@ -266,8 +265,8 @@ PYTHONPATH=python python3 -m unittest discover \
 ```
 
 The suite includes unit tests plus mandatory native single-process,
-multithreaded-logging, and multiprocessing integration tests. Build
-`fracessa_core` first with `./build.sh`; a missing module is a test failure.
+multithreaded-logging, and multiprocessing integration tests. Build `fracessa_core` first with the CMake commands above; a missing
+module is a test failure.
 Ordinary pushes and pull requests run no GitHub Actions. The manually started
 release workflow builds and tests all supported platforms before creating its
 tag, publishing the standalone archives, and publishing `pyfracessa`.

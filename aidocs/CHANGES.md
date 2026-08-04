@@ -940,3 +940,7 @@ tree while preserving every file in the local worktree. Existing historical comm
 replaced each platform archive and its duplicated documentation folder with one directly downloadable executable. The GitHub release
 body now links the GPL license, exact tagged source archive, and third-party notices; Linux and macOS users receive the required
 `chmod +x` instruction. Python wheel packaging is unchanged.
+313. Removed redundant public maintenance wrappers:
+made the complete root `scripts/` directory local-only while preserving its maintenance helpers in the worktree, and deleted the
+redundant root `build.sh` and `test.sh` wrappers. Public build and test instructions now use their underlying CMake, CTest, and Python
+commands directly.

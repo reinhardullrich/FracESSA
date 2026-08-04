@@ -112,7 +112,8 @@ Build the command-line program and Python extension from the repository root:
 ```bash
 git clone https://github.com/reinhardullrich/fracessa.git
 cd fracessa
-./build.sh
+cmake -S cpp -B cpp/build -DCMAKE_BUILD_TYPE=Release
+cmake --build cpp/build -j"$(nproc)"
 ```
 
 The resulting programs are:
@@ -123,7 +124,8 @@ The resulting programs are:
 Run the automated test suite with:
 
 ```bash
-./test.sh
+ctest --test-dir cpp/build --output-on-failure -j"$(nproc)"
+PYTHONPATH=python python3 -m unittest discover -s python/tests -p 'test_*.py'
 ```
 
 ## Command-line use

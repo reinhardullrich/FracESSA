@@ -272,7 +272,8 @@ Key files:
 From repository root:
 
 ```bash
-./build.sh
+cmake -S cpp -B cpp/build -DCMAKE_BUILD_TYPE=Release
+cmake --build cpp/build -j"$(nproc)"
 ```
 
 Equivalent manual build:
@@ -337,7 +338,8 @@ GMP, MPFR, or FLINT.
 ## Tests And Test Data
 
 ```bash
-./test.sh # build, core/CLI tests, and wrapper tests
+ctest --test-dir cpp/build --output-on-failure -j"$(nproc)"
+PYTHONPATH=python python3 -m unittest discover -s python/tests -p 'test_*.py'
 ```
 
 The non-matrix CTest suite consists of nine GoogleTest executables plus one CLI
@@ -566,6 +568,9 @@ every stored build. All four newer panels also match their expected ESS counts. 
 `gamma_lower_bound = ess_count ** (1 / dimension)` is the paper's lower bound for $\gamma$ implied by the matrix and is null when
 the exact ESS count is unknown. `matrix_overview` places it immediately after `ess_structure`; timing reports print the same value.
 
+The root `scripts/` directory contains local database-maintenance helpers. It is intentionally ignored and is not part of public
+GitHub clones or releases; the operational notes below describe the maintainer worktree only.
+
 Exact circular-storage normalization uses `A - dJ`, never `A - dI`: subtracting the common diagonal value `d` from every entry
 preserves candidates and ESS on the simplex and shifts every payoff by `-d`. `scripts/normalize_circular_matrices.py` performs the
 audit with exact fractions and records `d` in each description. Retained IDs 1 and 2203 use compact normalized storage with
@@ -684,7 +689,7 @@ evidence.
 Database IDs 45-47 preserve the retired normalized-heuristic correctness regressions, and IDs 2207-2209 preserve the three former
 fast per-support false rejections. Their exact constructions are documented in `correctness/FAST_CANDIDATE_FALSE_REJECTION.md`.
 The wrapper integration suite checks IDs 46 and 2208 through fast and safe routes, but no complete SQLite matrix suite is currently
-wired into `./test.sh` or release CI.
+wired into the standard test commands or release CI.
 
 ## Pybind Boundary
 
