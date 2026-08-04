@@ -4,20 +4,24 @@
 
 # FracESSA
 
-FracESSA finds evolutionarily stable strategies (ESS) for symmetric rational payoff matrices. It provides an exact search for
-reliable results and a faster floating-point-assisted search for exploratory work.
-
 ## The problem
 
-Let $A=A^\mathsf{T}$ be a symmetric payoff matrix and let $x$ be a probability vector. FracESSA studies the quadratic form
+We consider the *Standard Quadratic Optimization Problem (StQP)* given by
 
 $$
-\max_{x\in\Delta_n} x^\mathsf{T} A x,
-\qquad
-\Delta_n=\{x\in\mathbb{R}^n \mid x_i\geq0,\ \sum_{i=1}^n x_i=1\}.
+\max_{\mathbf x\in \Delta^n} \mathbf x^\top{\mathsf A}\mathbf x
+\tag{1}
 $$
 
-For a symmetric matrix, the ESS are exactly the strict local maximizers of this problem. FracESSA searches the possible supports,
+where ${\mathsf A}$ is a symmetric $n\times n$-matrix and $\Delta^n$ is the standard simplex
+
+$$
+\Delta^n=\left\{\mathbf x\in\mathbb{R}^{n}:\sum_{i=1}^{n}x_i=1,\ x_i\geq0\quad\text{for all }i\in N\right\}.
+$$
+
+FracESSA finds evolutionarily stable strategies (ESS) for symmetric rational payoff matrices. It provides an exact search for
+reliable results and a faster floating-point-assisted search for exploratory work. For a symmetric matrix, the ESS are exactly the
+strict local maximizers of (1). FracESSA searches the possible supports,
 checks the corresponding equilibrium candidates, and classifies their stability. It returns the number of ESS and can also return
 their exact probability vectors, supports, payoffs, and stability results.
 

@@ -944,3 +944,6 @@ body now links the GPL license, exact tagged source archive, and third-party not
 made the complete root `scripts/` directory local-only while preserving its maintenance helpers in the worktree, and deleted the
 redundant root `build.sh` and `test.sh` wrappers. Public build and test instructions now use their underlying CMake, CTest, and Python
 commands directly.
+314. Replaced the README's opening problem statement:
+made the paper's canonical Standard Quadratic Optimization Problem the first prose sentence, displayed its numbered objective, and
+defined the standard simplex separately with GitHub-compatible mathematics.
