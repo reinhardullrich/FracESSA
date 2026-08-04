@@ -60,8 +60,11 @@ not set this field.
 
 Each candidate dictionary has a nullable `multiplier`: circular matrices return
 one bracelet representative with its orbit count, while ordinary candidates use
-`None`. The complete candidate and ESS counts and their support-size structures are always returned, independently of
-`include_candidates`. That option controls only whether the individual representative rows are included.
+`None`.
+
+`candidate_structure` and `ess_structure` map each integer support size to the complete candidate or ESS count at that size. Circular
+`multiplier` values are included in these counts. The complete counts and structures are always returned, independently of
+`include_candidates`; that option controls only whether the individual representative rows are included.
 
 A matrix may use full CLI form (`"3#4,13/2,..."`) or values only when
 `metadata["dimension"]` is present.

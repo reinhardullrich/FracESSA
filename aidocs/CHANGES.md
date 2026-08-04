@@ -963,3 +963,19 @@ commands, examples, and active documentation, and retained `fracessa_core` as th
 rechecked its CLI, installation, input, algorithm, and search-method statements against the current implementation and added a
 complete `run_multiprocessing()` example showing `MPConfig`, completion-order results, the portable `spawn` guard, and the
 separation between analysis and worker-process configuration.
+320. Repaired the rendered command-line example:
+placed the two matrix rows on separate Markdown lines so GitHub preserves the LaTeX row separator, displayed the exact ESS
+with proper fractions, and replaced both prose value counts with properly rendered fractions instead of slash notation.
+321. Clarified the CLI and Python result contracts:
+documented that Python always returns weighted candidate and ESS counts plus support-size structures, while the CLI prints only the
+ESS count by default and adds timing or representative CSV rows only when requested. Explained how CLI candidate columns can
+reconstruct the structures without claiming that separate structure fields are emitted.
+
+322. Clarified arbitrary-precision rational support:
+explained that input entries and the canonical vector/payoff results are exact numerator/denominator pairs backed by
+arbitrary-precision integers, without a fixed digit limit, while identifying `payoff_dbl` as an optional approximation.
+
+323. Reviewed and tightened the top-level README:
+kept it as an introduction and practical quick-start, reduced the algorithm description, qualified completeness as a `safe`
+guarantee, defined the simplex indices, documented platform minima and the one-dimensional compact-input exception, made build
+commands portable, and checked the CLI/Python result descriptions against their live outputs.

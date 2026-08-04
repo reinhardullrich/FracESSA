@@ -12,58 +12,45 @@ $$
 \max_{\mathbf x\in \Delta^n} \mathbf x^\top{\mathsf A}\mathbf x
 $$
 
-where ${\mathsf A}$ is a symmetric $n\times n$-matrix and $\Delta^n$ is the standard simplex
+where ${\mathsf A}$ is a symmetric $n\times n$ matrix and $\Delta^n$ is the standard simplex
 
 $$
-\Delta^n=\lbrace\mathbf x\in\mathbb{R}^{n}:\sum_{i=1}^{n}x_i=1,\ x_i\geq0\quad\text{for all }i\in N\rbrace.
+\Delta^n=\lbrace\mathbf x\in\mathbb{R}^{n}:\sum_{i=1}^{n}x_i=1,\ x_i\geq0\quad\text{for }i=1,\ldots,n\rbrace.
 $$
 
 FracESSA analyzes this StQP when ${\mathsf A}$ has rational entries. The same symmetric matrix also has a game-theoretic
 interpretation: it is the payoff matrix of a symmetric partnership game, and $\mathbf x^\top{\mathsf A}\mathbf x$ is the average
 payoff when the population uses the mixed strategy $\mathbf x$. Under this interpretation, the evolutionarily stable strategies
 (ESS) are exactly the strict local maximizers of the quadratic form $\mathbf x^\top{\mathsf A}\mathbf x$. FracESSA therefore finds
-the game-theoretic stable states by analyzing the
-candidate and local-maximizer structure of the StQP. It provides an exact search for reliable results and a faster
-floating-point-assisted search for exploratory work. FracESSA searches the possible supports,
-checks the corresponding equilibrium candidates, and classifies their stability. It returns the number of ESS and can also return
-their exact probability vectors, supports, payoffs, and stability results.
+the game-theoretic stable states by analyzing the candidate and local-maximizer structure of the StQP.
+It searches the possible supports, checks the corresponding equilibrium candidates, and classifies their stability. FracESSA returns
+the number of ESS and can also return their exact probability vectors, supports, payoffs, and stability results.
 
-The support space has size $2^n$, so running time can grow quickly with the dimension and structure of the matrix. FracESSA is
-optimized for repeated operations on many small support systems.
+The nonempty support space has size $2^n-1$, so running time can grow quickly with the dimension and structure of the matrix.
+FracESSA is optimized for repeated operations on many small support systems.
 
-## Algorithmic workflow
+## How the search works
 
-The potential search space consists of the $2^n-1$ nonempty supports, processed by increasing cardinality without
-storing the full frontier. For a general matrix, a bitwise depth-first generator streams the supports; for a
-circular-symmetric matrix, a fixed-density bracelet generator keeps one representative from each rotation/reflection
-class, and an exact affine-symmetry filter removes further equivalent cases. Following Bomze's support criterion,
-every exact equilibrium support rules out all of its
-strict supersets, so those branches are pruned before their systems are built. For each remaining support of size $k$,
-FracESSA uses the simplex normalization to eliminate one probability and removes the equilibrium payoff from the
-bordered system, producing a symmetric $(k-1)\times(k-1)$ reduced Hessian. In `safe`, one exact fraction-free
-$LDL^\mathsf{T}$-style factorization then does two jobs: it solves for the candidate and supplies the Hessian inertia
-needed for stability. If the inertia shows that the Hessian is not negative definite, the candidate is not an ESS. If it
-is negative definite and no unused outside strategy ties the candidate's payoff, the candidate is an ESS; only the
-remaining cases continue to Bomze's exact copositivity test. The `fast` method can reject some supports earlier with
-floating-point calculations, but every candidate it reports and every final stability decision are exact.
-
-Circular-symmetric matrices are symmetric matrices that remain unchanged when all strategy labels are shifted together
-around a cycle. This creates many equivalent supports related by rotations and reflections. Circular symmetry does not
-guarantee many ESS, but this matrix class has produced important games with unusually many strict local maxima and hence
-many ESS. FracESSA therefore provides specialized support generation and symmetry reductions for these matrices.
+FracESSA examines the nonempty supports in increasing size and skips supports made redundant by exact results or matrix symmetries.
+`safe` makes every candidate decision with exact arithmetic. `fast` uses floating-point arithmetic to discard many supports quickly,
+then checks every surviving candidate and every stability decision exactly. The faster filter can miss candidates, but each candidate
+it retains is reconstructed exactly.
 
 ## Capabilities and limitations
 
-FracESSA accepts symmetric payoff matrices whose entries are integers or exact fractions. It can find every equilibrium candidate
-and every ESS rather than only one solution. Every reported probability vector and payoff is an exact rational value, regardless of
-whether `safe` or `fast` was selected. The search method affects completeness, not the exactness of the reported output. Numerators
-and denominators are not restricted to the precision or exponent range of binary64 floating-point numbers.
+FracESSA accepts symmetric payoff matrices whose entries are integers or exact fractions. With `safe`, it finds every equilibrium
+candidate and every ESS rather than stopping after one solution. FracESSA parses every input entry as an exact rational number, and
+every reported `vector` and `payoff` is exact as well. Each rational is a numerator divided by a denominator, both backed by
+arbitrary-precision integers, so there is no fixed limit on the
+number of digits; the practical limits are available memory and computation time. `fast` additionally creates a floating-point copy
+for filtering, but it does not replace the exact input or round the exact results. The separate `payoff_dbl` field is only a convenient
+binary64 approximation of the exact `payoff`. The search method affects completeness, not the exactness of those results.
 
 The main limitations are:
 
 - the matrix must be symmetric and contain rational values;
-- the dimension must be smaller than 64;
-- the $2^n$ support space makes some larger or difficult matrices computationally expensive;
+- the dimension must be between 1 and 63;
+- the $2^n-1$ nonempty supports make some larger or difficult matrices computationally expensive;
 - one matrix is processed on one CPU core, although the Python API can process several matrices in parallel.
 
 ## Choose a search method
@@ -76,7 +63,8 @@ FracESSA always requires an explicit method; there is no default.
 | `fast` | Speed matters more than a completeness guarantee | Uses floating-point filtering before exact checks and can miss candidates |
 
 Candidates returned by `fast` are checked exactly, but its early floating-point filtering can make the returned set incomplete.
-When `fast` detects certain dangerous whole-matrix conditions, it automatically falls back to `safe` and reports the reason.
+When `fast` detects certain dangerous whole-matrix conditions, it automatically falls back to `safe`. Python returns the reason in
+`safe_fallback`; the CLI prints it when `--timing` is enabled.
 
 The CLI and Python API also expose `test`, an experimental copy of `fast` used for development. It is not intended for normal use.
 
@@ -90,7 +78,8 @@ installed separately. On Linux and macOS, make the downloaded file executable be
 chmod +x fracessa-*
 ```
 
-Windows users can run the downloaded `.exe` directly.
+Windows users can run the downloaded `.exe` directly. The Linux binaries require glibc 2.28 or newer, and the macOS binaries
+require macOS 11 or newer.
 
 Python 3.11 through 3.14 users can install the native extension and Python API directly from PyPI:
 
@@ -108,7 +97,7 @@ python -m pip install "pyfracessa[parquet]"
 
 Required system dependencies:
 
-- a C++17 compiler;
+- a C compiler and a C++17 compiler;
 - CMake 3.18 or newer;
 - Python 3.11 or newer, including development headers;
 - GMP, MPFR, and FLINT;
@@ -120,7 +109,7 @@ Build the command-line program and Python extension from the repository root:
 git clone https://github.com/reinhardullrich/fracessa.git
 cd fracessa
 cmake -S cpp -B cpp/build -DCMAKE_BUILD_TYPE=Release
-cmake --build cpp/build -j"$(nproc)"
+cmake --build cpp/build --parallel
 ```
 
 The resulting programs are:
@@ -131,7 +120,7 @@ The resulting programs are:
 Run the automated test suite with:
 
 ```bash
-ctest --test-dir cpp/build --output-on-failure -j"$(nproc)"
+ctest --test-dir cpp/build --output-on-failure --parallel
 PYTHONPATH=python python3 -m unittest discover -s python/tests -p 'test_*.py'
 ```
 
@@ -146,10 +135,17 @@ The general form is:
 For example, the symmetric matrix
 
 $$
-A=\begin{pmatrix}0&1\\1&0\end{pmatrix}
+A=\begin{pmatrix}
+0 & 1 \\
+1 & 0
+\end{pmatrix}
 $$
 
-is written as `2#0,1,0`. Its exact ESS is $(1/2,1/2)$:
+is written as `2#0,1,0`. Its exact ESS is
+
+$$
+\mathbf{x}=\left(\frac{1}{2},\frac{1}{2}\right).
+$$
 
 ```bash
 ./cpp/build/fracessa safe --candidates "2#0,1,0"
@@ -161,10 +157,14 @@ candidate_id;vector;support;support_size;extended_support;extended_support_size;
 1;1/2,1/2;3;2;3;2;;1;T_pd_frc;1/2;0.5
 ```
 
-Without `--candidates`, FracESSA prints only the ESS count.
+The first CLI output line is always the ESS count. Without `--timing` or `--candidates`, it is the only line. `--timing` adds the
+native elapsed time in nanoseconds and then the whole-matrix safe-fallback reason. `--candidates` adds the candidate CSV after
+those lines.
 
-In the candidate table, `vector` and `payoff` retain exact fractions, `support` is a bit mask, and `is_ess` is `1` for an ESS.
-For compact circular input, `multiplier` says how many rotations and reflections the displayed representative covers.
+The CLI does not print separate candidate-count or support-size-structure fields. Its candidate table contains the information needed
+to reconstruct them: `support_size`, `is_ess`, and `multiplier`. The `vector` and `payoff` columns retain exact fractions, while `payoff_dbl` is only a convenient floating-point approximation.
+`support` is a bit mask, and `is_ess` is `1` for an ESS. For compact circular input, `multiplier` says how many rotations and
+reflections the displayed representative covers; a blank `multiplier` means one candidate.
 
 Useful options:
 
@@ -207,12 +207,12 @@ the input is:
 3#a11,a12,a13,a22,a23,a33
 ```
 
-Exactly $n(n+1)/2$ values are required.
+Exactly $\frac{n(n+1)}{2}$ values are required.
 
 ### Circular-symmetric matrices
 
-A circular-symmetric matrix with zero diagonal can use a compact list of $\lfloor n/2\rfloor$ values. Entry $c_k$ is the payoff
-at circular distance $k$:
+For dimensions 2 and larger, a circular-symmetric matrix with zero diagonal can use a compact list of
+$\left\lfloor \frac{n}{2} \right\rfloor$ values. Entry $c_k$ is the payoff at circular distance $k$:
 
 ```text
 n#c1,c2,...,c_floor(n/2)
@@ -243,12 +243,18 @@ result = run(
     run_id="example",
 )
 
+print(result["candidate_count"])
+print(result["candidate_structure"])
 print(result["ess_count"])
+print(result["ess_structure"])
 print(result["candidates"])
 ```
 
-The result is a plain dictionary containing the status, candidate and ESS counts, support-size structures, native runtime,
-optional safe-fallback reason, optional candidate rows, and the input metadata.
+The result is a plain dictionary. `candidate_count` and `ess_count` are the multiplier-aware totals found by the selected search.
+`candidate_structure` and `ess_structure` partition those totals by support size. The count and structure fields are always returned;
+`RunConfig(include_candidates=True)` additionally returns the individual representative rows in `candidates`. Each row contains the
+exact `vector` and `payoff`; `payoff_dbl` is only a convenient floating-point approximation. The other fields report status, native
+runtime, an optional whole-matrix safe-fallback reason, errors, and the input metadata.
 
 ### Process several matrices in parallel
 
