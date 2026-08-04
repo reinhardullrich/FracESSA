@@ -14,6 +14,7 @@ from datetime import datetime, timezone
 from decimal import Decimal, InvalidOperation, ROUND_HALF_UP
 import hashlib
 from importlib import import_module, invalidate_caches
+import json
 import math
 import os
 from pathlib import Path
@@ -212,6 +213,21 @@ def _parse_cli_output(stdout: str, unit: str) -> tuple[int, int, str | None]:
     """Parse ESS count, elapsed time, and an optional safe fallback from CLI output."""
 
     lines = [line.strip() for line in stdout.splitlines() if line.strip()]
+    if lines and lines[0].startswith("{"):
+        try:
+            result = json.loads(lines[0])
+        except json.JSONDecodeError as error:
+            raise RuntimeError(f"invalid CLI JSON summary: {lines[0]!r}") from error
+        if not isinstance(result, dict):
+            raise RuntimeError(f"invalid CLI JSON summary: {result!r}")
+        if result.get("status") != 0:
+            raise RuntimeError(result.get("error_message") or "CLI computation failed")
+        ess_count = result.get("ess_count")
+        elapsed_ns = result.get("elapsed_ns")
+        if type(ess_count) is not int or ess_count < 0 or type(elapsed_ns) is not int or elapsed_ns < 0:
+            raise RuntimeError(f"invalid CLI JSON summary: {result!r}")
+        return ess_count, elapsed_ns, _read_safe_fallback(result)
+
     if len(lines) < 2:
         raise RuntimeError("CLI did not print ESS count and timing on two lines")
     try:
@@ -242,6 +258,14 @@ def _cli_runner(
     if not executable.is_file() or not os.access(executable, os.X_OK):
         raise ValueError(f"CLI executable is missing or not executable: {executable}")
 
+    help_result = subprocess.run(
+        [str(executable), "--help"],
+        check=False,
+        capture_output=True,
+        text=True,
+    )
+    timing_arguments = ["-t"] if "--timing" in help_result.stdout + help_result.stderr else []
+
     def run(matrix_id: int, matrix: str, method: str) -> tuple[int, int, str | None]:
         """Run one matrix through the selected CLI executable."""
 
@@ -254,7 +278,7 @@ def _cli_runner(
             method_arguments = [method]
 
         completed = subprocess.run(
-            [str(executable), "-t", *method_arguments, matrix],
+            [str(executable), *timing_arguments, *method_arguments, matrix],
             check=False,
             capture_output=True,
             text=True,

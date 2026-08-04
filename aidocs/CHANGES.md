@@ -982,3 +982,14 @@ commands portable, and checked the CLI/Python result descriptions against their 
 
 324. Removed duplicated search-method documentation:
 deleted the redundant algorithm section and kept `safe` versus `fast` in one authoritative place.
+
+325. Unified command-line and Python summary output:
+made every CLI analysis emit one ten-field JSON summary on success or failure, removed the optional timing output mode, and retained
+the candidate CSV only as an optional following table. Made JSON, CSV, and Parquet Python sinks use the same summary information,
+while preserving nested structures in JSON and encoding them compactly in flat formats. The historical timing adapter still reads
+old line-based binaries after detecting their `--timing` option.
+
+326. Corrected the post-output-change documentation audit:
+removed the last current-reference claim about three-line CLI timing output, documented that `--matrixid` also sets the JSON field,
+made the build examples portable to macOS, and synchronized current matrix, calibration, fallback, candidate, and ESS counts with
+the canonical SQLite database.

@@ -16,7 +16,7 @@ repository instead:
 
 ```bash
 cmake -S cpp -B cpp/build -DCMAKE_BUILD_TYPE=Release
-cmake --build cpp/build -j"$(nproc)"
+cmake --build cpp/build --parallel
 PYTHONPATH=python python3 your_script.py
 ```
 
@@ -229,6 +229,10 @@ fields and rejects non-string matrix values instead of coercing them.
 - `ParquetSink`: Parquet summary/candidate files plus metadata JSON; requires
   `pyarrow`.
 - `create_sink(kind, output_dir, run_id)`: constructs a named sink.
+
+Every summary uses the same fields as the CLI JSON line: `run_id`, `matrix_id`, `status`, `candidate_count`, `ess_count`,
+`candidate_structure`, `ess_structure`, `elapsed_ns`, `safe_fallback`, and `error_message`. JSON keeps both structures as objects;
+flat CSV and Parquet summaries store them as compact JSON strings. Candidate rows remain separate from the summary in every format.
 
 Every file sink accepts `(summary_path, candidates_path, metadata_path=None)`.
 When omitted for direct construction, the metadata path defaults to

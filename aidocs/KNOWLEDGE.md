@@ -150,8 +150,8 @@ ID reassignment; logging therefore uses the same row order and IDs as candidate 
 
 Every result exposes `safe_fallback`: null means the selected fast/test method reached its double search, while `precision_span`,
 `equilibration_invalid`, or `equilibration_non_convergence` identifies the whole-matrix preparation step that switched the run to
-safe search. A per-support exact retry does not set it. CLI timing output prints this as line 3; Pybind and all Python sinks use the
-same nullable field. Historical timing rows may retain the legacy generic value `equilibration`.
+safe search. A per-support exact retry does not set it. CLI JSON summaries, Pybind, and all Python sinks use the same nullable
+field. Historical timing rows may retain the legacy generic value `equilibration`.
 
 ## Computation Flow
 
@@ -273,14 +273,14 @@ From repository root:
 
 ```bash
 cmake -S cpp -B cpp/build -DCMAKE_BUILD_TYPE=Release
-cmake --build cpp/build -j"$(nproc)"
+cmake --build cpp/build --parallel
 ```
 
 Equivalent manual build:
 
 ```bash
 cmake -S cpp -B cpp/build -DCMAKE_BUILD_TYPE=Release
-cmake --build cpp/build -j"$(nproc)"
+cmake --build cpp/build --parallel
 ```
 
 Required system dependencies are a C++17 compiler, CMake 3.18 or newer, Python
@@ -338,7 +338,7 @@ GMP, MPFR, or FLINT.
 ## Tests And Test Data
 
 ```bash
-ctest --test-dir cpp/build --output-on-failure -j"$(nproc)"
+ctest --test-dir cpp/build --output-on-failure --parallel
 PYTHONPATH=python python3 -m unittest discover -s python/tests -p 'test_*.py'
 ```
 
@@ -347,14 +347,14 @@ black-box parser test. Wrapper tests use Python `unittest`. Matrix correctness
 is no longer wired as one CTest per matrix.
 
 `testdata/fracessa_testdata.sqlite3` is the canonical matrix, expected-result,
-and timing store. Its strict schema is in `testdata/schema.sql`; the current snapshot has 1,072 distinct strategically normalized
-matrices. The 780 analyzed rows have 67,875 stored candidate representatives; nullable multipliers recover weighted totals of
-106,401 candidates and 91,950 ESS:
+and timing store. Its strict schema is in `testdata/schema.sql`; the current snapshot has 1,372 distinct strategically normalized
+matrices. The 1,079 analyzed rows have 68,704 stored candidate representatives; nullable multipliers recover weighted totals of
+112,378 candidates and 96,727 ESS:
 circular rows store one smallest dihedral representative and its orbit count,
 while non-circular rows store null. Candidate IDs and row order remain
 reproducibility checks; complete weighted candidate sets and ESS
-classifications are the mathematical contracts. Of the analyzed rows, 762 have exact or exact-fallback baselines and 18 retain
-unverified fast-only baselines. The other 292 rows are catalog-only and keep all four baseline-summary fields null; null never
+classifications are the mathematical contracts. Of the analyzed rows, 1,061 have exact or exact-fallback baselines and 18 retain
+unverified fast-only baselines. The other 293 rows are catalog-only and keep all four baseline-summary fields null; null never
 means zero candidates or zero ESS. SQLite enforces stored-input uniqueness on `(dimension, matrix)`;
 `matrix` alone cannot be unique because compact input omits its dimension. Import audits additionally reject matrices whose stored
 value vectors have the same dimension and circular-storage flag and differ only by a positive nonzero rational multiplier; they
@@ -580,9 +580,9 @@ removed IDs 38 and 44 in favor of ID 1. Zero-game consolidation removed ID 43 in
 dimension-one consolidation left ID 314 as the sole full-storage exception. Eighteen stale `classic`/Werner rows for the old
 matrices were replaced by a current-build fast/safe panel; after both cleanups it has four rows for IDs 1 and 2203.
 
-Fast calibration covers all 1,072 matrices with 780 positive durations and 292 `-1` timeouts; safe calibration has 762 positive
-durations and 310 timeouts. No calibration remains null, and all 1,072 rows have a completed audit timestamp. Whole-matrix
-classification records 955 rows without fallback, 45 `precision_span`, four `equilibration_invalid`, and 68
+Fast calibration covers all 1,372 matrices with 1,079 positive durations and 293 `-1` timeouts; safe calibration has 1,061 positive
+durations and 311 timeouts. No calibration remains null, and all 1,372 rows have a completed audit timestamp. Whole-matrix
+classification records 1,165 rows without fallback, 135 `precision_span`, four `equilibration_invalid`, and 68
 `equilibration_non_convergence` fallbacks.
 The reusable
 `scripts/calibrate_matrices.py` processes only null calibration fields by default;
@@ -707,8 +707,11 @@ The analyzer and native binding both store the ESS count as `size_t`; Pybind
 converts that value directly to Python's arbitrary-precision integer.
 
 Native analyzer timing uses `std::chrono::steady_clock` and is always returned
-as integer nanoseconds in `elapsed_ns`. The CLI `--timing` output uses the same
-clock and unit, followed by `safe_fallback` on line 3. There is no wrapper timing-suppression option.
+as integer nanoseconds in `elapsed_ns`. Every CLI analysis writes one JSON summary line with the same ten summary fields used by
+Python: `run_id`, `matrix_id`, `status`, `candidate_count`, `ess_count`, `candidate_structure`, `ess_structure`, `elapsed_ns`,
+`safe_fallback`, and `error_message`. CLI `run_id` is null. `--candidates` appends the existing semicolon-delimited candidate CSV;
+there is no CLI timing switch or wrapper timing-suppression option. The historical timing adapter recognizes this JSON contract and
+still auto-detects older binaries that require `--timing` and line-based output.
 
 Matrix IDs are signed 64-bit values at the CLI, analyzer, Pybind, and file-sink
 boundaries. `Matrix` accepts only built-in Python integers in that range and
@@ -730,6 +733,9 @@ metadata. Empty outputs have stable readable schemas; Parquet buffers 1,024
 rows per row group. JSON writers replace non-finite floats with `null` and use
 strict encoding, so they never emit the non-standard `NaN` or `Infinity`
 literals.
+
+The three file sinks share one exact ten-field summary projection with the CLI. JSON retains support-size structures as objects;
+CSV and Parquet encode those two fields as compact JSON strings because their summary rows are flat. Candidate rows remain separate.
 
 Sink construction and consumption are transactional across each exclusive
 output triplet. A caught initialization, computation, write, or finalization

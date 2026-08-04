@@ -12,6 +12,7 @@ from .sinks import (
     _abort_on_error,
     _close_all,
     _open_output_triplet,
+    _summary_row,
 )
 
 
@@ -70,12 +71,7 @@ class CsvSink:
         if self._state != "active":
             raise RuntimeError("Cannot write to a closed or aborted CSV sink")
         with _abort_on_error(self):
-            summary_dict = {
-                key: value
-                for key, value in result.items()
-                if key not in {"candidates", "metadata"}
-            }
-            self._summary_writer.writerow(summary_dict)
+            self._summary_writer.writerow(_summary_row(result, encode_structures=True))
 
             for candidate_dict in result["candidates"]:
                 self._candidates_writer.writerow(candidate_dict)

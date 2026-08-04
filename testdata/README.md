@@ -3,9 +3,9 @@
 `fracessa_testdata.sqlite3` is the canonical store for exact test matrices,
 complete expected candidate results where available, and timing data.
 
-The current snapshot contains 1,072 distinct strategically normalized matrices. The 762 exact or exact-fallback baselines and 18
-additional unverified fast-only results have 67,875 stored candidate representatives whose multipliers represent 106,401
-candidates and 91,950 ESS. The other 292 rows are catalog-only and have null candidate fields.
+The current snapshot contains 1,372 distinct strategically normalized matrices. The 1,061 exact or exact-fallback baselines and 18
+additional unverified fast-only results have 68,704 stored candidate representatives whose multipliers represent 112,378
+candidates and 96,727 ESS. The other 293 rows are catalog-only and have null candidate fields.
 
 It contains each distinct matrix from Tables 1 and 2 of the
 Bomze-Schachinger-Ullrich ESS-growth paper exactly once. IDs 18 and 26 hold the
@@ -54,9 +54,9 @@ rule. All paired ESS counts match. Build label, revision, and binary hash
 identify every stored build.
 
 Matrix rows contain nullable `fast_calibration_ns` and `safe_calibration_ns` values used only to choose benchmark iteration
-counts. Fast calibration covers all 1,072 matrices with 780 positive measurements and 292 `-1` timeouts; safe has 762 positive
-measurements and 310 timeouts. No calibration field remains null, and every row has a completed audit timestamp. The current
-whole-matrix classifications are 955 without fallback, 45 `precision_span`, four `equilibration_invalid`, and 68
+counts. Fast calibration covers all 1,372 matrices with 1,079 positive measurements and 293 `-1` timeouts; safe has 1,061 positive
+measurements and 311 timeouts. No calibration field remains null, and every row has a completed audit timestamp. The current
+whole-matrix classifications are 1,165 without fallback, 135 `precision_span`, four `equilibration_invalid`, and 68
 `equilibration_non_convergence`. A value of `-1` records a calibration run killed at its cutoff
 and selects one benchmark iteration. Positive integer nanoseconds preserve the native value exactly; divide by `1000.0` when
 displaying decimal microseconds.

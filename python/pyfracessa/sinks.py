@@ -13,10 +13,12 @@ _SUMMARY_FIELDS = (
     "run_id",
     "matrix_id",
     "status",
+    "candidate_count",
     "ess_count",
+    "candidate_structure",
+    "ess_structure",
     "elapsed_ns",
     "safe_fallback",
-    "candidate_count",
     "error_message",
 )
 
@@ -37,6 +39,16 @@ _CANDIDATE_FIELDS = (
 )
 
 _ROW_BATCH_SIZE = 1024
+
+
+def _summary_row(result: dict, encode_structures: bool = False) -> dict:
+    """Return the common summary fields, optionally flattening structures."""
+
+    row = {name: result[name] for name in _SUMMARY_FIELDS}
+    if encode_structures:
+        for name in ("candidate_structure", "ess_structure"):
+            row[name] = json.dumps(row[name], separators=(",", ":"), sort_keys=True)
+    return row
 
 
 def _json_value(value):

@@ -9,7 +9,7 @@ unit tests on matrix_parser internals.
 from __future__ import annotations
 
 import argparse
-import re
+import json
 import subprocess
 import sys
 import tempfile
@@ -25,12 +25,52 @@ def run_case(fracessa_exe: Path, args: list[str], timeout: float = 30.0) -> subp
     )
 
 
-def first_non_empty_line(text: str) -> str:
-    for line in text.splitlines():
-        stripped = line.strip()
-        if stripped:
-            return stripped
-    return ""
+SUMMARY_FIELDS = [
+    "run_id",
+    "matrix_id",
+    "status",
+    "candidate_count",
+    "ess_count",
+    "candidate_structure",
+    "ess_structure",
+    "elapsed_ns",
+    "safe_fallback",
+    "error_message",
+]
+
+
+def output_lines(text: str) -> list[str]:
+    return [line.strip() for line in text.splitlines() if line.strip()]
+
+
+def parse_summary(text: str, case_name: str) -> dict:
+    lines = output_lines(text)
+    if not lines:
+        raise AssertionError(f"{case_name}: missing JSON summary")
+    try:
+        summary = json.loads(lines[0])
+    except json.JSONDecodeError as error:
+        raise AssertionError(f"{case_name}: invalid JSON summary: {lines[0]!r}") from error
+    if list(summary) != SUMMARY_FIELDS:
+        raise AssertionError(f"{case_name}: wrong summary fields: {list(summary)}")
+    return summary
+
+
+def comparable_output(result: subprocess.CompletedProcess, case_name: str) -> tuple[dict, list[str]]:
+    summary = parse_summary(result.stdout, case_name)
+    comparable = {
+        key: summary[key]
+        for key in (
+            "matrix_id",
+            "status",
+            "candidate_count",
+            "ess_count",
+            "candidate_structure",
+            "ess_structure",
+            "error_message",
+        )
+    }
+    return comparable, output_lines(result.stdout)[1:]
 
 
 def assert_success_with_ess_output(
@@ -44,11 +84,16 @@ def assert_success_with_ess_output(
             f"{case_name}: expected success, got rc={result.returncode}, stderr={result.stderr.strip()}"
         )
 
-    first_line = first_non_empty_line(result.stdout)
-    if not re.fullmatch(r"\d+", first_line):
-        raise AssertionError(
-            f"{case_name}: expected integer ESS count on first line, got '{first_line}'"
-        )
+    summary = parse_summary(result.stdout, case_name)
+    if summary["status"] != 0:
+        raise AssertionError(f"{case_name}: expected status 0, got {summary['status']}")
+    for field in ("candidate_count", "ess_count", "elapsed_ns"):
+        if type(summary[field]) is not int or summary[field] < 0:
+            raise AssertionError(f"{case_name}: invalid {field}: {summary[field]!r}")
+    if summary["run_id"] is not None or summary["error_message"]:
+        raise AssertionError(f"{case_name}: invalid success summary: {summary}")
+    if "--candidates" not in args and len(output_lines(result.stdout)) != 1:
+        raise AssertionError(f"{case_name}: expected exactly one output line")
     return result
 
 
@@ -65,6 +110,11 @@ def assert_failure_with_stderr(
         raise AssertionError(
             f"{case_name}: expected stderr to contain '{expected_substring}', got '{result.stderr.strip()}'"
         )
+    summary = parse_summary(result.stdout, case_name)
+    if summary["status"] == 0 or not summary["error_message"]:
+        raise AssertionError(f"{case_name}: error summary does not describe the failure: {summary}")
+    if len(output_lines(result.stdout)) != 1:
+        raise AssertionError(f"{case_name}: expected exactly one error-summary line")
 
 
 def assert_candidate_header_matches_rows(fracessa_exe: Path) -> None:
@@ -74,9 +124,12 @@ def assert_candidate_header_matches_rows(fracessa_exe: Path) -> None:
             f"candidate_columns: expected success, got rc={result.returncode}, stderr={result.stderr.strip()}"
         )
 
-    lines = [line.strip() for line in result.stdout.splitlines() if line.strip()]
+    lines = output_lines(result.stdout)
     if len(lines) < 3:
-        raise AssertionError(f"candidate_columns: expected count, header, and candidate row; got {lines}")
+        raise AssertionError(f"candidate_columns: expected summary, header, and candidate row; got {lines}")
+    summary = parse_summary(result.stdout, "candidate_columns")
+    if summary["candidate_count"] != 1 or summary["candidate_structure"] != {"1": 1}:
+        raise AssertionError(f"candidate_columns: wrong candidate summary: {summary}")
 
     header_count = len(lines[1].split(";"))
     for row in lines[2:]:
@@ -105,11 +158,12 @@ def assert_logged_candidates_match_sorted_output(fracessa_exe: Path) -> None:
                 f"logged_candidate_ids: expected success, got rc={result.returncode}, stderr={result.stderr.strip()}"
             )
 
-        output_lines = [line.strip() for line in result.stdout.splitlines() if line.strip()]
-        if output_lines[0] != "143" or len(output_lines[2:]) != 7:
+        lines = output_lines(result.stdout)
+        summary = parse_summary(result.stdout, "logged_candidate_ids")
+        if summary["ess_count"] != 143 or len(lines[2:]) != 7:
             raise AssertionError("logged_candidate_ids: wrong ESS total or representative count")
 
-        expected_rows = output_lines[1:]
+        expected_rows = lines[1:]
         expected_ids = list(range(1, len(expected_rows)))
         actual_ids = [int(row.split(";", 1)[0]) for row in expected_rows[1:]]
         if actual_ids != expected_ids:
@@ -149,7 +203,7 @@ def main() -> int:
         raise AssertionError("safe search unexpectedly printed a warning")
     assert_success_with_ess_output(fracessa_exe, ["test", "2#0,1,0"], "test_success")
 
-    for removed_or_unknown_method in ("verified", "exact", "unsafe", "unknown"):
+    for removed_or_unknown_method in ("verified", "exact", "unsafe", "unknown", 'bad"method'):
         assert_failure_with_stderr(
             fracessa_exe,
             [removed_or_unknown_method, "2#0,1,0"],
@@ -157,6 +211,7 @@ def main() -> int:
             f"{removed_or_unknown_method}_method_rejected",
         )
     assert_failure_with_stderr(fracessa_exe, ["--mode", "safe", "2#0,1,0"], "Unknown argument: --mode", "mode_flag_removed")
+    assert_failure_with_stderr(fracessa_exe, ["--timing", "safe", "2#0,1,0"], "Unknown argument: --timing", "timing_flag_removed")
     assert_failure_with_stderr(fracessa_exe, ["2#0,1,0"], "matrix", "missing_method_rejected")
 
     # Fast search bypasses floating-point rejection for a game whose exact-to-double conversion triggers any input check.
@@ -170,19 +225,19 @@ def main() -> int:
         fast_result = assert_success_with_ess_output(
             fracessa_exe, ["fast", matrix], f"{case_name}_fast"
         )
-        if first_non_empty_line(safe_result.stdout) != "1":
+        if parse_summary(safe_result.stdout, case_name)["ess_count"] != 1:
             raise AssertionError(f"{case_name}: safe search missed the ESS")
-        if first_non_empty_line(fast_result.stdout) != "1":
+        if parse_summary(fast_result.stdout, case_name)["ess_count"] != 1:
             raise AssertionError(f"{case_name}: fast search did not fall back to safe analysis")
         if "warning" in fast_result.stderr.lower():
             raise AssertionError(f"{case_name}: fast search unexpectedly printed a warning")
 
-    timing_result = assert_success_with_ess_output(
-        fracessa_exe, ["--timing", "fast", "2#1,1000000000,1"], "safe_fallback_output"
+    fallback_result = assert_success_with_ess_output(
+        fracessa_exe, ["fast", "2#1,1000000000,1"], "safe_fallback_output"
     )
-    timing_lines = [line.strip() for line in timing_result.stdout.splitlines() if line.strip()]
-    if len(timing_lines) != 3 or timing_lines[2] != "precision_span":
-        raise AssertionError(f"safe_fallback_output: expected precision_span on line 3, got {timing_lines}")
+    fallback_summary = parse_summary(fallback_result.stdout, "safe_fallback_output")
+    if fallback_summary["safe_fallback"] != "precision_span":
+        raise AssertionError(f"safe_fallback_output: expected precision_span, got {fallback_summary}")
 
     # Fast and test must preserve all three exact ESS that their historical floating-point rejection tests lost.
     historical_false_rejections = (
@@ -208,12 +263,12 @@ def main() -> int:
     )
     for case_name, options, expected_ess_count, matrix in historical_false_rejections:
         safe_result = assert_success_with_ess_output(fracessa_exe, [*options, "safe", matrix], f"{case_name}_safe")
-        if first_non_empty_line(safe_result.stdout) != expected_ess_count:
+        if parse_summary(safe_result.stdout, case_name)["ess_count"] != int(expected_ess_count):
             raise AssertionError(f"{case_name}: safe search returned the wrong ESS count")
 
         for method in ("fast", "test"):
             result = assert_success_with_ess_output(fracessa_exe, [*options, method, matrix], f"{case_name}_{method}")
-            if result.stdout != safe_result.stdout:
+            if comparable_output(result, case_name) != comparable_output(safe_result, case_name):
                 raise AssertionError(f"{case_name}: {method} search differs from safe search")
 
     # Other success paths
@@ -225,11 +280,13 @@ def main() -> int:
         "Unknown argument: --cyclic-symmetry-filter",
         "cyclic_filter_flag_removed",
     )
-    assert_success_with_ess_output(
+    matrix_id_result = assert_success_with_ess_output(
         fracessa_exe,
         ["--matrixid", "9223372036854775807", "safe", "2#0,1,0"],
         "signed_64_bit_matrix_id",
     )
+    if parse_summary(matrix_id_result.stdout, "signed_64_bit_matrix_id")["matrix_id"] != 9223372036854775807:
+        raise AssertionError("signed_64_bit_matrix_id: summary lost the matrix ID")
     assert_candidate_header_matches_rows(fracessa_exe)
 
     # Parser failure paths

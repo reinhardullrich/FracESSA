@@ -53,7 +53,12 @@ class TimingTests(unittest.TestCase):
             connection.close()
 
             executable = root / "fake-fracessa"
-            executable.write_text("#!/bin/sh\nprintf '4\\n0.000123\\n'\n")
+            executable.write_text(
+                "#!/bin/sh\n"
+                "if [ \"$1\" = \"--help\" ]; then printf '%s\\n' '--timing'; exit 0; fi\n"
+                "if [ \"$1\" != \"-t\" ]; then exit 2; fi\n"
+                "printf '4\\n0.000123\\n'\n"
+            )
             executable.chmod(0o755)
 
             output = StringIO()
@@ -164,6 +169,36 @@ class TimingTests(unittest.TestCase):
             timing._parse_cli_output("1\n123\nprecision_span\n", "ns"),
             (1, 123, "precision_span"),
         )
+
+    def test_current_cli_json_summary_is_parsed(self):
+        self.assertEqual(
+            timing._parse_cli_output(
+                '{"status":0,"ess_count":4,"elapsed_ns":123,"safe_fallback":null}\n',
+                "s",
+            ),
+            (4, 123, None),
+        )
+
+    def test_current_cli_runner_does_not_request_legacy_timing_output(self):
+        with tempfile.TemporaryDirectory() as directory:
+            executable = Path(directory) / "fake-fracessa"
+            executable.write_text(
+                "#!/bin/sh\n"
+                "if [ \"$1\" = \"--help\" ]; then printf 'current CLI\\n'; exit 0; fi\n"
+                "if [ \"$1\" = \"-t\" ]; then exit 2; fi\n"
+                "printf '%s\\n' '{\"status\":0,\"ess_count\":4,\"elapsed_ns\":123,\"safe_fallback\":null}'\n"
+            )
+            executable.chmod(0o755)
+
+            runner, _ = timing._cli_runner(executable, "ns", False, False)
+            self.assertEqual(runner(1, "2#0,1,0", "safe"), (4, 123, None))
+
+    def test_cli_json_error_is_rejected(self):
+        with self.assertRaisesRegex(RuntimeError, "bad matrix"):
+            timing._parse_cli_output(
+                '{"status":1,"ess_count":0,"elapsed_ns":0,"safe_fallback":null,"error_message":"bad matrix"}\n',
+                "ns",
+            )
 
     def test_default_target_is_half_a_second(self):
         arguments = timing._parser().parse_args(

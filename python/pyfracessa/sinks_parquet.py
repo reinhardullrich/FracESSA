@@ -12,6 +12,7 @@ from .sinks import (
     _call_all,
     _open_output_triplet,
     _rollback_call,
+    _summary_row,
 )
 
 
@@ -64,10 +65,12 @@ class ParquetSink:
                 ("run_id", pa.string()),
                 ("matrix_id", pa.int64()),
                 ("status", pa.int32()),
+                ("candidate_count", pa.int64()),
                 ("ess_count", pa.int64()),
+                ("candidate_structure", pa.string()),
+                ("ess_structure", pa.string()),
                 ("elapsed_ns", pa.int64()),
                 ("safe_fallback", pa.string()),
-                ("candidate_count", pa.int64()),
                 ("error_message", pa.string()),
             ])
 
@@ -118,7 +121,7 @@ class ParquetSink:
         if self._state != "active":
             raise RuntimeError("Cannot write to a closed or aborted Parquet sink")
         with _abort_on_error(self):
-            self._summary_buffer.append({name: result[name] for name in _SUMMARY_FIELDS})
+            self._summary_buffer.append(_summary_row(result, encode_structures=True))
             self._candidate_buffer.extend(result["candidates"])
             self._metadata_writer.write_result(result)
 

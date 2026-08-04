@@ -20,6 +20,8 @@ def _sample_result(matrix_id: int = 3) -> dict:
         "elapsed_ns": 12,
         "safe_fallback": None,
         "candidate_count": 1,
+        "candidate_structure": {2: 1},
+        "ess_structure": {2: 1},
         "error_message": "",
         "candidates": [
             {
@@ -76,6 +78,8 @@ class SinkTests(unittest.TestCase):
         self.assertIn("multiplier", candidate_lines[0])
         self.assertEqual(candidate_rows[0]["multiplier"], "")
         self.assertEqual(summary_rows[0]["safe_fallback"], "")
+        self.assertEqual(json.loads(summary_rows[0]["candidate_structure"]), {"2": 1})
+        self.assertEqual(json.loads(summary_rows[0]["ess_structure"]), {"2": 1})
         self.assertEqual(metadata[0]["metadata"], {"source": "unit"})
 
     def test_json_sink_writes_arrays(self):
@@ -91,6 +95,8 @@ class SinkTests(unittest.TestCase):
 
         self.assertEqual(len(summary), 1)
         self.assertIsNone(summary[0]["safe_fallback"])
+        self.assertEqual(summary[0]["candidate_structure"], {"2": 1})
+        self.assertEqual(summary[0]["ess_structure"], {"2": 1})
         self.assertEqual(len(candidates), 1)
         self.assertIsNone(candidates[0]["multiplier"])
 
@@ -113,10 +119,13 @@ class SinkTests(unittest.TestCase):
             sink.write_result(circular)
             sink.close()
             multipliers = pq.read_table(candidates_path)["multiplier"].to_pylist()
-            fallbacks = pq.read_table(summary_path)["safe_fallback"].to_pylist()
+            summary = pq.read_table(summary_path)
+            fallbacks = summary["safe_fallback"].to_pylist()
+            candidate_structures = summary["candidate_structure"].to_pylist()
 
         self.assertEqual(multipliers, [None, 5])
         self.assertEqual(fallbacks, [None, None])
+        self.assertEqual(candidate_structures, ['{"2":1}', '{"2":1}'])
 
     def test_json_sink_replaces_non_finite_floats_with_null(self):
         result = _sample_result()

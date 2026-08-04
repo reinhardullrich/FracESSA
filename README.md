@@ -55,7 +55,7 @@ FracESSA always requires an explicit method; there is no default.
 
 Candidates returned by `fast` are checked exactly, but its early floating-point filtering can make the returned set incomplete.
 When `fast` detects certain dangerous whole-matrix conditions, it automatically falls back to `safe`. Python returns the reason in
-`safe_fallback`; the CLI prints it when `--timing` is enabled.
+`safe_fallback`; the CLI includes the same field in every JSON summary.
 
 The CLI and Python API also expose `test`, an experimental copy of `fast` used for development. It is not intended for normal use.
 
@@ -143,17 +143,17 @@ $$
 ```
 
 ```text
-1
+{"run_id":null,"matrix_id":-1,"status":0,"candidate_count":1,"ess_count":1,"candidate_structure":{"2":1},"ess_structure":{"2":1},"elapsed_ns":28542,"safe_fallback":null,"error_message":""}
 candidate_id;vector;support;support_size;extended_support;extended_support_size;multiplier;is_ess;stability;payoff;payoff_dbl
 1;1/2,1/2;3;2;3;2;;1;T_pd_frc;1/2;0.5
 ```
 
-The first CLI output line is always the ESS count. Without `--timing` or `--candidates`, it is the only line. `--timing` adds the
-native elapsed time in nanoseconds and then the whole-matrix safe-fallback reason. `--candidates` adds the candidate CSV after
-those lines.
+Every analysis writes exactly one JSON summary line. It contains the status, weighted candidate and ESS counts, both support-size
+structures, native elapsed nanoseconds, the optional whole-matrix safe-fallback reason, and any error message. CLI calls have
+`run_id: null`; `matrix_id` is `-1` unless `--matrixid` is supplied. The displayed `elapsed_ns` above is only an example and varies
+between runs. `--candidates` appends the candidate CSV after the summary line.
 
-The CLI does not print separate candidate-count or support-size-structure fields. Its candidate table contains the information needed
-to reconstruct them: `support_size`, `is_ess`, and `multiplier`. The `vector` and `payoff` columns retain exact fractions, while `payoff_dbl` is only a convenient floating-point approximation.
+The `vector` and `payoff` CSV columns retain exact fractions, while `payoff_dbl` is only a convenient floating-point approximation.
 `support` is a bit mask, and `is_ess` is `1` for an ESS. For compact circular input, `multiplier` says how many rotations and
 reflections the displayed representative covers; a blank `multiplier` means one candidate.
 
@@ -161,11 +161,10 @@ Useful options:
 
 | Option | Meaning |
 |---|---|
-| `-c`, `--candidates` | Print the candidate table after the ESS count |
-| `-t`, `--timing` | Print native runtime in nanoseconds and the whole-matrix safe-fallback reason |
+| `-c`, `--candidates` | Print the candidate CSV after the JSON summary |
 | `-f`, `--fullsupport` | Check the full support first |
 | `-l`, `--log` | Write detailed diagnostics to `log/fracessa.log` |
-| `-m`, `--matrixid ID` | Attach a signed 64-bit matrix ID to the log |
+| `-m`, `--matrixid ID` | Set the signed 64-bit matrix ID in the JSON summary and log |
 
 Run `./cpp/build/fracessa --help` for the current command-line reference.
 
@@ -241,7 +240,8 @@ print(result["ess_structure"])
 print(result["candidates"])
 ```
 
-The result is a plain dictionary. `candidate_count` and `ess_count` are the multiplier-aware totals found by the selected search.
+The result is a plain dictionary. Its summary fields contain the same information as the CLI JSON line. `candidate_count` and
+`ess_count` are the multiplier-aware totals found by the selected search.
 `candidate_structure` and `ess_structure` partition those totals by support size. The count and structure fields are always returned;
 `RunConfig(include_candidates=True)` additionally returns the individual representative rows in `candidates`. Each row contains the
 exact `vector` and `payoff`; `payoff_dbl` is only a convenient floating-point approximation. The other fields report status, native
