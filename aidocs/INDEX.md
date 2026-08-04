@@ -17,6 +17,7 @@ rationale; its status line and this index determine which.
 - `KNOWLEDGE.md`: canonical current architecture, workflows, constraints, and
   project policy.
 - `pyfracessa/README.md`: public PyFracESSA and multiprocessing API.
+- `RELEASING.md`: calendar-version release procedure, supported artifacts, and tag-only automation.
 - `../testdata/README.md`: canonical SQLite test-data and timing schema.
 
 ## Current Design And Technical Reference

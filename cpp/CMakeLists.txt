@@ -1,7 +1,7 @@
 cmake_minimum_required(VERSION 3.18)
 
 project(fracessa
-    VERSION 2026.8.3.1
+    VERSION 2026.8.4.1
     DESCRIPTION "FRACESSA - Fractional ESS Analyzer"
     LANGUAGES CXX C
 )
@@ -16,6 +16,8 @@ set(CMAKE_CXX_STANDARD_REQUIRED ON)
 set(CMAKE_CXX_EXTENSIONS OFF)
 set(CMAKE_POSITION_INDEPENDENT_CODE ON)
 option(FRACESSA_NATIVE_ARCH "Enable -march=native in Release builds" ON)
+option(FRACESSA_BUILD_CLI "Build the command-line executable" ON)
+option(FRACESSA_BUILD_PYTHON "Build the Python extension module" ON)
 
 if(MSVC)
     set(CMAKE_MSVC_RUNTIME_LIBRARY "MultiThreaded$<$<CONFIG:Debug>:Debug>")
@@ -52,14 +54,18 @@ FetchContent_Declare(spdlog
     GIT_REPOSITORY https://github.com/gabime/spdlog.git
     GIT_TAG v1.13.0
 )
-FetchContent_Declare(argparse
-    GIT_REPOSITORY https://github.com/p-ranav/argparse.git
-    GIT_TAG v2.9
-)
-FetchContent_Declare(pybind11
-    GIT_REPOSITORY https://github.com/pybind/pybind11.git
-    GIT_TAG v3.0.4
-)
+if(FRACESSA_BUILD_CLI)
+    FetchContent_Declare(argparse
+        GIT_REPOSITORY https://github.com/p-ranav/argparse.git
+        GIT_TAG v2.9
+    )
+endif()
+if(FRACESSA_BUILD_PYTHON)
+    FetchContent_Declare(pybind11
+        GIT_REPOSITORY https://github.com/pybind/pybind11.git
+        GIT_TAG v3.0.4
+    )
+endif()
 if(BUILD_TESTING)
     FetchContent_Declare(googletest
         GIT_REPOSITORY https://github.com/google/googletest.git
@@ -67,14 +73,26 @@ if(BUILD_TESTING)
     )
 endif()
 
-# Use the same `python3` selected by project scripts unless explicitly overridden.
-if(NOT Python3_EXECUTABLE)
-    find_program(Python3_EXECUTABLE NAMES python3 python REQUIRED)
+if(FRACESSA_BUILD_PYTHON OR (BUILD_TESTING AND FRACESSA_BUILD_CLI))
+    # Use the same `python3` selected by project scripts unless explicitly overridden.
+    if(NOT Python3_EXECUTABLE)
+        find_program(Python3_EXECUTABLE NAMES python3 python REQUIRED)
+    endif()
 endif()
-find_package(Python3 3.14 COMPONENTS Interpreter Development.Module REQUIRED)
-set(PYBIND11_FINDPYTHON ON CACHE BOOL "Use CMake FindPython for pybind11" FORCE)
+if(FRACESSA_BUILD_PYTHON)
+    find_package(Python3 3.11 COMPONENTS Interpreter Development.Module REQUIRED)
+    set(PYBIND11_FINDPYTHON ON CACHE BOOL "Use CMake FindPython for pybind11" FORCE)
+elseif(BUILD_TESTING AND FRACESSA_BUILD_CLI)
+    find_package(Python3 3.11 COMPONENTS Interpreter REQUIRED)
+endif()
 
-FetchContent_MakeAvailable(spdlog argparse pybind11)
+FetchContent_MakeAvailable(spdlog)
+if(FRACESSA_BUILD_CLI)
+    FetchContent_MakeAvailable(argparse)
+endif()
+if(FRACESSA_BUILD_PYTHON)
+    FetchContent_MakeAvailable(pybind11)
+endif()
 if(BUILD_TESTING)
     # Keep GoogleTest's runtime choice aligned with the static MSVC build.
     if(MSVC)
@@ -176,18 +194,19 @@ target_link_libraries(fracessa_lib PUBLIC
 )
 
 
-add_executable(fracessa src/main.cpp)
-target_compile_definitions(fracessa PRIVATE FRACESSA_VERSION="${PROJECT_VERSION}")
+if(FRACESSA_BUILD_CLI)
+    add_executable(fracessa src/main.cpp)
+    target_compile_definitions(fracessa PRIVATE FRACESSA_VERSION="${PROJECT_VERSION}")
+    target_link_libraries(fracessa PRIVATE fracessa_lib argparse::argparse)
+    install(TARGETS fracessa RUNTIME DESTINATION bin)
+endif()
 
-target_link_libraries(fracessa PRIVATE
-    fracessa_lib
-    argparse::argparse
-)
-
-pybind11_add_module(fracessa_core MODULE src/pybind_module.cpp)
-target_link_libraries(fracessa_core PRIVATE fracessa_lib)
-
-install(TARGETS fracessa RUNTIME DESTINATION bin)
+if(FRACESSA_BUILD_PYTHON)
+    pybind11_add_module(fracessa_core MODULE src/pybind_module.cpp)
+    target_link_libraries(fracessa_core PRIVATE fracessa_lib)
+    # A top-level native module preserves the existing `import fracessa_core` loader.
+    install(TARGETS fracessa_core LIBRARY DESTINATION . RUNTIME DESTINATION .)
+endif()
 
 if(BUILD_TESTING)
     add_subdirectory(tests)

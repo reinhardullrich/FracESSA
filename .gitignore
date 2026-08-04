@@ -68,3 +68,7 @@ old_code_backup.tar.gz
 # OS files
 .DS_Store
 Thumbs.db
+
+# Release build caches and artifacts
+/.vcpkg-cache/
+/dist/

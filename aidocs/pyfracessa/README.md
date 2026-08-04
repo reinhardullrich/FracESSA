@@ -5,10 +5,14 @@ in-process.
 
 ## Build And Import
 
-Python 3.14 or newer is required. The native module is built for the selected
-interpreter and must be imported by that same Python minor version.
+Python 3.11 through 3.14 is supported. Install the published package with:
 
-From repository root:
+```bash
+python -m pip install pyfracessa
+```
+
+The native module is built for the selected interpreter and must be imported by that same Python minor version. To build from the
+repository instead:
 
 ```bash
 ./build.sh

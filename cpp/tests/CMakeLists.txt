@@ -34,11 +34,13 @@ add_test(NAME Bitset64Tests COMMAND test_bitset64)
 add_test(NAME IntegrationTests COMMAND test_integration)
 add_test(NAME FractionTests COMMAND test_fraction)
 
-# CLI parser black-box test
-set(CLI_PARSER_BLACKBOX_SCRIPT "${CMAKE_CURRENT_SOURCE_DIR}/cli_parser_blackbox.py")
-add_test(
-    NAME CliParserBlackBoxTests
-    COMMAND ${Python3_EXECUTABLE} ${CLI_PARSER_BLACKBOX_SCRIPT}
-        --fracessa-exe $<TARGET_FILE:fracessa>
-)
-set_tests_properties(CliParserBlackBoxTests PROPERTIES LABELS "cli;parser")
+if(TARGET fracessa)
+    # CLI parser black-box test
+    set(CLI_PARSER_BLACKBOX_SCRIPT "${CMAKE_CURRENT_SOURCE_DIR}/cli_parser_blackbox.py")
+    add_test(
+        NAME CliParserBlackBoxTests
+        COMMAND ${Python3_EXECUTABLE} ${CLI_PARSER_BLACKBOX_SCRIPT}
+            --fracessa-exe $<TARGET_FILE:fracessa>
+    )
+    set_tests_properties(CliParserBlackBoxTests PROPERTIES LABELS "cli;parser")
+endif()

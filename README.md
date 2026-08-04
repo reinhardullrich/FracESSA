@@ -52,21 +52,39 @@ When `fast` detects certain dangerous whole-matrix conditions, it automatically 
 
 The CLI and Python API also expose `test`, an experimental copy of `fast` used for development. It is not intended for normal use.
 
+## Install
+
+The GitHub [Releases](https://github.com/reinhardullrich/fracessa/releases) page provides self-contained command-line archives for
+Linux x86-64, Linux ARM64, macOS Intel, macOS Apple Silicon, and Windows x86-64. Extract the archive and run `fracessa`
+(`fracessa.exe` on Windows); Python, GMP, MPFR, and FLINT do not need to be installed separately.
+
+Python 3.11 through 3.14 users can install the native extension and Python API directly from PyPI:
+
+```bash
+python -m pip install pyfracessa
+```
+
+The distribution is named `pyfracessa`; the import remains `fracessa`. Parquet output is optional:
+
+```bash
+python -m pip install "pyfracessa[parquet]"
+```
+
 ## Build from source
 
 Required system dependencies:
 
 - a C++17 compiler;
 - CMake 3.18 or newer;
-- Python 3.14 or newer, including development headers;
+- Python 3.11 or newer, including development headers;
 - GMP, MPFR, and FLINT;
 - Git and internet access for CMake's first download of `argparse`, `pybind11`, `spdlog`, and the test framework.
 
 Build the command-line program and Python extension from the repository root:
 
 ```bash
-git clone https://github.com/reinhardullrich/FracESSA.git
-cd FracESSA
+git clone https://github.com/reinhardullrich/fracessa.git
+cd fracessa
 ./build.sh
 ```
 
@@ -169,8 +187,8 @@ value count and automatically applies its circular-symmetry reductions.
 
 ## Python use
 
-The maintained Python API calls the same C++ engine in-process. Build the project first, then make the package visible from the
-repository root:
+The maintained Python API calls the same C++ engine in-process. Install `pyfracessa` from PyPI as shown above, or build the project
+from source and make the source package visible from the repository root:
 
 ```bash
 PYTHONPATH=python python3 your_script.py
@@ -204,8 +222,14 @@ multiprocessing, JSON input, CSV/JSON/Parquet output, and every result field.
 
 - [Python API](aidocs/pyfracessa/README.md)
 - [Test-matrix database](testdata/README.md)
+- [Release procedure](aidocs/RELEASING.md)
 - [Technical documentation index](aidocs/INDEX.md)
 - [Research papers](research/papers/)
+
+## License
+
+FracESSA is free software licensed under [GPL-3.0-or-later](LICENSE). Prebuilt releases statically link third-party libraries; their
+licenses and exact source locations are recorded in [THIRD_PARTY_NOTICES.md](THIRD_PARTY_NOTICES.md).
 
 The root README is intentionally an introduction and usage guide. Mathematical derivations, numerical details, benchmarks, and
 historical experiments are kept in the linked documentation instead.
