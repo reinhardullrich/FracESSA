@@ -80,7 +80,7 @@ class MPConfig:
         start_method: Python multiprocessing start method.
     """
 
-    workers: int = max(1, os.process_cpu_count() or 1)
+    workers: int = max(1, getattr(os, "process_cpu_count", os.cpu_count)() or 1)
     prefetch_per_worker: int = 128
     queue_maxsize: int = 4096
     start_method: Literal["spawn", "forkserver", "fork"] = "spawn"
