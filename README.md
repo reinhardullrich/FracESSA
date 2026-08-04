@@ -1,5 +1,5 @@
 <p align="center">
-  <img src="logo.jpeg" width="900" alt="FracESSA logo" />
+  <img src="logo.png" width="700" alt="FracESSA logo" />
 </p>
 
 # FracESSA
@@ -14,7 +14,7 @@ Let $A=A^\mathsf{T}$ be a symmetric payoff matrix and let $x$ be a probability v
 $$
 \max_{x\in\Delta_n} x^\mathsf{T} A x,
 \qquad
-\Delta_n=\left\{x\in\mathbb{R}^n:x_i\geq0,\ \sum_{i=1}^n x_i=1\right\}.
+\Delta_n=\{x\in\mathbb{R}^n \mid x_i\geq0,\ \sum_{i=1}^n x_i=1\}.
 $$
 
 For a symmetric matrix, the ESS are exactly the strict local maximizers of this problem. FracESSA searches the possible supports,
