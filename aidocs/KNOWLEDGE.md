@@ -1,6 +1,6 @@
 # Project Knowledge
 
-Last verified: 2026-08-03
+Last verified: 2026-08-04
 
 ## Worktree Policy
 
@@ -115,7 +115,7 @@ FracESSA is a C++17 ESS (evolutionarily stable strategy) analyzer for symmetric
 payoff matrices. It has two entry surfaces:
 
 - CLI: `cpp/src/main.cpp`, built as `cpp/build/fracessa`.
-- PyFracESSA package: `python/fracessa/`, backed by the native extension in
+- PyFracESSA package: `python/pyfracessa/`, backed by the native extension in
   `cpp/src/pybind_module.cpp` named `fracessa_core`.
 
 CLI matrix format is `dimension#values`. Values are either the upper triangle
@@ -664,7 +664,7 @@ expression. Catalog-only imports have no timing rows, and the timing runner excl
 
 The former JSON/CSV verification, baseline-generation, speed-benchmark, and
 Callgrind runners were removed. There is no replacement matrix-verification
-runner yet. The small `python -m fracessa.timing` tool reads matrices from
+runner yet. The small `python -m pyfracessa.timing` tool reads matrices from
 SQLite, measures one build and one matrix at a time on a user-selected Linux
 CPU, and writes normalized nanosecond samples to the same database. Reusing a
 session name groups separately invoked builds. Each row records `source_ref`
@@ -720,7 +720,7 @@ rotates the same log file; non-logging calls remain concurrent.
 
 ## PyFracESSA
 
-`python/fracessa/` calls `fracessa_core` in-process and is the maintained API.
+`python/pyfracessa/` calls `fracessa_core` in-process and is the maintained API.
 It supports sequential execution, process-based parallelism across matrices,
 and CSV/JSON/Parquet disk sinks. One matrix is always computed by one worker
 process; parallelism is across matrices. File sinks create output paths
@@ -766,7 +766,7 @@ when iteration stops early. It does not batch multiple matrices into one queue
 item. Native logging is rejected before multiprocessing workers are created;
 it remains available in sequential wrapper execution.
 
-New API work belongs in `python/fracessa/` and `fracessa_core`.
+New API work belongs in `python/pyfracessa/` and `fracessa_core`.
 
 Every production Python module, class, function, and method has a standard
 docstring consumable by `pydoc`, `pdoc`, or Sphinx `autodoc`. Tests are excluded

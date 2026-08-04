@@ -6,7 +6,7 @@ import tempfile
 import unittest
 from unittest import mock
 
-from fracessa import timing
+from pyfracessa import timing
 
 
 class TimingTests(unittest.TestCase):
@@ -58,10 +58,10 @@ class TimingTests(unittest.TestCase):
 
             output = StringIO()
             with (
-                mock.patch("fracessa.timing._pin_cpu", return_value={0}),
-                mock.patch("fracessa.timing._restore_affinity"),
+                mock.patch("pyfracessa.timing._pin_cpu", return_value={0}),
+                mock.patch("pyfracessa.timing._restore_affinity"),
                 mock.patch(
-                    "fracessa.timing.perf_counter_ns",
+                    "pyfracessa.timing.perf_counter_ns",
                     side_effect=[0, 1_200_000],
                 ),
                 redirect_stdout(output),
@@ -126,7 +126,7 @@ class TimingTests(unittest.TestCase):
             return 7, 1_100_000_000, None
 
         with mock.patch(
-            "fracessa.timing.perf_counter_ns", side_effect=[0, 5]
+            "pyfracessa.timing.perf_counter_ns", side_effect=[0, 5]
         ):
             result = timing._measure_target(runner, 3, "2#0,1,0", "safe", 1_000_000_000, 1_100_000_000)
 
@@ -140,7 +140,7 @@ class TimingTests(unittest.TestCase):
             calls.append((matrix_id, matrix, method))
             return 7, 12_000_000_000, "precision_span"
 
-        with mock.patch("fracessa.timing.perf_counter_ns", side_effect=[0, 12_000_000_001]):
+        with mock.patch("pyfracessa.timing.perf_counter_ns", side_effect=[0, 12_000_000_001]):
             result = timing._measure_target(runner, 3, "2#0,1,0", "fast", 500_000_000, -1)
 
         self.assertEqual(result, (7, 12_000_000_000, 1, 12_000_000_001, "precision_span"))
@@ -153,7 +153,7 @@ class TimingTests(unittest.TestCase):
             return 7, next(elapsed), None
 
         with mock.patch(
-            "fracessa.timing.perf_counter_ns", side_effect=[0, 10_000]
+            "pyfracessa.timing.perf_counter_ns", side_effect=[0, 10_000]
         ):
             result = timing._measure_target(runner, 3, "2#0,1,0", "safe", 400, 100)
 

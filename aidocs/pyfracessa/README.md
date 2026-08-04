@@ -31,7 +31,7 @@ docstring. The built-in `pydoc`, the lightweight `pdoc` generator, and Sphinx
 a documentation dependency:
 
 ```bash
-PYTHONPATH=python python3 -m pydoc fracessa
+PYTHONPATH=python python3 -m pydoc pyfracessa
 ```
 
 Use `pdoc` for a small standalone HTML API site or Sphinx when the API reference
@@ -85,13 +85,13 @@ same session to later invocations to group a moving baseline and temporary
 build without loading two `fracessa_core` modules into one interpreter:
 
 ```bash
-PYTHONPATH=python python3 -m fracessa.timing run \
+PYTHONPATH=python python3 -m pyfracessa.timing run \
   --backend pybind --module-dir cpp/build \
   --build-label main --source-ref main --revision "$(git rev-parse HEAD)" \
   --method fast --method safe \
   --cpu 2 --comment "before candidate change"
 
-PYTHONPATH=python python3 -m fracessa.timing report latest --baseline main
+PYTHONPATH=python python3 -m pyfracessa.timing report latest --baseline main
 ```
 
 `source_ref` records a moving name such as `main`; `revision` records the exact
@@ -136,7 +136,7 @@ detailed diagnostic in `error_message`. The parser throws
 ## Execution API
 
 ```python
-from fracessa import Matrix, RunConfig, run
+from pyfracessa import Matrix, RunConfig, run
 
 matrix = Matrix(3, "3#4,13/2,1/2,5,11/2,3")
 result = run("safe", matrix, RunConfig(include_candidates=True), run_id="example")
@@ -162,7 +162,7 @@ Use the batch iterator for lists, generators, and large streams. One worker
 computes one matrix at a time; parallelism is across matrices.
 
 ```python
-from fracessa import (
+from pyfracessa import (
     MPConfig,
     Matrix,
     RunConfig,

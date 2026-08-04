@@ -3,8 +3,8 @@ from types import SimpleNamespace
 import unittest
 from unittest import mock
 
-from fracessa import mp as mp_mod
-from fracessa.types import MPConfig, Matrix, RunConfig
+from pyfracessa import mp as mp_mod
+from pyfracessa.types import MPConfig, Matrix, RunConfig
 
 
 def _fake_result(matrix_id: int) -> dict:
@@ -71,7 +71,7 @@ class MPUnitTests(unittest.TestCase):
         matrix = Matrix(matrix_id=7, matrix="2#0,1,0")
 
         _FakeRunner.instances.clear()
-        with mock.patch("fracessa.mp._QueueRunner", _FakeRunner):
+        with mock.patch("pyfracessa.mp._QueueRunner", _FakeRunner):
             result = mp_mod.run_multiprocessing(
                 "safe",
                 matrix,
@@ -86,7 +86,7 @@ class MPUnitTests(unittest.TestCase):
         sink = mock.Mock()
 
         _FakeRunner.instances.clear()
-        with mock.patch("fracessa.mp._QueueRunner", _FakeRunner):
+        with mock.patch("pyfracessa.mp._QueueRunner", _FakeRunner):
             count = mp_mod.run_multiprocessing(
                 "safe",
                 matrices,
@@ -103,7 +103,7 @@ class MPUnitTests(unittest.TestCase):
         cfg = MPConfig(workers=1, prefetch_per_worker=10, queue_maxsize=2)
 
         _FakeRunner.instances.clear()
-        with mock.patch("fracessa.mp._QueueRunner", _FakeRunner):
+        with mock.patch("pyfracessa.mp._QueueRunner", _FakeRunner):
             results = list(
                 mp_mod.run_multiprocessing(
                     "safe",
@@ -126,7 +126,7 @@ class MPUnitTests(unittest.TestCase):
         cfg = MPConfig(workers=1, prefetch_per_worker=1, queue_maxsize=1)
 
         _FakeRunner.instances.clear()
-        with mock.patch("fracessa.mp._QueueRunner", _FakeRunner):
+        with mock.patch("pyfracessa.mp._QueueRunner", _FakeRunner):
             results = mp_mod.run_multiprocessing("safe", matrices, mp_config=cfg)
             next(results)
             results.close()
@@ -138,7 +138,7 @@ class MPUnitTests(unittest.TestCase):
     def test_run_multiprocessing_rejects_logging_before_starting_workers(self):
         matrices = [Matrix(matrix_id=1, matrix="2#0,1,0")]
 
-        with mock.patch("fracessa.mp._QueueRunner") as runner:
+        with mock.patch("pyfracessa.mp._QueueRunner") as runner:
             with self.assertRaisesRegex(ValueError, "enable_logging"):
                 list(
                     mp_mod.run_multiprocessing(
@@ -170,7 +170,7 @@ class MPUnitTests(unittest.TestCase):
         ]
         output_queue = mock.Mock()
 
-        with mock.patch("fracessa.mp._safe_compute", return_value={"bad": lambda: None}):
+        with mock.patch("pyfracessa.mp._safe_compute", return_value={"bad": lambda: None}):
             with self.assertRaises(Exception):
                 mp_mod._queue_worker(input_queue, output_queue, "safe", RunConfig(), "unit")
 
@@ -180,7 +180,7 @@ class MPUnitTests(unittest.TestCase):
         matrix = Matrix(matrix_id=1, matrix="1#0")
         matrix.matrix_id = "invalid"
 
-        with mock.patch("fracessa.mp.compute_matrix", side_effect=RuntimeError("forced")):
+        with mock.patch("pyfracessa.mp.compute_matrix", side_effect=RuntimeError("forced")):
             result = mp_mod._safe_compute("safe", matrix, RunConfig(), "unit")
 
         self.assertEqual(result["matrix_id"], -1)

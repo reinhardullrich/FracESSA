@@ -5,10 +5,10 @@ import unittest
 from pathlib import Path
 from unittest import mock
 
-from fracessa import Matrix, run
-from fracessa.sinks import _JsonArrayWriter, _RowBuffer, create_sink
-from fracessa.sinks_csv import CsvSink
-from fracessa.sinks_json import JsonSink
+from pyfracessa import Matrix, run
+from pyfracessa.sinks import _JsonArrayWriter, _RowBuffer, create_sink
+from pyfracessa.sinks_csv import CsvSink
+from pyfracessa.sinks_json import JsonSink
 
 
 def _sample_result(matrix_id: int = 3) -> dict:
@@ -97,7 +97,7 @@ class SinkTests(unittest.TestCase):
     def test_parquet_multiplier_stays_nullable_across_batches(self):
         try:
             import pyarrow.parquet as pq
-            from fracessa.sinks_parquet import ParquetSink
+            from pyfracessa.sinks_parquet import ParquetSink
         except ImportError:
             self.skipTest("pyarrow not installed")
 
@@ -159,7 +159,7 @@ class SinkTests(unittest.TestCase):
                 Path(tmpdir) / "metadata.json",
             ]
             with mock.patch(
-                "fracessa.sinks_json._JsonArrayWriter",
+                "pyfracessa.sinks_json._JsonArrayWriter",
                 side_effect=fail_second_writer,
             ):
                 with self.assertRaisesRegex(RuntimeError, "forced initialization failure"):
@@ -206,7 +206,7 @@ class SinkTests(unittest.TestCase):
                     sink = create_sink(kind, tmpdir, run_id)
 
                     with mock.patch(
-                        "fracessa.single.compute_matrix",
+                        "pyfracessa.single.compute_matrix",
                         side_effect=RuntimeError("forced computation failure"),
                     ):
                         with self.assertRaisesRegex(RuntimeError, "forced computation failure"):

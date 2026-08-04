@@ -502,7 +502,7 @@ non-convergence.
 
 ## Scope
 
-`python -m fracessa.timing` reads matrices from this database and writes timing
+`python -m pyfracessa.timing` reads matrices from this database and writes timing
 observations back to `timings`. It is deliberately a sequential, Linux
 CPU-affinity runner, not part of the multiprocessing wrapper. One Pybind process
 stays open for all selected methods and matrices in a build. The matching matrix calibration chooses

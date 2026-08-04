@@ -35,7 +35,7 @@ Issues = "https://github.com/reinhardullrich/fracessa/issues"
 minimum-version = "build-system.requires"
 cmake.source-dir = "cpp"
 cmake.build-type = "Release"
-wheel.packages = ["python/fracessa"]
+wheel.packages = ["python/pyfracessa"]
 sdist.inclusion-mode = "manual"
 sdist.exclude = ["**"]
 sdist.include = [
@@ -46,7 +46,7 @@ sdist.include = [
     "cpp/CMakeLists.txt",
     "cpp/include/**",
     "cpp/src/**",
-    "python/fracessa/*.py",
+    "python/pyfracessa/*.py",
 ]
 
 [tool.scikit-build.cmake.define]
@@ -64,7 +64,7 @@ regex = '''(?s)project\(\s*fracessa\s+VERSION\s+(?P<value>\d+\.\d+\.\d+\.\d+)'''
 [tool.cibuildwheel]
 build = "cp{311,312,313,314}-*"
 skip = ["*-musllinux_*", "cp3??t-*"]
-test-command = "python -c \"from fracessa import Matrix, RunConfig, run; assert run('safe', Matrix(1, '2#0,1,0'), config=RunConfig(), run_id='wheel-test')['ess_count'] == 1\""
+test-command = "python -c \"from pyfracessa import Matrix, RunConfig, run; assert run('safe', Matrix(1, '2#0,1,0'), config=RunConfig(), run_id='wheel-test')['ess_count'] == 1\""
 
 [tool.cibuildwheel.linux]
 archs = ["native"]

@@ -1,8 +1,8 @@
 import inspect
 import unittest
 
-import fracessa
-from fracessa.types import MPConfig, Matrix, RunConfig, StatusCode, _validate_search_method
+import pyfracessa
+from pyfracessa.types import MPConfig, Matrix, RunConfig, StatusCode, _validate_search_method
 
 
 class TypesTests(unittest.TestCase):
@@ -57,24 +57,24 @@ class TypesTests(unittest.TestCase):
 
     def test_public_execution_api(self):
         self.assertEqual(
-            list(inspect.signature(fracessa.compute_matrix).parameters),
+            list(inspect.signature(pyfracessa.compute_matrix).parameters),
             ["method", "matrix", "config", "run_id"],
         )
         self.assertEqual(
-            list(inspect.signature(fracessa.run).parameters),
+            list(inspect.signature(pyfracessa.run).parameters),
             ["method", "matrices", "config", "run_id", "sink"],
         )
         self.assertEqual(
-            list(inspect.signature(fracessa.run_multiprocessing).parameters),
+            list(inspect.signature(pyfracessa.run_multiprocessing).parameters),
             ["method", "matrices", "config", "run_id", "sink", "mp_config"],
         )
         self.assertIsNone(
-            inspect.signature(fracessa.run_multiprocessing).parameters["mp_config"].default
+            inspect.signature(pyfracessa.run_multiprocessing).parameters["mp_config"].default
         )
-        for function in (fracessa.compute_matrix, fracessa.run, fracessa.run_multiprocessing):
+        for function in (pyfracessa.compute_matrix, pyfracessa.run, pyfracessa.run_multiprocessing):
             self.assertIs(inspect.signature(function).parameters["method"].default, inspect.Parameter.empty)
         self.assertEqual(
-            fracessa.__all__,
+            pyfracessa.__all__,
             [
                 "StatusCode",
                 "Matrix",

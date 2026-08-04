@@ -98,7 +98,7 @@ Python 3.11 through 3.14 users can install the native extension and Python API d
 python -m pip install pyfracessa
 ```
 
-The distribution is named `pyfracessa`; the import remains `fracessa`. Parquet output is optional:
+The distribution and import package are both named `pyfracessa`. Parquet output is optional:
 
 ```bash
 python -m pip install "pyfracessa[parquet]"
@@ -233,7 +233,7 @@ PYTHONPATH=python python3 your_script.py
 A complete single-matrix example is:
 
 ```python
-from fracessa import Matrix, RunConfig, run
+from pyfracessa import Matrix, RunConfig, run
 
 matrix = Matrix(1, "2#0,1,0")
 result = run(
@@ -250,9 +250,43 @@ print(result["candidates"])
 The result is a plain dictionary containing the status, candidate and ESS counts, support-size structures, native runtime,
 optional safe-fallback reason, optional candidate rows, and the input metadata.
 
-For many independent matrices, use `run_multiprocessing()` to distribute matrices across worker processes. One matrix remains
-single-core; parallelism is across matrices. The [Python API guide](aidocs/pyfracessa/README.md) documents sequential execution,
-multiprocessing, JSON input, CSV/JSON/Parquet output, and every result field.
+### Process several matrices in parallel
+
+`run_multiprocessing()` distributes independent matrices across worker processes. One matrix still uses one CPU core; the
+parallelism is across matrices. Results are yielded in completion order, so use `matrix_id` to identify each one.
+
+```python
+from pyfracessa import MPConfig, Matrix, RunConfig, run_multiprocessing
+
+matrices = [
+    Matrix(1, "2#0,1,0"),
+    Matrix(2, "3#4,13/2,1/2,5,11/2,3"),
+]
+
+if __name__ == "__main__":
+    mp_config = MPConfig(
+        workers=8,
+        prefetch_per_worker=128,
+        queue_maxsize=4096,
+        start_method="spawn",
+    )
+
+    for result in run_multiprocessing(
+        "safe",
+        matrices,
+        config=RunConfig(include_candidates=False),
+        mp_config=mp_config,
+    ):
+        print(result["matrix_id"], result["ess_count"])
+```
+
+`MPConfig()` without arguments uses all CPUs available to the Python process. The `workers` field sets the number of worker
+processes; `prefetch_per_worker` and `queue_maxsize` bound queued work and results; `start_method="spawn"` is the portable default.
+The `if __name__ == "__main__":` guard is required with `spawn`. Native logging is sequential-only and cannot be enabled in a
+multiprocessing run.
+
+The [Python API guide](aidocs/pyfracessa/README.md) documents sequential execution, JSON input, CSV/JSON/Parquet output, sinks, and
+every result field.
 
 ## Further documentation
 

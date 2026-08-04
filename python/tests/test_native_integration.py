@@ -6,14 +6,14 @@ import sqlite3
 import tempfile
 import unittest
 
-from fracessa import (
+from pyfracessa import (
     MPConfig,
     Matrix,
     RunConfig,
     run,
     run_multiprocessing,
 )
-from fracessa.core import load_native_module
+from pyfracessa.core import load_native_module
 
 
 class NativeIntegrationTests(unittest.TestCase):

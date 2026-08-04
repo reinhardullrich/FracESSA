@@ -955,3 +955,11 @@ explained that the same symmetric rational matrix defines both the StQP objectiv
 its ESS are precisely the strict local maximizers of the StQP objective on the simplex.
 317. Removed an unnecessary README equation reference:
 stated the ESS equivalence directly in terms of the quadratic form and removed the display equation's unused numeric tag.
+318. Aligned the Python distribution and import names:
+renamed the maintained package from `fracessa` to `pyfracessa`, updated wheel and source-distribution manifests, tests, timing
+commands, examples, and active documentation, and retained `fracessa_core` as the private native implementation module. The old
+`fracessa` import is not preserved as a compatibility alias.
+319. Refreshed the top-level Python usage guide:
+rechecked its CLI, installation, input, algorithm, and search-method statements against the current implementation and added a
+complete `run_multiprocessing()` example showing `MPConfig`, completion-order results, the portable `spawn` guard, and the
+separation between analysis and worker-process configuration.
