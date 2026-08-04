@@ -926,3 +926,10 @@ current performance evidence.
 summarized support generation, circular symmetry reduction, exact-equilibrium superset pruning, reduced-Hessian solving and inertia,
 and the retained Bomze copositivity fallback in one algorithmic overview. Added a plain-language definition of circular-symmetric
 matrices and explained why their high-ESS examples motivate specialized support generation.
+309. Replaced the public FracESSA logo:
+promoted the V6 simplex concept with the separated origin, three axis intercepts, blue `ESS`, black final `A`, and optically balanced
+wordmark spacing to `logo.png`. The README already references this file.
+310. Made releases manual, cache-stable, and tag-after-test:
+changed the release workflow to run only by manual dispatch from `main`, reject existing calendar-version tags, reuse default-branch
+vcpkg binary caches across releases, and create the tag and GitHub release only after every standalone and Python build succeeds.
+PyPI trusted publishing now follows the GitHub release, while ordinary pushes and pull requests continue to run no Actions.
