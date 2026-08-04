@@ -24,6 +24,27 @@ their exact probability vectors, supports, payoffs, and stability results.
 The support space has size $2^n$, so running time can grow quickly with the dimension and structure of the matrix. FracESSA is
 optimized for repeated operations on many small support systems.
 
+## Algorithmic workflow
+
+The potential search space consists of the $2^n-1$ nonempty supports, processed by increasing cardinality without
+storing the full frontier. For a general matrix, a bitwise depth-first generator streams the supports; for a
+circular-symmetric matrix, a fixed-density bracelet generator keeps one representative from each rotation/reflection
+class, and an exact affine-symmetry filter removes further equivalent cases. Following
+[Bomze's support criterion](research/papers/bomze_1992.md), every exact equilibrium support rules out all of its
+strict supersets, so those branches are pruned before their systems are built. For each remaining support of size $k$,
+FracESSA uses the simplex normalization to eliminate one probability and removes the equilibrium payoff from the
+bordered system, producing a symmetric $(k-1)\times(k-1)$ reduced Hessian. In `safe`, one exact fraction-free
+$LDL^\mathsf{T}$-style factorization then does two jobs: it solves for the candidate and supplies the Hessian inertia
+needed for stability. If the inertia shows that the Hessian is not negative definite, the candidate is not an ESS. If it
+is negative definite and no unused outside strategy ties the candidate's payoff, the candidate is an ESS; only the
+remaining cases continue to Bomze's exact copositivity test. The `fast` method can reject some supports earlier with
+floating-point calculations, but every candidate it reports and every final stability decision are exact.
+
+Circular-symmetric matrices are symmetric matrices that remain unchanged when all strategy labels are shifted together
+around a cycle. This creates many equivalent supports related by rotations and reflections. Circular symmetry does not
+guarantee many ESS, but this matrix class has produced important games with unusually many strict local maxima and hence
+many ESS. FracESSA therefore provides specialized support generation and symmetry reductions for these matrices.
+
 ## Capabilities and limitations
 
 FracESSA accepts symmetric payoff matrices whose entries are integers or exact fractions. It can find every equilibrium candidate

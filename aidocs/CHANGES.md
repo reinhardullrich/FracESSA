@@ -919,3 +919,10 @@ research note distinguishes constructed lower bounds from complete counts and re
 306. Removed obsolete raw Callgrind output:
 deleted the 35 tracked Callgrind 3.15.0 profiles from the former x86-64 build and the ignored local profiling log. The inactive
 historical scripts remain under `archive/callgrind/`, and the ignore rule continues to exclude newly generated profiles.
+307. Removed the remaining legacy Callgrind output:
+deleted the two Callgrind 3.13.0 profiles stored with the 2019 REF snapshot; they described an obsolete executable and retained no
+current performance evidence.
+308. Documented the complete search workflow in the public README:
+summarized support generation, circular symmetry reduction, exact-equilibrium superset pruning, reduced-Hessian solving and inertia,
+and the retained Bomze copositivity fallback in one algorithmic overview. Added a plain-language definition of circular-symmetric
+matrices and explained why their high-ESS examples motivate specialized support generation.
