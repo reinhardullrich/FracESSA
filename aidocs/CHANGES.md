@@ -993,3 +993,7 @@ old line-based binaries after detecting their `--timing` option.
 removed the last current-reference claim about three-line CLI timing output, documented that `--matrixid` also sets the JSON field,
 made the build examples portable to macOS, and synchronized current matrix, calibration, fallback, candidate, and ESS counts with
 the canonical SQLite database.
+
+327. Published the FracESSA project website:
+added a responsive static landing page using the existing logo, crawl metadata, `robots.txt`, and a sitemap; deployed it through a
+dedicated GitHub Pages workflow; and connected the repository homepage to `https://reinhardullrich.github.io/fracessa/`.

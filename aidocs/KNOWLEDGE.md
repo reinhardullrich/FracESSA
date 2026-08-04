@@ -787,10 +787,15 @@ require a built-in integer dimension.
 ## Release Workflow
 
 `.github/workflows/release.yml` runs only through manual `workflow_dispatch` from
-the default `main` branch. Ordinary pushes and pull requests run no GitHub
-Actions. The workflow builds standalone CLI binaries and CPython 3.11-3.14
+the default `main` branch. Ordinary pushes and pull requests run no release
+builds. The workflow builds standalone CLI binaries and CPython 3.11-3.14
 wheels for Linux x86-64, Linux ARM64, macOS Intel, macOS Apple Silicon, and
 Windows x86-64, plus one source distribution.
+
+`.github/workflows/pages.yml` deploys the static `site/` directory after relevant
+pushes to `main` and through manual dispatch. The public project site is
+`https://reinhardullrich.github.io/fracessa/`; it includes crawl metadata,
+`robots.txt`, and a one-page sitemap.
 
 The project uses calendar versions in the form
 `YEAR.MONTH.DAY.RELEASE_OF_DAY`. `cpp/CMakeLists.txt` is the single source of
