@@ -19,9 +19,12 @@ $$
 \Delta^n=\lbrace\mathbf x\in\mathbb{R}^{n}:\sum_{i=1}^{n}x_i=1,\ x_i\geq0\quad\text{for all }i\in N\rbrace.
 $$
 
-FracESSA finds evolutionarily stable strategies (ESS) for symmetric rational payoff matrices. It provides an exact search for
-reliable results and a faster floating-point-assisted search for exploratory work. For a symmetric matrix, the ESS are exactly the
-strict local maximizers of (1). FracESSA searches the possible supports,
+FracESSA analyzes this StQP when ${\mathsf A}$ has rational entries. The same symmetric matrix also has a game-theoretic
+interpretation: it is the payoff matrix of a symmetric partnership game, and $\mathbf x^\top{\mathsf A}\mathbf x$ is the average
+payoff when the population uses the mixed strategy $\mathbf x$. Under this interpretation, the evolutionarily stable strategies
+(ESS) are exactly the strict local maximizers of (1). FracESSA therefore finds the game-theoretic stable states by analyzing the
+candidate and local-maximizer structure of the StQP. It provides an exact search for reliable results and a faster
+floating-point-assisted search for exploratory work. FracESSA searches the possible supports,
 checks the corresponding equilibrium candidates, and classifies their stability. It returns the number of ESS and can also return
 their exact probability vectors, supports, payoffs, and stability results.
 

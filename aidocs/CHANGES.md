@@ -950,3 +950,6 @@ defined the standard simplex separately with GitHub-compatible mathematics.
 315. Fixed the README simplex delimiters:
 replaced escaped dynamic braces, which GitHub reduced to an invalid `\\left{`, with portable `\\lbrace` and `\\rbrace` math
 delimiters.
+316. Connected the README's optimization and game interpretations:
+explained that the same symmetric rational matrix defines both the StQP objective and a symmetric partnership game's payoff, and that
+its ESS are precisely the strict local maximizers of the StQP objective on the simplex.
