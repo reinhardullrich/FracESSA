@@ -1,5 +1,5 @@
 <p align="center">
-  <img src="logo.png" width="700" alt="FracESSA logo" />
+  <img src="logo.png" width="600" alt="FracESSA logo" />
 </p>
 
 # FracESSA
@@ -21,8 +21,21 @@ For a symmetric matrix, the ESS are exactly the strict local maximizers of this 
 checks the corresponding equilibrium candidates, and classifies their stability. It returns the number of ESS and can also return
 their exact probability vectors, supports, payoffs, and stability results.
 
-The support space has size $2^n$, so running time can grow quickly with the dimension and structure of the matrix. FracESSA
-accepts dimensions 1 through 63 and is optimized for repeated operations on many small support systems.
+The support space has size $2^n$, so running time can grow quickly with the dimension and structure of the matrix. FracESSA is
+optimized for repeated operations on many small support systems.
+
+## Capabilities and limitations
+
+FracESSA accepts symmetric payoff matrices whose entries are integers or exact fractions. In `safe` mode, all candidate decisions
+use exact rational arithmetic, and FracESSA returns the complete set of ESS with exact rational probability vectors and payoffs.
+Numerators and denominators are not restricted to the precision or exponent range of binary64 floating-point numbers.
+
+The main limitations are:
+
+- the matrix must be symmetric and contain rational values;
+- the dimension must be smaller than 64;
+- the $2^n$ support space makes some larger or difficult matrices computationally expensive;
+- one matrix is processed on one CPU core, although the Python API can process several matrices in parallel.
 
 ## Choose a search method
 
