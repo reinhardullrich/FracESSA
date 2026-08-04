@@ -947,3 +947,6 @@ commands directly.
 314. Replaced the README's opening problem statement:
 made the paper's canonical Standard Quadratic Optimization Problem the first prose sentence, displayed its numbered objective, and
 defined the standard simplex separately with GitHub-compatible mathematics.
+315. Fixed the README simplex delimiters:
+replaced escaped dynamic braces, which GitHub reduced to an invalid `\\left{`, with portable `\\lbrace` and `\\rbrace` math
+delimiters.

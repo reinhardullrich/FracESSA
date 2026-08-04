@@ -16,7 +16,7 @@ $$
 where ${\mathsf A}$ is a symmetric $n\times n$-matrix and $\Delta^n$ is the standard simplex
 
 $$
-\Delta^n=\left\{\mathbf x\in\mathbb{R}^{n}:\sum_{i=1}^{n}x_i=1,\ x_i\geq0\quad\text{for all }i\in N\right\}.
+\Delta^n=\lbrace\mathbf x\in\mathbb{R}^{n}:\sum_{i=1}^{n}x_i=1,\ x_i\geq0\quad\text{for all }i\in N\rbrace.
 $$
 
 FracESSA finds evolutionarily stable strategies (ESS) for symmetric rational payoff matrices. It provides an exact search for
