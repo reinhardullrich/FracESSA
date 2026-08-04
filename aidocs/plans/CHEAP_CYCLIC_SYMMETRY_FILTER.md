@@ -368,7 +368,7 @@ Promotion required:
 
 Only measured evidence should justify a second phase. Possible later work is:
 
-- a special constant-off-diagonal case, where $\operatorname{Aut}(A)=S_n$ and one support per cardinality is sufficient;
+- a special constant-off-diagonal case, where $\mathrm{Aut}(A)=S_n$ and one support per cardinality is sufficient;
 - an exact recognizer for rectangular rook matrices and row/column support canonicalization;
 - a general colored-graph automorphism tool;
 - direct generation under a larger group instead of post-bracelet filtering.

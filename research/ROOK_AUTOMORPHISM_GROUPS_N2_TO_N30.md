@@ -99,7 +99,7 @@ These are symbolic templates, not literal parser input: replace their letters wi
 For a support $S$, let
 
 $$
-M_G=\max_S|G\cdot S|=\frac{|G|}{\min_S|\operatorname{Stab}_G(S)|}.
+M_G=\max_S|G\cdot S|=\frac{|G|}{\min_S|\mathrm{Stab}_G(S)|}.
 $$
 
 The penultimate column gives $M_G$ and $\gamma_G=M_G^{1/n}$. It is the symmetry-only ceiling for one ESS orbit: if a support attaining

@@ -248,7 +248,7 @@ The circular generator uses a known dihedral symmetry group, but a general
 symmetric matrix may have a much larger automorphism group
 
 $$
-\operatorname{Aut}(A)=
+\mathrm{Aut}(A)=
 \{\pi:A_{\pi(i),\pi(j)}=A_{ij}\}.
 $$
 

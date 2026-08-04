@@ -156,7 +156,7 @@ individual supports, payoffs, or candidate rows.
 After the requested search range is complete, report:
 
 - the best ESS count and its first record-setting triple for each dimension and rook group;
-- $\gamma=\operatorname{ESS}^{1/n}$ for comparisons across dimensions;
+- $\gamma=\mathrm{ESS}^{1/n}$ for comparisons across dimensions;
 - the final requested value stage.
 
 The runner accepts `--max-dimension`, initially 30. If $n=30$ or $n=28$ proves impractical, restart with a lower value. Existing

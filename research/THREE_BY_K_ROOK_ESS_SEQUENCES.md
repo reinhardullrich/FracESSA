@@ -117,7 +117,7 @@ If a support $I$ is a candidate or an ESS, every transformed support $gI$, $g\in
 copies is determined by orbit-stabilizer:
 
 $$
-|G\cdot I|=\frac{|G|}{|\operatorname{Stab}_G(I)|}.
+|G\cdot I|=\frac{|G|}{|\mathrm{Stab}_G(I)|}.
 $$
 
 A large group therefore produces a large ESS orbit only when the support has a small stabilizer. Group order alone does not imply
@@ -231,7 +231,7 @@ $$
 For three distinct values, and also for the two-value slice $A=B\ne C$, this condition is necessary rather than merely a
 limitation of the displayed indexing. A circular representation would supply a permutation acting transitively as one cycle on
 all $3k$ cells. Every matrix automorphism lies in $S_3\times S_k$ for $k\ne3$. A transitive element must project to a
-three-cycle on the rows and a $k$-cycle on the columns, so its cell orbit has length $\operatorname{lcm}(3,k)$. This length equals
+three-cycle on the rows and a $k$-cycle on the columns, so its cell orbit has length $\mathrm{lcm}(3,k)$. This length equals
 $3k$ exactly when $\gcd(3,k)=1$.
 
 The exceptional square case does not evade the obstruction. At $k=3$, elements of $S_3\times S_3$ have order at most six.

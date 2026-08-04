@@ -4,7 +4,7 @@ This note records the symmetry analysis of the high-ESS matrices discussed in th
 objective is to maximize
 
 $$
-\gamma(A)=|\operatorname{ESS}(A)|^{1/n}
+\gamma(A)=|\mathrm{ESS}(A)|^{1/n}
 $$
 
 for symmetric games of dimension $n\leq 30$. A large automorphism group is useful because it identifies equivalent supports and
@@ -113,9 +113,9 @@ The complete automorphism group is larger. Any permutation of the three rows and
 preserves the matrix, so
 
 $$
-\operatorname{Aut}(A)\cong S_3\times S_8,
+\mathrm{Aut}(A)\cong S_3\times S_8,
 \qquad
-|\operatorname{Aut}(A)|=3!\,8!=241{,}920.
+|\mathrm{Aut}(A)|=3!\,8!=241{,}920.
 $$
 
 This is the full group: the maximal payoff-7 cliques have two distinguishable sizes, namely the three rows of size 8 and the eight
@@ -239,7 +239,7 @@ $$
 \gamma=30^{1/30}\approx1.120,
 $$
 
-far below the published $1.4933$. Maximizing $|\operatorname{Aut}(A)|$ is therefore not equivalent to maximizing $\gamma$.
+far below the published $1.4933$. Maximizing $|\mathrm{Aut}(A)|$ is therefore not equivalent to maximizing $\gamma$.
 
 ## Search direction
 
@@ -248,7 +248,7 @@ For every grid and payoff choice:
 1. Compute the candidates and ESS with exact arithmetic.
 2. Canonicalize ESS supports under the full grid automorphism group, not only rotations and reflections.
 3. Record orbit representatives and stabilizer sizes so the total count can be reconstructed exactly.
-4. Compute $\gamma=|\operatorname{ESS}|^{1/n}$.
+4. Compute $\gamma=|\mathrm{ESS}|^{1/n}$.
 5. Retain a construction as a new record only when its exact $\gamma$ exceeds $1.4933$.
 
 The main unresolved algorithmic opportunity is to use the full matrix automorphism group during support generation and pruning.
