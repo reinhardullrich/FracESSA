@@ -18,9 +18,9 @@ package_dir="$repo_root/dist/$package_name"
 
 "$script_dir/install-vcpkg.sh" "$triplet" "$vcpkg_root"
 
-linker_flags=()
+linker_flags=""
 if [[ "$platform" == linux-* ]]; then
-    linker_flags=(-DCMAKE_EXE_LINKER_FLAGS_RELEASE=-static-libgcc\ -static-libstdc++)
+    linker_flags="-static-libgcc -static-libstdc++"
 fi
 
 cmake -B "$build_dir" -S "$repo_root/cpp" \
@@ -32,7 +32,7 @@ cmake -B "$build_dir" -S "$repo_root/cpp" \
     -DFRACESSA_NATIVE_ARCH=OFF \
     -DFRACESSA_BUILD_CLI=ON \
     -DFRACESSA_BUILD_PYTHON=OFF \
-    "${linker_flags[@]}"
+    -DCMAKE_EXE_LINKER_FLAGS_RELEASE="$linker_flags"
 cmake --build "$build_dir" --config Release --target fracessa -j 4
 
 binary="$build_dir/fracessa"
