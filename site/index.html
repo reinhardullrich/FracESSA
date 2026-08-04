@@ -1,0 +1,139 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>FracESSA - Fractional ESS Analyzer</title>
+  <meta name="description" content="FracESSA finds evolutionarily stable strategies and strict local maximizers of rational standard quadratic optimization problems.">
+  <meta name="theme-color" content="#f6f1e9">
+  <link rel="canonical" href="https://reinhardullrich.github.io/fracessa/">
+  <link rel="icon" href="logo.png" type="image/png">
+  <link rel="stylesheet" href="styles.css">
+
+  <meta property="og:type" content="website">
+  <meta property="og:title" content="FracESSA - Fractional ESS Analyzer">
+  <meta property="og:description" content="Exact rational analysis of evolutionarily stable strategies and standard quadratic optimization problems.">
+  <meta property="og:url" content="https://reinhardullrich.github.io/fracessa/">
+  <meta property="og:image" content="https://reinhardullrich.github.io/fracessa/logo.png">
+  <meta name="twitter:card" content="summary_large_image">
+
+  <script type="application/ld+json">
+  {
+    "@context": "https://schema.org",
+    "@type": "SoftwareSourceCode",
+    "name": "FracESSA",
+    "alternateName": "Fractional ESS Analyzer",
+    "description": "Exact rational analysis of evolutionarily stable strategies and standard quadratic optimization problems.",
+    "codeRepository": "https://github.com/reinhardullrich/fracessa",
+    "programmingLanguage": ["C++", "Python"],
+    "runtimePlatform": ["Linux", "macOS", "Windows"],
+    "license": "https://www.gnu.org/licenses/gpl-3.0.html"
+  }
+  </script>
+</head>
+<body>
+  <header class="hero">
+    <nav class="nav" aria-label="Primary navigation">
+      <a class="wordmark" href="#top" aria-label="FracESSA home">Frac<span>ESS</span>A</a>
+      <div class="nav-links">
+        <a href="#method">Method</a>
+        <a href="#install">Install</a>
+        <a href="https://github.com/reinhardullrich/fracessa">GitHub</a>
+      </div>
+    </nav>
+
+    <div class="hero-grid" id="top">
+      <div class="hero-copy">
+        <p class="eyebrow">Fractional ESS Analyzer</p>
+        <h1>Exact structure inside the simplex.</h1>
+        <p class="lede">
+          FracESSA finds evolutionarily stable strategies in symmetric partnership games and strict local maximizers of rational standard quadratic optimization problems.
+        </p>
+        <div class="actions">
+          <a class="button primary" href="https://github.com/reinhardullrich/fracessa/releases">Download a binary</a>
+          <a class="button secondary" href="https://github.com/reinhardullrich/fracessa">View source</a>
+        </div>
+      </div>
+      <div class="hero-art">
+        <div class="logo-frame">
+          <img src="logo.png" alt="FracESSA logo showing a three-dimensional simplex">
+        </div>
+        <p>Rational input. Exact output. Up to 63 strategies.</p>
+      </div>
+    </div>
+  </header>
+
+  <main>
+    <section class="equation-band" aria-label="Optimization problem">
+      <p>Standard quadratic optimization</p>
+      <div class="equation">maximize&nbsp; x<sup>T</sup>Ax &nbsp;over&nbsp; x in the simplex</div>
+      <span>A is symmetric and rational</span>
+    </section>
+
+    <section class="section split" id="method">
+      <div>
+        <p class="section-label">What it computes</p>
+        <h2>From exponential supports to exact stable states.</h2>
+      </div>
+      <div class="body-copy">
+        <p>
+          A game with <em>n</em> strategies has 2<sup>n</sup>-1 nonempty supports. FracESSA searches those supports, solves each candidate system, prunes supersets of exact equilibria, and checks stability through the reduced Hessian matrix.
+        </p>
+        <p>
+          Circular-symmetric matrices receive a specialized symmetry reduction: equivalent rotations and reflections are represented once, then restored through exact multiplicities. This is especially valuable for games with many equivalent ESS.
+        </p>
+      </div>
+    </section>
+
+    <section class="cards" aria-label="Search methods">
+      <article class="card safe-card">
+        <div class="card-number">01</div>
+        <h3>Safe</h3>
+        <p>Uses exact rational arithmetic for every candidate decision. Choose this when mathematical completeness is required.</p>
+        <code>fracessa safe "3#-1,0,0,-2,0,-3"</code>
+      </article>
+      <article class="card fast-card">
+        <div class="card-number">02</div>
+        <h3>Fast</h3>
+        <p>Uses floating-point filtering before exact checks. Dangerous whole-matrix conditions trigger an automatic exact fallback.</p>
+        <code>fracessa fast "3#-1,0,0,-2,0,-3"</code>
+      </article>
+    </section>
+
+    <section class="section install" id="install">
+      <div>
+        <p class="section-label">Get started</p>
+        <h2>Native C++ speed, with or without Python.</h2>
+        <p class="install-note">Self-contained CLI binaries are published for Linux, macOS, and Windows. Python 3.11-3.14 wheels are available from PyPI.</p>
+      </div>
+      <div class="terminal" aria-label="Installation commands">
+        <div class="terminal-bar"><span></span><span></span><span></span></div>
+        <pre><code><b># Python API</b>
+python -m pip install pyfracessa
+
+<b># Build from source</b>
+git clone https://github.com/reinhardullrich/fracessa.git
+cmake -S fracessa/cpp -B fracessa/cpp/build \
+  -DCMAKE_BUILD_TYPE=Release
+cmake --build fracessa/cpp/build --parallel</code></pre>
+      </div>
+    </section>
+
+    <section class="facts" aria-label="Project facts">
+      <div><strong>1-63</strong><span>supported dimensions</span></div>
+      <div><strong>C++17</strong><span>numerical core</span></div>
+      <div><strong>Exact</strong><span>fractions and reported vectors</span></div>
+      <div><strong>GPL-3.0+</strong><span>open-source license</span></div>
+    </section>
+  </main>
+
+  <footer>
+    <p>FracESSA - Fractional ESS Analyzer</p>
+    <div>
+      <a href="https://github.com/reinhardullrich/fracessa">Repository</a>
+      <a href="https://github.com/reinhardullrich/fracessa/releases">Releases</a>
+      <a href="https://pypi.org/project/pyfracessa/">PyPI</a>
+    </div>
+  </footer>
+</body>
+</html>
