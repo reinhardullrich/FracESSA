@@ -953,3 +953,5 @@ delimiters.
 316. Connected the README's optimization and game interpretations:
 explained that the same symmetric rational matrix defines both the StQP objective and a symmetric partnership game's payoff, and that
 its ESS are precisely the strict local maximizers of the StQP objective on the simplex.
+317. Removed an unnecessary README equation reference:
+stated the ESS equivalence directly in terms of the quadratic form and removed the display equation's unused numeric tag.

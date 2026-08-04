@@ -10,7 +10,6 @@ We consider the *Standard Quadratic Optimization Problem (StQP)* given by
 
 $$
 \max_{\mathbf x\in \Delta^n} \mathbf x^\top{\mathsf A}\mathbf x
-\tag{1}
 $$
 
 where ${\mathsf A}$ is a symmetric $n\times n$-matrix and $\Delta^n$ is the standard simplex
@@ -22,7 +21,8 @@ $$
 FracESSA analyzes this StQP when ${\mathsf A}$ has rational entries. The same symmetric matrix also has a game-theoretic
 interpretation: it is the payoff matrix of a symmetric partnership game, and $\mathbf x^\top{\mathsf A}\mathbf x$ is the average
 payoff when the population uses the mixed strategy $\mathbf x$. Under this interpretation, the evolutionarily stable strategies
-(ESS) are exactly the strict local maximizers of (1). FracESSA therefore finds the game-theoretic stable states by analyzing the
+(ESS) are exactly the strict local maximizers of the quadratic form $\mathbf x^\top{\mathsf A}\mathbf x$. FracESSA therefore finds
+the game-theoretic stable states by analyzing the
 candidate and local-maximizer structure of the StQP. It provides an exact search for reliable results and a faster
 floating-point-assisted search for exploratory work. FracESSA searches the possible supports,
 checks the corresponding equilibrium candidates, and classifies their stability. It returns the number of ESS and can also return
