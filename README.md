@@ -26,9 +26,10 @@ optimized for repeated operations on many small support systems.
 
 ## Capabilities and limitations
 
-FracESSA accepts symmetric payoff matrices whose entries are integers or exact fractions. In `safe` mode, all candidate decisions
-use exact rational arithmetic, and FracESSA returns the complete set of ESS with exact rational probability vectors and payoffs.
-Numerators and denominators are not restricted to the precision or exponent range of binary64 floating-point numbers.
+FracESSA accepts symmetric payoff matrices whose entries are integers or exact fractions. It can find every equilibrium candidate
+and every ESS rather than only one solution. Every reported probability vector and payoff is an exact rational value, regardless of
+whether `safe` or `fast` was selected. The search method affects completeness, not the exactness of the reported output. Numerators
+and denominators are not restricted to the precision or exponent range of binary64 floating-point numbers.
 
 The main limitations are:
 
