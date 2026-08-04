@@ -1,8 +1,0 @@
-5557460475		apple_firestorm_pmu/cycles/u	1863722282	100.00		
-<not counted>		apple_icestorm_pmu/cycles/u	0	0.00		
-30550007956		apple_firestorm_pmu/instructions/u	1863722282	100.00		
-<not counted>		apple_icestorm_pmu/instructions/u	0	0.00		
-3701619880		apple_firestorm_pmu/branches/u	1863722282	100.00		
-<not counted>		apple_icestorm_pmu/branches/u	0	0.00		
-37415795		apple_firestorm_pmu/branch-misses/u	1863722282	100.00		
-<not counted>		apple_icestorm_pmu/branch-misses/u	0	0.00		

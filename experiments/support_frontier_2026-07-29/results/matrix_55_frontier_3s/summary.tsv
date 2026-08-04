@@ -1,4 +1,0 @@
-variant	run1_ms	run2_ms	mean_ms	change_vs_current_pct
-current	430.288656	423.727274	427.008000	+0.000000
-gosper_jump_byte	427.038267	426.428102	426.733000	-0.064402
-dfs_pruning	425.940477	426.110227	426.025000	-0.230206

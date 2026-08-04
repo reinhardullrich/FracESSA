@@ -1,2 +1,0 @@
-dimension	samples	repetitions_per_sample	subsets	eager_median_ns	gosper_median_ns	dfs_median_ns	gosper_vs_eager_percent	dfs_vs_eager_percent	checksum
-5	100	10000	31	121.835400	48.310400	102.706250	-60.347814	-15.700814	496

@@ -933,3 +933,6 @@ wordmark spacing to `logo.png`. The README already references this file.
 changed the release workflow to run only by manual dispatch from `main`, reject existing calendar-version tags, reuse default-branch
 vcpkg binary caches across releases, and create the tag and GitHub release only after every standalone and Python build succeeds.
 PyPI trusted publishing now follows the GitHub release, while ordinary pushes and pull requests continue to run no Actions.
+311. Made research and experiment material local-only:
+ignored the complete `research/` and `experiments/` directories and removed their previously tracked files from the current repository
+tree while preserving every file in the local worktree. Existing historical commits and tags remain unchanged.

@@ -1,3 +1,0 @@
-1
-candidate_id;vector;support;support_size;extended_support;extended_support_size;shift_reference;is_ess;stability;payoff;payoff_dbl
-1;1/20,1/20,1/20,1/20,1/20,1/20,1/20,1/20,1/20,1/20,1/20,1/20,1/20,1/20,1/20,1/20,1/20,1/20,1/20,1/20;1048575;20;1048575;20;0;1;T_pd_frc;-1/20;-0.050000

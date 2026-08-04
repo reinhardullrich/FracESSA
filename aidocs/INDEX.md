@@ -46,6 +46,8 @@ rationale; its status line and this index determine which.
 - `plans/MAJOR_SINGLE_CORE_PERFORMANCE_OPPORTUNITIES.md`: research review of
   theorem-backed and algorithmic routes to material single-core speedups; no
   listed idea is implemented or benchmarked by that document.
+- The following research notes are local-only because the complete `research/`
+  directory is ignored by Git:
 - `../research/AUTOMORPHISM_GROUPS_AND_GAMMA.md`: exact symmetry analysis of the published dimension-24 high-ESS rook game and
   related search directions.
 - `../research/ROOK_AUTOMORPHISM_GROUPS_N2_TO_N30.md`: rectangular-rook group orders, compact symbolic matrices, orbit ceilings,
@@ -63,9 +65,8 @@ rationale; its status line and this index determine which.
   phase, including why it was removed and the measurements worth retaining.
 - `reference/MATRIX_GENERATOR_CATALOGUE_AUDIT.md`: immutable catalogue-import
   audit snapshot; its counts describe that audit, not the live database.
-- `experiments/`: dated benchmark reports. These are immutable snapshots, not
-  statements about the current worktree.
-- `../research/papers/`: mathematical source papers used by the project.
+- Local `../experiments/`: dated benchmark snapshots, ignored by Git.
+- Local `../research/papers/`: mathematical source papers, ignored by Git.
 
 ## Maintenance Rules
 

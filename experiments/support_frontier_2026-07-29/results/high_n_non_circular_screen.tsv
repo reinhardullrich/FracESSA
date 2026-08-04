@@ -1,8 +1,0 @@
-label	dimension	description	production_ns	byte_gosper_ns	change_percent	ess_count	candidate_count
-hilbert15	15	Hilbert: A(i,j)=1/(i+j+1)	87299043.5	87456897	0.18081900	1	1
-hadamard16	16	Sylvester Hadamard: H*H^T=16I	387070.13664596272	397890.13966480445	2.79536000	0	8
-paley_conference18	18	Paley conference q=17: C*C^T=17I	97333876	98162105.5	0.85091600	68	68
-minij20	20	MINIJ: A(i,j)=min(i+1,j+1)	4265932.375	1450360.5714285714	-66.00130000	1	20
-fiedler21	21	Fiedler x=1..21: A(i,j)=abs(i-j)	837769514	827448556	-1.23196000	1	1
-random_mixed23	23	Random seed=(23<<16)+101, integers -9..9	66250126	70759501	6.80659000	7	12
-random_positive24	24	Random seed=(24<<16)+102, integers 1..9	293166067	302359588	3.13594000	11	23

@@ -66,18 +66,18 @@ Last verified: 2026-08-03
 - Main implementation: `cpp/`
 - Python API: `python/`
 - Canonical test data: `testdata/fracessa_testdata.sqlite3`
-- Research papers: `research/papers/`
-- Historical benchmark material: `experiments/`
+- Local research material: `research/` (ignored by Git)
+- Local historical benchmark material: `experiments/` (ignored by Git)
 - Agent documentation: `aidocs/`
 - Public GitHub introduction: `README.md`
 - `AGENTS.md` must remain a pointer only.
 
-`research/papers/` contains the retained PDFs and complete audited Markdown transcriptions of all five papers. The 2014, 2015,
+The entire `research/` and `experiments/` directories are preserved only in the local worktree and are not part of GitHub clones or
+future releases. `research/papers/` contains the retained PDFs and complete audited Markdown transcriptions of all five papers. The 2014, 2015,
 and 2018 Bomze-Schachinger-Ullrich papers also retain the exact LaTeX sources that generated their PDFs and seven rendered figure
 assets used by the Markdown versions.
 
-Generated or local-only paths include `cpp/build*/` and experiment `builds/`,
-`sources/`, and `logs/` directories.
+Generated or local-only paths include `cpp/build*/`, `research/`, and `experiments/`.
 `zzz_legacy/` is the tracked collection of preserved REF/EFR predecessors.
 Its six top-level folders are `EFR`, `REF_2016-10-06`, `REF_2016-11-16`,
 `REF_2016-11-20-Werner`, `REF_2019-09-20`, and `REF_R`. They are preserved historical
@@ -615,7 +615,7 @@ seconds; excluding those two adversarial cases, summed time improves by 28.76%.
 ID 46 is 3.8 milliseconds slower (13.4%); its absolute effect is small, but a
 repeat would be needed before classifying it as signal or timing noise.
 
-The isolated integer-solver experiment under
+The local-only isolated integer-solver experiment under
 `experiments/exact_integer_solver_comparison_2026-07-31/` compares the old
 bordered rational Gaussian solver, current reduced-Hessian rational $LDL^T$,
 integer bordered FFLU, a complete FFLU-plus-candidate-$LDL^T$ hybrid, and
@@ -678,8 +678,7 @@ median returned `elapsed_ns`. Measured wall time is metadata only and never choo
 backend remains
 available for legacy inspection but starts a child process per sample and must
 not be mixed with persistent-Pybind microbenchmarks. Timing reports retain fallback rows but exclude non-null fast fallbacks from
-speed-ratio summaries. Dated material under
-`experiments/` and `aidocs/experiments/` remains immutable historical
+speed-ratio summaries. Dated local material under `experiments/` and tracked reports under `aidocs/experiments/` remain immutable historical
 evidence.
 
 Database IDs 45-47 preserve the retired normalized-heuristic correctness regressions, and IDs 2207-2209 preserve the three former
