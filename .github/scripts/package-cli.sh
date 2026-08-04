@@ -13,8 +13,7 @@ vcpkg_root="$4"
 script_dir="$(cd -- "$(dirname -- "${BASH_SOURCE[0]}")" && pwd)"
 repo_root="$(cd -- "$script_dir/../.." && pwd)"
 build_dir="$repo_root/cpp/build-release-$platform"
-package_name="fracessa-$version-$platform"
-package_dir="$repo_root/dist/$package_name"
+output="$repo_root/dist/fracessa-$version-$platform"
 
 "$script_dir/install-vcpkg.sh" "$triplet" "$vcpkg_root"
 
@@ -38,14 +37,10 @@ cmake --build "$build_dir" --config Release --target fracessa -j 4
 binary="$build_dir/fracessa"
 actual_version="$("$binary" --version)"
 if [[ "$actual_version" != "$version" ]]; then
-    echo "Tag version $version does not match binary version $actual_version" >&2
+    echo "Release version $version does not match binary version $actual_version" >&2
     exit 1
 fi
 
 strip "$binary"
-mkdir -p "$package_dir"
-cp "$binary" "$package_dir/fracessa"
-cp "$repo_root/README.md" "$package_dir/README.md"
-cp "$repo_root/LICENSE" "$package_dir/LICENSE"
-cp "$repo_root/THIRD_PARTY_NOTICES.md" "$package_dir/THIRD_PARTY_NOTICES.md"
-tar -C "$repo_root/dist" -czf "$repo_root/dist/$package_name.tar.gz" "$package_name"
+mkdir -p "$repo_root/dist"
+cp "$binary" "$output"

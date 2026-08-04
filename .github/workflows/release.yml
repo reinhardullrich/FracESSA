@@ -69,7 +69,7 @@ jobs:
         with:
           path: .vcpkg-cache
           key: vcpkg-2026.07.29-${{ matrix.triplet }}-${{ hashFiles('.github/triplets/*.cmake') }}
-      - name: Build Linux archive in the glibc 2.28 environment
+      - name: Build Linux binary in the glibc 2.28 environment
         if: startsWith(matrix.platform, 'linux-')
         shell: bash
         run: |
@@ -82,7 +82,7 @@ jobs:
               "${{ matrix.platform }}" \
               "${{ matrix.triplet }}" \
               /opt/vcpkg
-      - name: Build macOS archive
+      - name: Build macOS binary
         if: startsWith(matrix.platform, 'macos-')
         shell: bash
         env:
@@ -93,11 +93,11 @@ jobs:
             "${{ matrix.platform }}" \
             "${{ matrix.triplet }}" \
             "$RUNNER_TEMP/vcpkg"
-      - name: Upload CLI archive
+      - name: Upload CLI binary
         uses: actions/upload-artifact@v7
         with:
           name: cli-${{ matrix.platform }}
-          path: dist/fracessa-*.tar.gz
+          path: dist/fracessa-*
           if-no-files-found: error
 
   cli-windows:
@@ -111,7 +111,7 @@ jobs:
         with:
           path: .vcpkg-cache
           key: vcpkg-2026.07.29-x64-windows-static-release-${{ hashFiles('.github/triplets/*.cmake') }}
-      - name: Build Windows archive
+      - name: Build Windows binary
         shell: pwsh
         run: |
           .github/scripts/package-cli.ps1 `
@@ -119,11 +119,11 @@ jobs:
             -Platform "windows-x86_64" `
             -Triplet "x64-windows-static-release" `
             -VcpkgRoot "C:/fracessa-vcpkg-2026.07.29"
-      - name: Upload CLI archive
+      - name: Upload CLI binary
         uses: actions/upload-artifact@v7
         with:
           name: cli-windows-x86_64
-          path: dist/fracessa-*.zip
+          path: dist/fracessa-*.exe
           if-no-files-found: error
 
   wheels-linux:
@@ -281,7 +281,7 @@ jobs:
     permissions:
       contents: write
     steps:
-      - name: Download standalone CLI archives
+      - name: Download standalone CLI binaries
         uses: actions/download-artifact@v8
         with:
           pattern: cli-*
@@ -292,9 +292,15 @@ jobs:
         with:
           tag_name: ${{ needs.validate-version.outputs.tag }}
           target_commitish: ${{ github.sha }}
-          files: |
-            dist/*.tar.gz
-            dist/*.zip
+          body: |
+            Download the executable for your platform below. Linux and macOS users must run `chmod +x <downloaded-file>` once.
+
+            **License:** [GPL-3.0-or-later](https://github.com/${{ github.repository }}/blob/${{ needs.validate-version.outputs.tag }}/LICENSE)
+
+            **Corresponding source:** [tagged source archive](https://github.com/${{ github.repository }}/archive/refs/tags/${{ needs.validate-version.outputs.tag }}.tar.gz)
+
+            **Third-party licenses and sources:** [THIRD_PARTY_NOTICES.md](https://github.com/${{ github.repository }}/blob/${{ needs.validate-version.outputs.tag }}/THIRD_PARTY_NOTICES.md)
+          files: dist/fracessa-*
           draft: false
           prerelease: false
           generate_release_notes: true

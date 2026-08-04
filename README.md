@@ -75,9 +75,15 @@ The CLI and Python API also expose `test`, an experimental copy of `fast` used f
 
 ## Install
 
-The GitHub [Releases](https://github.com/reinhardullrich/fracessa/releases) page provides self-contained command-line archives for
-Linux x86-64, Linux ARM64, macOS Intel, macOS Apple Silicon, and Windows x86-64. Extract the archive and run `fracessa`
-(`fracessa.exe` on Windows); Python, GMP, MPFR, and FLINT do not need to be installed separately.
+The GitHub [Releases](https://github.com/reinhardullrich/fracessa/releases) page provides self-contained command-line binaries for
+Linux x86-64, Linux ARM64, macOS Intel, macOS Apple Silicon, and Windows x86-64. Python, GMP, MPFR, and FLINT do not need to be
+installed separately. On Linux and macOS, make the downloaded file executable before running it:
+
+```bash
+chmod +x fracessa-*
+```
+
+Windows users can run the downloaded `.exe` directly.
 
 Python 3.11 through 3.14 users can install the native extension and Python API directly from PyPI:
 

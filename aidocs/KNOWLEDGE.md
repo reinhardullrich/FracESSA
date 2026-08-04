@@ -777,7 +777,7 @@ require a built-in integer dimension.
 
 `.github/workflows/release.yml` runs only through manual `workflow_dispatch` from
 the default `main` branch. Ordinary pushes and pull requests run no GitHub
-Actions. The workflow builds standalone CLI archives and CPython 3.11-3.14
+Actions. The workflow builds standalone CLI binaries and CPython 3.11-3.14
 wheels for Linux x86-64, Linux ARM64, macOS Intel, macOS Apple Silicon, and
 Windows x86-64, plus one source distribution.
 
@@ -787,7 +787,8 @@ truth, and the CLI receives `PROJECT_VERSION` at compile time. Release
 validation rejects another selected branch, a missing version, or an already
 existing `vVERSION` tag. After every CLI, wheel, installation smoke test, and
 source build succeeds, the GitHub release job creates that tag at the tested
-`main` commit and attaches the five CLI archives. PyPI trusted publishing runs
+`main` commit and attaches the five direct CLI binaries. The release body links the license, tagged source archive, and third-party
+notices. PyPI trusted publishing runs
 after the GitHub release. Failed builds therefore create no tag or release.
 
 The vcpkg binary archives for GMP, MPFR, FLINT, and build helpers use
@@ -795,7 +796,7 @@ The vcpkg binary archives for GMP, MPFR, FLINT, and build helpers use
 Because manual release runs execute on `main`, later releases can restore the
 default-branch caches; release-tag caches cannot be shared across tag names.
 
-The architecture-specific CLI archives statically link their third-party
+The architecture-specific CLI binaries statically link their third-party
 mathematical libraries. Linux targets glibc 2.28 or newer and also statically
 links the GCC and C++ runtimes; macOS targets version 11 or newer; Windows uses
 the static C runtime. Release builds disable native-CPU code generation.

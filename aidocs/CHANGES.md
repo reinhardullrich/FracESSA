@@ -936,3 +936,7 @@ PyPI trusted publishing now follows the GitHub release, while ordinary pushes an
 311. Made research and experiment material local-only:
 ignored the complete `research/` and `experiments/` directories and removed their previously tracked files from the current repository
 tree while preserving every file in the local worktree. Existing historical commits and tags remain unchanged.
+312. Simplified standalone release downloads:
+replaced each platform archive and its duplicated documentation folder with one directly downloadable executable. The GitHub release
+body now links the GPL license, exact tagged source archive, and third-party notices; Linux and macOS users receive the required
+`chmod +x` instruction. Python wheel packaging is unchanged.

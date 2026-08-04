@@ -8,8 +8,7 @@ param(
 $ErrorActionPreference = "Stop"
 $repoRoot = (Resolve-Path (Join-Path $PSScriptRoot "../..")).Path
 $buildDir = Join-Path $repoRoot "cpp/build-release-$Platform"
-$packageName = "fracessa-$Version-$Platform"
-$packageDir = Join-Path $repoRoot "dist/$packageName"
+$output = Join-Path $repoRoot "dist/fracessa-$Version-$Platform.exe"
 $tripletsDir = Join-Path $repoRoot ".github/triplets"
 
 & (Join-Path $PSScriptRoot "install-vcpkg.ps1") -Triplet $Triplet -VcpkgRoot $VcpkgRoot
@@ -31,12 +30,8 @@ if ($LASTEXITCODE -ne 0) { throw "CMake build failed" }
 $binary = Join-Path $buildDir "Release/fracessa.exe"
 $actualVersion = (& $binary --version).Trim()
 if ($actualVersion -ne $Version) {
-    throw "Tag version $Version does not match binary version $actualVersion"
+    throw "Release version $Version does not match binary version $actualVersion"
 }
 
-New-Item -ItemType Directory -Force -Path $packageDir | Out-Null
-Copy-Item $binary (Join-Path $packageDir "fracessa.exe")
-Copy-Item (Join-Path $repoRoot "README.md") (Join-Path $packageDir "README.md")
-Copy-Item (Join-Path $repoRoot "LICENSE") (Join-Path $packageDir "LICENSE")
-Copy-Item (Join-Path $repoRoot "THIRD_PARTY_NOTICES.md") (Join-Path $packageDir "THIRD_PARTY_NOTICES.md")
-Compress-Archive -Path $packageDir -DestinationPath (Join-Path $repoRoot "dist/$packageName.zip") -Force
+New-Item -ItemType Directory -Force -Path (Split-Path $output) | Out-Null
+Copy-Item $binary $output -Force
