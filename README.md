@@ -127,25 +127,26 @@ For example, the symmetric matrix
 
 $$
 A=\begin{pmatrix}
-0 & 1 \\
-1 & 0
+-1 & 0 & 0 \\
+0 & -2 & 0 \\
+0 & 0 & -3
 \end{pmatrix}
 $$
 
-is written as `2#0,1,0`. Its exact ESS is
+is written as `3#-1,0,0,-2,0,-3`. Its exact ESS is
 
 $$
-\mathbf{x}=\left(\frac{1}{2},\frac{1}{2}\right).
+\mathbf{x}=\left(\frac{6}{11},\frac{3}{11},\frac{2}{11}\right).
 $$
 
 ```bash
-./cpp/build/fracessa safe --candidates "2#0,1,0"
+./cpp/build/fracessa safe --candidates "3#-1,0,0,-2,0,-3"
 ```
 
 ```text
-{"run_id":null,"matrix_id":-1,"status":0,"candidate_count":1,"ess_count":1,"candidate_structure":{"2":1},"ess_structure":{"2":1},"elapsed_ns":28542,"safe_fallback":null,"error_message":""}
+{"run_id":null,"matrix_id":-1,"status":0,"candidate_count":1,"ess_count":1,"candidate_structure":{"3":1},"ess_structure":{"3":1},"elapsed_ns":33291,"safe_fallback":null,"error_message":""}
 candidate_id;vector;support;support_size;extended_support;extended_support_size;multiplier;is_ess;stability;payoff;payoff_dbl
-1;1/2,1/2;3;2;3;2;;1;T_pd_frc;1/2;0.5
+1;6/11,3/11,2/11;7;3;7;3;;1;T_pd_frc;-6/11;-0.54545454545454541
 ```
 
 Every analysis writes exactly one JSON summary line. It contains the status, weighted candidate and ESS counts, both support-size
