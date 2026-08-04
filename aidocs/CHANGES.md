@@ -916,3 +916,6 @@ routing and repaired all live cross-references; no source code changed.
 interpreted supports as spanning trees of $K_{3,k}$, proved the cycle obstruction for nonnegative interaction curvature,
 counted the $k=3s+1$ and $k=3s+2$ support orbits, and exactly verified representative ESS through game dimension 60. The new
 research note distinguishes constructed lower bounds from complete counts and records the slight dimension-30 gamma improvement.
+306. Removed obsolete raw Callgrind output:
+deleted the 35 tracked Callgrind 3.15.0 profiles from the former x86-64 build and the ignored local profiling log. The inactive
+historical scripts remain under `archive/callgrind/`, and the ignore rule continues to exclude newly generated profiles.
