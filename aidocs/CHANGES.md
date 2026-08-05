@@ -1001,3 +1001,8 @@ dedicated GitHub Pages workflow; and connected the repository homepage to `https
 328. Prepared release 2026.8.5.1:
 updated the package homepage to the project website, made the README logo resolve on PyPI, and clarified that ordinary pushes can
 deploy GitHub Pages but do not start release builds.
+
+329. Planned direct exact stability reduction through the retained candidate factorization:
+specified a narrow multi-right-hand-side solve for the already-factored negative-definite reduced Hessian and an integer-scaled Schur
+complement that replaces complete rational Bee construction and recursive unrestricted-coordinate elimination. Recorded the exact
+scaling proof, minimal source scope, proposed code, correctness regressions, and benchmark acceptance criteria without changing source.

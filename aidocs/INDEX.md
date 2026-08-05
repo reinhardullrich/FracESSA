@@ -48,12 +48,8 @@ rationale; its status line and this index determine which.
   listed idea is implemented or benchmarked by that document.
 - The following research notes are local-only because the complete `research/`
   directory is ignored by Git:
-- `../research/AUTOMORPHISM_GROUPS_AND_GAMMA.md`: exact symmetry analysis of the published dimension-24 high-ESS rook game and
-  related search directions.
-- `../research/ROOK_AUTOMORPHISM_GROUPS_N2_TO_N30.md`: rectangular-rook group orders, compact symbolic matrices, orbit ceilings,
-  empirical ESS counts, and Sperner bounds through dimension 30.
-- `../research/THREE_BY_K_ROOK_ESS_SEQUENCES.md`: derivation, exact finite verification, support counts, and gamma values for the
-  two compact $3\times k$ rook ESS sequences.
+- `../research/THREE_BY_K_ROOK_ESS_SEQUENCES.md`: rectangular-Rook group catalogue and symbolic matrices through dimension 30,
+  followed by the derivation, exact verification, support counts, and gamma values of the $3\times k$ Rook ESS sequences.
 
 ## Historical Records And Fixed Evidence
 
