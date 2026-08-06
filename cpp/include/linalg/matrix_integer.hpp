@@ -4,6 +4,9 @@
 #include <flint/fmpz_mat.h>
 
 #include <cstddef>
+#include <iomanip>
+#include <sstream>
+#include <string>
 
 #include <linalg/integer.hpp>
 #include <linalg/matrix_fraction.hpp>
@@ -70,9 +73,30 @@ public:
         swap(replacement);
     }
 
+    void set_identity(size_t dimension)
+    {
+        resize(dimension, dimension);
+        fmpz_mat_one(data_);
+    }
+
     void negate() noexcept { fmpz_mat_neg(data_, data_); }
 
     void swap(matrix_int& other) noexcept { fmpz_mat_swap(data_, other.data_); }
+
+    std::string to_log_string() const
+    {
+        std::stringstream stream;
+        for (size_t row = 0; row < rows(); ++row) {
+            for (size_t column = 0; column < cols(); ++column) {
+                char* value = fmpz_get_str(
+                    nullptr, 10, fmpz_mat_entry(data_, static_cast<slong>(row), static_cast<slong>(column)));
+                stream << std::setw(12) << value << ' ';
+                flint_free(value);
+            }
+            stream << '\n';
+        }
+        return stream.str();
+    }
 
     /* Clear one rational matrix's denominators once and retain the minimal positive common denominator separately. */
     void set_from_fraction_matrix(const matrix_frc& source, integer& denominator)

@@ -148,6 +148,7 @@ TEST(FractionFreeLDLTFactorizationTest, RetainsFactorizationForSeveralRightHandS
     linalg::fraction_free_ldlt_factorization factorization(2);
     ASSERT_EQ(factorization.factorize_inplace(system), 1);
     EXPECT_EQ(factorization.determinant().compare(linalg::integer(11)), 0);
+    EXPECT_TRUE(factorization.is_positive_definite());
 
     // The columns are b=(1,2) and b=(7,-1), whose solutions are (1/11,7/11) and (2,-1).
     linalg::matrix_int right_hand_sides(2, 2);
@@ -179,6 +180,7 @@ TEST(FractionFreeLDLTFactorizationTest, ReplaysZeroDiagonalCoordinateOperations)
     linalg::fraction_free_ldlt_factorization factorization(3);
     ASSERT_EQ(factorization.factorize_inplace(system), 1);
     EXPECT_EQ(factorization.determinant().compare(linalg::integer(-1)), 0);
+    EXPECT_FALSE(factorization.is_positive_definite());
 
     // The columns are b=(1,2,3) and b=(1,5,-1), whose solutions are (-2,3,1) and (2,-1,4).
     linalg::matrix_int right_hand_sides(3, 2);
@@ -210,6 +212,7 @@ TEST(FractionFreeLDLTFactorizationTest, ReturnsZeroDeterminantForSingularMatrix)
     linalg::fraction_free_ldlt_factorization factorization(2);
     EXPECT_EQ(factorization.factorize_inplace(system), 0);
     EXPECT_TRUE(factorization.determinant().is_zero());
+    EXPECT_FALSE(factorization.is_positive_definite());
 }
 
 TEST(FractionFreeLDLTFactorizationTest, SolvesWithArbitraryPrecisionEntries) {
@@ -235,6 +238,7 @@ TEST(FractionFreeLDLTFactorizationTest, SolvesWithArbitraryPrecisionEntries) {
     linalg::fraction_free_ldlt_factorization factorization(3);
     ASSERT_EQ(factorization.factorize_inplace(system), 1);
     EXPECT_EQ(factorization.determinant().compare(expected_determinant), 0);
+    EXPECT_TRUE(factorization.is_positive_definite());
 
     // b=A*(1,2,3)=big*(12,10,19).
     linalg::matrix_int right_hand_side(3, 1);
@@ -275,11 +279,13 @@ TEST(FractionFreeLDLTFactorizationTest, MatchesFlintOnDeterministicSymmetricSamp
 
             linalg::integer expected_determinant;
             fmpz_mat_det(expected_determinant.native_handle(), original.native_handle());
+            const bool expected_positive_definite = fmpz_mat_is_spd(original.native_handle()) != 0;
             linalg::matrix_int factored_system(original);
             linalg::fraction_free_ldlt_factorization factorization(dimension);
 
             ASSERT_EQ(factorization.factorize_inplace(factored_system), expected_determinant.is_zero() ? 0 : 1);
             EXPECT_EQ(factorization.determinant().compare(expected_determinant), 0);
+            EXPECT_EQ(factorization.is_positive_definite(), expected_positive_definite);
             if (expected_determinant.is_zero()) continue;
 
             linalg::matrix_int right_hand_sides(dimension, 2);

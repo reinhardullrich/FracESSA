@@ -1,6 +1,6 @@
 # Integer Stability Matrix Migration Only
 
-Status: proposed for review; not approved and not implemented.
+Status: implemented and verified on 2026-08-06.
 
 Date: 2026-08-06.
 
@@ -90,15 +90,12 @@ No new formulas or decisions are introduced.
 
 ### 4.3 Positive-definiteness check
 
-Use FLINT's exact `fmpz_mat_is_spd()` predicate on the integer matrix. It decides the same mathematical question as the current
-rational `LDL^T` method: whether the complete symmetric matrix is positive definite.
+Use the retained `fraction_free_ldlt_factorization` on an integer copy. Each Bareiss pivot divided by the previous pivot is the
+corresponding ordinary $LDL^T$ diagonal entry, so the factorization records exact inertia while it runs. The matrix is positive
+definite exactly when it is nonsingular and every recorded diagonal sign is positive.
 
-This changes the internal factorization implementation, because an integer matrix should use FLINT's integer predicate instead of
-being converted back to rational form. It does not add, remove, or reorder a stability decision. FLINT certifies the result exactly;
-an inconclusive numerical attempt falls back to an exact method internally.
-
-Writing a second custom fraction-free positive-definiteness factorization merely to imitate the current hand-written rational
-`LDL^T` steps is deliberately excluded. It would add substantial code without preserving any externally visible behaviour.
+This reuses the general integer factorization requested after the original plan was written. It does not add, remove, or reorder a
+stability decision and does not depend on floating-point intervals.
 
 ### 4.4 Hadeler determinant and adjugate
 
@@ -107,53 +104,53 @@ Retain the current Hadeler implementation literally at the mathematical level.
 For every principal subset of cardinality at least four:
 
 1. copy the same principal submatrix into an integer matrix;
-2. calculate its exact determinant with `fmpz_mat_det()`;
+2. factor it with `fraction_free_ldlt_factorization` and read its exact determinant;
 3. pass immediately when the determinant is positive;
-4. when the determinant is negative, calculate the complete inverse with `fmpz_mat_inv()`;
-5. construct the complete exact adjugate from
+4. when the determinant is negative, solve all identity columns from the retained factorization to obtain
+   $|\det(A)|A^{-1}$, then negate it to obtain the complete adjugate;
+5. retain the identity
 
    $$
    \operatorname{adj}(A)=\det(A)A^{-1};
    $$
 
-6. when the determinant is zero, construct the adjugate from all the same signed cofactor determinants as today; and
+6. when the determinant is zero, construct the adjugate from all the same signed cofactor determinants as before; and
 7. reject exactly when every adjugate entry is strictly positive.
 
-`fmpz_mat_inv()` returns an integer numerator matrix `N` and an integer denominator `q` with `A^{-1}=N/q`. FLINT guarantees that
-`q` divides `det(A)`, so the integer adjugate is
+The retained solve uses the positive denominator $|\det(A)|$. The negative-determinant branch therefore returns
+$- |\det(A)|A^{-1}=\det(A)A^{-1}=\operatorname{adj}(A)$. This is still the complete inverse-equivalent calculation; it is not the
+deferred one-right-hand-side optimization.
 
-$$
-\operatorname{adj}(A)=\frac{\det(A)}{q}N.
-$$
-
-Use exact integer division. Do not replace this complete inverse with the cheaper one-solve method in this task.
-
-For a singular matrix, keep the current expensive cofactor construction. Each minor determinant changes from rational LU to
-`fmpz_mat_det()`, but the set of minors and the adjugate test remain identical. The proposed nullspace replacement is explicitly
-deferred.
+For a singular matrix, keep the current expensive cofactor construction. Off-diagonal cofactor minors are not symmetric and cannot
+use $LDL^T$, so their determinants use `fmpz_mat_det()`. The set of minors and the adjugate test remain identical. The proposed
+nullspace replacement is explicitly deferred.
 
 ## 5. Minimal source-file scope
 
 The implementation should change only these source files:
 
 1. `cpp/include/linalg/matrix_integer.hpp`
-   - add exact positive-definiteness and log-string support needed by the existing caller;
+   - add identity and log-string support needed by the integer checker;
 2. `cpp/include/linalg/copositive_fraction.hpp` -> `cpp/include/linalg/copositive_integer.hpp`
    - replace the rational checker with the operation-for-operation integer version;
-3. `cpp/include/fracessa/find_candidate_safe.hpp`
+3. `cpp/include/linalg/fraction_free_ldlt.hpp`
+   - retain exact inertia and expose its positive-definiteness decision;
+4. `cpp/include/fracessa/find_candidate_safe.hpp`
    - change the scaled reduced B output type to `matrix_int`;
-4. `cpp/src/find_candidate_safe.cpp`
+5. `cpp/src/find_candidate_safe.cpp`
    - store the already-calculated integer entries directly;
-5. `cpp/include/fracessa/fracessa.hpp`
+6. `cpp/include/fracessa/fracessa.hpp`
    - store `scaled_reduced_b_` as `matrix_int` and correct the directly affected comments;
-6. `cpp/src/checkstab.cpp`
+7. `cpp/src/checkstab.cpp`
    - include and call the integer checker without changing its control flow; and
-7. `cpp/tests/test_copositivity.cpp`
-   - translate checker tests to integer matrices and add coverage for the genuine dimension-four Hadeler branches.
+8. `cpp/tests/test_copositivity.cpp`
+   - translate checker tests to integer matrices and add coverage for the genuine dimension-four Hadeler branches;
+9. `cpp/tests/test_linear_solver.cpp`
+   - cross-check retained inertia against FLINT positive definiteness.
 
 No Python file, parser, CLI interface, Pybind interface, database schema, support generator, or candidate solver should change.
-No CMake change is required for the arithmetic APIs in this plan: `fmpz_mat_det`, `fmpz_mat_inv`, and `fmpz_mat_is_spd` already
-exist in the currently installed FLINT 3.4 as well as the project-local FLINT 3.6.
+No CMake change is required. The only direct FLINT matrix operation newly used by the checker is `fmpz_mat_det`, which exists in
+both the installed FLINT 3.4 and project-local FLINT 3.6.
 
 The old rational `copositive_fraction.hpp` should not remain beside the integer checker after the switch. Two production checkers
 would create drift. The separate rational LU file and its direct unit test are outside this migration and should remain untouched
@@ -204,20 +201,16 @@ Benchmark the old rational and new integer builds only after correctness passes.
 B and full copositivity paths, covering small and large, circular and non-circular cases. Retain the migration only if it does not
 cause a material regression; make no speed claim before measurement.
 
-## 7. Implementation order and review gates
+## 7. Verified result
 
-1. Build and retain the current rational reference.
-2. Make only the seven-file source/test change listed above.
-3. Show the complete diff for direct review before any cleanup.
-4. Run focused unit tests and the complete local suites.
-5. Run exact rational-versus-integer matrix equivalence.
-6. Run the representative performance comparison.
-7. Update current project knowledge and append the result to `CHANGES.md` only after the implementation is accepted.
-8. Consider removing the now-production-unused rational LU and its tests only as a separate later task.
+- The focused low-dimensional, sign-scan, positive-determinant, negative-determinant, singular-cofactor, and arbitrary-precision
+  tests pass.
+- All ten C++/CLI tests pass with project-local FLINT 3.6 and system FLINT 3.4.
+- All 66 Python tests and 49 subtests pass with the new native module.
+- Old and new safe-mode candidate output matched byte-for-byte for 883 stored games after removing only `elapsed_ns`. Matrix 2998
+  was skipped after the old executable exceeded a 30-second guard despite its stale calibration value.
+- Nine pinned repetitions on CPU 2 gave new/old median runtime ratios of 0.292, 0.986, 1.003, and 1.006 for matrix IDs 137, 29, 53,
+  and 54 respectively. The migration shows no material regression and a large gain on the copositivity-heavy case.
 
-No commit, push, release, algorithm replacement, or unrelated cleanup belongs to this migration.
-
-## 8. Approval requested later
-
-Implementation approval would cover exactly the seven source/test paths in Section 5 and the behaviour described above. If the
-implementation reveals that another source file is necessary, stop and request approval before changing it.
+The rational LU implementation and its self-focused tests remain for a later separately approved cleanup. No algorithm replacement,
+database migration, reason rename, commit, push, or release is part of this migration.

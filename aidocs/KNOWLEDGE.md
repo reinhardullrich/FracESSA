@@ -214,10 +214,9 @@ Important implementation points:
 - `fracessa` owns the rational game used by logging and support generation. `find_candidate_safe` owns the one integer-scaled copy
   used by exact candidate solves, exact stability, and both one-time precision-span decisions; fast and test each own the converted
   and equilibrated double copy prepared from that integer game.
-- Exact candidate factorization and validation use FLINT `fmpz_t` integers;
-  header-only `linalg::integer` and `linalg::matrix_int` wrappers own their storage and expose inline exact operations to
-  FracESSA. Public rational results and the final exact positive-definiteness/copositivity checks use FLINT `fmpq_t` through
-  `linalg::fraction`.
+- Exact candidate factorization, validation, and final stability checks use FLINT `fmpz_t` integers; header-only
+  `linalg::integer` and `linalg::matrix_int` wrappers own their storage and expose inline exact operations to FracESSA. Public
+  candidate probabilities and payoffs remain FLINT `fmpq_t` rationals through `linalg::fraction`.
 - Stability reuses the exact reduced-Hessian inertia. A non-negative-definite
   support Hessian rejects ESS immediately; a negative-definite Hessian proves
   ESS immediately when extended support equals support. For the rare negative-definite case with outside best replies, the safe
@@ -225,9 +224,11 @@ Important implementation points:
   reduced $B^{(r)}$ matrix directly through its exact Schur complement. The positive scale need not be tracked after construction;
   all subsequent definiteness, copositivity, sign, and witness decisions are invariant under it. This replaces complete rational Bee
   construction and recursive elimination of the unrestricted support coordinates.
-  When the outside-reply dimension is 1, 2, or 3, `check_stability()` calls shared exact Bomze/Hadeler formulas directly before
-  the general sign scan. The general Hadeler checker reuses the same formulas for principal subsets of those sizes and constructs
-  temporary principal matrices and LU factorizations only from dimension 4 onward.
+  When the outside-reply dimension is 1, 2, or 3, `check_stability()` calls shared exact integer Bomze/Hadeler formulas directly
+  before the general sign scan. The general Hadeler checker reuses the same formulas for principal subsets of those sizes. From
+  dimension 4 onward it uses the retained general fraction-free integer $LDL^T$ factorization for symmetric principal matrices and
+  its multi-right-hand-side solve for nonsingular adjugates. Singular off-diagonal cofactors use FLINT integer determinants because
+  those minors are not symmetric.
   Exact positive definiteness or strict copositivity of the smaller outside-reply matrix then decides stability. A binary64 result
   is never accepted as a final mathematical certificate.
 - New exact early stability decisions use specific machine-readable reasons that name both the conclusion and its certificate.
@@ -242,7 +243,7 @@ Important implementation points:
   rules. Current fast recovers the cutoff example through per-support pivot fallback and recovers the probability and
   outside-payoff examples because their precision spans select matrix-wide safe search. These fallbacks are heuristics, not a
   general correctness proof.
-- `safe` does not initialize or allocate any double candidate-search state, and all final stability decisions use exact rational
+- `safe` does not initialize or allocate any double candidate-search state, and all final stability decisions use exact integer
   arithmetic.
 - The raw-double algorithm at revision `32f61679da64` used six one-time input checks and rejected small pivots. Current fast instead
   uses the exact precision-span gate and treats small pivots as inconclusive. The retired normalized heuristic fixed IDs 38-39 but
@@ -251,8 +252,9 @@ Important implementation points:
 ### Known Deferred Source Cleanup
 
 Three C++ helpers have no production caller: `bs64::is_smallest_representation()` and `bs64::find_pos_next_set_bit()` are exercised
-only by their dedicated tests, while mutable `matrix_frc::data()` has no caller. These are low-priority readability cleanups, not
-correctness or speed findings. Remove each helper together with its self-focused tests only after explicit source-change approval.
+only by their dedicated tests, while mutable `matrix_frc::data()` has no caller. The rational LU implementation and
+`matrix_frc::is_positive_definite()` are also now test-only after the integer stability migration. These are low-priority readability
+cleanups, not correctness or speed findings. Remove them only in a separately approved cleanup.
 
 Key files:
 
@@ -264,7 +266,7 @@ Key files:
 - `cpp/include/linalg/integer.hpp` and `cpp/include/linalg/matrix_integer.hpp`: header-only owning C++ wrappers around FLINT exact
   integers and integer matrices.
 - `cpp/include/linalg/fraction.hpp`: FLINT rational wrapper.
-- `cpp/include/linalg/copositive_fraction.hpp`: exact copositivity checks.
+- `cpp/include/linalg/copositive_integer.hpp`: exact integer sign, positive-definiteness, and Hadeler copositivity checks.
 - `cpp/include/fracessa/find_candidate_fast.hpp` and
   `cpp/src/find_candidate_fast.cpp`: production exact precision-span gate, whole-game double equilibration, reduced symmetric
   Bunch-Kaufman solve, small-pivot fallback, heuristic inequalities, and reusable scratch.
@@ -275,8 +277,9 @@ Key files:
   integer candidate validation, and candidate construction.
 - `cpp/include/linalg/fraction_free_ldlt_kkt.hpp`: KKT-specialized in-place fraction-free symmetric solve, exact inertia, and
   zero-diagonal coordinate handling.
-- `cpp/include/linalg/fraction_free_ldlt.hpp`: separate retained general fraction-free symmetric factorization with exact signed
-  determinant and reusable multi-right-hand-side solve; it is not yet called by the production stability path.
+- `cpp/include/linalg/fraction_free_ldlt.hpp`: retained general fraction-free symmetric factorization with exact signed determinant,
+  inertia, and reusable multi-right-hand-side solve; the production stability path uses it for exact positive definiteness and
+  Hadeler principal matrices.
 - `cpp/include/fracessa/fracessa.hpp` and `cpp/src/fracessa.cpp`: exact game
   ownership, method coordination, support search, and candidate lifecycle.
 - `cpp/src/checkstab.cpp`: stability classification.

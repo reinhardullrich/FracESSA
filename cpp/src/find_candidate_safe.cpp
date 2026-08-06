@@ -216,7 +216,7 @@ linalg::integer::const_reference find_candidate_safe::reduced_entry(size_t refer
  * reduced_entry_cache_ after the solve overwrites the work matrix with N.
  */
 size_t find_candidate_safe::build_scaled_reduced_b(bitset64 support, bitset64 outside_best_replies,
-                                                   linalg::matrix_frc& result)
+                                                   linalg::matrix_int& result)
 {
     assert(reduced_hessian_is_negative_definite_);
     assert(outside_best_replies != 0);
@@ -243,12 +243,9 @@ size_t find_candidate_safe::build_scaled_reduced_b(bitset64 support, bitset64 ou
         ffldlt_workspace_.solve_factored_negative_definite_inplace(stability_solution_numerators_, solution_denominator_, reduced_system_);
     }
 
-    if (result.rows() != outside_size || result.cols() != outside_size) {
-        result = linalg::matrix_frc(outside_size, outside_size);
-    }
+    result.resize(outside_size, outside_size);
 
     linalg::integer scaled_entry;
-    linalg::integer one(1);
     for (size_t row = 0; row < outside_size; ++row) {
         for (size_t column = 0; column <= row; ++column) {
             scaled_entry.set_product(
@@ -261,7 +258,7 @@ size_t find_candidate_safe::build_scaled_reduced_b(bitset64 support, bitset64 ou
             }
 
             scaled_entry.negate();
-            result(row, column).set_ratio(scaled_entry, one);
+            result(row, column) = scaled_entry;
             if (row != column) result(column, row) = result(row, column);
         }
     }

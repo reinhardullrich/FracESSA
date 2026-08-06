@@ -1,6 +1,6 @@
 #include <fracessa/fracessa.hpp>
 #include <fracessa/bitset64.hpp>
-#include <linalg/copositive_fraction.hpp>
+#include <linalg/copositive_integer.hpp>
 
 /*
  * Exact stability test for a candidate equilibrium p.
@@ -127,9 +127,11 @@ void fracessa::check_stability()
         return;
     }
 
+    linalg::CopositivityChecker copositivity_checker(kay_size);
+
     // Path 9, early acceptance: The scaled reduced B matrix is positive definite. This implies strict copositivity,
     // so accept the candidate as an ESS.
-    if (scaled_reduced_b_.is_positive_definite()) {
+    if (copositivity_checker.is_positive_definite(scaled_reduced_b_)) {
         if (conf_with_log_) logger_->info("Reason: true_posdef_frc");
         candidate_.stability = "T_pd_frc";
         candidate_.is_ess = true;
@@ -146,7 +148,7 @@ void fracessa::check_stability()
 
     // Path 11, final decision: Strict copositivity of the scaled reduced B matrix
     // is now the exact remaining test; accept the candidate exactly when this test succeeds.
-    if (linalg::is_strictly_copositive(scaled_reduced_b_)) {
+    if (copositivity_checker.is_strictly_copositive(scaled_reduced_b_)) {
         if (conf_with_log_) logger_->info("Reason: true_copositive");
         candidate_.stability = "T_copos";
         candidate_.is_ess = true;

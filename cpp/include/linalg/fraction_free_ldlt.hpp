@@ -65,6 +65,7 @@ public:
         operation_count_ = 0;
         nonsingular_ = false;
         factorization_is_immediate_ = true;
+        positive_inertia_ = 0;
         fmpz_zero(determinant_);
         assert(coordinate_operations_.size() >= 2 * dimension);
 
@@ -80,10 +81,17 @@ public:
         ulong denominator_inverse = 0;
         slong normalization_shift = 0;
         bool denominator_is_negative = false;
+        int previous_pivot_sign = 1;
 
         for (size_t pivot_position = 0; pivot_position < dimension; ++pivot_position) {
             if (!select_nonzero_diagonal(raw_system, pivot_position, dimension, immediate)) return 0;
             fmpz* const pivot = entry(raw_system, pivot_position, pivot_position);
+
+            // p_k/p_(k-1) is the corresponding ordinary LDL^T diagonal entry, so its sign contributes one inertia
+            // count.
+            const int diagonal_sign = fmpz_sgn(pivot) * previous_pivot_sign;
+            if (diagonal_sign > 0) ++positive_inertia_;
+            previous_pivot_sign = fmpz_sgn(pivot);
 
             if (pivot_position + 1 == dimension) break;
 
@@ -133,6 +141,7 @@ public:
     }
 
     integer::const_reference determinant() const noexcept { return integer::const_reference(determinant_); }
+    bool is_positive_definite() const noexcept { return nonsingular_ && positive_inertia_ == dimension_; }
 
     /*
      * Solve system*X = right_hand_sides*denominator from a retained nonsingular factorization. right_hand_sides is
@@ -436,6 +445,7 @@ private:
     size_t operation_count_ = 0;
     bool nonsingular_ = false;
     bool factorization_is_immediate_ = true;
+    size_t positive_inertia_ = 0;
     std::vector<coordinate_operation> coordinate_operations_;
     fmpz_t determinant_;
     mutable fmpz_t previous_pivot_;

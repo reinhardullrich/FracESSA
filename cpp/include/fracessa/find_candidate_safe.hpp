@@ -57,7 +57,7 @@ public:
     // Build an integer matrix that is a positive multiple of Bomze's final reduced B^(r) matrix and return its dimension |K|.
     // Method: eliminate the unrestricted support block through one exact Schur complement; no inverse is formed.
     // Valid immediately after find() succeeds for the same support and reports a negative-definite reduced Hessian.
-    size_t build_scaled_reduced_b(bitset64 support, bitset64 outside_best_replies, linalg::matrix_frc& result);
+    size_t build_scaled_reduced_b(bitset64 support, bitset64 outside_best_replies, linalg::matrix_int& result);
 
 private:
     bool precision_span_at_least(unsigned long limit, bool include_game_denominator, linalg::integer& maximum) const;

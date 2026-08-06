@@ -1,8 +1,18 @@
 # Integer Stability And Copositivity Plan
 
-Status: reviewed and implementation-ready; not implemented.
+Status: integer representation migration implemented; one-solve, nullspace, and cleanup phases remain deferred.
 
 Date: 2026-08-06.
+
+## Current boundary
+
+The scaled reduced B matrix, small-dimensional formulas, sign scan, exact positive-definiteness check, and complete Hadeler checker
+now use integer matrices. Production uses the retained general fraction-free $LDL^T$ factorization for symmetric principal matrices
+and its multi-right-hand-side solve for the current complete adjugate calculation. Singular off-diagonal cofactors use exact FLINT
+integer determinants because those minors are not symmetric.
+
+The later one-right-hand-side Hadeler test, nullspace replacement, rational-LU deletion, matrix-fraction cleanup, and FLINT 3.6
+minimum proposed below are not implemented. The remainder of this document preserves their mathematical and implementation plan.
 
 ## 1. Goal
 
@@ -31,7 +41,7 @@ This is not a project-wide removal of rational arithmetic. Removing `matrix_frc`
 input and exact candidate output. The scope is narrower and complete: remove rational arithmetic from scaled reduced B construction,
 positive-definiteness, and Hadeler copositivity, then delete the rational helpers that become unused only because of that migration.
 
-## 2. Current avoidable work
+## 2. Former avoidable work removed by the integer migration
 
 `find_candidate_safe::build_scaled_reduced_b()` currently computes each entry in an `linalg::integer` named `scaled_entry`. It then
 executes
@@ -78,7 +88,7 @@ The integer conversion must not alter:
 - Gosper subset generation; or
 - any stability reason string.
 
-## 4. FLINT operations to use
+## 4. Current and deferred integer operations
 
 The project already owns integer matrices through `linalg::matrix_int`, whose native storage is `fmpz_mat_t`. The specialized
 copositivity kernel can use the existing `native_handle()` escape hatch; no new matrix hierarchy or solver class is needed.
@@ -86,16 +96,13 @@ copositivity kernel can use the existing `native_handle()` escape hatch; no new 
 | Required operation | FLINT operation | Result used by FracESSA |
 |---|---|---|
 | Exact entry signs and arithmetic | `fmpz_sgn`, `fmpz_mul`, `fmpz_addmul`, `fmpz_submul` through `linalg::integer` | Small-K formulas and one sign scan |
-| Positive definiteness | `fmpz_mat_is_spd` | Exact early acceptance |
-| Principal determinant | `fmpz_mat_det` | Hadeler determinant sign |
-| Nonsingular Hadeler witness | `fmpz_mat_solve` | One solution of `M y = -1` |
-| Singular Hadeler witness | `fmpz_mat_nullspace` | Exact nullity and nullspace basis |
+| Positive definiteness | Current retained fraction-free $LDL^T$ inertia | Exact early acceptance |
+| Principal determinant | Current retained fraction-free $LDL^T$ determinant | Hadeler determinant sign |
+| Nonsingular Hadeler witness | Current retained multi-right-hand-side solve; proposed one-right-hand-side solve | Complete adjugate now; one witness later |
+| Singular Hadeler witness | Current `fmpz_mat_det` cofactors; proposed `fmpz_mat_nullspace` | Complete adjugate now; nullspace certificate later |
 
-`fmpz_mat_is_spd` is a certified predicate. FLINT first attempts an Arb interval `LDL^T` certificate. If that attempt is
-inconclusive, FLINT computes an exact characteristic polynomial and applies an exact sign test. A numerical failure therefore does
-not become a false answer.
-
-`fmpz_mat_det` chooses its determinant algorithm from the matrix size and entry size. FracESSA should not duplicate that selection.
+`fmpz_mat_det` remains necessary for off-diagonal cofactor minors because they are not symmetric. FLINT chooses its determinant
+algorithm from the matrix size and entry size; FracESSA does not duplicate that selection.
 
 `fmpz_mat_solve` returns an integer numerator matrix `X` and an integer denominator `q` satisfying
 
@@ -407,18 +414,15 @@ then reads each `fmpz` entry directly while preserving its existing outputs:
 
 ### 6.3 Positive definiteness
 
-Replace `matrix_frc::is_positive_definite()` on the scaled reduced B matrix with `fmpz_mat_is_spd` on `matrix_int`.
-
-The FLINT function repeats an `O(k^2)` symmetry check even though the Schur builder guarantees symmetry. The public API offers no
-"already known symmetric" variant. Keep the direct call first; only replace it with a custom integer factorization if a benchmark
-shows a material regression.
+The implemented path copies the integer matrix once and uses `fraction_free_ldlt_factorization`. Exact Bareiss pivot ratios give the
+ordinary $LDL^T$ diagonal signs, so nonsingularity plus all-positive inertia decides positive definiteness without floating point.
 
 ### 6.4 Logging
 
 Add integer-matrix text formatting only for the existing logging path. It may use `fmpz_get_str` and must release FLINT-allocated
 strings with `flint_free`. Logging is optional and not part of the benchmark hot path.
 
-## 7. Proposed control flow
+## 7. Proposed remaining control-flow optimization
 
 ```mermaid
 flowchart TD
@@ -427,13 +431,13 @@ flowchart TD
     B -- "No" --> D["Run one integer triangular sign scan"]
     D --> E{"Does an existing early decision settle M?"}
     E -- "Yes" --> F["Accept or reject with the existing reason"]
-    E -- "No" --> G{"fmpz_mat_is_spd(M)?"}
+    E -- "No" --> G{"Exact LDL^T says M is positive definite?"}
     G -- "Yes" --> H["Accept: T_pd_frc"]
     G -- "No" --> I{"Is M a Z-matrix?"}
     I -- "Yes" --> J["Reject: F_not_copos_z_matrix"]
     I -- "No" --> K["Enumerate principal subsets by cardinality"]
     K --> L["Build integer principal matrix C"]
-    L --> M["Compute det(C) with fmpz_mat_det"]
+    L --> M["Read det(C) from exact LDL^T"]
     M --> N{"Sign of det(C)"}
     N -- "Positive" --> P["Subset passes"]
     N -- "Negative" --> Q["Solve C y = -1 once"]
@@ -449,10 +453,10 @@ flowchart TD
     V -- "No" --> W["Accept M"]
 ```
 
-## 8. Exact source scope
+## 8. Original broader source scope
 
-This is the complete anticipated patch. If implementation discovers another required source file, stop and obtain approval rather
-than broadening the change silently.
+The integer representation subset is implemented. Rows describing one-solve, nullspace, dependency-floor, deletion, or cleanup work
+remain deferred and require separate approval rather than being bundled into the completed migration.
 
 ### 8.1 Production and build files
 

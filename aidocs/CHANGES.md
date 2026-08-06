@@ -1179,3 +1179,15 @@ determinant, and solves multiple later right-hand sides from the retained lower 
 FLINT-style immediate-integer path and switch to arbitrary-precision `fmpz` arithmetic when necessary. Focused tests cover ordinary
 and arbitrary-precision solves, singular determinants, zero-diagonal coordinate operations, and 280 deterministic symmetric
 matrices checked against FLINT. The new general factorization is not yet connected to production stability checking.
+
+362. Moved the complete final stability matrix path from denominator-one rationals to exact integers:
+`build_scaled_reduced_b()` now stores its already-integral entries directly in `matrix_int`; the small-dimensional criteria, shared
+sign scan, positive-definiteness decision, and Hadeler checker all operate on `fmpz` values. The general fraction-free $LDL^T$
+factorization now records exact inertia, supplies the positive-definiteness certificate, provides determinants for symmetric
+principal matrices, and solves all identity columns for the unchanged nonsingular adjugate calculation. Singular off-diagonal
+cofactors retain the same expensive algorithm but use FLINT integer determinants because those minors are not symmetric. No path
+order, reason string, support order, candidate arithmetic, public rational output, or Hadeler decision changed. Genuine
+four-dimensional positive, negative-determinant, singular, and arbitrary-precision tests were added. All ten C++/CLI tests pass with
+FLINT 3.6 and system FLINT 3.4, all 66 Python tests and 49 subtests pass, and 883 old/new safe-mode outputs match byte-for-byte after
+excluding only timing. Pinned end-to-end new/old median ratios were 0.292, 0.986, 1.003, and 1.006 on representative dimensions 14,
+19 circular, 23, and 24, so the migration has no material measured regression and greatly improves the copositivity-heavy case.

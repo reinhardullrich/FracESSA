@@ -12,6 +12,7 @@
 #include <spdlog/sinks/rotating_file_sink.h>
 
 #include <linalg/matrix_fraction.hpp>
+#include <linalg/matrix_integer.hpp>
 #include <fracessa/candidate.hpp>
 #include <fracessa/bitset64.hpp>
 #include <fracessa/find_candidate_safe.hpp>
@@ -64,7 +65,7 @@ private:
     candidate_search::find_candidate_fast find_candidate_fast_;
     candidate_search::find_candidate_safe find_candidate_safe_;
     candidate_search::find_candidate_test find_candidate_test_;
-    linalg::matrix_frc scaled_reduced_b_;
+    linalg::matrix_int scaled_reduced_b_;
 
     size_t dimension_;
 
