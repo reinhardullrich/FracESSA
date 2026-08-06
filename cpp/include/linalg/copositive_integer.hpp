@@ -5,6 +5,7 @@
 #include <linalg/matrix_integer.hpp>
 #include <fracessa/bitset64.hpp>
 #include <array>
+#include <cassert>
 #include <cstddef>
 
 namespace linalg {
@@ -162,58 +163,11 @@ inline bool is_strictly_copositive_3x3(integer::const_reference b11, integer::co
  * positive-definiteness cases have failed. It checks principal submatrices in
  * increasing order. Therefore, when a matrix of size k is reached, all of its
  * proper principal submatrices have already passed. Hadeler (1983), Theorem 3,
- * then decides the remaining case from the determinant and adjugate signs.
+ * then decides the remaining case from the determinant, one retained solve, or
+ * the exact nullspace.
  */
 class CopositivityChecker {
 private:
-    // Compute adj(A[subset,subset]) from cofactors when the principal matrix is singular and its inverse is
-    // unavailable.
-    matrix_int adjugate(const matrix_int& A, const uint8_t* subset_indices, size_t n) {
-        matrix_int adj(n, n);
-        matrix_int minor(n - 1, n - 1);
-
-        // A symmetric matrix has a symmetric adjugate, so calculate one triangle.
-        for (size_t i = 0; i < n; ++i) {
-            for (size_t j = i; j < n; ++j) {
-                // Extract the minor obtained by deleting row i and column j.
-                size_t minor_row = 0;
-                for (size_t row = 0; row < n; ++row) {
-                    if (row == i) continue;
-                    size_t minor_col = 0;
-                    for (size_t col = 0; col < n; ++col) {
-                        if (col == j) continue;
-                        minor(minor_row, minor_col) = A(subset_indices[row], subset_indices[col]);
-                        ++minor_col;
-                    }
-                    ++minor_row;
-                }
-
-                // Off-diagonal cofactor minors are not symmetric, so the symmetric LDL^T factorization cannot
-                // calculate them. FLINT's exact integer determinant replaces the former rational LU call without
-                // changing the cofactor formula.
-                integer::reference cofactor = adj(j, i);
-                fmpz_mat_det(cofactor.native_handle(), minor.native_handle());
-                if (((i + j) & 1) != 0) cofactor.negate();
-
-                // adj(A) is the transposed cofactor matrix; symmetry makes both
-                // mirrored entries equal.
-                if (i != j) adj(i, j) = cofactor;
-            }
-        }
-        return adj;
-    }
-
-    bool all_entries_greater_zero(const matrix_int& A) const noexcept {
-        const size_t n = A.rows();
-        for (size_t i = 0; i < n; ++i) {
-            for (size_t j = i; j < n; ++j) {
-                // Only one triangle is needed because every input here is symmetric.
-                if (A(i, j).sign() <= 0) return false;
-            }
-        }
-        return true;
-    }
-
     bool is_copositive_hadeler(const matrix_int& A, bitset64 mask, size_t current_dim) {
         switch (current_dim) {
             case 1: {
@@ -251,31 +205,46 @@ private:
         const bool nonsingular = factorization_.factorize_inplace(subMat) != 0;
         const int determinant_sign = factorization_.determinant().sign();
 
-        if (determinant_sign <= 0) {
-            /*
-             * With all proper principal submatrices already passed, Hadeler's
-             * rejecting pattern is det(A) <= 0 and adj(A) > 0 entrywise. In the
-             * singular case, a positive adjugate gives a positive null direction,
-             * so the quadratic form is not strictly positive there.
-             */
-            matrix_int adj;
-            if (!nonsingular) {
-                // No inverse exists, so use the cofactor definition.
-                adj = adjugate(A, subset_indices, current_dim);
-            } else {
-                // solve_inplace returns |det(A)|*A^-1. This branch has det(A)<0, so its negation is adj(A).
-                adj.set_identity(current_dim);
-                integer denominator;
-                factorization_.solve_inplace(adj, denominator, subMat);
-                adj.negate();
-            }
+        if (determinant_sign > 0) return true;
 
-            if (all_entries_greater_zero(adj)) {
-                return false;
+        if (nonsingular) { // Here determinant_sign < 0.
+            // Hadeler lets one positive right-hand side replace the complete adjugate:
+            // reject exactly when C y = -1 has y > 0.
+            matrix_int solution(current_dim, 1);
+            const integer minus_one(-1);
+            for (size_t row = 0; row < current_dim; ++row) solution(row, 0) = minus_one;
+
+            integer denominator;
+            factorization_.solve_inplace(solution, denominator, subMat);
+            assert(denominator.sign() > 0);
+
+            for (size_t row = 0; row < current_dim; ++row) {
+                if (solution(row, 0).sign() <= 0) return true;
+            }
+            return false;
+        }
+
+        // factorize_inplace() overwrote subMat. Restore the original principal
+        // matrix only for the singular nullspace test.
+        for (size_t row = 0; row < current_dim; ++row) {
+            for (size_t column = 0; column < current_dim; ++column) {
+                subMat(row, column) = A(subset_indices[row], subset_indices[column]);
             }
         }
 
-        return true;
+        matrix_int nullspace(current_dim, current_dim);
+        const slong nullity = fmpz_mat_nullspace(nullspace.native_handle(), subMat.native_handle());
+        assert(nullity > 0);
+        if (nullity != 1) return true;
+
+        // A one-dimensional nullspace rejects only when its basis is strictly
+        // one-sign; its orientation is arbitrary.
+        const int basis_sign = nullspace(0, 0).sign();
+        if (basis_sign == 0) return true;
+        for (size_t row = 1; row < current_dim; ++row) {
+            if (nullspace(row, 0).sign() != basis_sign) return true;
+        }
+        return false;
     }
 
 public:

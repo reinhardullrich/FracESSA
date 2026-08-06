@@ -4,10 +4,14 @@
 complete expected candidate results where available, and timing data.
 
 `Copos_testdata.sqlite3` is the separate exact test corpus for the final strict-copositivity decision. Its `matrices` table contains
-1,069 permutation-inequivalent integer-scaled reduced B matrices constructed while replaying the exact candidate baselines: 41 are
-strictly copositive and 1,028 are not. Exact duplicates and matrices related by one simultaneous row-and-column permutation are
-collapsed to their lowest-ID representative. Source matrix, candidate, support, extended support, dimension, and circular-storage
-fields preserve that representative's provenance back to `fracessa_testdata.sqlite3`.
+1,078 permutation-inequivalent exact integer matrices: 44 are strictly copositive and 1,034 are not. The original 1,069 rows are
+integer-scaled reduced B matrices constructed while replaying the exact candidate baselines. Their nullable `fracessa_matrix_id` is
+the only link back to `fracessa_testdata.sqlite3`; candidate, support, extended-support, source-dimension, and circular-storage data
+are deliberately not duplicated in this corpus.
+
+IDs 9157-9163 are published examples M1-M7 from Bras, Eichfelder, and Judice, and IDs 9164-9165 are the strict and non-copositive
+sides of their C5 graph construction. The nine independent reference rows have no FracESSA matrix ID. Exact duplicates and matrices
+related by one simultaneous row-and-column permutation are collapsed to their lowest-ID representative.
 
 The corpus uses only exact or exact-fallback source baselines. The 18 unverified fast-only source baselines are excluded. Three
 affine-symmetry image rows are also excluded because the production search constructs B only for their shared representative. No

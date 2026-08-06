@@ -112,7 +112,7 @@ TEST(CopositivityTest, FourByFourPositiveDeterminant) {
     EXPECT_TRUE(is_strictly_copositive(A));
 }
 
-TEST(CopositivityTest, FourByFourNegativeDeterminantUsesRetainedSolve) {
+TEST(CopositivityTest, FourByFourNegativeDeterminantUsesOneRightHandSide) {
     matrix_int A(4, 4);
     for (size_t row = 0; row < 4; ++row) {
         for (size_t column = 0; column < 4; ++column) A(row, column) = integer(row == column ? 5 : -2);
@@ -120,7 +120,15 @@ TEST(CopositivityTest, FourByFourNegativeDeterminantUsesRetainedSolve) {
     EXPECT_FALSE(is_strictly_copositive(A));
 }
 
-TEST(CopositivityTest, FourByFourSingularUsesCofactors) {
+TEST(CopositivityTest, FourByFourNegativeDeterminantCanPass) {
+    matrix_int A(4, 4);
+    for (size_t row = 0; row < 4; ++row) {
+        for (size_t column = 0; column < 4; ++column) A(row, column) = integer(row == column ? 1 : 2);
+    }
+    EXPECT_TRUE(is_strictly_copositive(A));
+}
+
+TEST(CopositivityTest, FourByFourSingularUsesPositiveNullspace) {
     matrix_int A(4, 4);
     for (size_t row = 0; row < 4; ++row) {
         for (size_t column = 0; column < 4; ++column) A(row, column) = integer(row == column ? 3 : -1);
@@ -128,19 +136,48 @@ TEST(CopositivityTest, FourByFourSingularUsesCofactors) {
     EXPECT_FALSE(is_strictly_copositive(A));
 }
 
-TEST(CopositivityTest, ArbitraryPrecisionIntegerHadelerBranch) {
-    integer big;
-    ASSERT_EQ(fmpz_set_str(big.native_handle(), "123456789012345678901234567890", 10), 0);
-
+TEST(CopositivityTest, FourByFourSingularMixedSignNullspacePasses) {
+    constexpr slong v[4] = {1, -1, 1, -1};
     matrix_int A(4, 4);
     for (size_t row = 0; row < 4; ++row) {
         for (size_t column = 0; column < 4; ++column) {
-            A(row, column) = big;
-            A(row, column).multiply(row == column ? 5 : 2);
-            if (row != column) A(row, column).negate();
+            A(row, column) = integer((row == column ? 4 : 0) - v[row] * v[column]);
         }
     }
-    EXPECT_FALSE(is_strictly_copositive(A));
+    EXPECT_TRUE(is_strictly_copositive(A));
+}
+
+TEST(CopositivityTest, FourByFourNullityThreePasses) {
+    matrix_int A(4, 4);
+    for (size_t row = 0; row < 4; ++row) {
+        for (size_t column = 0; column < 4; ++column) A(row, column) = integer(1);
+    }
+    EXPECT_TRUE(is_strictly_copositive(A));
+}
+
+TEST(CopositivityTest, ArbitraryPrecisionIntegerHadelerBranches) {
+    integer big;
+    ASSERT_EQ(fmpz_set_str(big.native_handle(), "123456789012345678901234567890", 10), 0);
+
+    matrix_int negative_determinant(4, 4);
+    for (size_t row = 0; row < 4; ++row) {
+        for (size_t column = 0; column < 4; ++column) {
+            negative_determinant(row, column) = big;
+            negative_determinant(row, column).multiply(row == column ? 5 : 2);
+            if (row != column) negative_determinant(row, column).negate();
+        }
+    }
+    EXPECT_FALSE(is_strictly_copositive(negative_determinant));
+
+    matrix_int singular(4, 4);
+    for (size_t row = 0; row < 4; ++row) {
+        for (size_t column = 0; column < 4; ++column) {
+            singular(row, column) = big;
+            singular(row, column).multiply(row == column ? 3 : 1);
+            if (row != column) singular(row, column).negate();
+        }
+    }
+    EXPECT_FALSE(is_strictly_copositive(singular));
 }
 
 TEST(CopositivityTest, AllZeros) {

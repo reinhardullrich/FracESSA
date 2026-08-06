@@ -1198,3 +1198,19 @@ symmetric integer upper triangle, strict-copositivity result, and source matrix/
 exact or exact-fallback stored candidates through the current exact solver, then collapsed 6,691 repeated occurrences and 1,411
 distinct orientations related by simultaneous row-and-column permutations. Unverified fast-only baselines and three affine image
 rows that production does not solve separately were excluded. No benchmark schema or maintained extraction framework was added.
+
+364. Replaced explicit Hadeler adjugates with exact minimal witnesses:
+for negative principal determinants, reused the retained fraction-free $LDL^T$ factorization to solve only
+$Cy=-\mathbf 1$ and reject exactly when $y>0$. For zero determinants, replaced all cofactor determinants with one exact FLINT
+nullspace calculation and the one-sign basis test. Removed the now-unused adjugate helpers and added passing, rejecting, singular,
+higher-nullity, and arbitrary-precision regressions. All 1,069 exact reduced-B corpus decisions and seven complete safe candidate
+outputs matched. All FLINT 3.6 CTest/Python checks and the focused FLINT 3.4 test passed. Nine alternating, uncontended CPU-2 runs
+improved the corpus wall-time median from 4.660 s to 0.995 s (4.68x, 78.65% less time); process CPU time independently produced the
+same ratio. The implementation has no material end-to-end regression on the larger source games.
+
+365. Simplified and extended the exact copositivity corpus:
+replaced all duplicated candidate/support provenance in `Copos_testdata.sqlite3` with one nullable `fracessa_matrix_id`. Existing
+matrix IDs, exact upper triangles, classifications, dates, and FracESSA matrix links remain unchanged. Added nine
+permutation-inequivalent references at IDs 9157-9165: published matrices M1-M7 from Bras, Eichfelder, and Judice plus strict and
+non-copositive sides of their C5 construction. The former adjugate checker and current solve/nullspace checker both matched all nine
+expected strict-copositivity results. The migrated 1,078-row database passes SQLite integrity and upper-triangle shape checks.

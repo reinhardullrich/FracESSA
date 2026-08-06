@@ -228,8 +228,11 @@ Important implementation points:
   When the outside-reply dimension is 1, 2, or 3, `check_stability()` calls shared exact integer Bomze/Hadeler formulas directly
   before the general sign scan. The general Hadeler checker reuses the same formulas for principal subsets of those sizes. From
   dimension 4 onward it uses the retained general fraction-free integer $LDL^T$ factorization for symmetric principal matrices and
-  its multi-right-hand-side solve for nonsingular adjugates. Singular off-diagonal cofactors use FLINT integer determinants because
-  those minors are not symmetric.
+  reads their exact determinant. A positive determinant passes. A negative determinant reuses that factorization for the single
+  system $Cy=-\mathbf 1$ and rejects exactly when $y>0$. A zero determinant restores the principal matrix once and uses
+  `fmpz_mat_nullspace`; a one-dimensional strictly one-sign nullspace rejects, while mixed-sign or higher-dimensional nullspaces
+  pass under Hadeler's proper-principal-submatrix invariant. The checker constructs no inverse, explicit adjugate, or cofactor
+  minors.
   Exact positive definiteness or strict copositivity of the smaller outside-reply matrix then decides stability. A binary64 result
   is never accepted as a final mathematical certificate.
 - New exact early stability decisions use specific machine-readable reasons that name both the conclusion and its certificate.
@@ -385,12 +388,14 @@ means zero candidates or zero ESS. SQLite enforces stored-input uniqueness on `(
 value vectors have the same dimension and circular-storage flag and differ only by a positive nonzero rational multiplier; they
 retain the lowest matrix ID. Negative multipliers remain distinct because they reverse payoff comparisons.
 
-`testdata/Copos_testdata.sqlite3` is the separate reduced-B corpus for final strict-copositivity testing. Its one `matrices` table
-contains one representative of every permutation-equivalence class constructed while replaying exact or exact-fallback stored
-candidate baselines through the current exact solver. Matrix text stores the symmetric upper triangle. Exact duplicates and matrices
-related by a simultaneous row-and-column permutation are collapsed to their lowest-ID representative; provenance links that row to
-its source matrix, candidate, support, and extended support. Fast-only unverified baselines and affine image rows that production does
-not solve separately are excluded. Benchmark and calibration tables remain undefined until their measurement contract is chosen.
+`testdata/Copos_testdata.sqlite3` is the separate exact corpus for final strict-copositivity testing. Its `matrices` table contains
+1,078 permutation-inequivalent symmetric integer matrices stored by upper triangle: 1,069 reduced-B matrices constructed while
+replaying exact or exact-fallback candidate baselines and nine independent published or derived references. Exact duplicates and
+matrices related by a simultaneous row-and-column permutation are collapsed to their lowest-ID representative. Each row has its own
+`matrix_id`; nullable `fracessa_matrix_id` is the only link back to the main test database. Candidate, support, extended-support,
+source-dimension, and circular-storage data are deliberately not duplicated. Fast-only unverified baselines and affine image rows
+that production does not solve separately are excluded. Benchmark and calibration tables remain undefined until their measurement
+contract is chosen.
 
 Corpus sampling retains exactly three diagonal matrices: dimension-one ID 314, compact all-zero dimension-50 ID 2203, and
 nonzero dimension-60 ID 2180. The other 27 diagonal rows were removed to avoid overrepresenting this structurally trivial family.
