@@ -66,6 +66,7 @@ Last verified: 2026-08-06
 - Main implementation: `cpp/`
 - Python API: `python/`
 - Canonical test data: `testdata/fracessa_testdata.sqlite3`
+- Copositivity test data: `testdata/Copos_testdata.sqlite3`
 - Local research material: `research/` (ignored by Git)
 - Local historical benchmark material: `experiments/` (ignored by Git)
 - Agent documentation: `aidocs/`
@@ -371,18 +372,25 @@ black-box parser test. Wrapper tests use Python `unittest`. Matrix correctness
 is no longer wired as one CTest per matrix.
 
 `testdata/fracessa_testdata.sqlite3` is the canonical matrix, expected-result,
-and timing store. Its strict schema is in `testdata/schema.sql`; the current snapshot has 1,372 distinct strategically normalized
-matrices. The 1,079 analyzed rows have 68,704 stored candidate representatives; nullable multipliers recover weighted totals of
-112,378 candidates and 96,727 ESS:
+and timing store. Its strict schema is in `testdata/schema.sql`; the current snapshot has 1,375 distinct strategically normalized
+matrices. The 1,082 analyzed rows have 68,707 stored candidate representatives; nullable multipliers recover weighted totals of
+112,381 candidates and 96,730 ESS:
 circular rows store one smallest dihedral representative and its orbit count,
 while non-circular rows store null. Candidate IDs and row order remain
 reproducibility checks; complete weighted candidate sets and ESS
-classifications are the mathematical contracts. Of the analyzed rows, 1,061 have exact or exact-fallback baselines and 18 retain
+classifications are the mathematical contracts. Of the analyzed rows, 1,064 have exact or exact-fallback baselines and 18 retain
 unverified fast-only baselines. The other 293 rows are catalog-only and keep all four baseline-summary fields null; null never
 means zero candidates or zero ESS. SQLite enforces stored-input uniqueness on `(dimension, matrix)`;
 `matrix` alone cannot be unique because compact input omits its dimension. Import audits additionally reject matrices whose stored
 value vectors have the same dimension and circular-storage flag and differ only by a positive nonzero rational multiplier; they
 retain the lowest matrix ID. Negative multipliers remain distinct because they reverse payoff comparisons.
+
+`testdata/Copos_testdata.sqlite3` is the separate reduced-B corpus for final strict-copositivity testing. Its one `matrices` table
+contains one representative of every permutation-equivalence class constructed while replaying exact or exact-fallback stored
+candidate baselines through the current exact solver. Matrix text stores the symmetric upper triangle. Exact duplicates and matrices
+related by a simultaneous row-and-column permutation are collapsed to their lowest-ID representative; provenance links that row to
+its source matrix, candidate, support, and extended support. Fast-only unverified baselines and affine image rows that production does
+not solve separately are excluded. Benchmark and calibration tables remain undefined until their measurement contract is chosen.
 
 Corpus sampling retains exactly three diagonal matrices: dimension-one ID 314, compact all-zero dimension-50 ID 2203, and
 nonzero dimension-60 ID 2180. The other 27 diagonal rows were removed to avoid overrepresenting this structurally trivial family.

@@ -1191,3 +1191,10 @@ four-dimensional positive, negative-determinant, singular, and arbitrary-precisi
 FLINT 3.6 and system FLINT 3.4, all 66 Python tests and 49 subtests pass, and 883 old/new safe-mode outputs match byte-for-byte after
 excluding only timing. Pinned end-to-end new/old median ratios were 0.292, 0.986, 1.003, and 1.006 on representative dimensions 14,
 19 circular, 23, and 24, so the migration has no material measured regression and greatly improves the copositivity-heavy case.
+
+363. Added a dedicated exact reduced-B test corpus:
+created `testdata/Copos_testdata.sqlite3` with 1,069 permutation-inequivalent scaled reduced B matrices. Every row stores the
+symmetric integer upper triangle, strict-copositivity result, and source matrix/candidate/support provenance. Extraction replayed only
+exact or exact-fallback stored candidates through the current exact solver, then collapsed 6,691 repeated occurrences and 1,411
+distinct orientations related by simultaneous row-and-column permutations. Unverified fast-only baselines and three affine image
+rows that production does not solve separately were excluded. No benchmark schema or maintained extraction framework was added.

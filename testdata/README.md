@@ -3,6 +3,16 @@
 `fracessa_testdata.sqlite3` is the canonical store for exact test matrices,
 complete expected candidate results where available, and timing data.
 
+`Copos_testdata.sqlite3` is the separate exact test corpus for the final strict-copositivity decision. Its `matrices` table contains
+1,069 permutation-inequivalent integer-scaled reduced B matrices constructed while replaying the exact candidate baselines: 41 are
+strictly copositive and 1,028 are not. Exact duplicates and matrices related by one simultaneous row-and-column permutation are
+collapsed to their lowest-ID representative. Source matrix, candidate, support, extended support, dimension, and circular-storage
+fields preserve that representative's provenance back to `fracessa_testdata.sqlite3`.
+
+The corpus uses only exact or exact-fallback source baselines. The 18 unverified fast-only source baselines are excluded. Three
+affine-symmetry image rows are also excluded because the production search constructs B only for their shared representative. No
+benchmark or calibration table is defined yet; those belong here only after their measurement contract is decided.
+
 The current snapshot contains 1,375 distinct strategically normalized matrices. The 1,064 exact or exact-fallback baselines and 18
 additional unverified fast-only results have 68,707 stored candidate representatives whose multipliers represent 112,381
 candidates and 96,730 ESS. The other 293 rows are catalog-only and have null candidate fields.
