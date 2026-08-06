@@ -238,6 +238,55 @@ TEST(CopositivityTest, SignScanStopsAtNonPositiveDiagonal) {
     EXPECT_EQ(scan.negative_neighbors[1], 0U);
 }
 
+TEST(CopositivityTest, ConnectedNegativeGraphChecksWholeMatrix) {
+    matrix_int A(4, 4);
+    for (size_t row = 0; row < 4; ++row) {
+        for (size_t column = 0; column < 4; ++column) A(row, column) = integer(row == column ? 5 : -1);
+    }
+
+    const CopositivitySignScan scan = scan_copositivity_signs(A);
+    EXPECT_TRUE(CopositivityChecker::are_negative_components_strictly_copositive(A, scan.negative_neighbors));
+}
+
+TEST(CopositivityTest, DisconnectedNegativeComponentsPassSeparately) {
+    matrix_int A(6, 6);
+    for (size_t row = 0; row < 6; ++row) {
+        for (size_t column = 0; column < 6; ++column) A(row, column) = integer(row == column ? 4 : 7);
+    }
+    A(0, 2) = A(2, 0) = integer(-1);
+    A(2, 4) = A(4, 2) = integer(-1);
+    A(1, 3) = A(3, 1) = integer(-1);
+    A(3, 5) = A(5, 3) = integer(-1);
+
+    const CopositivitySignScan scan = scan_copositivity_signs(A);
+    EXPECT_TRUE(CopositivityChecker::are_negative_components_strictly_copositive(A, scan.negative_neighbors));
+}
+
+TEST(CopositivityTest, DisconnectedNegativeComponentRejectsWholeMatrix) {
+    matrix_int A(5, 5);
+    for (size_t row = 0; row < 5; ++row) {
+        for (size_t column = 0; column < 5; ++column) A(row, column) = integer(row == column ? 1 : 9);
+    }
+    A(0, 3) = A(3, 0) = integer(-2);
+    A(1, 4) = A(4, 1) = integer(-1);
+
+    const CopositivitySignScan scan = scan_copositivity_signs(A);
+    EXPECT_FALSE(CopositivityChecker::are_negative_components_strictly_copositive(A, scan.negative_neighbors));
+}
+
+TEST(CopositivityTest, NegativeComponentCanContainHighestSupportedIndex) {
+    matrix_int A(63, 63);
+    for (size_t row = 0; row < 63; ++row) {
+        for (size_t column = 0; column < 63; ++column) A(row, column) = integer(row == column ? 1 : 2);
+    }
+    A(0, 62) = A(62, 0) = integer(-2);
+
+    const CopositivitySignScan scan = scan_copositivity_signs(A);
+    EXPECT_EQ(scan.negative_neighbors[0], bs64::single_bit_at_pos(62));
+    EXPECT_EQ(scan.negative_neighbors[62], bs64::single_bit_at_pos(0));
+    EXPECT_FALSE(CopositivityChecker::are_negative_components_strictly_copositive(A, scan.negative_neighbors));
+}
+
 TEST(CopositivityTest, DirectSmallCriteriaCoverBoundaryCases) {
     EXPECT_TRUE(is_strictly_copositive_1x1(integer(1)));
     EXPECT_FALSE(is_strictly_copositive_1x1(integer(0)));

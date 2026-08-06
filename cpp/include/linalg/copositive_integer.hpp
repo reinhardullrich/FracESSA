@@ -263,6 +263,46 @@ public:
 
         return true;
     }
+
+    // Caller has already proved that every diagonal entry is positive and provides the negative-entry graph from the shared sign
+    // scan. Entries between distinct graph components are nonnegative, so A is strictly copositive exactly when every component's
+    // principal matrix is strictly copositive.
+    static bool are_negative_components_strictly_copositive(
+        const matrix_int& A, const std::array<bitset64, bs64::kMaxBitsetDimension>& negative_neighbors) {
+        const size_t n = A.rows();
+        const bitset64 all_vertices = bs64::set_all_n_bits(n);
+        bitset64 remaining = all_vertices;
+
+        while (remaining != 0) {
+            bitset64 component = bs64::lowest_set_bit_as_bit(remaining);
+            bitset64 frontier = component;
+            while (frontier != 0) {
+                const size_t vertex = bs64::find_pos_first_set_bit(frontier);
+                frontier &= frontier - 1;
+                const bitset64 discovered = negative_neighbors[vertex] & ~component;
+                component |= discovered;
+                frontier |= discovered;
+            }
+
+            // The common connected case needs no component matrix or allocation.
+            if (component == all_vertices) return is_strictly_copositive(A);
+
+            remaining &= ~component;
+            if ((component & (component - 1)) == 0) continue;
+
+            uint8_t indices[bs64::kMaxBitsetDimension];
+            const size_t component_size = bs64::extract_set_indices(component, n, indices);
+            matrix_int component_matrix(component_size, component_size);
+            for (size_t row = 0; row < component_size; ++row) {
+                for (size_t column = 0; column < component_size; ++column) {
+                    component_matrix(row, column) = A(indices[row], indices[column]);
+                }
+            }
+            if (!is_strictly_copositive(component_matrix)) return false;
+        }
+
+        return true;
+    }
 };
 
 } // namespace linalg

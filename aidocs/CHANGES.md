@@ -1237,3 +1237,14 @@ strict matrices and 49.45% for the fourteen rejected matrices. The exact cone no
 the checker-owned factorization and positive-sign masks used only by the Z-matrix shortcut; retained the negative-neighbor masks for
 the planned connected-component reduction. Archived the now-unreferenced general fraction-free LDLT implementation under `archive/`.
 The separate KKT-specialized fraction-free LDLT remains active for candidate solving and reduced-Hessian inertia.
+
+369. Added the exact negative-entry connected-component reduction before the final cone check. The existing sign scan now supplies
+the complete adjacency masks without another matrix pass. A connected graph enters the cone checker without copying; a disconnected
+graph is checked through its non-singleton principal component matrices, while positive singleton diagonals need no further work.
+All 30 focused copositivity tests, all nine C++ test executables, and all 66 Python tests passed. Complete safe output matched the
+pre-change binary on all 768 stored matrices through dimension 25 with sub-second calibrations. One CPU-2 measurement of each
+81-matrix quick case was neutral at the median: -0.24% elapsed time in fast and -0.07% in safe; this screen primarily measures the
+connected or earlier-exit overhead. A focused CPU-2 benchmark screened all 1,078 reduced-B matrices and timed only the 21 that reach
+the final checker, using a 0.5-second native-timing target per matrix and method. The seven strictly copositive matrices improved by
+15.66% on average and 17.06% at the median (1.206x median speedup). The fourteen non-copositive matrices were neutral at the median
+and 5.91% slower on average because their direct cone checks usually find a witness in only a few microseconds.

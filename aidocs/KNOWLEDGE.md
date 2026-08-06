@@ -234,8 +234,11 @@ Important implementation points:
   the basis $V$ and a witness are not retained. The algorithmic origin is Mathieu Dutour Sikiric's `PairDecomposition` and
   `TestStrictCopositivity` in Polyhedral Common commit `d2252bc89d991fa6df9750ac9647e19b6a9aca02`; FracESSA's FLINT-integer,
   Gram-only implementation was independently written.
-  Strict copositivity of the smaller outside-reply matrix then decides stability. A binary64 result is never accepted as a final
-  mathematical certificate.
+  Before the final cone check, the negative-entry graph is split into connected components using the adjacency masks retained by
+  the shared sign scan. Cross-component entries are nonnegative, so strict copositivity is equivalent to strict copositivity of
+  every principal component matrix. Singleton components need no further work after the positive-diagonal check; a connected graph
+  enters the cone checker directly without constructing another matrix. A binary64 result is never accepted as a final mathematical
+  certificate.
 - New exact early stability decisions use specific machine-readable reasons that name both the conclusion and its certificate.
   Current examples are `T_copos_small`, `F_not_copos_small`, `F_not_copos_nonpositive_diagonal`,
   `T_copos_nonnegative_off_diagonal`, `T_copos_negative_part_diagonal_dominance`, and
