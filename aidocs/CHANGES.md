@@ -1049,3 +1049,92 @@ executable code changed.
 added a local research note that defines every current and proposed early acceptance, early rejection, exact reduction, and final
 Hadeler optimization; records their proofs, costs, implementation status, recommended cheapest-first order, and the exact canonical
 candidate audit supporting a diagonal-first experiment. Linked it from the current copositivity-flow note. No source code changed.
+
+338. Added one shared exact copositivity sign scan:
+scanned positive diagonals before one upper off-diagonal triangle, built fixed-size negative-neighbor masks, recorded row-level
+positive and negative off-diagonal presence without another sign pass, and accumulated the denominator-one matrix's all-ones
+quadratic value with integer additions. The stability path now rejects nonpositive diagonals and a nonpositive all-ones value before
+exact positive-definiteness factorization while preserving the existing candidate status labels. Removed the conventional but
+unnecessary positive factor two from the scaled reduced B construction while retaining its negation so later checks keep their
+standard positive sign conventions.
+
+339. Gave new exact early rejections certificate-specific stability reasons:
+used `F_not_copos_nonpositive_diagonal` for a nonpositive diagonal witness and
+`F_not_copos_nonpositive_all_ones_value` for a nonpositive all-ones quadratic witness. Historical stability labels and stored
+candidate rows remain unchanged pending a separate deliberate database backfill.
+
+340. Moved scaled reduced B logging to its construction point:
+when logging is enabled, `check_stability()` now records `kay` and the complete scaled reduced B matrix immediately after building
+it, before the sign scan and every early rejection. Numerical behavior is unchanged.
+
+341. Clarified the all-ones early-rejection proof:
+documented directly at Path 5 that the all-ones vector is nonzero and nonnegative, so a nonpositive exact quadratic value is an
+explicit witness that the scaled reduced B matrix is not strictly copositive. No executable code changed.
+
+342. Added exact early acceptance for nonnegative off-diagonal entries:
+after positive diagonals pass, `check_stability()` now accepts immediately when the shared sign scan found no negative
+off-diagonal entry, recording `T_copos_nonnegative_off_diagonal`. This is one mask comparison after the existing scan. The path also
+covers the positive one-dimensional case, making the later `kay_size <= 1` branch and its popcount unreachable; both were removed.
+Added an end-to-end regression for the new certificate-specific reason.
+
+343. Shared direct exact copositivity criteria for dimensions one through three:
+moved the low-dimensional Bomze/Hadeler arithmetic out of `check_stability()` into three reusable inline numerical functions.
+`check_stability()` now only dispatches by outside-reply dimension and records `T_copos_k1` through `k3` or their matching
+rejection labels. The existing Hadeler checker uses the same functions for principal subsets of sizes one through three without a
+temporary matrix or LU factorization; its general determinant-adjugate path now begins at size four, so the obsolete special
+one- and two-dimensional adjugate construction was removed. Before connecting the shared functions to Hadeler, exhaustive symmetric
+integer matrices with entries from -2 through 2 produced identical decisions for all 15,755 cases. An end-to-end comparison of 165
+stored games with actual small-K candidates found no mathematical or output difference beyond the intentional stability labels.
+
+344. Made both low-dimensional dispatch sites explicit:
+replaced the sequential `if` branches in `check_stability()` and the Hadeler principal-subset checker with `switch` statements over
+their respective dimensions. Cases one through three still call the same shared exact criteria and `default` continues to the
+general sign-scan or determinant-adjugate path. No arithmetic, output label, or decision changed.
+
+345. Reduced the local early-stability research note to unfinished work:
+removed every section describing checks and control flow already implemented in production, including obsolete implementation
+plans and database evidence. The note now contains only the unimplemented Z-matrix shortcut, negative-graph decomposition, exact
+row reductions, disconnected-subset shortcut, and one-solve Hadeler replacement, with the mathematics and experiment boundaries
+needed to evaluate those proposals. Current behavior remains documented in the separate current-flow note.
+
+346. Restored the complete cheapest-first stability diagram:
+kept the implemented routing stages in one Mermaid diagram so the remaining exact experiments retain their proper algorithmic
+context. Detailed prose in the early-decisions note still covers only unimplemented work.
+
+347. Added exact symmetric Z-matrix rejection:
+after exact positive definiteness fails, `check_stability()` now rejects a scaled reduced B matrix whose off-diagonal entries are all
+nonpositive. The existing sign scan supplies this fact, so the runtime cost is one mask comparison and full Hadeler enumeration is
+avoided. Added an end-to-end 4-by-4 reduced-matrix witness and the certificate-specific reason `F_not_copos_z_matrix`; moved the rule
+from the remaining-experiments note into the documented current flow.
+
+348. Corrected the documented reduced-matrix scale:
+updated the current exact copositivity flow to reflect the already-implemented removal of Bomze's conventional factor two. The
+stored matrix is $M=(d\delta/2)S$, not $M=d\delta S$; this remains a positive scaling and changes no mathematical decision.
+
+349. Clarified cached reduced entries:
+documented `reduced_entry()` as one integer-scaled reduced-Hessian entry in difference coordinates and explained why the support
+Hessian and later Schur-complement blocks share its cache. No executable code changed.
+
+350. Distinguished current and stored reduced dimensions:
+renamed the persistent safe-solver member to `reduced_system_dimension_`. The local `reduced_dimension` remains the dimension derived
+from the current support, while the member names the reusable reduced-system storage that must match it. No behavior changed.
+
+351. Returned the outside-reply dimension from scaled reduced B construction:
+made `build_scaled_reduced_b()` return the already-computed $|K|$ value and use it directly for the low-dimensional stability
+dispatch. This replaces the later matrix-row lookup without another popcount or scan; numerical behavior is unchanged.
+
+352. Numbered the low-dimensional exact stability path:
+marked the $|K|=1,2,3$ switch as Path 4 and shifted the following stability comments to Paths 5 through 10. No executable code
+changed.
+
+353. Consolidated low-dimensional stability reasons:
+replaced the six dimension-specific $|K|=1,2,3$ labels with `T_copos_small` and `F_not_copos_small`. The candidate already records
+support and extended-support sizes, so the reason no longer duplicates the small dimension. No stored database row used the
+temporary dimension-specific labels.
+
+354. Added negative-part diagonal-dominance early acceptance:
+the existing exact triangular sign scan now accumulates each row's diagonal plus its negative off-diagonal entries. When every sum
+is strictly positive, `check_stability()` accepts immediately with `T_copos_negative_part_diagonal_dominance`, before the all-ones
+witness and positive-definiteness factorization. The implementation cites Liqun Qi, *Linear Algebra and its Applications* 439
+(2013), Theorem 10, equation (12), and uses one fixed stack buffer without another matrix scan. Added exact passing and equality-
+boundary regressions.

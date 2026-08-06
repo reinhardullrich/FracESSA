@@ -4,9 +4,157 @@
 #include <linalg/matrix_fraction.hpp>
 #include <linalg/lu_factor_fraction.hpp>
 #include <fracessa/bitset64.hpp>
+#include <array>
+#include <cassert>
 #include <cstddef>
 
 namespace linalg {
+
+/*
+ * Facts obtained from one exact sign scan of a symmetric matrix. The negative
+ * neighbor masks are the graph needed by the later component reduction. The
+ * row masks and negative-part row sums answer the remaining sign questions
+ * without another matrix pass.
+ */
+struct CopositivitySignScan {
+    // Caller contract: test all_diagonal_positive before reading any other field. A false value means the scan returned before the
+    // off-diagonal pass, so every other field is intentionally incomplete.
+    std::array<bitset64, bs64::kMaxBitsetDimension> negative_neighbors{};
+    bitset64 rows_with_negative_off_diagonal = 0;
+    bitset64 rows_with_positive_off_diagonal = 0;
+    integer all_ones_quadratic_value;
+    bool all_diagonal_positive = true;
+    bool all_negative_part_row_sums_positive = true;
+};
+
+/*
+ * Scan the denominator-one scaled reduced B matrix. Its entries are stored as
+ * fractions only for the existing matrix API, so the quadratic sum adds their
+ * integer numerators directly.
+ */
+inline CopositivitySignScan scan_copositivity_signs(const matrix_frc& A) {
+    CopositivitySignScan result;
+    std::array<integer, bs64::kMaxBitsetDimension> negative_part_row_sums;
+    const size_t n = A.rows();
+
+    // This must remain the first pass: a failed diagonal returns an incomplete result whose other fields must not be consumed.
+    for (size_t i = 0; i < n; ++i) {
+        const fraction& diagonal = A(i, i);
+        assert(fmpz_is_one(fmpq_denref(diagonal.data())));
+        if (diagonal.sgn() <= 0) {
+            result.all_diagonal_positive = false;
+            return result;
+        }
+        const integer::const_reference numerator(fmpq_numref(diagonal.data()));
+        negative_part_row_sums[i] = numerator;
+        result.all_ones_quadratic_value += numerator;
+    }
+
+    // Symmetry lets one triangular scan build both graph directions and count
+    // every off-diagonal contribution to 1^T A 1 exactly twice.
+    for (size_t i = 0; i < n; ++i) {
+        const bitset64 bit_i = bs64::single_bit_at_pos(i);
+        for (size_t j = i + 1; j < n; ++j) {
+            const fraction& entry = A(i, j);
+            assert(fmpz_is_one(fmpq_denref(entry.data())));
+            const bitset64 bit_j = bs64::single_bit_at_pos(j);
+            const bitset64 endpoints = bit_i | bit_j;
+            const int sign = entry.sgn();
+            const integer::const_reference numerator(fmpq_numref(entry.data()));
+
+            if (sign < 0) {
+                result.negative_neighbors[i] |= bit_j;
+                result.negative_neighbors[j] |= bit_i;
+                result.rows_with_negative_off_diagonal |= endpoints;
+                negative_part_row_sums[i] += numerator;
+                negative_part_row_sums[j] += numerator;
+            } else if (sign > 0) {
+                result.rows_with_positive_off_diagonal |= endpoints;
+            }
+
+            result.all_ones_quadratic_value += numerator;
+            result.all_ones_quadratic_value += numerator;
+        }
+
+        if (negative_part_row_sums[i].sign() <= 0) result.all_negative_part_row_sums_positive = false;
+    }
+
+    return result;
+}
+
+// Exact low-dimensional criteria from Bomze (1992), Theorem 3.4. Only one triangle is needed because B is symmetric.
+inline bool is_strictly_copositive_1x1(const fraction& b11) noexcept {
+    return b11.sgn() > 0;
+}
+
+inline bool is_strictly_copositive_2x2(const fraction& b11, const fraction& b12, const fraction& b22) noexcept {
+    if (b11.sgn() <= 0 || b22.sgn() <= 0) return false;
+    if (b12.sgn() >= 0) return true;
+
+    fraction determinant;
+    fraction::mul(determinant, b11, b22);
+    determinant.submul(b12, b12);
+    return determinant.sgn() > 0;
+}
+
+inline bool is_strictly_copositive_3x3(const fraction& b11, const fraction& b12, const fraction& b13,
+                                       const fraction& b22, const fraction& b23, const fraction& b33) noexcept {
+    if (b11.sgn() <= 0 || b22.sgn() <= 0 || b33.sgn() <= 0) return false;
+
+    // Every 2x2 principal submatrix must first be strictly copositive.
+    fraction work;
+    if (b12.sgn() < 0) {
+        fraction::mul(work, b11, b22);
+        work.submul(b12, b12);
+        if (work.sgn() <= 0) return false;
+    }
+    if (b13.sgn() < 0) {
+        fraction::mul(work, b11, b33);
+        work.submul(b13, b13);
+        if (work.sgn() <= 0) return false;
+    }
+    if (b23.sgn() < 0) {
+        fraction::mul(work, b22, b33);
+        work.submul(b23, b23);
+        if (work.sgn() <= 0) return false;
+    }
+
+    // det(B) = b11*b22*b33 + 2*b12*b13*b23 - b11*b23^2 - b22*b13^2 - b33*b12^2.
+    fraction determinant;
+    fraction::mul(determinant, b11, b22);
+    determinant *= b33;
+    fraction::mul(work, b12, b13);
+    work *= b23;
+    determinant.addmul(work, fraction::two());
+    fraction::mul(work, b23, b23);
+    determinant.submul(b11, work);
+    fraction::mul(work, b13, b13);
+    determinant.submul(b22, work);
+    fraction::mul(work, b12, b12);
+    determinant.submul(b33, work);
+
+    if (determinant.sgn() > 0) return true;
+
+    // Hadeler rejects exactly when all six distinct entries of the symmetric adjugate are positive.
+    fraction::mul(work, b22, b33);
+    work.submul(b23, b23);
+    if (work.sgn() <= 0) return true;
+    fraction::mul(work, b11, b33);
+    work.submul(b13, b13);
+    if (work.sgn() <= 0) return true;
+    fraction::mul(work, b11, b22);
+    work.submul(b12, b12);
+    if (work.sgn() <= 0) return true;
+    fraction::mul(work, b13, b23);
+    work.submul(b12, b33);
+    if (work.sgn() <= 0) return true;
+    fraction::mul(work, b12, b23);
+    work.submul(b13, b22);
+    if (work.sgn() <= 0) return true;
+    fraction::mul(work, b12, b13);
+    work.submul(b11, b23);
+    return work.sgn() <= 0;
+}
 
 /*
  * Exact strict-copositivity test for a symmetric rational matrix A:
@@ -24,22 +172,6 @@ private:
     // Compute adj(A) from cofactors when A is singular and A^-1 is unavailable.
     matrix_frc adjugate(const matrix_frc& A) {
         const size_t n = A.rows();
-        if (n == 0) return matrix_frc(0, 0);
-        if (n == 1) {
-            matrix_frc result(1, 1);
-            result(0, 0) = fraction::one();
-            return result;
-        }
-        // The common 2-by-2 case is clearer and cheaper without general minors.
-        if (n == 2) {
-            matrix_frc result(2, 2);
-            result(0, 0) = A(1, 1);
-            result(1, 1) = A(0, 0);
-            result(0, 1) = -A(0, 1); // Symmetric, so A(0,1) == A(1,0)
-            result(1, 0) = result(0, 1);
-            return result;
-        }
-
         matrix_frc adj(n, n);
         matrix_frc minor(n - 1, n - 1);
 
@@ -89,16 +221,32 @@ private:
     }
 
     bool is_copositive_hadeler(const matrix_frc& A, bitset64 mask, size_t current_dim) {
-
-        if (current_dim == 1) {
-            size_t idx = bs64::find_pos_first_set_bit(mask);
-            return A(idx, idx) > fraction::zero();
+        switch (current_dim) {
+            case 1: {
+                const size_t i = bs64::find_pos_first_set_bit(mask);
+                return is_strictly_copositive_1x1(A(i, i));
+            }
+            case 2: {
+                uint8_t indices[bs64::kMaxBitsetDimension];
+                bs64::extract_set_indices(mask, A.rows(), indices);
+                const size_t i = indices[0];
+                const size_t j = indices[1];
+                return is_strictly_copositive_2x2(A(i, i), A(i, j), A(j, j));
+            }
+            case 3: {
+                uint8_t indices[bs64::kMaxBitsetDimension];
+                bs64::extract_set_indices(mask, A.rows(), indices);
+                const size_t i = indices[0];
+                const size_t j = indices[1];
+                const size_t k = indices[2];
+                return is_strictly_copositive_3x3(A(i, i), A(i, j), A(i, k), A(j, j), A(j, k), A(k, k));
+            }
+            default:
+                break;
         }
 
-        // Extract the selected matrix indices once, then copy the principal submatrix.
         uint8_t subset_indices[bs64::kMaxBitsetDimension];
         bs64::extract_set_indices(mask, A.rows(), subset_indices);
-
         matrix_frc subMat(current_dim, current_dim);
         for (size_t row = 0; row < current_dim; ++row) {
             for (size_t column = 0; column < current_dim; ++column) {

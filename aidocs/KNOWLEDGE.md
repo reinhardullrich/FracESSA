@@ -1,6 +1,6 @@
 # Project Knowledge
 
-Last verified: 2026-08-05
+Last verified: 2026-08-06
 
 ## Worktree Policy
 
@@ -221,11 +221,21 @@ Important implementation points:
 - Stability reuses the exact reduced-Hessian inertia. A non-negative-definite
   support Hessian rejects ESS immediately; a negative-definite Hessian proves
   ESS immediately when extended support equals support. For the rare negative-definite case with outside best replies, the safe
-  solver reuses the retained fraction-free factorization to construct a positive integer multiple of Bomze's final reduced $B^{(r)}$
-  matrix directly through its exact Schur complement. This replaces complete rational Bee construction and recursive elimination of
-  the unrestricted support coordinates.
+  solver reuses the retained fraction-free factorization to construct an integer matrix that is a positive multiple of Bomze's final
+  reduced $B^{(r)}$ matrix directly through its exact Schur complement. The positive scale need not be tracked after construction;
+  all subsequent definiteness, copositivity, sign, and witness decisions are invariant under it. This replaces complete rational Bee
+  construction and recursive elimination of the unrestricted support coordinates.
+  When the outside-reply dimension is 1, 2, or 3, `check_stability()` calls shared exact Bomze/Hadeler formulas directly before
+  the general sign scan. The general Hadeler checker reuses the same formulas for principal subsets of those sizes and constructs
+  temporary principal matrices and LU factorizations only from dimension 4 onward.
   Exact positive definiteness or strict copositivity of the smaller outside-reply matrix then decides stability. A binary64 result
   is never accepted as a final mathematical certificate.
+- New exact early stability decisions use specific machine-readable reasons that name both the conclusion and its certificate.
+  Current examples are `T_copos_small`, `F_not_copos_small`, `F_not_copos_nonpositive_diagonal`,
+  `T_copos_nonnegative_off_diagonal`, `T_copos_negative_part_diagonal_dominance`, and
+  `F_not_copos_nonpositive_all_ones_value`. After exact positive definiteness fails, a symmetric Z-matrix is rejected by one
+  existing sign-mask comparison as `F_not_copos_z_matrix`, because strict copositivity and positive definiteness are equivalent for
+  that sign pattern. Historical stored candidate reasons require a later deliberate backfill.
 - `correctness/DOUBLE_PD_FALSE_POSITIVES.md` documents the concrete failures and
   proves why tolerance tuning cannot recover an exact PD certificate.
 - `correctness/FAST_CANDIDATE_FALSE_REJECTION.md` gives exact ESS counterexamples for all three former fast per-support rejection

@@ -128,12 +128,12 @@ safe_fallback find_candidate_safe::prepare_normalized_double_game(unsigned long 
 
 void find_candidate_safe::resize_reduced_system(size_t reduced_dimension)
 {
-    if (reduced_dimension_ == reduced_dimension) return;
+    if (reduced_system_dimension_ == reduced_dimension) return;
 
-    reduced_dimension_ = reduced_dimension;
-    reduced_system_.resize(reduced_dimension_, reduced_dimension_);
-    right_hand_side_.resize(reduced_dimension_, 1);
-    solution_numerators_.resize(reduced_dimension_, 1);
+    reduced_system_dimension_ = reduced_dimension;
+    reduced_system_.resize(reduced_system_dimension_, reduced_system_dimension_);
+    right_hand_side_.resize(reduced_system_dimension_, 1);
+    solution_numerators_.resize(reduced_system_dimension_, 1);
 }
 
 /*
@@ -179,6 +179,14 @@ void find_candidate_safe::build_reduced_system(const uint8_t* support_indices, s
     }
 }
 
+/*
+ * Return one entry of the integer-scaled reduced extended Hessian in difference coordinates:
+ *
+ *     d*(e_row-e_reference)^T*A*(e_column-e_reference)
+ *       = dA_row,column-dA_reference,column+dA_reference,reference-dA_row,reference.
+ *
+ * The support Hessian H and the later G and Q blocks reuse these same entries, so calculate each triple only once.
+ */
 linalg::integer::const_reference find_candidate_safe::reduced_entry(size_t reference, size_t row, size_t column)
 {
     const size_t offset = reference * dimension_ * dimension_ + row * dimension_ + column;
@@ -200,14 +208,15 @@ linalg::integer::const_reference find_candidate_safe::reduced_entry(size_t refer
  *
  * where dH, dG, and dQ are integer because integer_game_=dA. The retained factorization solves dH*N=dG*delta. Therefore
  *
- *     -2(delta*dQ - dG'*N) = d*delta * [-2(Q-G'*H^-1*G)].
+ *     -(delta*dQ - dG'*N) = d*delta * [-(Q-G'*H^-1*G)].
  *
- * The bracketed matrix is the Schur complement of Bomze's unrestricted support block, hence his final reduced matrix B^(r) up to
- * a positive scale. The scale d*delta preserves positive definiteness and strict copositivity, so result can contain these integers
- * with denominator one. Original dG entries remain in reduced_entry_cache_ after the solve overwrites the work matrix with N.
+ * The bracketed matrix is one half of Bomze's final reduced matrix B^(r), so it differs only by an irrelevant positive scale. The
+ * negation is retained deliberately: it lets every later check use the standard positive-definiteness and strict-copositivity signs
+ * instead of reversing every comparison for a nonstandard "co-negativity" test. Original dG entries remain in
+ * reduced_entry_cache_ after the solve overwrites the work matrix with N.
  */
-void find_candidate_safe::build_scaled_reduced_b(bitset64 support, bitset64 outside_best_replies,
-                                                 linalg::matrix_frc& result)
+size_t find_candidate_safe::build_scaled_reduced_b(bitset64 support, bitset64 outside_best_replies,
+                                                   linalg::matrix_frc& result)
 {
     assert(reduced_hessian_is_negative_definite_);
     assert(outside_best_replies != 0);
@@ -220,7 +229,7 @@ void find_candidate_safe::build_scaled_reduced_b(bitset64 support, bitset64 outs
     const size_t reference = support_indices[0];
 
     if (reduced_dimension > 0) {
-        assert(reduced_dimension_ == reduced_dimension);
+        assert(reduced_system_dimension_ == reduced_dimension);
         stability_solution_numerators_.resize(reduced_dimension, outside_size);
 
         // Before the solve this matrix is dG. Afterwards it contains the solution numerators N.
@@ -231,8 +240,7 @@ void find_candidate_safe::build_scaled_reduced_b(bitset64 support, bitset64 outs
             }
         }
 
-        ffldlt_workspace_.solve_factored_negative_definite_inplace(
-            stability_solution_numerators_, solution_denominator_, reduced_system_);
+        ffldlt_workspace_.solve_factored_negative_definite_inplace(stability_solution_numerators_, solution_denominator_, reduced_system_);
     }
 
     if (result.rows() != outside_size || result.cols() != outside_size) {
@@ -252,12 +260,12 @@ void find_candidate_safe::build_scaled_reduced_b(bitset64 support, bitset64 outs
                     reduced_entry(reference, i, outside_indices[row]), stability_solution_numerators_(inner, column));
             }
 
-            scaled_entry.multiply(2);
             scaled_entry.negate();
             result(row, column).set_ratio(scaled_entry, one);
             if (row != column) result(column, row) = result(row, column);
         }
     }
+    return outside_size;
 }
 
 void find_candidate_safe::calculate_integer_payoff(linalg::integer& value, size_t strategy, size_t reference,

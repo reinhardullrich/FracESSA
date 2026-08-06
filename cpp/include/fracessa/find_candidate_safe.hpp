@@ -54,10 +54,10 @@ public:
     // Its negative definiteness is the support-only second-order ESS condition.
     bool reduced_hessian_is_negative_definite() const noexcept { return reduced_hessian_is_negative_definite_; }
 
-    // Build a positive integer multiple of Bomze's final reduced B^(r) matrix.
+    // Build an integer matrix that is a positive multiple of Bomze's final reduced B^(r) matrix and return its dimension |K|.
     // Method: eliminate the unrestricted support block through one exact Schur complement; no inverse is formed.
     // Valid immediately after find() succeeds for the same support and reports a negative-definite reduced Hessian.
-    void build_scaled_reduced_b(bitset64 support, bitset64 outside_best_replies, linalg::matrix_frc& result);
+    size_t build_scaled_reduced_b(bitset64 support, bitset64 outside_best_replies, linalg::matrix_frc& result);
 
 private:
     bool precision_span_at_least(unsigned long limit, bool include_game_denominator, linalg::integer& maximum) const;
@@ -73,7 +73,7 @@ private:
     // calculated lazily; the deliberately unused combinations cost less than two MiB even at dimension 64.
     std::vector<linalg::integer> reduced_entry_cache_;
     std::vector<std::uint8_t> reduced_entry_cache_ready_;
-    size_t reduced_dimension_ = 0;
+    size_t reduced_system_dimension_ = 0;
     bool reduced_hessian_is_negative_definite_ = false;
     linalg::fraction_free_ldlt_workspace ffldlt_workspace_;
     linalg::matrix_int integer_game_;

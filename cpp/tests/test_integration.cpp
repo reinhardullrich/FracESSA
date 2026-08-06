@@ -58,6 +58,54 @@ TEST(IntegrationTest, FullSupportModeFallsBackWhenFullSupportIsNotStable) {
     EXPECT_EQ(analyzer.candidates_[0].support_size, 2u);
 }
 
+TEST(IntegrationTest, EarlyCopositivityDecisionsNameTheirCertificate) {
+    matrix_frc diagonal_witness(2, 2);
+    diagonal_witness(0, 0) = fraction::one(); diagonal_witness(0, 1) = fraction::one();
+    diagonal_witness(1, 0) = fraction::one(); diagonal_witness(1, 1) = fraction::two();
+
+    fracessa diagonal_analyzer(search_method::safe, diagonal_witness, false, true, false, false);
+    ASSERT_FALSE(diagonal_analyzer.candidates_.empty());
+    EXPECT_EQ(diagonal_analyzer.candidates_[0].stability, "F_not_copos_small");
+
+    matrix_frc all_ones_witness(4, 4);
+    all_ones_witness(0, 0) = fraction(0);     all_ones_witness(0, 1) = fraction(0);
+    all_ones_witness(0, 2) = fraction(0);     all_ones_witness(0, 3) = fraction(0);
+    all_ones_witness(1, 0) = fraction(0);     all_ones_witness(1, 1) = fraction(-53);
+    all_ones_witness(1, 2) = fraction(33, 2); all_ones_witness(1, 3) = fraction(73, 2);
+    all_ones_witness(2, 0) = fraction(0);     all_ones_witness(2, 1) = fraction(33, 2);
+    all_ones_witness(2, 2) = fraction(-85, 2); all_ones_witness(2, 3) = fraction(26);
+    all_ones_witness(3, 0) = fraction(0);     all_ones_witness(3, 1) = fraction(73, 2);
+    all_ones_witness(3, 2) = fraction(26);    all_ones_witness(3, 3) = fraction(-125, 2);
+
+    fracessa all_ones_analyzer(search_method::safe, all_ones_witness, false, true, false, false);
+    ASSERT_FALSE(all_ones_analyzer.candidates_.empty());
+    EXPECT_EQ(all_ones_analyzer.candidates_[0].stability, "F_not_copos_small");
+
+    matrix_frc nonnegative_off_diagonal(3, 3);
+    nonnegative_off_diagonal(0, 0) = fraction::one(); nonnegative_off_diagonal(0, 1) = fraction::one();
+    nonnegative_off_diagonal(0, 2) = fraction::one(); nonnegative_off_diagonal(1, 0) = fraction::one();
+    nonnegative_off_diagonal(1, 1) = fraction::zero(); nonnegative_off_diagonal(1, 2) = fraction::zero();
+    nonnegative_off_diagonal(2, 0) = fraction::one(); nonnegative_off_diagonal(2, 1) = fraction::zero();
+    nonnegative_off_diagonal(2, 2) = fraction::zero();
+
+    fracessa nonnegative_analyzer(search_method::safe, nonnegative_off_diagonal, false, true, false, false);
+    ASSERT_FALSE(nonnegative_analyzer.candidates_.empty());
+    EXPECT_EQ(nonnegative_analyzer.candidates_[0].stability, "T_copos_small");
+
+    matrix_frc z_matrix_witness(5, 5);
+    z_matrix_witness(1, 1) = fraction(-1);
+    z_matrix_witness(1, 2) = fraction(2); z_matrix_witness(2, 1) = fraction(2);
+    z_matrix_witness(2, 2) = fraction(-1);
+    z_matrix_witness(3, 3) = fraction(-10);
+    z_matrix_witness(4, 4) = fraction(-10);
+
+    fracessa z_matrix_analyzer(search_method::safe, z_matrix_witness, false, true, false, false);
+    ASSERT_FALSE(z_matrix_analyzer.candidates_.empty());
+    EXPECT_EQ(z_matrix_analyzer.candidates_[0].support, 1u);
+    EXPECT_EQ(z_matrix_analyzer.candidates_[0].extended_support_size, 5u);
+    EXPECT_EQ(z_matrix_analyzer.candidates_[0].stability, "F_not_copos_z_matrix");
+}
+
 TEST(IntegrationTest, CircularSymmetricStoresOneRepresentative) {
     std::vector<fraction> half_row = {fraction::one(), fraction(3)};
     matrix_frc B = create_circular_symmetric(5, half_row);

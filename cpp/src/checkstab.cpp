@@ -39,7 +39,6 @@ void fracessa::check_stability()
 
     // K contains best replies that receive zero probability in p. Only their coordinates are sign constrained.
     const bitset64 kay = bs64::subtract(candidate_.extended_support, candidate_.support);
-    const size_t kay_size = bs64::count_set_bits(kay);
 
     // Path 2, early rejection: H is not negative definite. A support-only direction already violates strict stability,
     // so reject the candidate.
@@ -59,14 +58,76 @@ void fracessa::check_stability()
         return;
     }
     // The remaining case has H negative definite and at least one unused tied best reply.
-    find_candidate_safe_.build_scaled_reduced_b(candidate_.support, kay, scaled_reduced_b_);
+    const size_t kay_size = find_candidate_safe_.build_scaled_reduced_b(candidate_.support, kay, scaled_reduced_b_);
 
     if (conf_with_log_) {
         logger_->info("kay: {}", bs64::to_bitstring(kay, dimension_));
         logger_->info("scaled reduced B matrix:\n{}", scaled_reduced_b_.to_log_string());
     }
 
-    // Path 4, early acceptance: The scaled reduced B matrix is positive definite. This implies strict copositivity,
+    // Path 4, direct decision: Small K has fixed exact criteria, cheaper than collecting data for the general copositivity path.
+    switch (kay_size) {
+        case 1:
+            candidate_.is_ess = linalg::is_strictly_copositive_1x1(scaled_reduced_b_(0, 0));
+            candidate_.stability = candidate_.is_ess ? "T_copos_small" : "F_not_copos_small";
+            if (conf_with_log_) logger_->info("Reason: {}", candidate_.stability);
+            return;
+        case 2:
+            candidate_.is_ess = linalg::is_strictly_copositive_2x2(
+                scaled_reduced_b_(0, 0), scaled_reduced_b_(0, 1), scaled_reduced_b_(1, 1));
+            candidate_.stability = candidate_.is_ess ? "T_copos_small" : "F_not_copos_small";
+            if (conf_with_log_) logger_->info("Reason: {}", candidate_.stability);
+            return;
+        case 3:
+            candidate_.is_ess = linalg::is_strictly_copositive_3x3(
+                scaled_reduced_b_(0, 0), scaled_reduced_b_(0, 1), scaled_reduced_b_(0, 2),
+                scaled_reduced_b_(1, 1), scaled_reduced_b_(1, 2), scaled_reduced_b_(2, 2));
+            candidate_.stability = candidate_.is_ess ? "T_copos_small" : "F_not_copos_small";
+            if (conf_with_log_) logger_->info("Reason: {}", candidate_.stability);
+            return;
+        default:
+            break;
+    }
+
+    const linalg::CopositivitySignScan sign_scan = linalg::scan_copositivity_signs(scaled_reduced_b_);
+
+    // This must be the first sign-scan decision: every other scan field is incomplete when a diagonal fails.
+    // Path 5, early rejection: A nonpositive diagonal is an explicit coordinate-vector witness against strict copositivity.
+    if (!sign_scan.all_diagonal_positive) {
+        if (conf_with_log_) logger_->info("Reason: F_not_copos_nonpositive_diagonal");
+        candidate_.stability = "F_not_copos_nonpositive_diagonal";
+        candidate_.is_ess = false;
+        return;
+    }
+
+    // Path 6, early acceptance: Positive diagonals and nonnegative off-diagonal entries make every term in the quadratic form
+    // nonnegative, with at least one positive term for every nonzero nonnegative vector.
+    if (sign_scan.rows_with_negative_off_diagonal == 0) {
+        if (conf_with_log_) logger_->info("Reason: T_copos_nonnegative_off_diagonal");
+        candidate_.stability = "T_copos_nonnegative_off_diagonal";
+        candidate_.is_ess = true;
+        return;
+    }
+
+    // Path 7, early acceptance: Liqun Qi, LAA 439 (2013), Theorem 10, eq. (12): a positive diagonal plus all negative
+    // off-diagonal entries in every row implies strict copositivity.
+    if (sign_scan.all_negative_part_row_sums_positive) {
+        if (conf_with_log_) logger_->info("Reason: T_copos_negative_part_diagonal_dominance");
+        candidate_.stability = "T_copos_negative_part_diagonal_dominance";
+        candidate_.is_ess = true;
+        return;
+    }
+
+    // Path 8, early rejection: The all-ones vector is nonzero and nonnegative. If its exact quadratic value is nonpositive,
+    // the scaled reduced B matrix is not strictly copositive.
+    if (sign_scan.all_ones_quadratic_value.sign() <= 0) {
+        if (conf_with_log_) logger_->info("Reason: F_not_copos_nonpositive_all_ones_value");
+        candidate_.stability = "F_not_copos_nonpositive_all_ones_value";
+        candidate_.is_ess = false;
+        return;
+    }
+
+    // Path 9, early acceptance: The scaled reduced B matrix is positive definite. This implies strict copositivity,
     // so accept the candidate as an ESS.
     if (scaled_reduced_b_.is_positive_definite()) {
         if (conf_with_log_) logger_->info("Reason: true_posdef_frc");
@@ -75,16 +136,15 @@ void fracessa::check_stability()
         return;
     }
 
-    // Path 5, early rejection: K has exactly one coordinate, because Path 3 excluded K=empty.
-    // Failure of positive definiteness therefore also means failure of strict copositivity, so reject the candidate.
-    if (kay_size <= 1) {
-        if (conf_with_log_) logger_->info("Reason: false_not_posdef_and_kay_0_1");
-        candidate_.stability = "F_not_pd_kay_0_1";
+    // Path 10, early rejection: For a symmetric Z-matrix, strict copositivity is equivalent to positive definiteness.
+    if (sign_scan.rows_with_positive_off_diagonal == 0) {
+        if (conf_with_log_) logger_->info("Reason: F_not_copos_z_matrix");
+        candidate_.stability = "F_not_copos_z_matrix";
         candidate_.is_ess = false;
         return;
     }
 
-    // Path 6, final decision: K has at least two coordinates. Strict copositivity of the scaled reduced B matrix
+    // Path 11, final decision: Strict copositivity of the scaled reduced B matrix
     // is now the exact remaining test; accept the candidate exactly when this test succeeds.
     if (linalg::is_strictly_copositive(scaled_reduced_b_)) {
         if (conf_with_log_) logger_->info("Reason: true_copositive");
