@@ -100,27 +100,6 @@ public:
         fmpq_set_fmpz_frac(data_, numerator.native_handle(), denominator.native_handle());
     }
     
-    // In-place arithmetic used in elimination/factorization loops.
-    void mul_inplace(const fraction& other) noexcept {
-        fmpq_mul(data_, data_, other.data_);
-    }
-    
-    void div_inplace(const fraction& other) {
-        if (fmpq_is_zero(other.data_)) {
-            throw std::domain_error("Division by zero");
-        }
-        fmpq_div(data_, data_, other.data_);
-    }
-    
-    // Combined operations used heavily in matrix kernels: data_ += a*b, data_ -= a*b.
-    void addmul(const fraction& a, const fraction& b) noexcept {
-        fmpq_addmul(data_, a.data_, b.data_);
-    }
-    
-    void submul(const fraction& a, const fraction& b) noexcept {
-        fmpq_submul(data_, a.data_, b.data_);
-    }
-
     // Destination-first helpers avoid returning temporary fraction objects.
     static void mul(fraction& res, const fraction& a, const fraction& b) noexcept {
         fmpq_mul(res.data_, a.data_, b.data_);
@@ -137,14 +116,6 @@ public:
         fmpq_add(res.data_, a.data_, b.data_);
     }
 
-    static void sub(fraction& res, const fraction& a, const fraction& b) noexcept {
-        fmpq_sub(res.data_, a.data_, b.data_);
-    }
-
-    int sgn() const noexcept {
-        return fmpq_sgn(data_);
-    }
-    
     // Returning operators favor readable formulas; hot loops use the helpers above.
     
     fraction operator*(const fraction& other) const {
@@ -153,21 +124,6 @@ public:
         return result;
     }
     
-    fraction operator/(const fraction& other) const {
-        if (fmpq_is_zero(other.data_)) {
-            throw std::domain_error("Division by zero");
-        }
-        fraction result;
-        fmpq_div(result.data_, data_, other.data_);
-        return result;
-    }
-    
-    fraction operator-() const {
-        fraction result;
-        fmpq_neg(result.data_, data_);
-        return result;
-    }
-
     // Compound assignment writes into existing FLINT storage without a temporary.
     fraction& operator+=(const fraction& other) noexcept {
         fmpq_add(data_, data_, other.data_);
@@ -179,27 +135,9 @@ public:
         return *this;
     }
     
-    // Used by exact LU determinant accumulation.
-    fraction& operator*=(const fraction& other) noexcept {
-        mul_inplace(other);
-        return *this;
-    }
-    
     // Exact comparisons on canonicalized rationals.
     bool operator==(const fraction& other) const noexcept {
         return fmpq_equal(data_, other.data_);
-    }
-    
-    bool operator<(const fraction& other) const noexcept {
-        return fmpq_cmp(data_, other.data_) < 0;
-    }
-    
-    bool operator<=(const fraction& other) const noexcept {
-        return fmpq_cmp(data_, other.data_) <= 0;
-    }
-    
-    bool operator>(const fraction& other) const noexcept {
-        return fmpq_cmp(data_, other.data_) > 0;
     }
     
     bool is_zero() const noexcept {

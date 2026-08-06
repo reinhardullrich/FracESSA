@@ -4,7 +4,6 @@ set(TEST_LIST
     test_matrix_parser
     test_supports
     test_linear_solver
-    test_lu
     test_copositivity
     test_bitset64
     test_integration
@@ -28,7 +27,6 @@ add_test(NAME MatrixTests COMMAND test_matrix)
 add_test(NAME MatrixParserTests COMMAND test_matrix_parser)
 add_test(NAME SupportsTests COMMAND test_supports)
 add_test(NAME LinearSolverTests COMMAND test_linear_solver)
-add_test(NAME LUTests COMMAND test_lu)
 add_test(NAME CopositivityTests COMMAND test_copositivity)
 add_test(NAME Bitset64Tests COMMAND test_bitset64)
 add_test(NAME IntegrationTests COMMAND test_integration)

@@ -1214,3 +1214,8 @@ matrix IDs, exact upper triangles, classifications, dates, and FracESSA matrix l
 permutation-inequivalent references at IDs 9157-9165: published matrices M1-M7 from Bras, Eichfelder, and Judice plus strict and
 non-copositive sides of their C5 construction. The former adjugate checker and current solve/nullspace checker both matched all nine
 expected strict-copositivity results. The migrated 1,078-row database passes SQLite integrity and upper-triangle shape checks.
+
+366. Removed the retired exact-rational LU and rational positive-definiteness implementations after the integer stability migration
+left both without production callers. Deleted the LU test executable and CMake registration, the rational PD unit case, and the
+fraction/matrix operations used only by those implementations and their self-focused tests. Rational matrices now remain only at
+the parsed-game and candidate-output boundary.

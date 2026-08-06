@@ -2,7 +2,6 @@
 #define RATIONAL_LINALG_MATRIX_FRACTION_HPP
 
 #include <cstddef>
-#include <utility>
 #include <vector>
 #include <string>
 #include <sstream>
@@ -12,12 +11,11 @@
 namespace linalg {
 
 /*
- * Dense exact-rational matrix for FracESSA kernels.
+ * Dense exact-rational storage for parsed games and candidate output.
  *
  * Design intent:
- * - Keep storage contiguous for cache-friendly scans in elimination/factorization.
- * - Avoid generic linear-algebra abstraction overhead; only operations needed by
- *   the ESS pipeline are implemented.
+ * Exact candidate and stability calculations use integer matrices; this type
+ * remains only at the rational input/output boundary.
  */
 class matrix_frc {
 public:
@@ -28,21 +26,6 @@ public:
     matrix_frc(size_t rows, size_t cols) 
         : rows_(rows), cols_(cols) {
         data_.resize(rows * cols);
-    }
-
-    void set_identity(size_t n) {
-        rows_ = n;
-        cols_ = n;
-        data_.resize(n * n);
-        for (size_t i = 0; i < n; ++i) {
-            for (size_t j = 0; j < n; ++j) {
-                if (i == j) {
-                    data_[i * n + j] = fraction::one();
-                } else {
-                    data_[i * n + j] = fraction::zero();
-                }
-            }
-        }
     }
 
     size_t rows() const noexcept { return rows_; }
@@ -57,13 +40,6 @@ public:
     const fraction& operator()(size_t i, size_t j) const {
         return data_[i * cols_ + j];
     }
-
-    void swap_rows(size_t i, size_t j) {
-        for (size_t k = 0; k < cols_; ++k) {
-            std::swap((*this)(i, k), (*this)(j, k));
-        }
-    }
-
 
     std::string to_log_string() const {
         std::stringstream ss;
@@ -83,51 +59,6 @@ public:
             fraction::mul(result.data_[i], data_[i], scalar);
         }
         return result;
-    }
-
-    /*
-     * Test a symmetric matrix by the exact factorization A = L*D*L^T, where L
-     * has unit diagonal and D is diagonal. A is positive definite exactly when
-     * every entry of D is positive. Because all entries are rational, these are
-     * exact sign decisions: no epsilon or floating-point tolerance is involved.
-     * In the stability path, this is the exact early-acceptance check for the scaled reduced B matrix.
-     */
-    bool is_positive_definite() const {
-        const size_t n = rows_;
-        if (n == 0) return true;
-        
-        std::vector<fraction> d(n);
-        
-        matrix_frc L;
-        L.set_identity(n);
-
-        fraction aSum, bSum, term;
-
-        for (size_t i = 0; i < n; ++i) {
-            for (size_t j = 0; j < i; ++j) {
-                aSum = fraction::zero();
-                for (size_t k = 0; k < j; ++k) {
-                    // Subtract the part already explained by earlier columns of L.
-                    fraction::mul(term, L(j, k), d[k]);
-                    aSum.addmul(L(i, k), term);
-                }
-                fraction::sub(L(i, j), (*this)(i, j), aSum);
-                L(i, j).div_inplace(d[j]);
-            }
-            
-            bSum = fraction::zero();
-            for (size_t k = 0; k < i; ++k) {
-                fraction::mul(term, L(i, k), d[k]);
-                bSum.addmul(L(i, k), term);
-            }
-            
-            // This is the next diagonal entry of D; its sign decides this step.
-            fraction::sub(d[i], (*this)(i, i), bSum);
-            if (d[i].sgn() <= 0) {
-                return false;
-            }
-        }
-        return true;
     }
 
 private:

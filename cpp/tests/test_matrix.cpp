@@ -13,8 +13,7 @@ using namespace candidate_search;
 /*
  * Matrix container and factory tests.
  *
- * These keep basic storage/indexing/factory invariants stable and exercise
- * exact positive-definiteness on small, hand-checkable examples.
+ * These keep basic storage, indexing, and factory invariants stable.
  */
 
 TEST(MatrixFractionTest, BasicOperations) {
@@ -66,18 +65,6 @@ TEST(MatrixFractionTest, FactoryFunctions) {
     EXPECT_EQ(S(0, 1), fraction::two());
     EXPECT_EQ(S(1, 0), fraction::two());
     EXPECT_EQ(S(1, 1), fraction(3));
-}
-
-TEST(MatrixPositiveDefiniteTest, Fraction) {
-    matrix_frc A(2, 2);
-    A(0, 0) = fraction::two(); A(0, 1) = fraction::neg_one();
-    A(1, 0) = fraction::neg_one(); A(1, 1) = fraction::two();
-    EXPECT_TRUE(A.is_positive_definite());
-
-    matrix_frc B(2, 2);
-    B(0, 0) = fraction::one(); B(0, 1) = fraction::two();
-    B(1, 0) = fraction::two(); B(1, 1) = fraction::one();
-    EXPECT_FALSE(B.is_positive_definite());
 }
 
 TEST(FindCandidateFastTest, UsesExactPrecisionSpanCutoff) {

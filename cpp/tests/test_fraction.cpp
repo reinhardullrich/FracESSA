@@ -9,7 +9,7 @@ using namespace linalg;
  * Exact rational wrapper tests.
  *
  * Goal: guard C++ value semantics around FLINT-backed storage and verify that
- * arithmetic/comparison operators preserve canonical rational behavior.
+ * the retained public operations preserve canonical rational behavior.
  */
 
 // ============================================================================
@@ -103,75 +103,12 @@ TEST(FractionTest, Multiplication) {
     EXPECT_DOUBLE_EQ(result.to_dbl(), 0.5);
 }
 
-TEST(FractionTest, Division) {
-    fraction f1(1, 2);
-    fraction f2(1, 4);
-    fraction result = f1 / f2;
-    EXPECT_DOUBLE_EQ(result.to_dbl(), 2.0);
-}
-
-TEST(FractionTest, DivisionByZeroThrows) {
-    fraction f1(1, 2);
-    fraction f2 = fraction::zero();
-    EXPECT_THROW(f1 / f2, std::domain_error);
-}
-
-TEST(FractionTest, UnaryNegation) {
-    fraction f(3, 4);
-    fraction neg = -f;
-    EXPECT_DOUBLE_EQ(neg.to_dbl(), -0.75);
-    
-    fraction neg2 = -neg;
-    EXPECT_EQ(neg2, f);
-}
-
-TEST(FractionTest, CompoundAssignmentMultiplication) {
-    fraction f(2, 3);
-    f *= fraction(3, 4);
-    EXPECT_DOUBLE_EQ(f.to_dbl(), 0.5);
-}
-
-// ============================================================================
-// Comparison Operator Tests
-// ============================================================================
-
 TEST(FractionTest, Equality) {
     fraction f1(1, 2);
     fraction f2(2, 4);
     fraction f3(1, 3);
     EXPECT_EQ(f1, f2);
     EXPECT_FALSE(f1 == f3);
-}
-
-TEST(FractionTest, LessThan) {
-    fraction f1(1, 3);
-    fraction f2(1, 2);
-    EXPECT_LT(f1, f2);
-    EXPECT_FALSE(f2 < f1);
-}
-
-TEST(FractionTest, LessThanOrEqual) {
-    fraction f1(1, 2);
-    fraction f2(2, 4);
-    fraction f3(1, 3);
-    EXPECT_LE(f1, f2);
-    EXPECT_LE(f3, f1);
-    EXPECT_FALSE(f1 <= f3);
-}
-
-TEST(FractionTest, GreaterThan) {
-    fraction f1(1, 2);
-    fraction f2(1, 3);
-    EXPECT_GT(f1, f2);
-    EXPECT_FALSE(f2 > f1);
-}
-
-TEST(FractionTest, NegativeComparisons) {
-    fraction f1(-1, 2);
-    fraction f2(1, 2);
-    EXPECT_LT(f1, f2);
-    EXPECT_LT(f1, fraction::zero());
-    EXPECT_GT(f2, f1);
 }
 
 // ============================================================================
@@ -234,26 +171,6 @@ TEST(FractionTest, SubtractAssign) {
     fraction other(1, 3);
     f -= other;
     EXPECT_DOUBLE_EQ(f.to_dbl(), 1.0 / 6.0);
-}
-
-TEST(FractionTest, MulInplace) {
-    fraction f(2, 3);
-    fraction other(3, 4);
-    f.mul_inplace(other);
-    EXPECT_DOUBLE_EQ(f.to_dbl(), 0.5);
-}
-
-TEST(FractionTest, DivInplace) {
-    fraction f(1, 2);
-    fraction other(1, 4);
-    f.div_inplace(other);
-    EXPECT_DOUBLE_EQ(f.to_dbl(), 2.0);
-}
-
-TEST(FractionTest, DivInplaceByZeroThrows) {
-    fraction f(1, 2);
-    fraction zero_val = fraction::zero();
-    EXPECT_THROW(f.div_inplace(zero_val), std::domain_error);
 }
 
 // ============================================================================
@@ -327,17 +244,4 @@ TEST(FractionTest, ToStringHelper) {
     fraction f(9, 10);
     std::string str = f.to_string();
     EXPECT_FALSE(str.empty());
-}
-
-// ============================================================================
-// Complex Operation Tests
-// ============================================================================
-
-TEST(FractionTest, ComparisonChain) {
-    fraction f1(1, 4);
-    fraction f2(1, 3);
-    fraction f3(1, 2);
-    EXPECT_LT(f1, f2);
-    EXPECT_LT(f2, f3);
-    EXPECT_LT(f1, f3);
 }

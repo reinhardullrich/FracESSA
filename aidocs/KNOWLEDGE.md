@@ -255,10 +255,14 @@ Important implementation points:
 
 ### Known Deferred Source Cleanup
 
-Three C++ helpers have no production caller: `bs64::is_smallest_representation()` and `bs64::find_pos_next_set_bit()` are exercised
-only by their dedicated tests, while mutable `matrix_frc::data()` has no caller. The rational LU implementation and
-`matrix_frc::is_positive_definite()` are also now test-only after the integer stability migration. These are low-priority readability
-cleanups, not correctness or speed findings. Remove them only in a separately approved cleanup.
+The rational LU implementation, rational `matrix_frc::is_positive_definite()`, and their exclusive fraction helpers were removed
+after the integer stability path made them unreachable. Rational matrices now serve only parsed-game and candidate-output boundary
+duties; all exact candidate and stability calculations use integer matrices.
+
+Remaining low-priority cleanup candidates have no production caller: `bs64::is_smallest_representation()` and
+`bs64::find_pos_next_set_bit()` are exercised only by their dedicated tests, mutable `matrix_frc::data()` has no caller, and the
+`matrix_frc` scalar multiplication convenience has no caller. These are readability cleanups, not correctness or speed findings.
+Remove them only in a separately approved cleanup.
 
 Key files:
 
