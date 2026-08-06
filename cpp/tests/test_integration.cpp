@@ -92,18 +92,18 @@ TEST(IntegrationTest, EarlyCopositivityDecisionsNameTheirCertificate) {
     ASSERT_FALSE(nonnegative_analyzer.candidates_.empty());
     EXPECT_EQ(nonnegative_analyzer.candidates_[0].stability, "T_copos_small");
 
-    matrix_frc z_matrix_witness(5, 5);
-    z_matrix_witness(1, 1) = fraction(-1);
-    z_matrix_witness(1, 2) = fraction(2); z_matrix_witness(2, 1) = fraction(2);
-    z_matrix_witness(2, 2) = fraction(-1);
-    z_matrix_witness(3, 3) = fraction(-10);
-    z_matrix_witness(4, 4) = fraction(-10);
+    matrix_frc cone_witness(5, 5);
+    cone_witness(1, 1) = fraction(-1);
+    cone_witness(1, 2) = fraction(2); cone_witness(2, 1) = fraction(2);
+    cone_witness(2, 2) = fraction(-1);
+    cone_witness(3, 3) = fraction(-10);
+    cone_witness(4, 4) = fraction(-10);
 
-    fracessa z_matrix_analyzer(search_method::safe, z_matrix_witness, false, true, false, false);
-    ASSERT_FALSE(z_matrix_analyzer.candidates_.empty());
-    EXPECT_EQ(z_matrix_analyzer.candidates_[0].support, 1u);
-    EXPECT_EQ(z_matrix_analyzer.candidates_[0].extended_support_size, 5u);
-    EXPECT_EQ(z_matrix_analyzer.candidates_[0].stability, "F_not_copos_z_matrix");
+    fracessa cone_analyzer(search_method::safe, cone_witness, false, true, false, false);
+    ASSERT_FALSE(cone_analyzer.candidates_.empty());
+    EXPECT_EQ(cone_analyzer.candidates_[0].support, 1u);
+    EXPECT_EQ(cone_analyzer.candidates_[0].extended_support_size, 5u);
+    EXPECT_EQ(cone_analyzer.candidates_[0].stability, "F_not_copos");
 }
 
 TEST(IntegrationTest, CircularSymmetricStoresOneRepresentative) {

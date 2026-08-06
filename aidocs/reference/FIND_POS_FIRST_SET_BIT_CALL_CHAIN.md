@@ -19,10 +19,9 @@ is defined for zero.
 | `cpp/src/checkstab.cpp:22` | `fracessa::check_stability` | Report the deterministic reference index `m` when logging is enabled. |
 | `cpp/src/find_candidate_fast.cpp:443` | `find_candidate_fast::find` | Visit the next outside-support strategy in the heuristic payoff check. |
 | `cpp/src/find_candidate_test.cpp:443` | `find_candidate_test::find` | Visit the next outside-support strategy in the experimental payoff check. |
-| `cpp/include/linalg/copositive_integer.hpp:219` | `CopositivityChecker::is_copositive_hadeler` | Handle a one-dimensional principal subset. |
 
-`find_pos_next_set_bit()` now has no production caller. Copositivity extracts
-each larger subset once and indexes its fixed array directly.
+`find_pos_next_set_bit()` now has no production caller. The adaptive-cone
+copositivity checker does not scan support bitsets.
 
 ## Analyzer Call Graph
 
@@ -34,8 +33,6 @@ main / fracessa_core.compute_matrix
            -> find_pos_first_set_bit
            -> lowest_set_bit_as_bit
            -> CopositivityChecker::is_strictly_copositive
-              -> CopositivityChecker::is_copositive_hadeler
-                 -> find_pos_first_set_bit
 
 fracessa::analyze_support
   -> find_candidate_fast::find / find_candidate_test::find
@@ -48,9 +45,6 @@ fracessa::analyze_support
 dimension, then repeatedly executes `ctz64(bits)` and `bits &= bits - 1`.
 Production callers are:
 
-- `cpp/include/linalg/copositive_integer.hpp:224`
-- `cpp/include/linalg/copositive_integer.hpp:231`
-- `cpp/include/linalg/copositive_integer.hpp:242`
 - `cpp/src/find_candidate_fast.cpp:378`
 - `cpp/src/find_candidate_safe.cpp:226`
 - `cpp/src/find_candidate_safe.cpp:227`

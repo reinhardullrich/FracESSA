@@ -1,6 +1,6 @@
-# Integer Stability And Copositivity Plan
+# Retired Integer Hadeler Stability And Copositivity Plan
 
-Status: implemented and verified; retained as the mathematical and implementation record.
+Status: implemented and verified, then replaced by the exact adaptive-cone checker on 2026-08-06; retained only as history.
 
 Date: 2026-08-06.
 

@@ -1,29 +1,26 @@
 #ifndef LINALG_COPOSITIVITY_INTEGER_HPP
 #define LINALG_COPOSITIVITY_INTEGER_HPP
 
-#include <linalg/fraction_free_ldlt.hpp>
-#include <linalg/matrix_integer.hpp>
 #include <fracessa/bitset64.hpp>
+#include <linalg/matrix_integer.hpp>
 #include <array>
-#include <cassert>
 #include <cstddef>
+#include <utility>
+#include <vector>
 
 namespace linalg {
 
 /*
- * Facts obtained from one exact sign scan of a symmetric matrix. The negative
- * neighbor masks are the graph needed by the later component reduction. The
- * row masks and negative-part row sums answer the remaining sign questions
- * without another matrix pass.
+ * Facts obtained from one exact sign scan of a symmetric matrix. The negative-neighbor masks retain the graph needed by the later
+ * connected-component reduction; the other fields answer the remaining cheap sign questions without another matrix pass.
  */
 struct CopositivitySignScan {
     // Caller contract: test all_diagonal_positive before reading any other field. A false value means the scan returned before the
     // off-diagonal pass, so every other field is intentionally incomplete.
     std::array<bitset64, bs64::kMaxBitsetDimension> negative_neighbors{};
-    bitset64 rows_with_negative_off_diagonal = 0;
-    bitset64 rows_with_positive_off_diagonal = 0;
     integer all_ones_quadratic_value;
     bool all_diagonal_positive = true;
+    bool has_negative_off_diagonal = false;
     bool all_negative_part_row_sums_positive = true;
 };
 
@@ -33,7 +30,7 @@ struct CopositivitySignScan {
  */
 inline CopositivitySignScan scan_copositivity_signs(const matrix_int& A) {
     CopositivitySignScan result;
-    std::array<integer, bs64::kMaxBitsetDimension> negative_part_row_sums;
+    std::array<integer, 64> negative_part_row_sums;
     const size_t n = A.rows();
 
     // This must remain the first pass: a failed diagonal returns an incomplete result whose other fields must not be consumed.
@@ -47,24 +44,18 @@ inline CopositivitySignScan scan_copositivity_signs(const matrix_int& A) {
         result.all_ones_quadratic_value += diagonal;
     }
 
-    // Symmetry lets one triangular scan build both graph directions and count
-    // every off-diagonal contribution to 1^T A 1 exactly twice.
+    // Symmetry lets one triangular scan update both row sums and count every off-diagonal contribution to 1^T A 1 exactly twice.
     for (size_t i = 0; i < n; ++i) {
         const bitset64 bit_i = bs64::single_bit_at_pos(i);
         for (size_t j = i + 1; j < n; ++j) {
             const integer::const_reference entry = A(i, j);
-            const bitset64 bit_j = bs64::single_bit_at_pos(j);
-            const bitset64 endpoints = bit_i | bit_j;
-            const int sign = entry.sign();
-
-            if (sign < 0) {
+            if (entry.sign() < 0) {
+                const bitset64 bit_j = bs64::single_bit_at_pos(j);
                 result.negative_neighbors[i] |= bit_j;
                 result.negative_neighbors[j] |= bit_i;
-                result.rows_with_negative_off_diagonal |= endpoints;
+                result.has_negative_off_diagonal = true;
                 negative_part_row_sums[i] += entry;
                 negative_part_row_sums[j] += entry;
-            } else if (sign > 0) {
-                result.rows_with_positive_off_diagonal |= endpoints;
             }
 
             result.all_ones_quadratic_value += entry;
@@ -159,134 +150,120 @@ inline bool is_strictly_copositive_3x3(integer::const_reference b11, integer::co
  *
  *     z^T A z > 0 for every nonzero z >= 0.
  *
- * FracESSA reaches this code only after the simpler pure-ESS and exact
- * positive-definiteness cases have failed. It checks principal submatrices in
- * increasing order. Therefore, when a matrix of size k is reached, all of its
- * proper principal submatrices have already passed. Hadeler (1983), Theorem 3,
- * then decides the remaining case from the determinant, one retained solve, or
- * the exact nullspace.
+ * FracESSA reaches this code only after the simpler exact low-dimensional and sign cases have failed. The remaining test adaptively
+ * subdivides the nonnegative orthant into simplicial cones. Each cone is stored
+ * only through B = V A V^T; replacing one generator v_i by v_i + v_j therefore
+ * needs one exact row-and-column update instead of rebuilding the basis V.
+ *
+ * Algorithmic origin: Mathieu Dutour Sikiric's PairDecomposition and
+ * TestStrictCopositivity in Polyhedral Common, src_copos/Copositivity.h,
+ * commit d2252bc89d991fa6df9750ac9647e19b6a9aca02:
+ * https://github.com/MathieuDutSik/polyhedral_common/blob/d2252bc89d991fa6df9750ac9647e19b6a9aca02/src_copos/Copositivity.h
+ * This implementation was independently written for FracESSA. It uses FLINT
+ * integers, retains no witness or basis, and updates the Gram matrix directly.
  */
 class CopositivityChecker {
 private:
-    bool is_copositive_hadeler(const matrix_int& A, bitset64 mask, size_t current_dim) {
-        switch (current_dim) {
-            case 1: {
-                const size_t i = bs64::find_pos_first_set_bit(mask);
-                return is_strictly_copositive_1x1(A(i, i));
+    static bool inspect_cone(const matrix_int& matrix, size_t& split_i, size_t& split_j) {
+        const size_t n = matrix.rows();
+        split_i = n;
+        split_j = n;
+
+        for (size_t i = 0; i < n; ++i) {
+            if (matrix(i, i).sign() <= 0) return false;
+        }
+
+        integer best_numerator;
+        integer best_denominator;
+        integer numerator;
+        integer denominator;
+        integer left;
+        integer right;
+
+        for (size_t i = 0; i < n; ++i) {
+            for (size_t j = i + 1; j < n; ++j) {
+                const integer::const_reference entry = matrix(i, j);
+                if (entry.sign() >= 0) continue;
+
+                numerator.set_product(entry, entry);
+                denominator.set_product(matrix(i, i), matrix(j, j));
+                const int local_comparison = numerator.compare(denominator);
+
+                // Equality gives a zero direction; a larger numerator gives a negative direction in span{v_i, v_j}.
+                if (local_comparison >= 0) return false;
+
+                bool take_pair = split_i == n;
+                if (!take_pair) {
+                    left.set_product(numerator, best_denominator);
+                    right.set_product(best_numerator, denominator);
+                    take_pair = left.compare(right) > 0;
+                }
+                if (take_pair) {
+                    split_i = i;
+                    split_j = j;
+                    best_numerator = numerator;
+                    best_denominator = denominator;
+                }
             }
-            case 2: {
-                uint8_t indices[bs64::kMaxBitsetDimension];
-                bs64::extract_set_indices(mask, A.rows(), indices);
-                const size_t i = indices[0];
-                const size_t j = indices[1];
-                return is_strictly_copositive_2x2(A(i, i), A(i, j), A(j, j));
-            }
-            case 3: {
-                uint8_t indices[bs64::kMaxBitsetDimension];
-                bs64::extract_set_indices(mask, A.rows(), indices);
-                const size_t i = indices[0];
-                const size_t j = indices[1];
-                const size_t k = indices[2];
-                return is_strictly_copositive_3x3(A(i, i), A(i, j), A(i, k), A(j, j), A(j, k), A(k, k));
-            }
+        }
+
+        return true;
+    }
+
+    static void replace_generator_with_sum(matrix_int& matrix, size_t replaced, size_t other) {
+        integer new_diagonal(matrix(replaced, replaced));
+        new_diagonal += matrix(replaced, other);
+        new_diagonal += matrix(replaced, other);
+        new_diagonal += matrix(other, other);
+
+        const size_t n = matrix.rows();
+        for (size_t k = 0; k < n; ++k) {
+            if (k == replaced) continue;
+            integer sum(matrix(replaced, k));
+            sum += matrix(other, k);
+            matrix(replaced, k) = sum;
+            matrix(k, replaced) = sum;
+        }
+        matrix(replaced, replaced) = new_diagonal;
+    }
+
+public:
+    static bool is_strictly_copositive(const matrix_int& A) {
+        switch (A.rows()) {
+            case 1:
+                return is_strictly_copositive_1x1(A(0, 0));
+            case 2:
+                return is_strictly_copositive_2x2(A(0, 0), A(0, 1), A(1, 1));
+            case 3:
+                return is_strictly_copositive_3x3(A(0, 0), A(0, 1), A(0, 2), A(1, 1), A(1, 2), A(2, 2));
             default:
                 break;
         }
 
-        uint8_t subset_indices[bs64::kMaxBitsetDimension];
-        bs64::extract_set_indices(mask, A.rows(), subset_indices);
-        matrix_int subMat(current_dim, current_dim);
-        for (size_t row = 0; row < current_dim; ++row) {
-            for (size_t column = 0; column < current_dim; ++column) {
-                subMat(row, column) = A(subset_indices[row], subset_indices[column]);
-            }
+        std::vector<matrix_int> pending;
+        pending.reserve(64);
+        pending.emplace_back(A);
+
+        while (!pending.empty()) {
+            matrix_int current(std::move(pending.back()));
+            pending.pop_back();
+
+            size_t split_i;
+            size_t split_j;
+            if (!inspect_cone(current, split_i, split_j)) return false;
+            if (split_i == current.rows()) continue;
+
+            // Retain one child in current and copy the unsplit Gram matrix only once for its sibling.
+            matrix_int sibling(current);
+            replace_generator_with_sum(current, split_j, split_i);
+            replace_generator_with_sum(sibling, split_i, split_j);
+            pending.emplace_back(std::move(current));
+            pending.emplace_back(std::move(sibling));
         }
 
-        const bool nonsingular = factorization_.factorize_inplace(subMat) != 0;
-        const int determinant_sign = factorization_.determinant().sign();
-
-        if (determinant_sign > 0) return true;
-
-        if (nonsingular) { // Here determinant_sign < 0.
-            // Hadeler lets one positive right-hand side replace the complete adjugate:
-            // reject exactly when C y = -1 has y > 0.
-            matrix_int solution(current_dim, 1);
-            const integer minus_one(-1);
-            for (size_t row = 0; row < current_dim; ++row) solution(row, 0) = minus_one;
-
-            integer denominator;
-            factorization_.solve_inplace(solution, denominator, subMat);
-            assert(denominator.sign() > 0);
-
-            for (size_t row = 0; row < current_dim; ++row) {
-                if (solution(row, 0).sign() <= 0) return true;
-            }
-            return false;
-        }
-
-        // factorize_inplace() overwrote subMat. Restore the original principal
-        // matrix only for the singular nullspace test.
-        for (size_t row = 0; row < current_dim; ++row) {
-            for (size_t column = 0; column < current_dim; ++column) {
-                subMat(row, column) = A(subset_indices[row], subset_indices[column]);
-            }
-        }
-
-        matrix_int nullspace(current_dim, current_dim);
-        const slong nullity = fmpz_mat_nullspace(nullspace.native_handle(), subMat.native_handle());
-        assert(nullity > 0);
-        if (nullity != 1) return true;
-
-        // A one-dimensional nullspace rejects only when its basis is strictly
-        // one-sign; its orientation is arbitrary.
-        const int basis_sign = nullspace(0, 0).sign();
-        if (basis_sign == 0) return true;
-        for (size_t row = 1; row < current_dim; ++row) {
-            if (nullspace(row, 0).sign() != basis_sign) return true;
-        }
-        return false;
-    }
-
-public:
-    explicit CopositivityChecker(size_t maximum_dimension)
-        : factorization_(maximum_dimension)
-    {
-    }
-
-    bool is_positive_definite(const matrix_int& A) {
-        matrix_int factored(A);
-        return factorization_.factorize_inplace(factored) != 0 && factorization_.is_positive_definite();
-    }
-
-    bool is_strictly_copositive(const matrix_int& A) {
-        size_t n = A.rows();
-        const bitset64 limit = bs64::two_to_the_power_of(n);
-
-        // Cardinality order establishes Hadeler's proper-submatrix precondition.
-        // Gosper's algorithm streams each layer and permits immediate rejection.
-        for (size_t subset_size = 1; subset_size <= n; ++subset_size) {
-            bitset64 subset = bs64::set_all_n_bits(subset_size);
-            while (subset < limit) {
-                if (!is_copositive_hadeler(A, subset, subset_size)) {
-                    return false;
-                }
-
-                subset = bs64::next_same_cardinality(subset);
-            }
-        }
-
-        // In particular, the final full-size subset passed.
         return true;
     }
-
-private:
-    fraction_free_ldlt_factorization factorization_;
 };
-
-inline bool is_strictly_copositive(const matrix_int& A) {
-    CopositivityChecker checker(A.rows());
-    return checker.is_strictly_copositive(A);
-}
 
 } // namespace linalg
 

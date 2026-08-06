@@ -34,7 +34,7 @@ search_method parse_search_method(std::string_view name);
  * 1) fast or experimental test search may heuristically reject an invalid support;
  * 2) exact rational arithmetic constructs and verifies a symmetric Nash
  *    candidate on S, including its extended support;
- * 3) exact positive-definiteness and copositivity tests decide ESS stability.
+ * 3) exact reduced-Hessian inertia and copositivity tests decide ESS stability.
  *
  * Safe search always starts with exact arithmetic. Fast search removes the game's common denominator, checks its exact integer
  * precision span, equilibrates the complete binary64 game, and solves each reduced symmetric candidate system with Bunch-Kaufman

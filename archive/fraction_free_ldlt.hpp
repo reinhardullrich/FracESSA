@@ -1,5 +1,8 @@
 #pragma once
 
+// Archived on 2026-08-07 after the adaptive-cone copositivity checker made this general factorization unused.
+// Production candidate solving still uses the separate KKT-specialized fraction_free_ldlt_kkt.hpp implementation.
+
 /*
  * The immediate-integer Bareiss update below is adapted from FLINT's fmpz_mat_fflu:
  *

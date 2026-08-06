@@ -46,8 +46,6 @@ rationale; its status line and this index determine which.
 - `plans/MAJOR_SINGLE_CORE_PERFORMANCE_OPPORTUNITIES.md`: research review of
   theorem-backed and algorithmic routes to material single-core speedups; no
   listed idea is implemented or benchmarked by that document.
-- `plans/INTEGER_STABILITY_COPOSITIVITY.md`: the completed integer representation migration plus the separately deferred one-solve,
-  nullspace, and cleanup proposals for the Hadeler path.
 - The following research notes are local-only because the complete `research/`
   directory is ignored by Git:
 - `../research/THREE_BY_K_ROOK_ESS_SEQUENCES.md`: rectangular-Rook group catalogue and symbolic matrices through dimension 30,
@@ -59,12 +57,16 @@ rationale; its status line and this index determine which.
 - `history/CPP_PERFORMANCE_EXPERIMENTS_2026-08-03.md`: completed C++ allocation and implementation experiments, especially
   measured changes that were rejected.
 - `history/FAST_PIPELINE_EXPERIMENTS_2026-08-03.md`: completed and rejected binary64 candidate-path experiments.
+- `history/INTEGER_STABILITY_COPOSITIVITY_2026-08-06.md`: retired Hadeler implementation, proof, and benchmark record preserved after
+  the adaptive-cone replacement.
+- `history/INTEGER_STABILITY_MATRIX_MIGRATION_ONLY_2026-08-06.md`: completed integer-storage migration plan retained as history.
 - `architecture/UNSAFE_CANDIDATE_FILTER.md`: failed temporary normalized-filter
   phase, including why it was removed and the measurements worth retaining.
 - `reference/MATRIX_GENERATOR_CATALOGUE_AUDIT.md`: immutable catalogue-import
   audit snapshot; its counts describe that audit, not the live database.
 - Local `../experiments/`: dated benchmark snapshots, ignored by Git.
 - Local `../research/papers/`: mathematical source papers, ignored by Git.
+- `../archive/README.md`: source preserved after removal from all production and test targets.
 
 ## Maintenance Rules
 

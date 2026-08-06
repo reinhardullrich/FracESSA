@@ -102,7 +102,7 @@ void fracessa::check_stability()
 
     // Path 6, early acceptance: Positive diagonals and nonnegative off-diagonal entries make every term in the quadratic form
     // nonnegative, with at least one positive term for every nonzero nonnegative vector.
-    if (sign_scan.rows_with_negative_off_diagonal == 0) {
+    if (!sign_scan.has_negative_off_diagonal) {
         if (conf_with_log_) logger_->info("Reason: T_copos_nonnegative_off_diagonal");
         candidate_.stability = "T_copos_nonnegative_off_diagonal";
         candidate_.is_ess = true;
@@ -127,28 +127,8 @@ void fracessa::check_stability()
         return;
     }
 
-    linalg::CopositivityChecker copositivity_checker(kay_size);
-
-    // Path 9, early acceptance: The scaled reduced B matrix is positive definite. This implies strict copositivity,
-    // so accept the candidate as an ESS.
-    if (copositivity_checker.is_positive_definite(scaled_reduced_b_)) {
-        if (conf_with_log_) logger_->info("Reason: true_posdef_frc");
-        candidate_.stability = "T_pd_frc";
-        candidate_.is_ess = true;
-        return;
-    }
-
-    // Path 10, early rejection: For a symmetric Z-matrix, strict copositivity is equivalent to positive definiteness.
-    if (sign_scan.rows_with_positive_off_diagonal == 0) {
-        if (conf_with_log_) logger_->info("Reason: F_not_copos_z_matrix");
-        candidate_.stability = "F_not_copos_z_matrix";
-        candidate_.is_ess = false;
-        return;
-    }
-
-    // Path 11, final decision: Strict copositivity of the scaled reduced B matrix
-    // is now the exact remaining test; accept the candidate exactly when this test succeeds.
-    if (copositivity_checker.is_strictly_copositive(scaled_reduced_b_)) {
+    // Path 9, final decision: the exact adaptive-cone test decides strict copositivity of the scaled reduced B matrix.
+    if (linalg::CopositivityChecker::is_strictly_copositive(scaled_reduced_b_)) {
         if (conf_with_log_) logger_->info("Reason: true_copositive");
         candidate_.stability = "T_copos";
         candidate_.is_ess = true;

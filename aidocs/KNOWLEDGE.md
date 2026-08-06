@@ -223,24 +223,24 @@ Important implementation points:
   ESS immediately when extended support equals support. For the rare negative-definite case with outside best replies, the safe
   solver reuses the retained fraction-free factorization to construct an integer matrix that is a positive multiple of Bomze's final
   reduced $B^{(r)}$ matrix directly through its exact Schur complement. The positive scale need not be tracked after construction;
-  all subsequent definiteness, copositivity, sign, and witness decisions are invariant under it. This replaces complete rational Bee
+  all subsequent copositivity, sign, and witness decisions are invariant under it. This replaces complete rational Bee
   construction and recursive elimination of the unrestricted support coordinates.
   When the outside-reply dimension is 1, 2, or 3, `check_stability()` calls shared exact integer Bomze/Hadeler formulas directly
-  before the general sign scan. The general Hadeler checker reuses the same formulas for principal subsets of those sizes. From
-  dimension 4 onward it uses the retained general fraction-free integer $LDL^T$ factorization for symmetric principal matrices and
-  reads their exact determinant. A positive determinant passes. A negative determinant reuses that factorization for the single
-  system $Cy=-\mathbf 1$ and rejects exactly when $y>0$. A zero determinant restores the principal matrix once and uses
-  `fmpz_mat_nullspace`; a one-dimensional strictly one-sign nullspace rejects, while mixed-sign or higher-dimensional nullspaces
-  pass under Hadeler's proper-principal-submatrix invariant. The checker constructs no inverse, explicit adjugate, or cofactor
-  minors.
-  Exact positive definiteness or strict copositivity of the smaller outside-reply matrix then decides stability. A binary64 result
-  is never accepted as a final mathematical certificate.
+  before the general sign scan. Larger matrices retain the exact nonpositive-diagonal rejection, nonnegative-off-diagonal and
+  negative-part-diagonal-dominance acceptances, and all-ones rejection. Only the final unresolved case enters the exact adaptive
+  simplicial-cone checker. A cone is represented solely by its
+  integer Gram matrix $B=VAV^T$. The checker selects the negative pair maximizing $b_{ij}^2/(b_{ii}b_{jj})$, rejects an exact
+  nonpositive two-generator direction immediately, and otherwise splits with $v_i+v_j$. Each child changes one row and column;
+  the basis $V$ and a witness are not retained. The algorithmic origin is Mathieu Dutour Sikiric's `PairDecomposition` and
+  `TestStrictCopositivity` in Polyhedral Common commit `d2252bc89d991fa6df9750ac9647e19b6a9aca02`; FracESSA's FLINT-integer,
+  Gram-only implementation was independently written.
+  Strict copositivity of the smaller outside-reply matrix then decides stability. A binary64 result is never accepted as a final
+  mathematical certificate.
 - New exact early stability decisions use specific machine-readable reasons that name both the conclusion and its certificate.
   Current examples are `T_copos_small`, `F_not_copos_small`, `F_not_copos_nonpositive_diagonal`,
   `T_copos_nonnegative_off_diagonal`, `T_copos_negative_part_diagonal_dominance`, and
-  `F_not_copos_nonpositive_all_ones_value`. After exact positive definiteness fails, a symmetric Z-matrix is rejected by one
-  existing sign-mask comparison as `F_not_copos_z_matrix`, because strict copositivity and positive definiteness are equivalent for
-  that sign pattern. Historical stored candidate reasons require a later deliberate backfill.
+  `F_not_copos_nonpositive_all_ones_value`. `T_pd_frc` remains the reduced-Hessian certificate for the common case where extended
+  support equals support; the final outside-reply matrix no longer receives a separate positive-definiteness factorization.
 - `correctness/DOUBLE_PD_FALSE_POSITIVES.md` documents the concrete failures and
   proves why tolerance tuning cannot recover an exact PD certificate.
 - `correctness/FAST_CANDIDATE_FALSE_REJECTION.md` gives exact ESS counterexamples for all three former fast per-support rejection
@@ -274,7 +274,7 @@ Key files:
 - `cpp/include/linalg/integer.hpp` and `cpp/include/linalg/matrix_integer.hpp`: header-only owning C++ wrappers around FLINT exact
   integers and integer matrices.
 - `cpp/include/linalg/fraction.hpp`: FLINT rational wrapper.
-- `cpp/include/linalg/copositive_integer.hpp`: exact integer sign, positive-definiteness, and Hadeler copositivity checks.
+- `cpp/include/linalg/copositive_integer.hpp`: exact integer sign and adaptive-cone copositivity checks.
 - `cpp/include/fracessa/find_candidate_fast.hpp` and
   `cpp/src/find_candidate_fast.cpp`: production exact precision-span gate, whole-game double equilibration, reduced symmetric
   Bunch-Kaufman solve, small-pivot fallback, heuristic inequalities, and reusable scratch.
@@ -285,9 +285,7 @@ Key files:
   integer candidate validation, and candidate construction.
 - `cpp/include/linalg/fraction_free_ldlt_kkt.hpp`: KKT-specialized in-place fraction-free symmetric solve, exact inertia, and
   zero-diagonal coordinate handling.
-- `cpp/include/linalg/fraction_free_ldlt.hpp`: retained general fraction-free symmetric factorization with exact signed determinant,
-  inertia, and reusable multi-right-hand-side solve; the production stability path uses it for exact positive definiteness and
-  Hadeler principal matrices.
+- `archive/fraction_free_ldlt.hpp`: archived general fraction-free symmetric factorization; no production or test target includes it.
 - `cpp/include/fracessa/fracessa.hpp` and `cpp/src/fracessa.cpp`: exact game
   ownership, method coordination, support search, and candidate lifecycle.
 - `cpp/src/checkstab.cpp`: stability classification.

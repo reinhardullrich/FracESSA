@@ -1219,3 +1219,21 @@ expected strict-copositivity results. The migrated 1,078-row database passes SQL
 left both without production callers. Deleted the LU test executable and CMake registration, the rational PD unit case, and the
 fraction/matrix operations used only by those implementations and their self-focused tests. Rational matrices now remain only at
 the parsed-game and candidate-output boundary.
+
+367. Replaced only the final Hadeler principal-submatrix fallback with an exact adaptive simplicial-cone checker while preserving
+every preceding small-matrix, sign, diagonal-dominance, all-ones, positive-definiteness, and Z-matrix decision. The independently
+written FLINT implementation follows the pair-splitting idea in Mathieu Dutour Sikiric's Polyhedral Common, stores only
+$B=VAV^T$, and updates one exact row and column per new generator. Both production and isolated implementations matched all 1,078
+stored copositivity matrices, and the complete C++ suite passed. A full-corpus one-shot screen found 21 final-branch matrices: the
+cone's median Hadeler/cone speed ratio was 1.328x overall, 1.155x for 14 rejected matrices, and 167.38x for seven strictly copositive
+matrices. The previous repeated benchmark independently showed the same qualitative result: optimized Hadeler remains competitive
+for quick witnesses but becomes impractical on strictly copositive matrices because it must traverse principal subsets.
+
+368. Removed the final-matrix positive-definiteness and symmetric Z-matrix shortcuts after a complete ablation:
+all 1,078 copositivity matrices completed correctly in both variants with no timeout. Of those, 1,057 exited through earlier cheap
+routes and 21 reached the compared stage; neither positive definiteness nor the Z-matrix condition decided any of the 21. Skipping
+both checks reduced the relevant matrices' median time by 41.82% (1.719x speedup), with median reductions of 12.19% for the seven
+strict matrices and 49.45% for the fourteen rejected matrices. The exact cone now handles every unresolved matrix directly. Removed
+the checker-owned factorization and positive-sign masks used only by the Z-matrix shortcut; retained the negative-neighbor masks for
+the planned connected-component reduction. Archived the now-unreferenced general fraction-free LDLT implementation under `archive/`.
+The separate KKT-specialized fraction-free LDLT remains active for candidate solving and reduced-Hessian inertia.
