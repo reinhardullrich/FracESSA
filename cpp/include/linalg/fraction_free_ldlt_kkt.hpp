@@ -29,9 +29,9 @@ struct fraction_free_ldlt_inertia {
  * Reusable scratch for the in-place fraction-free symmetric solve. Keeping this object beside the caller's reusable matrices avoids allocations
  * inside a support-enumeration loop. One workspace must not be used concurrently by multiple solves.
  */
-class fraction_free_ldlt_workspace {
+class kkt_fraction_free_ldlt_workspace {
 public:
-    explicit fraction_free_ldlt_workspace(size_t maximum_dimension)
+    explicit kkt_fraction_free_ldlt_workspace(size_t maximum_dimension)
         : coordinate_operations_(2 * maximum_dimension)
     {
         fmpz_init(previous_pivot_);
@@ -39,10 +39,10 @@ public:
         fmpz_init(temporary_2_);
     }
 
-    fraction_free_ldlt_workspace(const fraction_free_ldlt_workspace&) = delete;
-    fraction_free_ldlt_workspace& operator=(const fraction_free_ldlt_workspace&) = delete;
+    kkt_fraction_free_ldlt_workspace(const kkt_fraction_free_ldlt_workspace&) = delete;
+    kkt_fraction_free_ldlt_workspace& operator=(const kkt_fraction_free_ldlt_workspace&) = delete;
 
-    ~fraction_free_ldlt_workspace()
+    ~kkt_fraction_free_ldlt_workspace()
     {
         fmpz_clear(temporary_2_);
         fmpz_clear(temporary_1_);
@@ -402,7 +402,7 @@ private:
 /* Fast C++ form for callers that already own disposable matrices and reusable scratch. */
 inline int solve_fraction_free_ldlt_inplace(matrix_int& solution, integer& denominator, matrix_int& system,
                                             matrix_int& right_hand_side, fraction_free_ldlt_inertia& inertia,
-                                            fraction_free_ldlt_workspace& workspace)
+                                            kkt_fraction_free_ldlt_workspace& workspace)
 {
     return workspace.solve_inplace(solution, denominator, system, right_hand_side, inertia);
 }
@@ -415,7 +415,7 @@ inline int solve_fraction_free_ldlt_inplace(matrix_int& solution, integer& denom
 inline int solve_fraction_free_ldlt(matrix_int& solution, integer& denominator, const matrix_int& system,
                                     const matrix_int& right_hand_side, fraction_free_ldlt_inertia& inertia)
 {
-    fraction_free_ldlt_workspace workspace(system.rows());
+    kkt_fraction_free_ldlt_workspace workspace(system.rows());
     matrix_int system_copy(system);
     matrix_int right_hand_side_copy(right_hand_side);
     return workspace.solve_inplace(solution, denominator, system_copy, right_hand_side_copy, inertia);

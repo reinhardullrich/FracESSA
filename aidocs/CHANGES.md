@@ -1138,3 +1138,44 @@ is strictly positive, `check_stability()` accepts immediately with `T_copos_nega
 witness and positive-definiteness factorization. The implementation cites Liqun Qi, *Linear Algebra and its Applications* 439
 (2013), Theorem 10, equation (12), and uses one fixed stack buffer without another matrix scan. Added exact passing and equality-
 boundary regressions.
+
+355. Planned an integer-only final stability and copositivity path:
+documented how to retain the already-integral scaled reduced B matrix in `fmpz_mat` storage, use FLINT's certified positive-
+definiteness, determinant, solve, and nullspace operations, replace the nonsingular full inverse with one solve, replace the singular
+cofactor construction with an exact nullspace decision, and verify both mathematical equivalence and measured speed before
+retention. No source code changed.
+
+356. Installed and verified project-local FLINT 3.6.0:
+built the official release against Fedora's GMP and MPFR with native Release optimization, installed shared and static libraries
+under `.local/flint-3.6.0`, and kept all source/build scratch under `.local-tmp`. The upstream `fmpz_mat` suite, a direct four-API
+smoke test, the complete isolated FracESSA Release build, and all 10 C++/CLI tests passed; both the CLI and Python extension link to
+the local FLINT library. Added both local directories to Git ignore and set FLINT 3.6.0 as the planned integer-path minimum. Fedora's
+system FLINT 3.4.0 and production source remain unchanged.
+
+357. Finalized the integer stability and copositivity migration plan:
+rechecked every production and test caller, Hadeler's determinant/one-solve/nullspace decisions, and FLINT 3.6.0 contracts. The plan
+now defines the complete minimal source and deletion scope, reusable scratch objects, true dimension-four and arbitrary-precision
+regressions, rational-versus-integer output equivalence, isolated benchmarking, the configure-time version gate, and implementation
+order. Rational arithmetic remains at exact input and candidate-output boundaries; no source code changed.
+
+358. Corrected plan mathematics rendering:
+replaced fenced `math` blocks in the integer stability and copositivity plan with standard display-math delimiters so the formulas
+render consistently in GitHub and Codex. The formulas themselves are unchanged.
+
+359. Added the mathematical proof behind the integer Hadeler algorithm:
+traced each of its six steps to Hadeler's definition and Theorem 3, and distinguished the paper's published equivalences from
+FracESSA's derived one-solve and nullspace implementations. The proof explains why only principal submatrices are enumerated, why
+cardinality order is essential, and why general minors, cofactors, the inverse, and the explicit adjugate can be removed.
+
+360. Cross-checked the integer Hadeler proof against independent literature:
+linked the earlier Cottle-Habetler-Lemke criterion, Väliaho's singular almost-strict classification, Kaplan's
+principal-submatrix eigenvalue test, the Hiriart-Urruty-Seeger survey, and the 2020 *Matrix Positivity* restatement. The plan now
+marks the fixed-right-hand-side solve and explicit-adjugate removal as FracESSA derivations rather than quotations from a source.
+
+361. Separated the KKT and general fraction-free LDLT implementations:
+renamed the existing hot-path file and class to `fraction_free_ldlt_kkt.hpp` and `kkt_fraction_free_ldlt_workspace` without changing
+its arithmetic. Added `fraction_free_ldlt_factorization`, which factors a symmetric integer matrix once, exposes its exact signed
+determinant, and solves multiple later right-hand sides from the retained lower triangle. Both factorization and solve retain the
+FLINT-style immediate-integer path and switch to arbitrary-precision `fmpz` arithmetic when necessary. Focused tests cover ordinary
+and arbitrary-precision solves, singular determinants, zero-diagonal coordinate operations, and 280 deterministic symmetric
+matrices checked against FLINT. The new general factorization is not yet connected to production stability checking.

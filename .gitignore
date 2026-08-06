@@ -1,6 +1,8 @@
 # Local agent and editor state
 /.agents/
 /.codex/
+/.local/
+/.local-tmp/
 /.cursor/
 /.vscode/
 /.idea/

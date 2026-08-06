@@ -46,6 +46,8 @@ rationale; its status line and this index determine which.
 - `plans/MAJOR_SINGLE_CORE_PERFORMANCE_OPPORTUNITIES.md`: research review of
   theorem-backed and algorithmic routes to material single-core speedups; no
   listed idea is implemented or benchmarked by that document.
+- `plans/INTEGER_STABILITY_COPOSITIVITY.md`: reviewed, implementation-ready conversion of the final exact stability and Hadeler path
+  from denominator-one rational matrices to FLINT integer matrices, including deletion scope, correctness, and benchmark gates.
 - The following research notes are local-only because the complete `research/`
   directory is ignored by Git:
 - `../research/THREE_BY_K_ROOK_ESS_SEQUENCES.md`: rectangular-Rook group catalogue and symbolic matrices through dimension 30,

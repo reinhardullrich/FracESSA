@@ -273,9 +273,10 @@ Key files:
 - `cpp/include/fracessa/find_candidate_safe.hpp` and
   `cpp/src/find_candidate_safe.cpp`: exact class, border elimination,
   integer candidate validation, and candidate construction.
-- `cpp/include/linalg/flint_style_fraction_free_ldlt.hpp`: reusable in-place
-  fraction-free symmetric solve, exact inertia, and zero-diagonal coordinate
-  handling.
+- `cpp/include/linalg/fraction_free_ldlt_kkt.hpp`: KKT-specialized in-place fraction-free symmetric solve, exact inertia, and
+  zero-diagonal coordinate handling.
+- `cpp/include/linalg/fraction_free_ldlt.hpp`: separate retained general fraction-free symmetric factorization with exact signed
+  determinant and reusable multi-right-hand-side solve; it is not yet called by the production stability path.
 - `cpp/include/fracessa/fracessa.hpp` and `cpp/src/fracessa.cpp`: exact game
   ownership, method coordination, support search, and candidate lifecycle.
 - `cpp/src/checkstab.cpp`: stability classification.
@@ -305,6 +306,13 @@ FetchContent downloads:
 - `googletest`: C++ unit-test executables only; it is fetched only when
   `BUILD_TESTING=ON` and is not linked into the production executable.
 - `pybind11` v3.0.4: the native Python module.
+
+The current development machine has an optimized project-local FLINT 3.6.0 installation at `.local/flint-3.6.0`, built against
+Fedora's GMP and MPFR. Select it in an isolated build with
+`-DFLINT_INCLUDE_DIR=$PWD/.local/flint-3.6.0/include`
+`-DFLINT_LIB=$PWD/.local/flint-3.6.0/lib/libflint.so`; `cpp/build-flint36` is the verified local build directory. Both `.local/`
+and `.local-tmp/` are untracked. Use `.local-tmp/` for dependency downloads and compilation scratch because this machine's system
+`/tmp` is memory-backed.
 
 `BUILD_TESTING` uses CMake's standard `CTest` option and defaults to `ON`.
 Configure with `-DBUILD_TESTING=OFF` to skip GoogleTest and every C++/CLI test

@@ -7,7 +7,7 @@
 
 #include <fracessa/bitset64.hpp>
 #include <fracessa/candidate.hpp>
-#include <linalg/flint_style_fraction_free_ldlt.hpp>
+#include <linalg/fraction_free_ldlt_kkt.hpp>
 #include <linalg/integer.hpp>
 #include <linalg/matrix_double.hpp>
 #include <linalg/matrix_fraction.hpp>
@@ -75,7 +75,7 @@ private:
     std::vector<std::uint8_t> reduced_entry_cache_ready_;
     size_t reduced_system_dimension_ = 0;
     bool reduced_hessian_is_negative_definite_ = false;
-    linalg::fraction_free_ldlt_workspace ffldlt_workspace_;
+    linalg::kkt_fraction_free_ldlt_workspace ffldlt_workspace_;
     linalg::matrix_int integer_game_;
     linalg::integer game_denominator_;
     linalg::matrix_int reduced_system_;

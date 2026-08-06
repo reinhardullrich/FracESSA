@@ -26,7 +26,7 @@ $$
 $$
 
 where `d > 0` is the common game denominator. It then calls
-`fraction_free_ldlt_workspace::solve_inplace()`.
+`kkt_fraction_free_ldlt_workspace::solve_inplace()`.
 
 That call overwrites three different objects in three different ways:
 
@@ -167,7 +167,7 @@ Future implementation should change only these existing source files:
 
 | File | Minimal change |
 |---|---|
-| `cpp/include/linalg/flint_style_fraction_free_ldlt.hpp` | Add one multi-column solve that reuses an unmodified negative-definite factorization. |
+| `cpp/include/linalg/fraction_free_ldlt_kkt.hpp` | Add one multi-column solve that reuses an unmodified negative-definite factorization. |
 | `cpp/include/fracessa/find_candidate_safe.hpp` | Declare the reduced-$B$ builder and one reusable integer matrix for $N$. |
 | `cpp/src/find_candidate_safe.cpp` | Build $\widehat G$ and $\widehat Q$ from the existing integer game/cache, reuse the factorization, and write $\widehat S$. |
 | `cpp/include/fracessa/fracessa.hpp` | Rename `bee_matrix_` to the accurate `scaled_reduced_b_`. |
