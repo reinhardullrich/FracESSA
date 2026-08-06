@@ -54,10 +54,16 @@ public:
     // Its negative definiteness is the support-only second-order ESS condition.
     bool reduced_hessian_is_negative_definite() const noexcept { return reduced_hessian_is_negative_definite_; }
 
+    // Build a positive integer multiple of Bomze's final reduced B^(r) matrix.
+    // Method: eliminate the unrestricted support block through one exact Schur complement; no inverse is formed.
+    // Valid immediately after find() succeeds for the same support and reports a negative-definite reduced Hessian.
+    void build_scaled_reduced_b(bitset64 support, bitset64 outside_best_replies, linalg::matrix_frc& result);
+
 private:
     bool precision_span_at_least(unsigned long limit, bool include_game_denominator, linalg::integer& maximum) const;
     void resize_reduced_system(size_t reduced_dimension);
     void build_reduced_system(const uint8_t* support_indices, size_t reduced_dimension);
+    linalg::integer::const_reference reduced_entry(size_t reference, size_t row, size_t column);
     void calculate_integer_payoff(linalg::integer& value, size_t strategy, size_t reference, const uint8_t* support_indices,
                                   size_t reduced_dimension);
     void ensure_candidate_vector(candidate& result) const;
@@ -75,6 +81,7 @@ private:
     linalg::matrix_int reduced_system_;
     linalg::matrix_int right_hand_side_;
     linalg::matrix_int solution_numerators_;
+    linalg::matrix_int stability_solution_numerators_;
     linalg::integer solution_denominator_;
     linalg::integer reference_numerator_;
     linalg::integer payoff_numerator_;

@@ -58,12 +58,13 @@ public:
     std::vector<candidate> candidates_;
 
 private:
-    // fracessa owns the rational game used by stability. Safe owns its integer copy; fast and test own converted double copies.
+    // fracessa owns the rational game used by logging and support generation. Safe owns the integer copy used by exact candidate and
+    // stability work; fast and test own converted double copies.
     linalg::matrix_frc game_matrix_;
     candidate_search::find_candidate_fast find_candidate_fast_;
     candidate_search::find_candidate_safe find_candidate_safe_;
     candidate_search::find_candidate_test find_candidate_test_;
-    linalg::matrix_frc bee_matrix_;
+    linalg::matrix_frc scaled_reduced_b_;
 
     size_t dimension_;
 

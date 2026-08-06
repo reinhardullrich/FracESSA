@@ -1006,3 +1006,46 @@ deploy GitHub Pages but do not start release builds.
 specified a narrow multi-right-hand-side solve for the already-factored negative-definite reduced Hessian and an integer-scaled Schur
 complement that replaces complete rational Bee construction and recursive unrestricted-coordinate elimination. Recorded the exact
 scaling proof, minimal source scope, proposed code, correctness regressions, and benchmark acceptance criteria without changing source.
+
+330. Implemented direct exact stability reduction through the retained candidate factorization:
+added a narrow multi-right-hand-side replay for an already-factored negative-definite reduced Hessian, constructed a positive integer
+multiple of the smaller exact Schur complement, and removed complete rational Bee construction and recursive unrestricted-coordinate
+elimination. A three-dimensional exact factor-reuse regression covers previous-pivot division and two simultaneous right-hand sides.
+All C++ and Python tests passed, 7,808 canonical representative candidates representing 14,659 weighted candidates across 309
+matrices matched exactly, and affected end-to-end benchmarks improved by about 9-46% without a measurable regression on the
+unchanged early-rejection path. The final caller/callee cleanup passes the already-computed outside-best-reply mask into the Schur
+builder and moves reference-index calculations used only by logging behind the logging condition.
+
+331. Removed the obsolete copositivity-checker version suffix:
+renamed the private `CopositivityCheckerV3` implementation class to `CopositivityChecker` without changing its algorithm or public
+`is_strictly_copositive()` entry point, and updated the retained call-chain reference.
+
+332. Corrected the reduced-Hessian rejection reason:
+replaced the obsolete `kay_size`-dependent labels with `F_reduced_hessian_not_nd` whenever the exact reduced Hessian is not negative
+definite. Exactly backfilled the canonical candidate database: 2,796 rows received the new label, while 344 genuine one-dimensional
+Schur-complement rejections retained `F_not_pd_kay_0_1`. When comparing an older build, treat either historical label as equivalent
+to the new label only when all other candidate fields match and the current build reports `F_reduced_hessian_not_nd`.
+
+333. Aligned stability-matrix naming with Bomze's paper:
+renamed the directly constructed scaled Schur result to the `scaled reduced B matrix`, matching the paper's final $B^{(r)}$ up to its
+irrelevant positive scale. Source identifiers now use `build_scaled_reduced_b` and `scaled_reduced_b_`; the mathematical comments retain
+that the implementation obtains this matrix through one exact Schur complement. No arithmetic or decision changed.
+
+334. Clarified the exact stability decision flow:
+added six short numbered path comments immediately above the mathematical branches in `check_stability()`. Each comment now states
+the condition, its mathematical consequence, and whether the candidate is accepted, rejected, or passed to strict copositivity;
+logging-only conditions remain uncommented. No executable code changed.
+
+335. Removed a redundant reduced-$B$ alias:
+made `check_stability()` use its accurately named `scaled_reduced_b_` member directly for logging, positive definiteness, and strict
+copositivity instead of creating a second local reference with the same name. No matrix is copied and behavior is unchanged.
+
+336. Standardized exact stability-path terminology:
+called failed necessary conditions `early rejection`, sufficient positive results `early acceptance`, and the remaining
+strict-copositivity branch the `final decision`. Removed the stale `Bee` wording from the matrix positive-definiteness comment. No
+executable code changed.
+
+337. Consolidated exact early stability decisions:
+added a local research note that defines every current and proposed early acceptance, early rejection, exact reduction, and final
+Hadeler optimization; records their proofs, costs, implementation status, recommended cheapest-first order, and the exact canonical
+candidate audit supporting a diagonal-first experiment. Linked it from the current copositivity-flow note. No source code changed.

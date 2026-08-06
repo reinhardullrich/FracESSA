@@ -90,7 +90,7 @@ public:
      * has unit diagonal and D is diagonal. A is positive definite exactly when
      * every entry of D is positive. Because all entries are rational, these are
      * exact sign decisions: no epsilon or floating-point tolerance is involved.
-     * This is the fast sufficient stability test for the Bee matrix.
+     * In the stability path, this is the exact early-acceptance check for the scaled reduced B matrix.
      */
     bool is_positive_definite() const {
         const size_t n = rows_;

@@ -19,7 +19,7 @@ namespace linalg {
  * proper principal submatrices have already passed. Hadeler (1983), Theorem 3,
  * then decides the remaining case from the determinant and adjugate signs.
  */
-class CopositivityCheckerV3 {
+class CopositivityChecker {
 private:
     // Compute adj(A) from cofactors when A is singular and A^-1 is unavailable.
     matrix_frc adjugate(const matrix_frc& A) {
@@ -158,7 +158,7 @@ public:
 };
 
 inline bool is_strictly_copositive(const matrix_frc& A) {
-    CopositivityCheckerV3 checker;
+    CopositivityChecker checker;
     return checker.is_strictly_copositive(A);
 }
 

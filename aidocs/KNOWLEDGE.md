@@ -1,6 +1,6 @@
 # Project Knowledge
 
-Last verified: 2026-08-04
+Last verified: 2026-08-05
 
 ## Worktree Policy
 
@@ -211,18 +211,21 @@ Important implementation points:
   $LDL^T$-style factorization solves the candidate, proves singularity, and
   records the exact inertia needed by stability. Rational values are constructed
   only for successful public candidate output.
-- `fracessa` owns the rational game used by stability. `find_candidate_safe` owns the one integer-scaled copy used by exact
-  candidate solves and both one-time precision-span decisions; fast and test each own the converted and equilibrated double copy
-  prepared from that integer game.
+- `fracessa` owns the rational game used by logging and support generation. `find_candidate_safe` owns the one integer-scaled copy
+  used by exact candidate solves, exact stability, and both one-time precision-span decisions; fast and test each own the converted
+  and equilibrated double copy prepared from that integer game.
 - Exact candidate factorization and validation use FLINT `fmpz_t` integers;
   header-only `linalg::integer` and `linalg::matrix_int` wrappers own their storage and expose inline exact operations to
-  FracESSA. Public rational results and the retained Bomze stability fallback use FLINT `fmpq_t` through `linalg::fraction`.
+  FracESSA. Public rational results and the final exact positive-definiteness/copositivity checks use FLINT `fmpq_t` through
+  `linalg::fraction`.
 - Stability reuses the exact reduced-Hessian inertia. A non-negative-definite
   support Hessian rejects ESS immediately; a negative-definite Hessian proves
-  ESS immediately when extended support equals support. Only the rare
-  negative-definite case with outside best replies constructs Bee and enters
-  the retained Bomze reduction/copositivity path. A binary64 result is never
-  accepted as a final mathematical certificate.
+  ESS immediately when extended support equals support. For the rare negative-definite case with outside best replies, the safe
+  solver reuses the retained fraction-free factorization to construct a positive integer multiple of Bomze's final reduced $B^{(r)}$
+  matrix directly through its exact Schur complement. This replaces complete rational Bee construction and recursive elimination of
+  the unrestricted support coordinates.
+  Exact positive definiteness or strict copositivity of the smaller outside-reply matrix then decides stability. A binary64 result
+  is never accepted as a final mathematical certificate.
 - `correctness/DOUBLE_PD_FALSE_POSITIVES.md` documents the concrete failures and
   proves why tolerance tuning cannot recover an exact PD certificate.
 - `correctness/FAST_CANDIDATE_FALSE_REJECTION.md` gives exact ESS counterexamples for all three former fast per-support rejection

@@ -1,6 +1,6 @@
 # Exact Stability Schur-Complement Plan
 
-Status: implementation-ready plan; no source changes have been made.
+Status: implemented and verified on 2026-08-05.
 
 ## 1. Goal
 
@@ -168,10 +168,10 @@ Future implementation should change only these existing source files:
 | File | Minimal change |
 |---|---|
 | `cpp/include/linalg/flint_style_fraction_free_ldlt.hpp` | Add one multi-column solve that reuses an unmodified negative-definite factorization. |
-| `cpp/include/fracessa/find_candidate_safe.hpp` | Declare the Schur builder and one reusable integer matrix for $N$. |
+| `cpp/include/fracessa/find_candidate_safe.hpp` | Declare the reduced-$B$ builder and one reusable integer matrix for $N$. |
 | `cpp/src/find_candidate_safe.cpp` | Build $\widehat G$ and $\widehat Q$ from the existing integer game/cache, reuse the factorization, and write $\widehat S$. |
-| `cpp/include/fracessa/fracessa.hpp` | Rename `bee_matrix_` to the accurate `stability_matrix_`. |
-| `cpp/src/checkstab.cpp` | Replace complete `Bee` construction and recursive elimination with the Schur builder and checks on the smaller matrix. |
+| `cpp/include/fracessa/fracessa.hpp` | Rename `bee_matrix_` to the accurate `scaled_reduced_b_`. |
+| `cpp/src/checkstab.cpp` | Replace complete `Bee` construction and recursive elimination with the reduced-$B$ builder and checks on the smaller matrix. |
 | `cpp/tests/test_linear_solver.cpp` | Add one focused multi-right-hand-side factor-reuse test. |
 
 No parser, CLI, Python, candidate-output, database, support-generator, fast-search, or copositivity source file needs to change.
@@ -244,19 +244,17 @@ Add one method to the exact candidate object because it owns all required privat
 common denominator, and reduced-entry cache.
 
 ```cpp
-// Build a positive integer multiple of the exact stability Schur complement.
+// Build a positive integer multiple of Bomze's final reduced B^(r) matrix through its exact Schur complement.
 // Called immediately after find() succeeds for the same support and proves H negative definite.
-void build_scaled_stability_schur(
+void build_scaled_reduced_b(
     bitset64 support,
-    bitset64 extended_support,
+    bitset64 outside_best_replies,
     linalg::matrix_frc& result);
 ```
 
 Implementation outline:
 
 ```cpp
-const bitset64 outside_best_replies = bs64::subtract(extended_support, support);
-
 uint8_t support_indices[bs64::kMaxBitsetDimension];
 uint8_t outside_indices[bs64::kMaxBitsetDimension];
 const size_t support_size = bs64::extract_set_indices(support, dimension_, support_indices);
@@ -337,11 +335,11 @@ The early decisions remain unchanged:
 Only the remaining outside-best-reply path changes:
 
 ```cpp
-find_candidate_safe_.build_scaled_stability_schur(
-    candidate_.support, candidate_.extended_support, stability_matrix_);
-auto& schur = stability_matrix_;
+const bitset64 kay = bs64::subtract(candidate_.extended_support, candidate_.support);
+find_candidate_safe_.build_scaled_reduced_b(
+    candidate_.support, kay, scaled_reduced_b_);
 
-if (schur.is_positive_definite()) {
+if (scaled_reduced_b_.is_positive_definite()) {
     candidate_.stability = "T_pd_frc";
     candidate_.is_ess = true;
     return;
@@ -353,47 +351,52 @@ if (kay_size <= 1) {
     return;
 }
 
-candidate_.is_ess = linalg::is_strictly_copositive(schur);
+candidate_.is_ess = linalg::is_strictly_copositive(scaled_reduced_b_);
 candidate_.stability = candidate_.is_ess ? "T_copos" : "F_not_copos";
 ```
 
 The current complete `Bee` construction, `r`-step recursive reduction, rolling rational matrices, and partial-pivot checks are then
-deleted. They are mathematically represented by the one block Schur complement. Existing externally visible stability labels remain
-unchanged. Diagnostic logging should call the matrix `scaled stability Schur complement`, not `Bee`.
+deleted. They are mathematically represented by the one block Schur complement. The Schur-complement change itself preserved the
+existing labels. A later diagnostic cleanup renamed the early reduced-Hessian rejection to `F_reduced_hessian_not_nd`. The result is
+now called the `scaled reduced B matrix`: it represents Bomze's final $B^{(r)}$ up to positive scaling and is computed as one Schur
+complement.
 
 ## 10. Correctness checks
 
 ### 10.1 Focused factor-reuse test
 
-Use
+Use the non-diagonal negative-definite system
 
 $$
 H=
 \begin{pmatrix}
--2&1\\
-1&-3
+-4&-1&-1\\
+-1&-3&-1\\
+-1&-1&-2
 \end{pmatrix},
 \qquad
 G=
 \begin{pmatrix}
-1&2\\
-3&4
+-12&-18\\
+-15&-20\\
+-14&-18
 \end{pmatrix}.
 $$
 
-The matrix $H$ is negative definite, `det(H) = 5`, and
+The matrix $H$ is negative definite, $\det(H)=-17$, and
 
 $$
 H^{-1}G=
-\frac15
 \begin{pmatrix}
--6&-10\\
--7&-10
+1&2\\
+3&4\\
+5&6
 \end{pmatrix}.
 $$
 
-Factor `H` once through the existing solver, call the new two-column reuse method, and verify the positive denominator and all four
-numerators exactly. This test catches incorrect previous-pivot division, column handling, and in-place back substitution.
+The implemented test factors `H` once through the existing solver, calls the new two-column reuse method, and verifies denominator
+17 and numerator matrix $17H^{-1}G$ exactly. Three rows are necessary here: unlike a 2-by-2 example, this reaches the Bareiss step
+that divides by the previous pivot. The same test also covers column handling and in-place back substitution.
 
 ### 10.2 Stability regression coverage
 
@@ -403,7 +406,7 @@ Run the existing complete C++ and matrix-correctness suites. In particular, pres
 - one outside best reply rejected after positive definiteness fails (`F_not_pd_kay_0_1`);
 - strict-copositivity acceptance (`T_copos`; canonical database matrix 29 contains such a candidate);
 - strict-copositivity rejection (`F_not_copos`; canonical database matrices 4 and 7 contain examples); and
-- rejection before Schur construction because $H$ is not negative definite (`F_not_part_copos`).
+- rejection before Schur construction because $H$ is not negative definite (`F_reduced_hessian_not_nd`).
 
 Candidate count, ESS count, support structure, extended supports, exact vectors, exact payoffs, and stability labels must match the
 current baseline. Candidate IDs are not a mathematical requirement, but this change does not alter support enumeration, so they
@@ -411,8 +414,12 @@ should also remain unchanged.
 
 ### 10.3 Direct equivalence check during development
 
-In an experiment-only build, retain the old stability function under a different name and compare old and new decisions for every
-stored matrix that reaches the outside-best-reply path. Remove that duplicate code before the production patch is accepted.
+The implementation was compared row for row with the canonical database on all 309 analyzed matrices with an outside-best-reply
+candidate and a sub-second safe baseline. All 7,808 stored representative candidates matched in candidate ID, exact vector, support,
+extended support, multiplier, ESS decision, stability label, and exact payoff. Their multipliers represent 14,659 candidates. This
+includes matrices 4, 5, 6, 7, 19, 20, 29, and 32, which together exercise `T_pd_frc`, `F_not_copos`,
+`F_reduced_hessian_not_nd`, `T_copos`, `F_not_pd_kay_0_1`, the zero-dimensional support block, and rejection before Schur
+construction.
 
 ## 11. Performance measurement
 
@@ -424,7 +431,7 @@ Benchmark only after correctness passes. Compare current code with the Schur ver
 
 Expected work on the changed path:
 
-| Current | Proposed |
+| Previous | Implemented |
 |---|---|
 | Construct a rational $(r+k)\times(r+k)$ `Bee`. | Build one integer $r\times k$ right-hand side. |
 | Rational positive-definite factorization of size $r+k$. | Reuse the existing factorization of $H$. |
@@ -433,6 +440,11 @@ Expected work on the changed path:
 
 The retained implementation should show a repeatable end-to-end improvement on the affected matrices and no meaningful regression
 on the common no-outside-reply path. If it does not, keep this document as a rejected experiment and revert the source patch.
+
+The retained Release benchmark used CPU 2 and one persistent Pybind process per build. Repeated measurements showed approximately
+45.7% less time for matrix 19, 22.8% less for matrix 20, and 9.5% less for matrix 29. Matrix 32 was unchanged within noise because its
+outside-reply candidates fail the reduced-Hessian inertia check before Schur construction. Small matrices 4-7 improved by roughly
+8-20% in the first run. The complete C++ suite, all 66 Python tests, and the exact database comparison passed before retention.
 
 ## 12. Deliberately excluded work
 

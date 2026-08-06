@@ -179,6 +179,87 @@ void find_candidate_safe::build_reduced_system(const uint8_t* support_indices, s
     }
 }
 
+linalg::integer::const_reference find_candidate_safe::reduced_entry(size_t reference, size_t row, size_t column)
+{
+    const size_t offset = reference * dimension_ * dimension_ + row * dimension_ + column;
+    auto& value = reduced_entry_cache_[offset];
+    if (!reduced_entry_cache_ready_[offset]) {
+        value.set_difference(integer_game_(row, column), integer_game_(reference, column));
+        value += integer_game_(reference, reference);
+        value -= integer_game_(row, reference);
+        reduced_entry_cache_ready_[offset] = 1;
+    }
+    return value;
+}
+
+/*
+ * Let U=I\{m} and K=J\I. In the coordinate order (U,K), write the reduced extended Hessian as
+ *
+ *     R = [ H  G ],
+ *         [ G' Q ]
+ *
+ * where dH, dG, and dQ are integer because integer_game_=dA. The retained factorization solves dH*N=dG*delta. Therefore
+ *
+ *     -2(delta*dQ - dG'*N) = d*delta * [-2(Q-G'*H^-1*G)].
+ *
+ * The bracketed matrix is the Schur complement of Bomze's unrestricted support block, hence his final reduced matrix B^(r) up to
+ * a positive scale. The scale d*delta preserves positive definiteness and strict copositivity, so result can contain these integers
+ * with denominator one. Original dG entries remain in reduced_entry_cache_ after the solve overwrites the work matrix with N.
+ */
+void find_candidate_safe::build_scaled_reduced_b(bitset64 support, bitset64 outside_best_replies,
+                                                 linalg::matrix_frc& result)
+{
+    assert(reduced_hessian_is_negative_definite_);
+    assert(outside_best_replies != 0);
+
+    uint8_t support_indices[bs64::kMaxBitsetDimension];
+    uint8_t outside_indices[bs64::kMaxBitsetDimension];
+    const size_t support_size = bs64::extract_set_indices(support, dimension_, support_indices);
+    const size_t outside_size = bs64::extract_set_indices(outside_best_replies, dimension_, outside_indices);
+    const size_t reduced_dimension = support_size - 1;
+    const size_t reference = support_indices[0];
+
+    if (reduced_dimension > 0) {
+        assert(reduced_dimension_ == reduced_dimension);
+        stability_solution_numerators_.resize(reduced_dimension, outside_size);
+
+        // Before the solve this matrix is dG. Afterwards it contains the solution numerators N.
+        for (size_t row = 0; row < reduced_dimension; ++row) {
+            const size_t i = support_indices[row + 1];
+            for (size_t column = 0; column < outside_size; ++column) {
+                stability_solution_numerators_(row, column) = reduced_entry(reference, i, outside_indices[column]);
+            }
+        }
+
+        ffldlt_workspace_.solve_factored_negative_definite_inplace(
+            stability_solution_numerators_, solution_denominator_, reduced_system_);
+    }
+
+    if (result.rows() != outside_size || result.cols() != outside_size) {
+        result = linalg::matrix_frc(outside_size, outside_size);
+    }
+
+    linalg::integer scaled_entry;
+    linalg::integer one(1);
+    for (size_t row = 0; row < outside_size; ++row) {
+        for (size_t column = 0; column <= row; ++column) {
+            scaled_entry.set_product(
+                solution_denominator_, reduced_entry(reference, outside_indices[row], outside_indices[column]));
+
+            for (size_t inner = 0; inner < reduced_dimension; ++inner) {
+                const size_t i = support_indices[inner + 1];
+                scaled_entry.submul(
+                    reduced_entry(reference, i, outside_indices[row]), stability_solution_numerators_(inner, column));
+            }
+
+            scaled_entry.multiply(2);
+            scaled_entry.negate();
+            result(row, column).set_ratio(scaled_entry, one);
+            if (row != column) result(column, row) = result(row, column);
+        }
+    }
+}
+
 void find_candidate_safe::calculate_integer_payoff(linalg::integer& value, size_t strategy, size_t reference,
                                                      const uint8_t* support_indices, size_t reduced_dimension)
 {

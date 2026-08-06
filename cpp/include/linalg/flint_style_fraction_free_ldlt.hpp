@@ -165,6 +165,52 @@ public:
         return 1;
     }
 
+    /*
+     * Solve the same negative-definite system for several new right-hand sides without refactoring it. Negative definiteness
+     * guarantees that the original factorization used no coordinate operations, so replaying the fraction-free right-hand-side
+     * updates and back substitution is sufficient. right_hand_sides is overwritten by the solution numerators.
+     */
+    void solve_factored_negative_definite_inplace(matrix_int& right_hand_sides, const integer& denominator,
+                                                  const matrix_int& factored_system) const
+    {
+        assert(operation_count_ == 0);
+        assert(factored_system.rows() == factored_system.cols());
+        assert(right_hand_sides.rows() == factored_system.rows());
+        assert(denominator.sign() > 0);
+
+        const size_t dimension = factored_system.rows();
+        const size_t right_hand_side_count = right_hand_sides.cols();
+
+        // Replay the right-hand-side part of the Bareiss elimination using the retained lower-triangle factors.
+        for (size_t pivot_position = 0; pivot_position + 1 < dimension; ++pivot_position) {
+            const auto pivot = factored_system(pivot_position, pivot_position);
+
+            for (size_t row = pivot_position + 1; row < dimension; ++row) {
+                for (size_t column = 0; column < right_hand_side_count; ++column) {
+                    auto value = right_hand_sides(row, column);
+                    value.set_product(value, pivot);
+                    value.submul(factored_system(row, pivot_position), right_hand_sides(pivot_position, column));
+                    if (pivot_position > 0) {
+                        const auto previous_pivot = factored_system(pivot_position - 1, pivot_position - 1);
+                        if (!previous_pivot.is_one()) value.divide_exact(previous_pivot);
+                    }
+                }
+            }
+        }
+
+        // Descending rows make transformed right-hand sides and solved numerators safe to share the same matrix.
+        for (size_t column = 0; column < right_hand_side_count; ++column) {
+            for (size_t row = dimension; row-- > 0; ) {
+                auto numerator = right_hand_sides(row, column);
+                numerator.set_product(numerator, denominator);
+                for (size_t solved_row = row + 1; solved_row < dimension; ++solved_row) {
+                    numerator.submul(factored_system(solved_row, row), right_hand_sides(solved_row, column));
+                }
+                numerator.divide_exact(factored_system(row, row));
+            }
+        }
+    }
+
 private:
     enum class coordinate_operation_kind : unsigned char { swap, add };
 

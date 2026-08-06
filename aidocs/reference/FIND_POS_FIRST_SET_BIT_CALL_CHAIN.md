@@ -18,7 +18,7 @@ is defined for zero.
 |---|---|---|
 | `cpp/src/checkstab.cpp:31` | `fracessa::check_stability` | Select the Bee pivot index `m`. |
 | `cpp/src/checkstab.cpp:185` | `fracessa::check_stability` | Select the next reduction coordinate. |
-| `cpp/include/linalg/copositive_fraction.hpp:94` | `CopositivityCheckerV3::is_copositive_hadeler` | Handle a one-dimensional subset. |
+| `cpp/include/linalg/copositive_fraction.hpp:94` | `CopositivityChecker::is_copositive_hadeler` | Handle a one-dimensional subset. |
 
 `find_pos_next_set_bit()` now has no production caller. Copositivity extracts
 each larger subset once and indexes its fixed array directly.
@@ -33,8 +33,8 @@ main / fracessa_core.compute_matrix
            -> find_pos_first_set_bit
            -> lowest_set_bit_as_bit
            -> linalg::is_strictly_copositive
-              -> CopositivityCheckerV3::is_strictly_copositive
-                 -> CopositivityCheckerV3::is_copositive_hadeler
+              -> CopositivityChecker::is_strictly_copositive
+                 -> CopositivityChecker::is_copositive_hadeler
                     -> find_pos_first_set_bit
 ```
 

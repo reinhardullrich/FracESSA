@@ -193,12 +193,12 @@ the integer-scaled system provides all of the following:
 2. the exact solution;
 3. the inertia of $H$.
 
-The Bee support block is exactly $-2H$. Therefore a candidate cannot be an
-ESS when $H$ is not negative definite, regardless of outside best replies;
-when $H$ is negative definite and extended support equals support, the
-candidate is an ESS without constructing Bee or factoring a second exact
-matrix. Only $H\prec0$ with outside best replies reaches the unchanged Bomze
-partial-copositivity and copositivity fallback.
+The Bee support block is exactly $-2H$. Therefore a candidate cannot be an ESS when $H$ is not negative definite, regardless of
+outside best replies; when $H$ is negative definite and extended support equals support, the candidate is an ESS without
+constructing Bee or factoring a second exact matrix. For $H\prec0$ with outside best replies, production now replays only the
+right-hand-side part of the retained fraction-free factorization and constructs the smaller exact Schur complement directly. This
+replaces complete rational Bee construction and recursive elimination; only the final exact positive-definiteness or
+strict-copositivity check remains.
 
 The retained data make this unusually relevant: 49,064 of 49,157 stored
 candidate representatives (99.811%) have `extended_support == support`.
@@ -302,12 +302,12 @@ fallbacks. It should be attempted only after the simpler integer KKT kernel is
 measured, because fraction-free FLINT may already remove most of the time this
 redesign targets.
 
-### 7. One-sided ball Cholesky before rational stability
+### 7. One-sided ball Cholesky before exact reduced-B classification
 
 After exact candidate construction has established the exact extended support,
-try to prove Bee positive definite with rigorous ball arithmetic. A successful
-ball Cholesky is a complete proof and can skip rational Bee factorization. An
-inconclusive result falls through to the unchanged exact stability code.
+try to prove the scaled reduced $B$ matrix positive definite with rigorous ball arithmetic. A successful ball Cholesky is
+a complete proof and can skip its rational positive-definiteness factorization. An inconclusive result falls through to the
+unchanged exact reduced-$B$ classification.
 
 FLINT already ships Arb, and
 [`arb_mat_cho`](https://flintlib.org/doc/arb_mat.html) returns success only when
@@ -412,14 +412,15 @@ memory ownership again.
 2. **Implemented:** replace rational $LDL^T$ arithmetic with the measured
    fraction-free FLINT-style integer kernel without changing the reduction or
    public flow.
-3. Add exact recognition for the complete-multipartite/graph family that
+3. **Implemented:** reuse the retained negative-definite factorization to build the exact scaled reduced $B$ matrix directly through
+   its Schur complement, replacing complete rational Bee construction and recursive elimination.
+4. Add exact recognition for the complete-multipartite/graph family that
    dominates retained time, using the narrowest theorem-backed detector.
-4. Test the global strict-concavity and automatic full-support fast paths.
-5. Add the one-sided Arb positive-definiteness filter if rational stability is
-   still material after steps 1--4.
-6. Add twin-class orbit generation before considering a full automorphism
+5. Test the global strict-concavity and automatic full-support fast paths.
+6. Add the one-sided Arb positive-definiteness filter if exact Schur classification is still material after steps 1--5.
+7. Add twin-class orbit generation before considering a full automorphism
    package.
-7. Attempt subset-lattice updates or complementarity reverse search only if the
+8. Attempt subset-lattice updates or complementarity reverse search only if the
    simpler changes leave support-by-support factorization as the measured
    bottleneck.
 
