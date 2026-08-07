@@ -1,80 +1,53 @@
 # Agent Documentation Index
 
-Use each document according to its role below. A file under `plans/` or
-`architecture/` may describe implemented behavior or retained historical
-rationale; its status line and this index determine which.
+This file routes to every other Markdown document under `aidocs/`. Each entry states the document's role and status without
+duplicating its contents.
 
-## Startup
+## Current Overview And Operations
 
-1. Read repository-root `AGENTS.md`.
-2. Read `KNOWLEDGE.md`.
-3. Read `CHANGES.md` only when history matters, when diagnosing drift, or when
-   the user asks what changed.
-4. Read only the task-specific references below.
-
-## Current Truth
-
-- `KNOWLEDGE.md`: canonical current architecture, workflows, constraints, and
-  project policy.
-- `pyfracessa/README.md`: public PyFracESSA and multiprocessing API.
-- `RELEASING.md`: calendar-version release procedure, supported artifacts, and manual release automation.
-- `../testdata/README.md`: canonical SQLite test-data and timing schema.
+- `PROJECT.md`: current FracESSA structure, product behavior, architecture, dependencies, test-data roles, Python boundary, and
+  release model.
+- `RELEASING.md`: current calendar-version release procedure, supported artifacts, and manual GitHub Actions workflow.
+- `pyfracessa/README.md`: current public PyFracESSA API, multiprocessing behavior, result schema, sinks, timing tool, and examples.
 
 ## Current Design And Technical Reference
 
-- `architecture/SUPPORT_GENERATOR_HANDOVER.md`: concise current generator API,
-  callback rationale, candidate lifecycle, circular multiplier contract, and
-  retained design decisions.
-- `plans/SUPPORT_GENERATORS.md`: implemented DFS/direct-bracelet generator
-  design, correctness arguments, rejected alternatives, measurements, and
-  future benchmark gates.
-- `plans/CHEAP_CYCLIC_SYMMETRY_FILTER.md`: implemented always-on affine cyclic
-  symmetry reduction plus its retained implementation and promotion record.
-- `correctness/DOUBLE_PD_FALSE_POSITIVES.md`: exact derivation of the removed
-  double-PD certificate bug, its regression games, and arbitrary-small-
-  perturbation counterexamples.
-- `correctness/FAST_CANDIDATE_FALSE_REJECTION.md`: exact ESS counterexamples for
-  former fast per-support rejection rules and the current mitigations.
-- `reference/ELIMINATING_THE_BORDERED_CANDIDATE_SYSTEM.md`: introductory
-  mathematical derivation of the equivalent symmetric $(k-1)\times(k-1)$
-  candidate system, including reconstruction and singularity equivalence.
-- `reference/FIND_POS_FIRST_SET_BIT_CALL_CHAIN.md`: compact production-only
-  bit-scanning call chain requested for hot-path work.
+- `architecture/SUPPORT_GENERATOR_HANDOVER.md`: implemented generator API, callback rationale, candidate lifecycle, circular
+  multiplier contract, and retained design decisions.
+- `plans/SUPPORT_GENERATORS.md`: implemented DFS and direct-bracelet algorithms, correctness arguments, rejected alternatives,
+  measurements, and future benchmark gates.
+- `plans/CHEAP_CYCLIC_SYMMETRY_FILTER.md`: implemented affine cyclic-symmetry reduction, verification, and promotion evidence.
+- `plans/EXACT_STABILITY_SCHUR_COMPLEMENT.md`: implemented exact Schur-complement stability reduction and verification plan.
+- `correctness/DOUBLE_PD_FALSE_POSITIVES.md`: exact analysis of the removed binary64 positive-definiteness certificate bug.
+- `correctness/FAST_CANDIDATE_FALSE_REJECTION.md`: exact ESS counterexamples for former fast rejection rules and current mitigations.
+- `reference/ELIMINATING_THE_BORDERED_CANDIDATE_SYSTEM.md`: mathematical derivation of the reduced symmetric candidate system.
+- `reference/FIND_POS_FIRST_SET_BIT_CALL_CHAIN.md`: current production-only bit-scanning call chain.
+- `handoffs/COPOSITIVITY_CHECKER_EXTRACTION_HANDOFF.md`: current extraction map for moving the exact copositivity work into a
+  separate repository, including algorithms, matrices, evidence, corpus schema, and source files.
 
 ## Research And Open Options
 
-- `plans/MAJOR_SINGLE_CORE_PERFORMANCE_OPPORTUNITIES.md`: research review of
-  theorem-backed and algorithmic routes to material single-core speedups; no
-  listed idea is implemented or benchmarked by that document.
-- The following research notes are local-only because the complete `research/`
-  directory is ignored by Git:
-- `../research/THREE_BY_K_ROOK_ESS_SEQUENCES.md`: rectangular-Rook group catalogue and symbolic matrices through dimension 30,
-  followed by the derivation, exact verification, support counts, and gamma values of the $3\times k$ Rook ESS sequences.
+- `plans/MAJOR_SINGLE_CORE_PERFORMANCE_OPPORTUNITIES.md`: unimplemented research review of possible material single-core speedups.
 
-## Historical Records And Fixed Evidence
+## Historical Decisions And Audits
 
-- `CHANGES.md`: append-only human-readable history of meaningful project work.
-- `history/CPP_PERFORMANCE_EXPERIMENTS_2026-08-03.md`: completed C++ allocation and implementation experiments, especially
-  measured changes that were rejected.
+- `CHANGES.md`: append-only searchable history of meaningful decisions, results, and evidence.
+- `architecture/UNSAFE_CANDIDATE_FILTER.md`: failed temporary normalized-filter design and retained measurements.
+- `history/CPP_PERFORMANCE_EXPERIMENTS_2026-08-03.md`: completed C++ allocation and performance experiments, especially rejected
+  changes.
 - `history/FAST_PIPELINE_EXPERIMENTS_2026-08-03.md`: completed and rejected binary64 candidate-path experiments.
-- `history/INTEGER_STABILITY_COPOSITIVITY_2026-08-06.md`: retired Hadeler implementation, proof, and benchmark record preserved after
-  the adaptive-cone replacement.
-- `history/INTEGER_STABILITY_MATRIX_MIGRATION_ONLY_2026-08-06.md`: completed integer-storage migration plan retained as history.
-- `architecture/UNSAFE_CANDIDATE_FILTER.md`: failed temporary normalized-filter
-  phase, including why it was removed and the measurements worth retaining.
-- `reference/MATRIX_GENERATOR_CATALOGUE_AUDIT.md`: immutable catalogue-import
-  audit snapshot; its counts describe that audit, not the live database.
-- Local `../experiments/`: dated benchmark snapshots, ignored by Git.
-- Local `../research/papers/`: mathematical source papers, ignored by Git.
-- `../archive/README.md`: source preserved after removal from all production and test targets.
+- `history/INTEGER_STABILITY_COPOSITIVITY_2026-08-06.md`: retired Hadeler implementation, proof, and benchmarks preserved after the
+  adaptive-cone replacement.
+- `history/INTEGER_STABILITY_MATRIX_MIGRATION_ONLY_2026-08-06.md`: completed integer-storage migration plan.
+- `reference/MATRIX_GENERATOR_CATALOGUE_AUDIT.md`: immutable matrix-generator catalogue import audit; its counts are not live database
+  counts.
 
-## Maintenance Rules
+## Frozen Experiments
 
-- Current code and tests override documentation when they disagree.
-- Update the owning maintained document in the same task as a behavior change.
-- Append to `CHANGES.md` when a human-readable historical record is useful;
-  do not rewrite its previous entries.
-- Dated files under `history/` contain no open tasks and are never current architecture or validation records.
-- Keep current facts out of dated experiment reports.
-- Do not add session histories, generated source dumps, duplicate completed
-  reviews, or stale profiling output.
+- `experiments/HISTORICAL_DEFAULT_VERY_UNSAFE_COMPARISON_2026-07-31.md`: historical default, very-unsafe, unsafe, verified, and exact
+  timing comparison.
+- `experiments/SUPPORT_FRONTIER_2026-07-29.md`: support-generation and pruning alternatives, measurements, and conclusions.
+- `experiments/speed_comparison_2026-07-26/COMPUTER_TIMING_COMPARISON.md`: frozen cross-computer timing comparison.
+- `experiments/speed_comparison_2026-07-26/EXACT_PD_ONLY_COMPARISON.md`: frozen exact-positive-definiteness experiment.
+- `experiments/speed_comparison_2026-07-26/EXACT_VS_DEFAULT_COMPARISON.md`: frozen exact-versus-default benchmark.
+- `experiments/speed_comparison_2026-07-26/MICROBENCHMARK_COMPARISON.md`: frozen persistent-process exact-PD microbenchmark.

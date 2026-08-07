@@ -5,7 +5,7 @@ Status: historical; local correctness and performance verification is recorded b
 Document role: failed-approach history. The normalized heuristic fixed raw-double failures 38-39 but introduced failures 45-47;
 it was not a monotonic safety improvement and was removed. At the end of this phase, production required either `fast`, the
 historical unnormalized raw-double heuristic with matrix-wide safe fallback checks, or `safe`, the exact-only path. The current
-method contract is in [`../KNOWLEDGE.md`](../KNOWLEDGE.md); reusable numerical counterexamples are in
+method contract is in [`../PROJECT.md`](../PROJECT.md); reusable numerical counterexamples are in
 [`../correctness/FAST_CANDIDATE_FALSE_REJECTION.md`](../correctness/FAST_CANDIDATE_FALSE_REJECTION.md). The remainder of this
 document is historical.
 

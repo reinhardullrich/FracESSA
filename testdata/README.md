@@ -3,19 +3,54 @@
 `fracessa_testdata.sqlite3` is the canonical store for exact test matrices,
 complete expected candidate results where available, and timing data.
 
-`Copos_testdata.sqlite3` is the separate exact test corpus for the final strict-copositivity decision. Its `matrices` table contains
-1,078 permutation-inequivalent exact integer matrices: 44 are strictly copositive and 1,034 are not. The original 1,069 rows are
-integer-scaled reduced B matrices constructed while replaying the exact candidate baselines. Their nullable `fracessa_matrix_id` is
-the only link back to `fracessa_testdata.sqlite3`; candidate, support, extended-support, source-dimension, and circular-storage data
-are deliberately not duplicated in this corpus.
+`Copos_testdata.sqlite3` is the separate exact test corpus for general strict-copositivity and copositivity decisions. It is not
+limited by FracESSA's dimension-63 support representation. Its `matrices` table contains 1,569 permutation-inequivalent exact
+integer matrices with dimensions 1-3,361: 427 are strictly copositive, 56 are copositive but not strictly copositive, 55 are
+non-copositive, and 1,031 legacy non-strict rows have not yet been separated into the latter two classes. The nullable
+`is_copositive` field distinguishes this unknown legacy state from a proved non-copositive result. The original 1,069 rows are
+integer-scaled reduced B matrices constructed while replaying exact candidate baselines. Their nullable `fracessa_matrix_id` is
+the only link back to `fracessa_testdata.sqlite3`; candidate and support data are deliberately not duplicated here.
 
 IDs 9157-9163 are published examples M1-M7 from Bras, Eichfelder, and Judice, and IDs 9164-9165 are the strict and non-copositive
-sides of their C5 graph construction. The nine independent reference rows have no FracESSA matrix ID. Exact duplicates and matrices
-related by one simultaneous row-and-column permutation are collapsed to their lowest-ID representative.
+sides of their C5 graph construction. The August 7 general-corpus import added 490 representatives: 78 from the 81-file
+`Copositivity/Matrices` graph corpus, 329 from the 330 exact rational test inputs in `AlexOertel/MinCOP_LDLT`, and 83 matrices
+constructed from the 29 official Second DIMACS Challenge clique graphs reported by Žilinskas. Three Johnson files collapse under
+simultaneous row-and-column permutation, and one Oertel-Schürmann file is an exact duplicate. `matrix_sources` retains all 494
+general-import source occurrences plus the four `bad matrices` records, for 498 rows covering 494 matrix representatives and 15
+families. The rows include repository URLs, exact commits or archive SHA-256 values, original entries, denominator scales,
+classification arguments, and links to published benchmark rows.
 
-The corpus uses only exact or exact-fallback source baselines. The 18 unverified fast-only source baselines are excluded. Three
-affine-symmetry image rows are also excluded because the production search constructs B only for their shared representative. No
-benchmark or calibration table is defined yet; those belong here only after their measurement contract is decided.
+The `bad matrices` family records the four locally important algorithmic stress cases and their origins. ID 9161 is matrix M5 from
+Brás, Eichfelder, and Júdice, a copositive boundary matrix on which exact Bundfuss refinement timed out. ID 9656 is the constructed
+strictly positive definite matrix $D\operatorname{tridiag}(-1,2,-1)D$ of order 15 with $D=\operatorname{diag}(1,2,1,2,\ldots)$,
+which was pathological for the former cone split. IDs 811 and 813 are the copositive but non-strict scaled reduced-B matrices derived
+from QAPLIB `nug24:A` and `nug25:A`; direct Danninger recursion timed out on both. Their `matrix_sources` rows retain the complete
+construction or citation and the exact classification argument.
+
+The DIMACS matrices use the exact Motzkin-Straus construction $Q_\lambda=\lambda(E-A)-E$. For each of the 27 graphs with a stated
+exact clique number $\omega$, the database stores the strictly copositive case $\lambda=\omega+1$, copositive boundary case
+$\lambda=\omega$, and non-copositive case $\lambda=\omega-1$. Keller6 and MANN_a81 have only certified clique lower bounds, so each
+contributes only the rigorously implied non-copositive case; no boundary or strict label is inferred. `published_benchmarks` stores
+all 27 rows of Table 2 and all 29 rows of Table 3 from Julius Žilinskas, *Copositive Programming by Simplicial Partition*,
+[DOI 10.15388/Informatica.2011.345](https://doi.org/10.15388/Informatica.2011.345), including family, graph size, clique status,
+reported result, search counts, and elapsed or allowed time. These published values remain separate from similarly named generated
+files unless exact source identity is established.
+
+Exact duplicates and matrices related by one simultaneous row-and-column permutation are collapsed to their lowest-ID
+representative. Dense upper-triangle text remains the canonical representation. `matrix_sha256` replaces a full-text uniqueness
+index so the 65 MiB large-matrix payload is not duplicated inside SQLite; imports verify a hash match against the complete matrix
+text. The corpus uses only exact or exact-fallback source baselines. The 18 unverified fast-only source baselines and three
+affine-symmetry image rows that production never solves separately remain excluded.
+
+The local `tests` table stores one row per matrix and measured algorithm result. It follows the provenance convention of the main
+timing table: session, timestamp, machine, CPU, build label, source reference, Git revision, and exact binary SHA-256. The
+copositivity-specific fields add an algorithm name/description, `ok`/`timeout`/`error` status, independently nullable strict- and
+ordinary-copositivity results, correctness, node count, and diagnostics. `target_ns`, `iterations`, `measured_wall_ns`, `elapsed_ns`,
+and `timeout_ns` retain the timing context in nanoseconds; `elapsed_ns` is the algorithm-reported per-run median when
+`iterations > 1`. Use `target_ns = 0` and `iterations = 1` for a one-shot run. A null
+ordinary-copositivity result means that the tested algorithm did not determine it; a null `is_correct` means that correctness could
+not be assessed from the available expected classification. `published_benchmarks` remains separate because it records literature
+results rather than measurements of the current implementation.
 
 The current snapshot contains 1,375 distinct strategically normalized matrices. The 1,064 exact or exact-fallback baselines and 18
 additional unverified fast-only results have 68,707 stored candidate representatives whose multipliers represent 112,381

@@ -1,7 +1,7 @@
 # C++ Allocation And Performance Experiments
 
 Status: historical decision record completed on 2026-08-03. This file contains no open tasks and is not the source of current
-architecture or validation facts. Use `../KNOWLEDGE.md` for current behavior.
+architecture or validation facts. Use `../PROJECT.md` for current behavior.
 
 This record preserves measured C++ allocation and implementation experiments, especially rejected changes whose results prevent
 the same work from being repeated without new evidence.

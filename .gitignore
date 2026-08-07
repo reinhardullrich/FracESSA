@@ -3,6 +3,7 @@
 /.codex/
 /.local/
 /.local-tmp/
+/tmp/
 /.cursor/
 /.vscode/
 /.idea/

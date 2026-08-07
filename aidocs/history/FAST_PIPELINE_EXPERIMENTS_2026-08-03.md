@@ -1,7 +1,7 @@
 # Fast Candidate Pipeline Experiments
 
 Status: historical decision record completed on 2026-08-03. This file contains no open tasks and is not the source of current
-architecture or validation facts. Use `../KNOWLEDGE.md` for the live pipeline and
+architecture or validation facts. Use `../PROJECT.md` for the live pipeline and
 `../correctness/FAST_CANDIDATE_FALSE_REJECTION.md` for its known correctness boundary.
 
 This record preserves completed and rejected binary64 candidate-path experiments whose measurements prevent unproductive work from

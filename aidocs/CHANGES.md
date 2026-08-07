@@ -1248,3 +1248,10 @@ connected or earlier-exit overhead. A focused CPU-2 benchmark screened all 1,078
 the final checker, using a 0.5-second native-timing target per matrix and method. The seven strictly copositive matrices improved by
 15.66% on average and 17.06% at the median (1.206x median speedup). The fourteen non-copositive matrices were neutral at the median
 and 5.91% slower on average because their direct cone checks usually find a witness in only a few microseconds.
+
+## 2026-08-07
+
+370. Split project instructions from current project facts:
+moved mandatory workflows and essential commands into root `AGENTS.md`, moved the concise current overview into
+`aidocs/PROJECT.md`, rebuilt `aidocs/INDEX.md` as the complete router for all Markdown documents under `aidocs/`, and removed the
+mixed-purpose `aidocs/KNOWLEDGE.md`.
