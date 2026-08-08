@@ -98,8 +98,8 @@ minimal required implementation.
 Keep two concrete types:
 
 ```cpp
-using bitset64 = uint64_t;       // n <= 64
-class multiword_bitset;         // n >= 65
+using bitset64 = uint64_t;       // production path for n <= 64
+class multiword_bitset;         // production path for n >= 65
 ```
 
 `multiword_bitset` owns `std::vector<uint64_t> words_`. Bit `i` is stored in:
@@ -109,8 +109,11 @@ word index = i / 64
 bit offset = i % 64
 ```
 
-Its constructor receives the dimension, allocates `(dimension + 63) / 64` words once, and records a mask for the unused high bits of
-the last word. Every mutating operation must preserve zero in those unused bits.
+Its constructor receives the dimension, allocates `dimension / 64 + (dimension % 64 != 0)` words once, and records a mask for the
+unused high bits of the last word. This overflow-safe expression matters before the parser has a separately approved practical
+maximum. Production constructs this type only for dimensions above 64, but the primitive accepts every positive dimension so its
+later generators can be compared exhaustively with the one-word implementation at small dimensions. Every mutating operation must
+preserve zero in unused high bits.
 
 ### Fixed width for one complete matrix run
 
@@ -134,14 +137,18 @@ Required operations are only the operations with current production callers:
 - set and clear one bit;
 - fill the first `n` bits;
 - empty/equality/numeric-order comparison;
-- subset and set difference;
+- subset, union, and set difference;
 - population count;
 - lowest set position and extraction of all set positions;
 - lowest set bit removal for graph traversal;
-- cyclic rotate and reflection;
-- decimal and diagnostic bitstring output.
+- in-place cyclic rotation by one position and reflection;
+- diagnostic bitstring output.
 
 Numeric ordering compares words from highest to lowest. This preserves the current meaning of ascending support masks.
+
+Extraction writes into a caller-owned, already reserved `std::vector<size_t>` so repeated candidate solves do not allocate. Decimal
+conversion is deliberately absent from this primitive. Stage 6 imports its fixed words into the existing FLINT integer wrapper only
+at the CLI/Pybind output boundary.
 
 Do not expose arbitrary shifts, proxy references, iterators, hashing, arithmetic, or a general bitset algebra until a production
 caller needs them.
@@ -244,6 +251,7 @@ iterating its set positions and setting their mapped destination bits in a pre-s
 |---|---|
 | `cpp/include/fracessa/multiword_bitset.hpp` | Add the fixed-width-per-run word vector and only the required operations. |
 | `cpp/tests/test_multiword_bitset.cpp` | Compare every operation with an independent `std::vector<bool>` reference at the 63/64, 127/128, and unused-high-bit boundaries. |
+| `cpp/tests/CMakeLists.txt` | Build and register the isolated primitive test. |
 | `cpp/include/fracessa/supports.hpp` | Leave the one-word generators intact; add separate mutable-work-mask non-circular and V3 circular generators. Do not restore or port V2. |
 | `cpp/include/fracessa/circular_affine_symmetry.hpp` | Keep the present one-word implementation and add a multiword specialization with destination-position tables and reusable scratch masks. |
 | `cpp/include/fracessa/candidate.hpp` | Make the working candidate depend on `SupportMask`; keep support and extended support in the same fixed-width representation. |
@@ -269,8 +277,8 @@ Dimension 64 works with raw `uint64_t`, including bit 63, rotation, reflection, 
 structures through support size 64, parser and CLI/Pybind boundaries, and the copositivity component mask. Focused generator tests
 prune after the singleton layer and never attempt to enumerate `2^64` supports. The remaining stages do not reimplement that case.
 
-Before starting the multiword implementation, remove the dead `bitset64.hpp` helpers and `CircularSupportGeneratorV2` listed in the
-Ponytail audit in one preparatory commit; do not port them.
+Remove the dead `bitset64.hpp` helpers and `CircularSupportGeneratorV2` listed in the Ponytail audit in a separately approved cleanup
+before templating or duplicating their callers. They do not block the isolated primitive and must not enlarge Stage 1.
 
 The canonical SQLite candidate table may remain restricted to dimension at most 63 because signed SQLite `INTEGER` cannot store a
 mask with bit 63 set. Runtime support and canonical database storage are separate changes.
@@ -282,7 +290,7 @@ Add the minimal multiword type and focused tests without connecting it to FracES
 - dimensions 65, 128, 129, and a non-power-of-two dimension;
 - bits 0, 63, 64, 127, and 128;
 - unused high-bit masking;
-- subset, difference, count, extraction, ordering, rotation, reflection, and round trips.
+- subset, union, difference, count, extraction, ordering, one-position rotation, reflection, and bitstring round trips.
 
 No benchmark is needed for an unconnected primitive. The tests must compare operations against a simple independent boolean-vector
 reference.
