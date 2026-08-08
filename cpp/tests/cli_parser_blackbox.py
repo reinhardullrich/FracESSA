@@ -304,8 +304,8 @@ def main() -> int:
     )
     assert_failure_with_stderr(
         fracessa_exe,
-        ["fast", "64#1"],
-        "supports dimensions in [1, 63]",
+        ["fast", "65#1"],
+        "supports dimensions in [1, 64]",
         "fast_uses_dimension_guard",
     )
     assert_failure_with_stderr(

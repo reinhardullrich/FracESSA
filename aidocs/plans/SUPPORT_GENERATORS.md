@@ -52,8 +52,8 @@ C++17.
 
 ### Support mask
 
-A support is one `uint64_t` mask. Bit `i` means strategy `i` is present. The
-analyzer contract is `1 <= dimension < 64`.
+A support is one `uint64_t` mask. Bit `i` means strategy `i` is present. The analyzer contract is `1 <= dimension <= 64`; bit 63 is
+the final strategy position at the upper boundary.
 
 ### Exact candidate and forbidden support
 

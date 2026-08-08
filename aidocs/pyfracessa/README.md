@@ -68,6 +68,7 @@ one bracelet representative with its orbit count, while ordinary candidates use
 
 A matrix may use full CLI form (`"3#4,13/2,..."`) or values only when
 `metadata["dimension"]` is present.
+The validating native parser accepts dimensions 1 through 64.
 
 Every execution call requires `"fast"`, `"safe"`, or experimental `"test"` before the matrix; there is no default. Fast and test
 apply the exact precision-span gate, convert and equilibrate the complete game once, and then use independent binary64 candidate

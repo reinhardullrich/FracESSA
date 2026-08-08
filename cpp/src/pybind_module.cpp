@@ -46,8 +46,8 @@ struct NativeResult {
     std::string error_message;
     size_t candidate_count = 0;
     size_t ess_count = 0;
-    std::array<size_t, 64> candidate_structure{};
-    std::array<size_t, 64> ess_structure{};
+    std::array<size_t, bs64::kMaxBitsetDimension + 1> candidate_structure{};
+    std::array<size_t, bs64::kMaxBitsetDimension + 1> ess_structure{};
     long long elapsed_ns = 0;
     candidate_search::safe_fallback safe_fallback = candidate_search::safe_fallback::none;
     std::vector<NativeCandidate> candidates;

@@ -107,7 +107,7 @@ TEST(MatrixParserTest, RejectsInvalidDimensionRange) {
     matrix_frc A;
     bool is_cs = false;
     EXPECT_THROW(matrix_parser::parse_matrix_string("0#1", A, is_cs), std::invalid_argument);
-    EXPECT_THROW(matrix_parser::parse_matrix_string("64#1", A, is_cs), std::invalid_argument);
+    EXPECT_THROW(matrix_parser::parse_matrix_string("65#1", A, is_cs), std::invalid_argument);
 }
 
 TEST(MatrixParserTest, RejectsNonDecimalDimensionText) {
@@ -125,12 +125,12 @@ TEST(MatrixParserTest, AcceptsMaximumSearchDimension) {
     matrix_frc A;
     bool is_cs = false;
 
-    const std::string payload = "63#" + join_ones(31);
+    const std::string payload = "64#" + join_ones(32);
     ASSERT_NO_THROW(matrix_parser::parse_matrix_string(payload, A, is_cs));
 
     EXPECT_TRUE(is_cs);
-    EXPECT_EQ(A.rows(), 63);
-    EXPECT_EQ(A.cols(), 63);
+    EXPECT_EQ(A.rows(), 64);
+    EXPECT_EQ(A.cols(), 64);
 }
 
 TEST(MatrixParserTest, RejectsUnexpectedValueCount) {

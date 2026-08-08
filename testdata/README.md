@@ -2,9 +2,11 @@
 
 `fracessa_testdata.sqlite3` is the canonical store for exact test matrices,
 complete expected candidate results where available, and timing data.
+The analyzer accepts dimensions through 64, but this database intentionally remains limited to dimensions 1 through 63: candidate
+supports are stored as signed SQLite `INTEGER` values, which cannot represent a `uint64_t` mask with bit 63 set.
 
 `Copos_testdata.sqlite3` is the separate exact test corpus for general strict-copositivity and copositivity decisions. It is not
-limited by FracESSA's dimension-63 support representation. Its `matrices` table contains 1,569 permutation-inequivalent exact
+limited by FracESSA's one-word analyzer representation. Its `matrices` table contains 1,569 permutation-inequivalent exact
 integer matrices with dimensions 1-3,361: 427 are strictly copositive, 56 are copositive but not strictly copositive, 55 are
 non-copositive, and 1,031 legacy non-strict rows have not yet been separated into the latter two classes. The nullable
 `is_copositive` field distinguishes this unknown legacy state from a proved non-copositive result. The original 1,069 rows are
@@ -329,10 +331,9 @@ catalog-only; dimensions 26-63 use `size_class = "super_large"`.
 ## COMPl_e_ib Audit
 
 The official [COMPl_e_ib 1.1](https://www.compleib.de/) archive defines 168
-control-system benchmarks. Its benchmark state matrix is `A`; the other output
-arrays describe input, output, noise, and weighting channels and are not
-independent benchmark matrices. Of the 168 state matrices, 57 exceed
-FracESSA's dimension-63 limit. All 111 in-range state matrices were constructed
+control-system benchmarks. Its benchmark state matrix is `A`; the other output arrays describe input, output, noise, and weighting
+channels and are not independent benchmark matrices. Of the 168 state matrices, 57 exceeded the catalogue's dimension-63 import
+cutoff. All 111 in-range state matrices were constructed
 from the archive's `COMPleib.m` and `.mat` files and compared exactly with their
 transposes. None is symmetric, so COMPl_e_ib contributes no catalog row.
 

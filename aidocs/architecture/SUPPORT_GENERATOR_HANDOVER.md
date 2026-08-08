@@ -180,6 +180,9 @@ for dimensions 19 and above. See `experiments/direct_bracelet_generation_2026-07
 
 ## Remaining Work
 
+The one-word runtime boundary is dimension 64. Focused tests cover bit 63 in both active generators without attempting to enumerate
+the complete `2^64` support space.
+
 - Keep V2 as historical evidence, not as a production candidate. Revisit it only if a new end-to-end measurement beats V3 while
   preserving the same pruning contract.
 - Do not replace the callback with `next_support()` without a measured reason

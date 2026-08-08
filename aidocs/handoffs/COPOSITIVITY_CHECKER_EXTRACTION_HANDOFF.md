@@ -50,8 +50,8 @@ authoritative if they disagree with this handover.
    copositive matrices by a median 17.06% and were neutral on the 81-matrix end-to-end quick set. The current implementation uses
    FracESSA's fixed 64-bit support masks and is therefore **not generic**.
 
-7. The new repository must not inherit FracESSA's dimension-63 limit. The optimized cone itself has no such limit, but the current
-   shared sign scan, connected-component helper, experiment parsers, and some runners do.
+7. The new repository must not inherit FracESSA's dimension-64 one-word limit. The optimized cone itself has no such limit, but the
+   current shared sign scan and connected-component helper stop at 64, while some experiment parsers and runners still stop at 63.
 
 8. The separate database `testdata/Copos_testdata.sqlite3` is the main asset to preserve. It currently contains 1,569 exact integer
    matrices of dimensions 1 through 3,361, exact or partially exact classifications, provenance, published benchmark data, and
@@ -224,7 +224,7 @@ The mathematics is described in:
 - `research/ZISCHG_2023_COPOSITIVITY_CHECK_RELEVANCE.md`;
 - `research/EXACT_STABILITY_EARLY_DECISIONS.md`.
 
-The current implementation uses `std::array<bitset64,64>`. This is ideal for FracESSA's maximum dimension 63 but invalid as a
+The current implementation uses `std::array<bitset64,64>`. This is ideal for FracESSA's maximum dimension 64 but invalid as a
 generic representation. The extracted project needs a dynamically sized adjacency representation or must initially omit this
 optimization.
 
@@ -762,7 +762,7 @@ The following are not optional cleanup; they are correctness boundaries.
 
 1. **Remove the fixed sign-scan arrays.** `CopositivitySignScan` currently owns 64 negative-neighbor masks and 64 row sums. Calling
    it with a larger matrix would overrun those arrays.
-2. **Replace or omit `bitset64` connected components.** The current component helper supports FracESSA's order at most 63 only.
+2. **Replace or omit `bitset64` connected components.** The current component helper supports FracESSA's order at most 64 only.
 3. **Remove experiment parser caps.** `adaptive_danninger_cone.cpp`, `connected_component_reduction/benchmark.cpp`, and other drivers
    reject dimensions above 63 even when the algorithm itself could process them.
 4. **Do not pass giant matrices through one command-line argument.** The last unbounded experiment used a temporary stdin-capable

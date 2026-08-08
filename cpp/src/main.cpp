@@ -40,7 +40,7 @@ void write_json_string(std::ostream& output, std::string_view value)
     output << '"';
 }
 
-void write_structure(std::ostream& output, const std::array<size_t, 64>& structure)
+void write_structure(std::ostream& output, const std::array<size_t, bs64::kMaxBitsetDimension + 1>& structure)
 {
     output << '{';
     bool first = true;
@@ -58,8 +58,8 @@ void write_summary(
     int status,
     size_t candidate_count,
     size_t ess_count,
-    const std::array<size_t, 64>& candidate_structure,
-    const std::array<size_t, 64>& ess_structure,
+    const std::array<size_t, bs64::kMaxBitsetDimension + 1>& candidate_structure,
+    const std::array<size_t, bs64::kMaxBitsetDimension + 1>& ess_structure,
     long long elapsed_ns,
     candidate_search::safe_fallback safe_fallback,
     std::string_view error_message)
@@ -85,7 +85,7 @@ void write_summary(
 
 void write_error(std::int64_t matrix_id, int status, std::string_view message)
 {
-    const std::array<size_t, 64> empty_structure{};
+    const std::array<size_t, bs64::kMaxBitsetDimension + 1> empty_structure{};
     write_summary(
         matrix_id,
         status,

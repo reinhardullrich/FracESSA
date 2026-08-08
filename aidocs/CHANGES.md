@@ -1255,3 +1255,12 @@ and 5.91% slower on average because their direct cone checks usually find a witn
 moved mandatory workflows and essential commands into root `AGENTS.md`, moved the concise current overview into
 `aidocs/PROJECT.md`, rebuilt `aidocs/INDEX.md` as the complete router for all Markdown documents under `aidocs/`, and removed the
 mixed-purpose `aidocs/KNOWLEDGE.md`.
+
+## 2026-08-08
+
+371. Extended the existing one-word analyzer boundary from dimension 63 to 64:
+`set_all_n_bits()` now handles 64 explicitly without shifting a 64-bit word by 64; the validating parser accepts dimensions 1-64
+and rejects 65; and candidate/ESS structures include support size 64. Focused tests cover bit 63, rotation, reflection, extraction,
+bounded circular and non-circular support generation, full-support and circular end-to-end searches, copositivity component masks,
+and CLI/Pybind parser boundaries. Release CTest, Python tests, and focused ASan/UBSan tests pass. The canonical SQLite game database
+remains limited to dimension 63 because its signed `INTEGER` support column cannot represent bit 63.

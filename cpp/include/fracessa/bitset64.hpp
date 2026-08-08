@@ -40,8 +40,8 @@ inline size_t ctz64(uint64_t x) noexcept {
   #endif
 }
 
-// Storage has 64 bits, but complete enumeration requires 1 <= n < 64:
-// the loop needs 2^n as an exclusive uint64_t upper bound.
+// One word stores every support for dimensions 1 through 64. Complete numeric
+// enumeration with a uint64_t one-past-end sentinel still requires n < 64.
 typedef uint64_t bitset64;
 
 // Namespace for bitset64 operations
@@ -59,7 +59,7 @@ inline bitset64 set_bit_at_pos(bitset64 bits, size_t pos) noexcept {
 }
 
 inline bitset64 set_all_n_bits(size_t n) noexcept {
-  return (1ULL << n) - 1ULL; // Caller guarantees n < 64; n == 0 yields the empty set.
+  return n == 64 ? ~bitset64{0} : (bitset64{1} << n) - 1;
 }
 
 // Shift every strategy index down by one modulo n. Circular-symmetric games
@@ -73,7 +73,7 @@ inline bitset64 rot_one_right(bitset64 bits, size_t n) noexcept {
 }
 
 // Rotate the lowest n bits left by shift positions. Caller guarantees
-// 1 <= n < 64 and shift < n.
+// 1 <= n <= 64 and shift < n.
 inline bitset64 rot_left(bitset64 bits, size_t shift, size_t n) noexcept {
   const bitset64 mask = set_all_n_bits(n);
   bits &= mask;

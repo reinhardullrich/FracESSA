@@ -275,15 +275,15 @@ TEST(CopositivityTest, DisconnectedNegativeComponentRejectsWholeMatrix) {
 }
 
 TEST(CopositivityTest, NegativeComponentCanContainHighestSupportedIndex) {
-    matrix_int A(63, 63);
-    for (size_t row = 0; row < 63; ++row) {
-        for (size_t column = 0; column < 63; ++column) A(row, column) = integer(row == column ? 1 : 2);
+    matrix_int A(64, 64);
+    for (size_t row = 0; row < 64; ++row) {
+        for (size_t column = 0; column < 64; ++column) A(row, column) = integer(row == column ? 1 : 2);
     }
-    A(0, 62) = A(62, 0) = integer(-2);
+    A(0, 63) = A(63, 0) = integer(-2);
 
     const CopositivitySignScan scan = scan_copositivity_signs(A);
-    EXPECT_EQ(scan.negative_neighbors[0], bs64::single_bit_at_pos(62));
-    EXPECT_EQ(scan.negative_neighbors[62], bs64::single_bit_at_pos(0));
+    EXPECT_EQ(scan.negative_neighbors[0], bs64::single_bit_at_pos(63));
+    EXPECT_EQ(scan.negative_neighbors[63], bs64::single_bit_at_pos(0));
     EXPECT_FALSE(CopositivityChecker::are_negative_components_strictly_copositive(A, scan.negative_neighbors));
 }
 

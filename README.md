@@ -40,7 +40,7 @@ This exact representation is independent of the selected search method.
 The main limitations are:
 
 - the matrix must be symmetric and contain rational values;
-- the dimension must be between 1 and 63;
+- the dimension must be between 1 and 64;
 - the $2^n-1$ nonempty supports make some larger or difficult matrices computationally expensive;
 - one matrix is processed on one CPU core, although the Python API can process several matrices in parallel.
 

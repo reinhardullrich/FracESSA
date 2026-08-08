@@ -12,7 +12,7 @@ namespace matrix_parser {
 
 namespace detail {
 
-inline constexpr size_t kMaxDimension = 63;
+inline constexpr size_t kMaxDimension = 64;
 inline constexpr size_t kFastIntegerDigits = 18;
 
 struct DecimalComponent {

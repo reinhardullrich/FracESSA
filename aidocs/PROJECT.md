@@ -25,8 +25,8 @@ FracESSA is a C++17 analyzer for evolutionarily stable strategies in symmetric p
 - PyFracESSA: `python/pyfracessa/`, backed by the native `fracessa_core` module in `cpp/src/pybind_module.cpp`.
 
 Input uses `dimension#values`. Values are either the upper triangle of a symmetric matrix or the compact circular-symmetric form.
-The validating parser accepts dimensions 1 through 63 and exact integer or rational values. Dimension 64 is not supported because
-complete support enumeration needs an exclusive one-past-end `uint64_t` bound.
+The validating parser accepts dimensions 1 through 64 and exact integer or rational values. One `uint64_t` stores all 64 strategy
+positions; dimensions above 64 are not yet supported. Runtime remains exponential even when a dimension is representable.
 
 Every entry surface requires an explicit method; there is no default:
 

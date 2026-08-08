@@ -52,8 +52,8 @@ public:
 
     size_t candidate_count_ = 0;
     size_t ess_count_ = 0;
-    std::array<size_t, 64> candidate_structure_{};
-    std::array<size_t, 64> ess_structure_{};
+    std::array<size_t, bs64::kMaxBitsetDimension + 1> candidate_structure_{};
+    std::array<size_t, bs64::kMaxBitsetDimension + 1> ess_structure_{};
     candidate_search::safe_fallback safe_fallback_ = candidate_search::safe_fallback::none;
     // Populated only when with_candidates is true.
     std::vector<candidate> candidates_;

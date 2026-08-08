@@ -153,7 +153,7 @@ class NativeIntegrationTests(unittest.TestCase):
     def test_invalid_matrix_strings_return_parser_error(self):
         invalid_matrices = {
             "2##0": "Multiple '#' characters found in matrix string",
-            "64#0": "Parser supports dimensions in [1, 63], got 64",
+            "65#0": "Parser supports dimensions in [1, 64], got 65",
             "2#0,1": "Expected 1 (CS) or 3 (Sym) values, got 2",
             "2#0,1/0,0": "Rational denominator cannot be zero: 1/0",
         }

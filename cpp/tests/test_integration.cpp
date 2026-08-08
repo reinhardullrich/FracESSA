@@ -32,6 +32,36 @@ TEST(IntegrationTest, FullSupportModeReturnsStableFullSupport) {
     EXPECT_FALSE(analyzer.candidates_[0].multiplier.has_value());
 }
 
+TEST(IntegrationTest, FullSupportModeHandlesDimension64) {
+    constexpr size_t dimension = bs64::kMaxBitsetDimension;
+    matrix_frc B(dimension, dimension);
+    for (size_t strategy = 0; strategy < dimension; ++strategy) B(strategy, strategy) = fraction(-1);
+
+    fracessa analyzer(search_method::safe, B, false, true, true, false);
+
+    ASSERT_EQ(analyzer.ess_count_, 1u);
+    ASSERT_EQ(analyzer.candidates_.size(), 1u);
+    EXPECT_EQ(analyzer.candidate_structure_[dimension], 1u);
+    EXPECT_EQ(analyzer.ess_structure_[dimension], 1u);
+    EXPECT_EQ(analyzer.candidates_[0].support, ~bitset64{0});
+    EXPECT_EQ(analyzer.candidates_[0].support_size, dimension);
+}
+
+TEST(IntegrationTest, CircularSearchHandlesDimension64) {
+    constexpr size_t dimension = bs64::kMaxBitsetDimension;
+    const matrix_frc B = create_circular_symmetric(dimension, std::vector<fraction>(dimension / 2, fraction(-1)));
+
+    fracessa analyzer(search_method::safe, B, true, true, false, false);
+
+    EXPECT_EQ(analyzer.candidate_count_, dimension);
+    EXPECT_EQ(analyzer.ess_count_, dimension);
+    EXPECT_EQ(analyzer.candidate_structure_[1], dimension);
+    EXPECT_EQ(analyzer.ess_structure_[1], dimension);
+    ASSERT_EQ(analyzer.candidates_.size(), 1u);
+    ASSERT_TRUE(analyzer.candidates_[0].multiplier.has_value());
+    EXPECT_EQ(*analyzer.candidates_[0].multiplier, dimension);
+}
+
 TEST(IntegrationTest, CircularFullSupportHasMultiplierOne) {
     matrix_frc B(2, 2);
     B(0, 0) = fraction::zero(); B(0, 1) = fraction::one();

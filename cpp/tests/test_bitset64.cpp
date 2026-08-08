@@ -27,6 +27,12 @@ TEST(Bitset64Test, SetAll) {
     EXPECT_FALSE(bs64::is_set_at_pos(bits, 5));
 }
 
+TEST(Bitset64Test, SetAll64) {
+    const bitset64 bits = bs64::set_all_n_bits(64);
+    EXPECT_EQ(bits, ~bitset64{0});
+    EXPECT_EQ(bs64::count_set_bits(bits), 64u);
+}
+
 TEST(Bitset64Test, Count) {
     bitset64 bits = 0ULL;
     bits = bs64::set_bit_at_pos(bits, 0);
@@ -176,6 +182,11 @@ TEST(Bitset64Test, ReflectMatchesDirectDefinitionForEveryDimension) {
     }
 }
 
+TEST(Bitset64Test, RotationsHandleDimension64) {
+    EXPECT_EQ(bs64::rot_one_right(1ULL, 64), 1ULL << 63);
+    EXPECT_EQ(bs64::rot_left(1ULL << 63, 1, 64), 1ULL);
+}
+
 
 TEST(Bitset64Test, IsSmallestRepresentation) {
     bitset64 bits = 0ULL;
@@ -284,6 +295,15 @@ TEST(Bitset64Test, ExtractSetIndicesRespectsDimension) {
     ASSERT_EQ(count, 2u);
     EXPECT_EQ(idx[0], 1u);
     EXPECT_EQ(idx[1], 3u);
+}
+
+TEST(Bitset64Test, ExtractSetIndicesHandlesTopBit) {
+    uint8_t indices[bs64::kMaxBitsetDimension] = {};
+    const size_t count = bs64::extract_set_indices(1ULL | (1ULL << 63), 64, indices);
+
+    ASSERT_EQ(count, 2u);
+    EXPECT_EQ(indices[0], 0u);
+    EXPECT_EQ(indices[1], 63u);
 }
 
 // Test String Functions

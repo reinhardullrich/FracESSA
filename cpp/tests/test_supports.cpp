@@ -70,6 +70,22 @@ TEST(SupportGeneratorTest, NonCircularPrunesForbiddenSubsetsDuringLaterLayers) {
         EXPECT_FALSE(bs64::is_subset_of(forbidden, support));
 }
 
+TEST(SupportGeneratorTest, NonCircularHandlesDimension64) {
+    NonCircularSupportGenerator generator(bs64::kMaxBitsetDimension);
+    size_t generated = 0;
+    bitset64 singleton_union = 0;
+
+    generator.generate([&](bitset64 support, size_t cardinality) {
+        ++generated;
+        EXPECT_EQ(cardinality, 1u);
+        singleton_union |= support;
+        generator.add_forbidden(support);
+    });
+
+    EXPECT_EQ(generated, bs64::kMaxBitsetDimension);
+    EXPECT_EQ(singleton_union, ~bitset64{0});
+}
+
 TEST(SupportGeneratorTest, CircularGeneratesEveryNonemptyBraceletOnce) {
     constexpr size_t dimension = 8;
     CircularSupportGenerator generator(dimension);
@@ -160,8 +176,8 @@ TEST(SupportGeneratorTest, CircularV3MatchesV1GenerationAndPruning) {
               generate_circular_with_forbidden<CircularSupportGenerator>(dimension, forbidden));
 }
 
-TEST(SupportGeneratorTest, CircularV3HandlesDimension63) {
-    constexpr size_t dimension = bs64::kMaxBitsetDimension - 1;
+TEST(SupportGeneratorTest, CircularV3HandlesDimension64) {
+    constexpr size_t dimension = bs64::kMaxBitsetDimension;
     CircularSupportGeneratorV3 generator(dimension);
     size_t generated = 0;
     generator.generate([&](bitset64 support, size_t cardinality) {
