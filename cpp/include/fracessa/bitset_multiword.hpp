@@ -38,6 +38,12 @@ public:
         words_.back() &= last_word_mask_;
     }
 
+    void copy_from(const bitset_multiword& other) noexcept
+    {
+        assert_same_dimension(other);
+        std::copy(other.words_.begin(), other.words_.end(), words_.begin());
+    }
+
     bool is_set_at_pos(size_t position) const noexcept
     {
         assert(position < dimension_);
@@ -92,23 +98,26 @@ public:
         return dimension_;
     }
 
-    // Caller precondition: the set is nonempty.
-    void remove_first_set_bit() noexcept
-    {
-        for (uint64_t& word : words_) {
-            if (word == 0) continue;
-            word &= word - 1;
-            return;
-        }
-        assert(false && "remove_first_set_bit requires a nonempty set");
-    }
-
     // The caller can reserve dimension() entries once and reuse the vector without allocations.
     void extract_set_indices(std::vector<size_t>& indices) const
     {
         indices.clear();
         for (size_t word_index = 0; word_index < words_.size(); ++word_index) {
             uint64_t word = words_[word_index];
+            while (word != 0) {
+                indices.push_back(word_index * 64 + ctz64(word));
+                word &= word - 1;
+            }
+        }
+    }
+
+    // As above, but extract positions not present in the set without constructing its complement.
+    void extract_unset_indices(std::vector<size_t>& indices) const
+    {
+        indices.clear();
+        for (size_t word_index = 0; word_index < words_.size(); ++word_index) {
+            uint64_t word = ~words_[word_index];
+            if (word_index + 1 == words_.size()) word &= last_word_mask_;
             while (word != 0) {
                 indices.push_back(word_index * 64 + ctz64(word));
                 word &= word - 1;

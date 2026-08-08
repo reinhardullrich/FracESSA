@@ -1,7 +1,7 @@
 # Multiword Bit Array Plan
 
-Status: staged implementation for dimension 65 and above. Dimension 64, the isolated multiword primitive, and the dimension-independent
-exact Hadeler checker were completed on 2026-08-08. Candidate search and public analyzer dispatch remain limited to dimension 64.
+Status: implemented on 2026-08-08. Dimensions through 64 retain the one-word path; larger dimensions use the multiword path through
+the validating parser, CLI, Pybind, all three search methods, logging, and result serialization.
 
 ## Goal
 
@@ -75,8 +75,9 @@ Delete those helpers and their dedicated tests. Do not port them to the multiwor
 `CircularSupportGeneratorV2` had no caller in production or tests and was removed. Its failed experiment remains preserved in the
 historical documentation. Do not restore or port it.
 
-`CircularSupportGenerator` V1 is test-only, but it remains a useful independent oracle for V3. Keep it one-word-only during this
-work; do not generalize it. Production uses only `NonCircularSupportGenerator` and `CircularSupportGeneratorV3`.
+`ReferenceCircularSupportGenerator` V1 is test-only, but it remains a useful independent oracle for the production bracelet generator.
+Keep it one-word-only; do not generalize it. Production uses `NonCircularSupportGenerator` and `CircularSupportGenerator` plus their
+multiword counterparts.
 
 ### Keep
 
@@ -178,10 +179,10 @@ else
     run_typed<bitset_multiword>(...);
 ```
 
-`find_candidate_fast`, `find_candidate_test`, and `find_candidate_safe` should keep owning their present numerical matrices and
-workspaces. Only their support-dependent member functions become function templates over `SupportMask`. `check_stability()` and the
-main analyzer orchestration use the same `SupportMask` as `basic_candidate`. Define these templates in implementation files and add
-explicit instantiations for the two mask types where practical; do not move unrelated numerical kernels into public headers.
+`fast_candidate_filter`, `test_candidate_filter`, and `exact_candidate_solver` keep owning their numerical matrices and workspaces.
+Only their support-dependent member functions are templates over `SupportMask`. `check_stability()` and the main analyzer orchestration
+use the same `SupportMask` as `basic_candidate`. These templates remain in implementation files with explicit instantiations for the two
+mask types; unrelated numerical kernels stay out of public headers.
 
 Share small read operations through overloaded inline functions or a two-specialization `support_mask_ops<SupportMask>`:
 
@@ -233,13 +234,14 @@ The multiword generators must instead own one preallocated working mask:
 4. copy the mask only when storing a newly forbidden exact-equilibrium support or a retained candidate.
 
 The callback is synchronous. Its reference becomes invalid as soon as the callback returns and generation continues. Candidate
-solvers may read it without copying. A successful exact candidate copies it once into the working candidate; `add_forbidden()` then
-copies it once into persistent pruning storage. Candidate output copies it only when candidate output or logging was requested.
+solvers may read it without copying. A successful exact candidate copies it once into the working candidate; generator registration
+then copies it once into persistent pruning storage. Candidate output copies it only when candidate output or logging was requested.
 
 The one-word generators should retain their current by-value operations. Do not force the small path through the mutable multiword
 implementation merely to make both source paths look identical.
 
-For multiword circular generation, allocate the V3 `positions` and `prefix_density` work arrays once at `dimension + 2`. Both arrays
+For multiword circular generation, allocate the direct bracelet generator's `positions` and `prefix_density` work arrays once at
+`dimension + 2`. Both arrays
 must use `size_t`; the current `uint8_t` density entries cannot represent dimensions above 255. Circular affine symmetry should
 store destination **positions**, not one separately allocated single-bit multiword mask per source position. Transform a support by
 iterating its set positions and setting their mapped destination bits in a pre-sized scratch mask.
@@ -251,11 +253,11 @@ iterating its set positions and setting their mapped destination bits in a pre-s
 | `cpp/include/fracessa/bitset_multiword.hpp` | Add the fixed-width-per-run word vector and only the required operations. |
 | `cpp/tests/test_bitset_multiword.cpp` | Compare every operation with an independent `std::vector<bool>` reference at the 63/64, 127/128, and unused-high-bit boundaries. |
 | `cpp/tests/CMakeLists.txt` | Build and register the isolated primitive test. |
-| `cpp/include/fracessa/supports.hpp` | Leave the one-word generators intact; add separate mutable-work-mask non-circular and V3 circular generators. Do not restore or port V2. |
+| `cpp/include/fracessa/non_circular_support_generator.hpp`, `cpp/include/fracessa/circular_support_generator.hpp` | Keep separate one-word and mutable-work-mask multiword generators. Do not restore or port V2. |
 | `cpp/include/fracessa/circular_affine_symmetry.hpp` | Keep the present one-word implementation and add a multiword specialization with destination-position tables and reusable scratch masks. |
 | `cpp/include/fracessa/candidate.hpp` | Make the working candidate depend on `SupportMask`; keep support and extended support in the same fixed-width representation. |
-| `cpp/include/fracessa/fracessa.hpp`, `cpp/src/fracessa.cpp`, `cpp/src/checkstab.cpp` | Template the search engine over the mask type, keep one static dispatch before the search, and replace result-structure arrays with dimension-sized vectors. |
-| `cpp/include/fracessa/find_candidate_*.hpp`, `cpp/src/find_candidate_*.cpp` | Template only support-dependent methods. Give the large instantiation reusable `size_t` index and numerical scratch vectors; retain all one-word stack arrays. |
+| `cpp/include/fracessa/fracessa.hpp`, `cpp/src/fracessa.cpp`, `cpp/src/check_stability.cpp` | Template the search engine over the mask type, keep one static dispatch before the search, and replace result-structure arrays with dimension-sized vectors. |
+| `cpp/include/fracessa/*candidate*.hpp`, `cpp/src/*candidate*.cpp` | Template only support-dependent methods. Give the large instantiation reusable `size_t` index and numerical scratch vectors; retain all one-word stack arrays. |
 | `cpp/include/linalg/copositive_integer.hpp` | Add recursive large-dimension Hadeler enumeration and multiword negative-neighbor components; retain the one-word Hadeler implementation unchanged. |
 | `cpp/src/main.cpp`, `cpp/src/pybind_module.cpp` | Dispatch once, serialize arbitrary-width masks, and use dimension-sized result structures. |
 | `cpp/include/fracessa/matrix_parser.hpp` | Remove the bitmask-derived maximum only after all paths are connected; add checked triangular-size arithmetic. |
@@ -279,8 +281,8 @@ prune after the singleton layer and never attempt to enumerate `2^64` supports. 
 Remove the dead `bitset64.hpp` helpers listed in the Ponytail audit in a separately approved cleanup before templating or duplicating
 their callers. V2 has already been removed.
 
-The canonical SQLite candidate table may remain restricted to dimension at most 63 because signed SQLite `INTEGER` cannot store a
-mask with bit 63 set. Runtime support and canonical database storage are separate changes.
+The canonical SQLite database now accepts every positive dimension. Candidate masks use canonical decimal `TEXT`, avoiding
+SQLite's signed 64-bit integer limit while preserving arbitrary-width support values exactly.
 
 ### Completed Stage 1: Add and prove the multiword primitive
 
@@ -319,51 +321,107 @@ before exponential enumeration becomes impractical. Release, ASan/UBSan, Python,
 
 The checker remains in FracESSA because no separate Coposit repository currently owns this implementation.
 
-### Stage 3: Template the candidate and stability core
+### Completed Stage 3: Template the exact candidate and stability core
 
-Introduce `basic_candidate<SupportMask>` and `basic_fracessa<SupportMask>`. Template only the support-dependent methods of the fast,
-test, and safe candidate finders. Add the reusable large-path index and numerical scratch vectors and the dimension-sized candidate
-and ESS structures.
+`basic_candidate<SupportMask>` and `basic_fracessa<SupportMask>` now share the candidate and stability algorithm between the raw
+`uint64_t` and multiword representations. The exact candidate finder shares its numerical implementation through index-type
+templates while retaining the one-word path's fixed `uint8_t[64]` stack arrays. The large exact path extracts indices into two
+dimension-reserved `size_t` vectors and reuses them. Candidate and ESS structures are fixed arrays for one-word analysis and
+dimension-sized vectors for multiword analysis.
 
-Connect this stage first through internal full-support tests at dimensions 65, 128, and 129. Full support needs no combinatorial
-generator, so it isolates mask extraction, candidate solving, extended-support construction, reduced-B stability, and output-mask
-ownership. Do not remove the public parser limit in this stage.
+At completion of Stage 3, the internal multiword analyzer accepted only safe full-support analysis. Fast/test search, support
+generators, logging, serialization, CLI/Pybind dispatch, and the public parser remained one-word-only. Full-support tests at
+dimensions 65, 128, and 129 cover mask ownership, index extraction, exact candidate solving, probability materialization, extended
+support, support-size structures, and the reduced-Hessian stability decision.
 
-### Stage 4: Add the multiword non-circular generator
+Full support has no outside strategy, so it cannot reach the reduced-B branch. A separate dimension-66 exact candidate test uses a
+65-strategy support plus one tied outside reply across the 63/64 boundary, then constructs and checks the one-dimensional scaled
+reduced B matrix. A Stage-4 dimension-65 zero-game regression now also reaches the complete multiword `check_stability()` reduced-B
+path through the analyzer. Existing Release, Python, sanitizer, and database checks pass.
 
-Implement the separate mutable-work-mask depth-first generator. Preserve cardinality-first and numeric-within-cardinality order,
-activate forbidden supports only between cardinalities, and copy only persistent forbidden supports.
+### Completed Stage 4: Add the multiword non-circular generator
 
-Tests must stop cheaply: compare complete generation only at small dimensions by translating one-word masks, and at dimensions 65
-and 129 prune after the singleton or another deliberately tiny layer. Verify forbidden supports spanning bits 63 and 64.
+`NonCircularSupportGeneratorMultiword` now follows the one-word generator's cardinality-first, numeric-within-cardinality DFS and
+activates newly forbidden exact-equilibrium supports only between cardinalities. Recursion mutates one pre-sized multiword mask,
+undoes every included bit while returning, and passes completed masks to the synchronous callback by `const&`. Only persistent
+forbidden supports and retained candidate output are copied. The existing one-word generator is unchanged.
 
-### Stage 5: Add multiword circular generation and symmetry
+Complete output and pruning match the one-word oracle at dimensions 1 through 10. Boundary tests at dimensions 65 and 129 forbid all
+singletons and prove that generation stops before the pair layer. A separate dimension-65 test records `{63,64}` when it is emitted
+and verifies that no generated triple contains it. Exact analyzer tests use diagonal-one and zero games: both prune after their 65
+singleton candidates, the diagonal game verifies fallback after an unstable full-support candidate, and the zero game additionally
+exercises the multiword reduced-B stability path.
 
-Implement the multiword V3 generator with dimension-sized `size_t` work arrays, then the multiword affine-symmetry specialization.
-Preserve bracelet ordering, dihedral multipliers, reconstructed candidates, and pruning across every stored rotation and reflection.
-Do not port V1 or V2 to multiword storage.
+The internal multiword analyzer now accepts safe non-circular searches with or without the full-support shortcut. It still rejects
+fast/test search, circular input, logging, and public serialization. CLI, Pybind, and the validating parser therefore remain limited
+to dimension 64.
 
-Tests should compare the multiword path against the one-word V3 oracle at feasible dimensions, then use immediately pruned
-dimension-65 and dimension-129 cases to cover the word boundary without enumerating all bracelets.
+The matched optimized one-word binaries have identical text, data, and BSS sizes, and the inspected analyzer, stability, and
+non-circular generator symbols have identical machine-code sizes. On eight representative circular and non-circular matrices at
+dimensions 5, 8, 10, 20, and 23, the canonical CPU-2 persistent-Pybind median current/baseline ratios were `0.998` for fast and
+`1.001` for safe. Complete candidate output matched the Stage-3 baseline in both modes after removing only `elapsed_ns`.
 
-### Stage 6: Expose the large path and update output contracts
+### Completed Stage 5: Add multiword circular generation and symmetry
 
-Add the one-time CLI and Pybind dispatch and remove the parser's bitmask-derived maximum. Keep checked arithmetic for
-`n * (n + 1) / 2`, word counts, dense cache dimensions, result counters, and allocation sizes. Allocation failure remains an explicit
-error, not a fallback to truncated storage.
+`CircularSupportGeneratorMultiword` uses the same direct fixed-density bracelet algorithm as the one-word production generator, with
+dimension-sized `size_t` work arrays and one mutable multiword support. Orbit reflection and rotation reuse two pre-sized scratch
+masks. Only the dihedral masks retained as persistent pruning rules allocate. V1 and the rejected V2 remain one-word-only.
 
-Keep the one-word path's stack arrays and `uint8_t` indices unchanged. No per-support allocation is allowed in either generator or
-candidate solver. The large path uses fixed-width-per-run masks and reusable `size_t` buffers.
+`CircularAffineSymmetryMultiword` stores destination positions rather than one allocated destination mask per strategy. It reserves
+its extracted-position vector and all transformation, canonicalization, and distinct-image masks in the constructor. Representative
+filtering, image reconstruction, and callback traversal then allocate nothing. Complete V3 output and pruning match the one-word
+oracle through dimension 16, and all one-word/multiword affine decisions and image metadata match at dimension 8. Independent
+dimension-65 and dimension-129 checks cover transformations, rotations, reflections, multipliers, and pruning across both word
+boundaries.
 
-Result structures become dimension-sized vectors. CLI support fields remain decimal integers. Pybind converts a multiword decimal
+The internal multiword analyzer now accepts exact safe circular and non-circular searches, including affine candidate-image
+reconstruction and fallback after an unstable full-support candidate. Immediately pruned diagonal games at dimensions 65 and 129
+verify exact candidate and ESS counts without attempting exponential enumeration. Fast/test search, logging, serialization, the
+validating parser, CLI, and Pybind remain limited to dimension 64.
+
+An allocation audit generated all 27,011 dimension-20 bracelets with zero recursive allocations and executed 42,000
+dimension-129 affine-image callbacks with zero allocations. All FLINT 3.6 and system-FLINT Release CTests, focused ASan/UBSan tests,
+all 66 Python tests, and both SQLite integrity checks pass. Complete candidate output on eight representative one-word matrices
+matches the Stage-4 baseline in fast and safe modes after removing only `elapsed_ns`. Two opposite-order canonical CPU-2 benchmark
+sessions on the preceding build stayed within `1.006` for fast and `1.001` for safe. The final exact binary measured `1.003` in both
+modes, with no material one-word regression.
+
+### Completed Stage-6 prerequisite: Extend fast and test candidate search
+
+Fast and test candidate search now support both mask representations without changing their numerical algorithm. The one-word
+overloads retain fixed stack arrays and compile-time `uint64_t` outside-support traversal. The multiword overloads extract support
+indices into one reserved vector, reuse dimension-sized solution, scale-ratio, and pivot buffers, and scan outside positions directly.
+Whole-matrix conversion, equilibration, and exact fallback are shared with the existing one-word path. Test remains an independent
+source copy of fast.
+
+Dimension-65 regressions cover direct outside-payoff traversal across positions 63/64, full-support fast/test agreement with safe,
+and whole-matrix precision-span fallback. Complete fast and safe candidate output on the eight representative one-word matrices
+matches the preserved Stage-5 binary after removing only `elapsed_ns`. In opposite benchmark orders, current/baseline median ratios
+were `0.996` and `1.000` for fast. Safe measured `0.998` when current ran first and `1.043` after the full baseline pass; the latter
+is not repeatable and is concentrated in the shortest cases, while larger cases remain near parity. The optimized one-word fast/test
+symbols shrank from `0xa6c` to `0x82c` bytes and contain no multiword dispatch.
+
+Both supported FLINT Release suites, all 66 Python tests, focused ASan/UBSan tests, both SQLite integrity checks, and
+`git diff --check` pass. Public parsing, CLI/Pybind dispatch, logging, and serialization remain limited to dimension 64 until Stage 6.
+
+### Completed Stage 6: Expose the large path and update output contracts
+
+CLI and Pybind now dispatch once after parsing: dimensions through 64 instantiate `fracessa`, and larger dimensions instantiate
+`multiword_fracessa`. The parser no longer has a bitmask-derived maximum. It checks triangular counts and dense dimensions before
+allocation, and compact input no longer reserves the full triangular token count. Allocation errors are reported as execution
+errors rather than falling back to truncated storage.
+
+The one-word path's stack arrays and `uint8_t` indices remain unchanged. Neither generator allocates per generated partial support.
+The large path uses fixed-width-per-run masks and reusable `size_t` buffers.
+
+Large result structures are dimension-sized vectors. CLI support fields remain decimal integers. Pybind converts a multiword decimal
 value to Python's arbitrary-size `int`, preserving the public Python type.
 
-The Parquet candidate schema currently uses `uint64`. Supporting larger masks requires a separately reviewed schema decision. The
-minimal general representation is a decimal string; CSV and JSON already accept arbitrary-size integer text. Until that decision,
-the Parquet sink must reject an out-of-range support clearly. Do not silently truncate or split the value into undocumented columns.
+The Parquet candidate schema remains `uint64`. Its sink rejects an out-of-range support or extended support before buffering any row.
+CSV and JSON preserve arbitrary-size integer text.
 
-Update `README.md`, `aidocs/PROJECT.md`, Python documentation, and parser errors. State explicitly that dimensions above 64 are
-representable but exhaustive runtime remains exponential.
+The public README, project overview, Python reference, parser errors, and tests now state the same contract: dimensions above 64 are
+representable, but exhaustive runtime remains exponential.
 
 ## Correctness Checks
 
@@ -400,7 +458,23 @@ Benchmark the one-word baseline before Stage 3 and again after Stages 3 and 6 wi
 If the shared template changes one-word code generation or produces a measurable regression, keep separate one-word and multiword
 implementations. A little source duplication is cheaper than slowing the operation executed billions of times.
 
-## Next Approval
+### Stage-3 performance result
 
-Remove the remaining dead one-word helpers in one isolated cleanup before Stage 3. Then implement the candidate and stability
-templates separately; do not combine that work with either support generator.
+The matched CPU-2 persistent-Pybind comparison used eight representative circular and non-circular matrices at dimensions 5, 8, 10,
+20, and 23. Running the new build first and the untouched baseline second produced median current/baseline ratios of exactly `1.000`
+for fast and `0.998` for safe. Reversing build order showed the expected thermal/order noise but no repeatable regression. Optimized
+symbol inspection confirmed that the one-word executable contains no runtime multiword dispatch; its exact-support solver retains
+the fixed stack index arrays. Complete candidate output for all eight matrices matched the untouched baseline in both modes after
+removing only `elapsed_ns`.
+
+### Stage-6 performance result
+
+Complete candidate output on eight representative one-word matrices matched the preserved Stage-5 binary in fast and safe modes
+after normalizing only `elapsed_ns`. Opposite-order CPU-2 persistent-Pybind sessions measured median current/baseline ratios of
+`1.000` and `1.001` for fast, and `1.000` and `1.007` for safe. The shortest microsecond cases moved most with run order; the
+representative longer cases stayed within about `1.2%`.
+
+System-FLINT and FLINT 3.6 Release CTests each pass all ten tests. The complete ASan/UBSan CTest suite passes all ten tests, all 68
+Python tests pass, both SQLite databases pass integrity and foreign-key checks, and `git diff --check` passes. Public full-support
+tests cover dimensions 65, 128, and 129; a dimension-66 regression reaches a 65-dimensional reduced-B sign scan and connected-
+component dispatch.

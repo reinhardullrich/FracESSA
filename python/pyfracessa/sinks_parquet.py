@@ -15,6 +15,8 @@ from .sinks import (
     _summary_row,
 )
 
+_UINT64_MAX = (1 << 64) - 1
+
 
 class ParquetSink:
     """Write batched summary and candidate Parquet files plus metadata JSON.
@@ -121,6 +123,10 @@ class ParquetSink:
         if self._state != "active":
             raise RuntimeError("Cannot write to a closed or aborted Parquet sink")
         with _abort_on_error(self):
+            for candidate in result["candidates"]:
+                for field in ("support", "extended_support"):
+                    if not 0 <= candidate[field] <= _UINT64_MAX:
+                        raise OverflowError(f"Parquet candidate {field} exceeds uint64")
             self._summary_buffer.append(_summary_row(result, encode_structures=True))
             self._candidate_buffer.extend(result["candidates"])
             self._metadata_writer.write_result(result)

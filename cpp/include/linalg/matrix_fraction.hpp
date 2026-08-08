@@ -30,8 +30,6 @@ public:
 
     size_t rows() const noexcept { return rows_; }
     size_t cols() const noexcept { return cols_; }
-    
-    std::vector<fraction>& data() noexcept { return data_; }
 
     fraction& operator()(size_t i, size_t j) {
         return data_[i * cols_ + j];
@@ -50,15 +48,6 @@ public:
             ss << "\n";
         }
         return ss.str();
-    }
-
-
-    matrix_frc operator*(const fraction& scalar) const {
-        matrix_frc result(rows_, cols_);
-        for (size_t i = 0; i < data_.size(); ++i) {
-            fraction::mul(result.data_[i], data_[i], scalar);
-        }
-        return result;
     }
 
 private:

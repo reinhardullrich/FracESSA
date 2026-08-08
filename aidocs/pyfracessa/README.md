@@ -68,7 +68,8 @@ one bracelet representative with its orbit count, while ordinary candidates use
 
 A matrix may use full CLI form (`"3#4,13/2,..."`) or values only when
 `metadata["dimension"]` is present.
-The validating native parser accepts dimensions 1 through 64.
+The validating native parser accepts every positive dimension whose dense matrix size is representable. Dimensions through 64 use
+one support word; larger dimensions use a multiword mask. Search remains exponential, so representable does not mean practical.
 
 Every execution call requires `"fast"`, `"safe"`, or experimental `"test"` before the matrix; there is no default. Fast and test
 apply the exact precision-span gate, convert and equilibrate the complete game once, and then use independent binary64 candidate
@@ -259,6 +260,10 @@ Empty outputs retain readable stable schemas. Parquet aggregates up to 1,024
 result or candidate rows before writing a row group and flushes the final
 partial group during `close()`. Closing a sink attempts every underlying
 finalization and propagates the first failure.
+
+Candidate support masks are ordinary arbitrary-precision Python integers. JSON and CSV preserve them without a width limit. The
+current Parquet candidate schema is `uint64`; `ParquetSink` therefore rejects a support or extended support above `2^64-1` instead
+of truncating it.
 
 For large runs, consume the result iterator continuously or pass `sink=` to one
 of the two execution functions so results do not accumulate in memory. Disable

@@ -210,15 +210,15 @@ inline bool is_strictly_copositive_3x3(integer::const_reference b11, integer::co
 class CopositivityChecker {
 private:
     template<typename Index>
-    bool decide_hadeler(const matrix_int& A, const Index* subset_indices, size_t current_dim) {
-        matrix_int subMat(current_dim, current_dim);
+    bool decide_principal_submatrix_hadeler(const matrix_int& A, const Index* subset_indices, size_t current_dim) {
+        matrix_int principal_submatrix(current_dim, current_dim);
         for (size_t row = 0; row < current_dim; ++row) {
             for (size_t column = 0; column < current_dim; ++column) {
-                subMat(row, column) = A(subset_indices[row], subset_indices[column]);
+                principal_submatrix(row, column) = A(subset_indices[row], subset_indices[column]);
             }
         }
 
-        const bool nonsingular = factorization_.factorize_inplace(subMat) != 0;
+        const bool nonsingular = factorization_.factorize_inplace(principal_submatrix) != 0;
         const int determinant_sign = factorization_.determinant().sign();
         if (determinant_sign > 0) return true;
 
@@ -229,7 +229,7 @@ private:
             for (size_t row = 0; row < current_dim; ++row) solution(row, 0) = minus_one;
 
             integer denominator;
-            factorization_.solve_inplace(solution, denominator, subMat);
+            factorization_.solve_inplace(solution, denominator, principal_submatrix);
             assert(denominator.sign() > 0);
 
             for (size_t row = 0; row < current_dim; ++row) {
@@ -238,15 +238,15 @@ private:
             return false;
         }
 
-        // factorize_inplace() overwrote subMat. Restore the original principal matrix only for the singular nullspace test.
+        // factorize_inplace() overwrote the matrix. Restore the original principal submatrix only for the singular nullspace test.
         for (size_t row = 0; row < current_dim; ++row) {
             for (size_t column = 0; column < current_dim; ++column) {
-                subMat(row, column) = A(subset_indices[row], subset_indices[column]);
+                principal_submatrix(row, column) = A(subset_indices[row], subset_indices[column]);
             }
         }
 
         matrix_int nullspace(current_dim, current_dim);
-        const slong nullity = fmpz_mat_nullspace(nullspace.native_handle(), subMat.native_handle());
+        const slong nullity = fmpz_mat_nullspace(nullspace.native_handle(), principal_submatrix.native_handle());
         assert(nullity > 0);
         if (nullity != 1) return true;
 
@@ -259,7 +259,7 @@ private:
         return false;
     }
 
-    bool is_copositive_hadeler(const matrix_int& A, bitset64 mask, size_t current_dim) {
+    bool is_strictly_copositive_hadeler(const matrix_int& A, bitset64 mask, size_t current_dim) {
         switch (current_dim) {
             case 1: {
                 const size_t i = bs64::find_pos_first_set_bit(mask);
@@ -286,10 +286,10 @@ private:
 
         uint8_t subset_indices[bs64::kMaxBitsetDimension];
         bs64::extract_set_indices(mask, A.rows(), subset_indices);
-        return decide_hadeler(A, subset_indices, current_dim);
+        return decide_principal_submatrix_hadeler(A, subset_indices, current_dim);
     }
 
-    bool is_copositive_hadeler_multiword(const matrix_int& A, size_t current_dim) {
+    bool is_strictly_copositive_hadeler_multiword(const matrix_int& A, size_t current_dim) {
         switch (current_dim) {
             case 1: {
                 const size_t i = subset_indices_[0];
@@ -307,12 +307,12 @@ private:
                 return is_strictly_copositive_3x3(A(i, i), A(i, j), A(i, k), A(j, j), A(j, k), A(k, k));
             }
             default:
-                return decide_hadeler(A, subset_indices_.data(), current_dim);
+                return decide_principal_submatrix_hadeler(A, subset_indices_.data(), current_dim);
         }
     }
 
     bool enumerate_multiword_subsets(const matrix_int& A, size_t next_position, size_t needed, size_t subset_size) {
-        if (needed == 0) return is_copositive_hadeler_multiword(A, subset_size);
+        if (needed == 0) return is_strictly_copositive_hadeler_multiword(A, subset_size);
 
         const size_t last_position = A.rows() - needed;
         // Recursion already knows each selected strategy, so retain its principal index instead of rebuilding indices from a mask.
@@ -349,7 +349,7 @@ public:
             bitset64 subset = bs64::set_all_n_bits(subset_size);
             const bitset64 last_subset = subset << (n - subset_size);
             while (true) {
-                if (!is_copositive_hadeler(A, subset, subset_size)) return false;
+                if (!is_strictly_copositive_hadeler(A, subset, subset_size)) return false;
                 if (subset == last_subset) break;
                 subset = bs64::next_same_cardinality(subset);
             }
@@ -420,7 +420,7 @@ public:
 
             while (!frontier.empty()) {
                 const size_t vertex = frontier.find_pos_first_set_bit();
-                frontier.remove_first_set_bit();
+                frontier.clear_bit_at_pos(vertex);
                 discovered = negative_neighbors[vertex];
                 discovered.subtract(component);
                 component.union_with(discovered);

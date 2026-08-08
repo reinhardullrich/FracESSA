@@ -143,6 +143,43 @@ def assert_candidate_header_matches_rows(fracessa_exe: Path) -> None:
         raise AssertionError(f"candidate_columns: expected round-trip binary64 output, got {payoff_double}")
 
 
+def assert_multiword_cli_output(fracessa_exe: Path) -> None:
+    dimension_65_matrix = "65#" + ",".join(["1"] * 32)
+    for dimension in (65, 128, 129):
+        matrix = f"{dimension}#" + ",".join(["1"] * (dimension // 2))
+        expected_support = str((1 << dimension) - 1)
+        methods = ("safe", "fast", "test") if dimension == 65 else ("safe",)
+
+        for method in methods:
+            case_name = f"multiword_{dimension}_{method}"
+            result = assert_success_with_ess_output(
+                fracessa_exe,
+                ["--fullsupport", "--candidates", method, matrix],
+                case_name,
+            )
+            lines = output_lines(result.stdout)
+            summary = parse_summary(result.stdout, case_name)
+            if summary["candidate_structure"] != {str(dimension): 1} or summary["ess_structure"] != {str(dimension): 1}:
+                raise AssertionError(f"{case_name}: wrong support-size structures: {summary}")
+            fields = lines[2].split(";")
+            if fields[2] != expected_support or fields[4] != expected_support:
+                raise AssertionError(f"{case_name}: multiword support was not serialized exactly: {fields[2]}, {fields[4]}")
+
+    with tempfile.TemporaryDirectory() as directory:
+        result = subprocess.run(
+            [str(fracessa_exe.resolve()), "--fullsupport", "--candidates", "--log", "safe", dimension_65_matrix],
+            capture_output=True,
+            text=True,
+            timeout=30.0,
+            cwd=directory,
+        )
+        if result.returncode != 0:
+            raise AssertionError(f"multiword_logging: failed with stderr={result.stderr.strip()}")
+        log = (Path(directory) / "log" / "fracessa.log").read_text(encoding="utf-8")
+        if "36893488147419103231" not in log:
+            raise AssertionError("multiword_logging: decimal support missing from log")
+
+
 def assert_logged_candidates_match_sorted_output(fracessa_exe: Path) -> None:
     matrix = "13#7,18,18,10,7,10"
     with tempfile.TemporaryDirectory() as directory:
@@ -288,6 +325,7 @@ def main() -> int:
     if parse_summary(matrix_id_result.stdout, "signed_64_bit_matrix_id")["matrix_id"] != 9223372036854775807:
         raise AssertionError("signed_64_bit_matrix_id: summary lost the matrix ID")
     assert_candidate_header_matches_rows(fracessa_exe)
+    assert_multiword_cli_output(fracessa_exe)
 
     # Parser failure paths
     assert_failure_with_stderr(
@@ -301,12 +339,6 @@ def main() -> int:
         ["safe", "2#0#1"],
         "Multiple '#'",
         "multiple_hash_rejected",
-    )
-    assert_failure_with_stderr(
-        fracessa_exe,
-        ["fast", "65#1"],
-        "supports dimensions in [1, 64]",
-        "fast_uses_dimension_guard",
     )
     assert_failure_with_stderr(
         fracessa_exe,

@@ -40,19 +40,14 @@ inline size_t ctz64(uint64_t x) noexcept {
   #endif
 }
 
-// One word stores every support for dimensions 1 through 64. Complete numeric
-// enumeration with a uint64_t one-past-end sentinel still requires n < 64.
+// One word stores every support for dimensions 1 through 64; dimension 64 uses all bits. Larger dimensions use bitset_multiword,
+// while this type remains the allocation-free hot path for small games.
 typedef uint64_t bitset64;
 
 // Namespace for bitset64 operations
 namespace bs64 {
 
 constexpr size_t kMaxBitsetDimension = 64;
-
-// Caller precondition: n < 64 for complete support enumeration.
-inline bitset64 two_to_the_power_of(size_t n) noexcept {
-  return 1ULL << n;
-}
 
 inline bitset64 set_bit_at_pos(bitset64 bits, size_t pos) noexcept {
   return bits | (1ULL << pos);
@@ -70,15 +65,6 @@ inline bitset64 rot_one_right(bitset64 bits, size_t n) noexcept {
   bitset64 lo = low << (n - 1);
   bitset64 hi = low >> 1;
   return (hi | lo) & mask;
-}
-
-// Rotate the lowest n bits left by shift positions. Caller guarantees
-// 1 <= n <= 64 and shift < n.
-inline bitset64 rot_left(bitset64 bits, size_t shift, size_t n) noexcept {
-  const bitset64 mask = set_all_n_bits(n);
-  bits &= mask;
-  if (shift == 0) return bits;
-  return ((bits << shift) | (bits >> (n - shift))) & mask;
 }
 
 inline bitset64 reverse_bits(bitset64 bits) noexcept {
@@ -115,15 +101,6 @@ inline size_t find_pos_first_set_bit(bitset64 bits) noexcept {
   return ctz64(bits);
 }
 
-// Return the next set position strictly after pos, or 64 if none remains.
-inline size_t find_pos_next_set_bit(bitset64 bits, size_t pos) noexcept {
-  size_t p = pos + 1;
-  if (p >= 64) return static_cast<size_t>(64);
-  uint64_t w = bits & (~0ULL << p);  // zero below p
-  if (w) return ctz64(w);
-  return static_cast<size_t>(64);  // no more bits found
-}
-
 // Set inclusion: bits is a subset of o exactly when it has no bit outside o.
 inline bool is_subset_of(bitset64 bits, bitset64 o) noexcept {
   return (bits & ~o) == 0ULL;
@@ -150,31 +127,6 @@ inline bitset64 next_same_cardinality(bitset64 bits) noexcept {
   const bitset64 lowest = lowest_set_bit_as_bit(bits);
   const bitset64 ripple = bits + lowest;
   return ripple | (((ripple ^ bits) >> 2) / lowest);
-}
-
-// Keep members whose original strategy index is below pos. Counting them maps
-// an original strategy index to its row in a compact support-indexed matrix.
-inline bitset64 bits_before_pos(bitset64 bits, size_t pos) noexcept {
-  return bits & ((1ULL << pos) - 1);
-}
-
-// Canonical representative under cyclic rotations:
-// for circular symmetry, all n rotations describe the same support orbit.
-// We keep only the lexicographically smallest bit pattern in that orbit.
-inline bool is_smallest_representation(bitset64 bits, size_t n) noexcept {
-  uint64_t mask = set_all_n_bits(n);
-  uint64_t original = bits & mask;
-  uint64_t current = original;
-  size_t shift_left = n - 1;
-  
-  for (size_t i = 1; i < n; i++) {
-    current = ((current >> 1) | (current << shift_left)) & mask;
-    if (current < original) {
-      return false;
-    }
-  }
-  // All rotations are >= original, so it's canonical
-  return true;
 }
 
 // Convert to bitstring representation (MSB first, like std::bitset::to_string())

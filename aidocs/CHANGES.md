@@ -1296,3 +1296,68 @@ SQLite integrity checks, and `git diff --check` pass. Public candidate search re
 that it was slower than both V1 and production V3. V1 remains as the independent test oracle and V3 remains the only circular
 generator selected by production. Current documentation now preserves V2 as a rejected historical design rather than claiming its
 source is still active.
+
+376. Completed the internal multiword exact-candidate and stability core without exposing dimensions above 64 publicly:
+templated the candidate and analyzer over the support representation, shared the exact numerical kernels through index types, kept
+the one-word fixed stack arrays and generators unchanged, and added reusable large-path index buffers plus dimension-sized result
+structures. Internal exact full-support tests cover dimensions 65, 128, and 129, including materialized probabilities and masks
+across both word boundaries. A separate dimension-66 partial-support case covers a tied outside reply and scaled reduced-B
+construction because full support cannot enter that branch. All ten FLINT 3.6 Release CTests, all 66 Python tests, five focused
+ASan/UBSan targets, both SQLite integrity checks, and `git diff --check` pass. A matched eight-matrix CPU-2 persistent-Pybind run with
+the new build first measured median current/baseline ratios of `1.000` in fast mode and `0.998` in safe mode; optimized symbol
+inspection found no runtime multiword dispatch in the one-word executable. Complete candidate output for those eight matrices matched
+the untouched baseline in both fast and safe mode after removing only `elapsed_ns`. Public parsing, generators, logging, and output
+remain limited to dimension 64.
+
+377. Added the internal multiword non-circular support generator and connected it only to exact safe analysis:
+the separate DFS mutates one fixed-width support mask during recursion, preserves the one-word generator's cardinality and numeric
+order, activates exact-equilibrium pruning rules between cardinalities, and copies only persistent forbidden supports. Complete
+generation and pruning match the one-word oracle through dimension 10. Boundary tests stop after singleton pruning at dimensions 65
+and 129, verify a forbidden pair spanning bits 63/64, and run dimension-65 exact analyzers through both immediate stability and the
+reduced-B path, including fallback after an unstable full-support candidate. The existing optimized one-word executable has identical
+section and inspected hot-symbol sizes. Eight representative CPU-2 persistent-Pybind matrices measured median current/baseline ratios
+of `0.998` in fast mode and `1.001` in safe mode; complete candidate output matched in both modes after removing only `elapsed_ns`.
+All ten FLINT 3.6 Release CTests, six focused
+ASan/UBSan suites, all 66 Python tests, both SQLite integrity checks, and `git diff --check` pass. Public parsing, CLI/Pybind output,
+fast/test search above 64, and circular generation above 64 remain deferred.
+
+378. Added internal multiword circular V3 generation and exact affine-symmetry handling:
+the new generator retains production V3's fixed-density bracelet order while using dimension-sized `size_t` work arrays and
+pre-sized mutable support/orbit masks. The affine specialization stores destination positions and reuses all extraction,
+transformation, canonicalization, and distinct-image storage. Complete output and pruning match one-word V3 through dimension 16;
+affine decisions and images match the one-word oracle at dimension 8; and dimensions 65 and 129 cover rotations, reflections,
+multiplier counts, pruning, candidate reconstruction, and exact analyzer fallback across word boundaries. Allocation audits observed
+zero allocations while generating all 27,011 dimension-20 bracelets and during 42,000 dimension-129 affine-image callbacks. All
+FLINT 3.6 and system-FLINT Release CTests, focused ASan/UBSan checks, all 66 Python tests, both SQLite integrity checks, and candidate
+output comparisons pass. Two opposite-order CPU-2 benchmark sessions found no material one-word regression: fast median ratios were
+at most `1.006` and safe ratios at most `1.001`; the final exact binary measured `1.003` in both modes. Public parsing, CLI/Pybind
+dispatch, logging, serialization, and fast/test search above dimension 64 remain deferred to Stage 6.
+
+379. Extended internal fast and test candidate search to multiword supports before the Stage-6 public boundary change:
+both paths share their existing numerical kernel across fixed and multiword support indices, retain fixed stack scratch and direct
+`uint64_t` outside-support traversal for dimensions through 64, and allocate reusable large-path scratch only above 64. Fast/test
+whole-matrix conversion and exact fallback now work with the internal multiword analyzer. Dimension-65 regressions cover outside
+position 64, full support, and precision-span fallback; complete output on eight representative one-word matrices matches the
+preserved Stage-5 binary after removing only timing. Opposite-order CPU-2 median ratios were `0.996` and `1.000` for fast; safe was
+`0.998` when current ran first, while a non-repeatable late-run slowdown produced `1.043` in reverse order. Both supported FLINT
+Release suites, all 66 Python tests, focused ASan/UBSan, both SQLite integrity checks, and `git diff --check` pass. Public parsing,
+CLI/Pybind dispatch, logging, and serialization remain limited to dimension 64.
+
+380. Completed the public multiword boundary for dimensions above 64:
+the validating parser, CLI, and Pybind dispatch once to the one-word or multiword analyzer; safe, fast, test, full-support search,
+logging, decimal candidate serialization, arbitrary-precision Python support integers, and dimension-sized structures now work on
+the large path. Parser and cache arithmetic reject unrepresentable sizes, result counters reject overflow, and Parquet rejects
+support masks above its retained `uint64` schema instead of truncating them. The reduced-B dimension, rather than the original game
+dimension, now selects the one-word or multiword sign scan and component graph; focused dimension-65 and dimension-66 cases cover
+64- and 65-dimensional reduced matrices. Public tests cover full-support dimensions 65, 128, and 129. Both supported Release CTest
+suites, the complete ten-test ASan/UBSan suite, all 68 Python
+tests, both SQLite integrity and foreign-key checks, and `git diff --check` pass. Sixteen complete one-word candidate outputs match
+the preserved Stage-5 binary after normalizing only elapsed time. Opposite-order CPU-2 persistent-Pybind median current/baseline
+ratios were `1.000` and `1.001` for fast, and `1.000` and `1.007` for safe, with no material regression.
+
+381. Replaced misleading historical stability names without changing the mathematics or hot path:
+renamed `checkstab.cpp` to `check_stability.cpp`, replaced `kay` with `outside_best_replies`, made the private Hadeler and principal
+submatrix names state their strict-copositivity role, and replaced `T_pd_frc` with `T_reduced_hessian_nd`. The new reason records the
+actual proof: the reduced Hessian is negative definite and no outside best reply remains. Migrated all 51,655 matching candidate rows
+in `fracessa_testdata.sqlite3`; comparisons with older builds must map `T_pd_frc` to `T_reduced_hessian_nd` before comparing reason
+strings. Release passed all 10 C++/CLI tests and all 68 Python tests; SQLite integrity and foreign-key checks pass.

@@ -56,6 +56,16 @@ void expect_matches(const bitset_multiword& actual, const std::vector<bool>& ref
     EXPECT_EQ(indices, reference_indices(reference));
     EXPECT_EQ(indices.capacity(), capacity);
 
+    std::vector<size_t> unset_indices;
+    unset_indices.reserve(reference.size());
+    const size_t unset_capacity = unset_indices.capacity();
+    actual.extract_unset_indices(unset_indices);
+    std::vector<size_t> expected_unset_indices;
+    for (size_t position = 0; position < reference.size(); ++position)
+        if (!reference[position]) expected_unset_indices.push_back(position);
+    EXPECT_EQ(unset_indices, expected_unset_indices);
+    EXPECT_EQ(unset_indices.capacity(), unset_capacity);
+
     for (size_t position = 0; position < reference.size(); ++position)
         EXPECT_EQ(actual.is_set_at_pos(position), reference[position]);
 }
@@ -120,6 +130,17 @@ TEST(BitsetMultiwordTest, SetAlgebraMatchesReference)
     EXPECT_FALSE(left.is_subset_of(right));
 }
 
+TEST(BitsetMultiwordTest, CopiesIntoExistingStorage)
+{
+    const bitset_multiword source = make_bitset(make_reference(129, {0, 63, 64, 128}));
+    bitset_multiword destination(129);
+
+    destination.copy_from(source);
+
+    EXPECT_EQ(destination, source);
+    EXPECT_EQ(destination.word_count(), 3u);
+}
+
 TEST(BitsetMultiwordTest, OrderingUsesTheHighestDifferentWord)
 {
     const bitset_multiword bit_63 = make_bitset(make_reference(129, {63}));
@@ -140,7 +161,7 @@ TEST(BitsetMultiwordTest, FirstBitTraversalAndExtractionCrossWordBoundaries)
     for (const size_t position : expected) {
         ASSERT_FALSE(bits.empty());
         EXPECT_EQ(bits.find_pos_first_set_bit(), position);
-        bits.remove_first_set_bit();
+        bits.clear_bit_at_pos(position);
     }
     EXPECT_TRUE(bits.empty());
 }

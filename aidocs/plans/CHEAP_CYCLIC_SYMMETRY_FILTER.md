@@ -9,16 +9,16 @@ original plan; `Always-On Circular Behavior` and the implementation/validation s
 ## Goal
 
 Circular-symmetric games currently solve one support per binary bracelet, so rotations and reflections are already removed by
-`CircularSupportGeneratorV3`. Some circular matrices have further exact symmetries because their repeated payoff values are
+`CircularSupportGenerator`. Some circular matrices have further exact symmetries because their repeated payoff values are
 arranged compatibly with multiplication of cyclic strategy indices.
 
 The first implementation should detect those cheap symmetries once per game and discard equivalent bracelet representatives
-after V3 generates them but before `fracessa::analyze_support()` solves them.
+after `CircularSupportGenerator` generates them but before `fracessa::analyze_support()` solves them.
 
 The intended pipeline is:
 
 ```text
-V3 generates one dihedral bracelet representative
+CircularSupportGenerator generates one dihedral bracelet representative
     -> exact affine-symmetry filter
         -> skip an equivalent representative, or
         -> solve one retained representative
@@ -27,7 +27,7 @@ V3 generates one dihedral bracelet representative
             -> output one reconstructed row per dihedral orbit
 ```
 
-This is an additional orbit reduction around V3, not a replacement for V3.
+This is an additional orbit reduction around `CircularSupportGenerator`, not a replacement for it.
 
 ## Always-On Circular Behavior
 
@@ -36,7 +36,8 @@ or C++ switch for it.
 
 For a non-circular matrix the helper is never constructed; it must not attempt to infer circular structure from a general matrix.
 For a circular matrix with no additional multiplier class, it disengages immediately after the one-time exact detection pass and
-the legacy V3 path continues unchanged. The filter does not change the selected `fast`, `safe`, or `test` candidate method.
+the standard circular-generator path continues unchanged. The filter does not change the selected `fast`, `safe`, or `test`
+candidate method.
 
 The former experimental switch existed only to complete the correctness and performance comparison. It was removed after 101 of
 120 stored circular matrices were found to have no additional multiplier class and the completed no-extra control measurements
@@ -107,15 +108,15 @@ is inactive and every generated bracelet passes immediately.
 
 ### Why filtering bracelets is correct
 
-Let $D_n$ be the rotation/reflection group already handled by V3, and let
+Let $D_n$ be the rotation/reflection group already handled by `CircularSupportGenerator`, and let
 
 $$
 C_D(S)=\min\{gS:g\in D_n\}
 $$
 
-be the smallest integer mask in the dihedral orbit of support $S$. V3 emits exactly these masks.
+be the smallest integer mask in the dihedral orbit of support $S$. `CircularSupportGenerator` emits exactly these masks.
 
-The affine multipliers act on dihedral orbits. For each V3 result $S$, calculate
+The affine multipliers act on dihedral orbits. For each circular-generator result $S$, calculate
 
 $$
 C_G(S)=\min_{a\in H} C_D(aS).
@@ -137,14 +138,14 @@ exists exactly when the permuted candidate or ESS exists on $aS$.
 
 The circular branch in `cpp/src/fracessa.cpp` currently has the exact lifecycle needed by this change:
 
-1. `CircularSupportGeneratorV3::generate()` emits one bracelet and its cardinality.
+1. `CircularSupportGenerator::generate()` emits one bracelet and its cardinality.
 2. The callback calls `analyze_support()`.
-3. An exact candidate is passed to `generator.add_forbidden()`.
-4. `add_forbidden()` expands its complete dihedral orbit and returns the number of distinct concrete masks.
+3. An exact candidate is passed to `generator.add_forbidden_orbit()`.
+4. `add_forbidden_orbit()` expands its complete dihedral orbit and returns the number of distinct concrete masks.
 5. `finalize_candidate()` stores that number as the output multiplier and uses it for the ESS total.
 
-The new filter belongs between steps 1 and 2. V3's recursion, reversal checks, fixed-density order, and forbidden-mask buckets should
-remain unchanged.
+The new filter belongs between steps 1 and 2. The circular generator's recursion, reversal checks, fixed-density order, and
+forbidden-mask buckets should remain unchanged.
 
 ## Proposed Design
 
@@ -185,7 +186,7 @@ circulant-matrix validator to the hot program path.
 
 ### 3. Filter immediately before solving
 
-At the beginning of the V3 callback:
+At the beginning of the circular-generator callback:
 
 ```cpp
 if (!symmetry.is_representative(support))
@@ -194,12 +195,13 @@ if (!symmetry.is_representative(support))
 
 `is_representative()` should return `true` immediately when no extra multiplier exists. Otherwise, for each retained multiplier it
 transforms the support and scans its rotations and reflected rotations. It can reject as soon as any concrete image is numerically
-smaller than the already-canonical V3 support. It does not need to allocate or materialize the complete orbit.
+smaller than the already-canonical generator support. It does not need to allocate or materialize the complete orbit.
 
-V3's `emitted_` state must continue to describe bracelets generated by V3, not bracelets accepted by this outer filter. Therefore,
-the filter must stay outside the recursion and must not affect V3's cardinality early-stop rule.
+The generator's `emitted_` state must continue to describe bracelets generated by `CircularSupportGenerator`, not bracelets
+accepted by this outer filter. Therefore, the filter must stay outside the recursion and must not affect the generator's cardinality
+early-stop rule.
 
-### 4. Reuse V3 for enlarged pruning while preserving dihedral output
+### 4. Reuse the circular generator for enlarged pruning while preserving dihedral output
 
 When a retained support is an exact candidate, enumerate the distinct values
 
@@ -213,13 +215,13 @@ fixed local array; a short linear scan is simpler than a hash table and candidat
 For every distinct bracelet image, call the existing
 
 ```cpp
-generator.add_forbidden(image)
+generator.add_forbidden_orbit(image)
 ```
 
-separately. This gives both required results without changing V3:
+separately. This gives both required results without changing `CircularSupportGenerator`:
 
 - every concrete support in the verified affine orbit becomes a future forbidden subset;
-- every output row keeps its own dihedral multiplier returned by `add_forbidden()`, which is at most $2n$.
+- every output row keeps its own dihedral multiplier returned by `add_forbidden_orbit()`, which is at most $2n$.
 
 Do not combine multiple dihedral orbits into one output multiplier. A count alone would not identify the matrix-specific affine
 transformations needed to reconstruct those candidates. Instead, exactly permute the solved vector, support, and extended support
@@ -240,7 +242,7 @@ if (analyze_support(support, support_size)) {
     const candidate solved = candidate_;
     symmetry.for_each_distinct_bracelet_image(candidate_.support, [&](auto image) {
         candidate_ = permute(solved, image);
-        finalize_candidate(generator.add_forbidden(image.support));
+        finalize_candidate(generator.add_forbidden_orbit(image.support));
     });
 }
 ```
@@ -271,7 +273,8 @@ generic orbit, but recognizing and generating under it is a separate project. Th
 - `cpp/src/fracessa.cpp`
   - construct the helper in the circular branch and disengage it when only the identity class exists;
   - filter before `analyze_support()`;
-  - call `add_forbidden()` for every distinct bracelet image and finalize one candidate row with that image's dihedral multiplier.
+  - call `add_forbidden_orbit()` for every distinct bracelet image and finalize one candidate row with that image's dihedral
+    multiplier.
 - `cpp/tests/test_supports.cpp`
   - focused group, canonicalization, orbit, and pruning tests.
 - `cpp/tests/cli_parser_blackbox.py`
@@ -293,9 +296,9 @@ No matrix-parser, candidate-solver, stability, or database-schema change was nee
 For manageable dimensions, enumerate every nonempty support by brute force and independently form its complete affine orbit.
 Verify that:
 
-- V3 plus the filter retains exactly one representative per affine orbit;
+- `CircularSupportGenerator` plus the filter retains exactly one representative per affine orbit;
 - the retained representative is the smallest integer mask in that orbit;
-- distinct-bracelet iteration covers the complete orbit exactly once after V3 expands each image;
+- distinct-bracelet iteration covers the complete orbit exactly once after `CircularSupportGenerator` expands each image;
 - every reconstructed row has the same vector, support, and extended support as the legacy dihedral result;
 - every individual multiplier is the size of one dihedral orbit and is at most $2n$.
 
@@ -303,7 +306,7 @@ Verify that:
 
 Add one candidate support through the new path and generate the next cardinalities. Confirm that no emitted support contains any
 affine image of the candidate. Include a support whose rotations, reflections, and multiplier images have different smallest set
-bits so every V3 forbidden bucket is exercised.
+bits so every circular-generator forbidden bucket is exercised.
 
 ### End-to-end results
 
@@ -322,7 +325,7 @@ filter changes only which systems are solved and which equivalent pruning rules 
 
 Instrument the experimental build, not production, with:
 
-- V3 bracelets emitted;
+- circular-generator bracelets emitted;
 - bracelets rejected by the affine filter;
 - calls to `analyze_support()`;
 - exact candidates found;
@@ -354,7 +357,7 @@ The filter was promoted after all of the following held:
 - every multiplier and forbidden orbit passes independent brute-force checks;
 - affected matrices show a material end-to-end gain;
 - ordinary circular matrices have no meaningful regression;
-- the implementation remains the small outer filter described here and does not complicate V3's recursion.
+- the implementation remains the small outer filter described here and does not complicate the circular generator's recursion.
 
 Promotion required:
 

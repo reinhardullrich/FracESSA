@@ -3,6 +3,7 @@
 #include <fracessa/matrix_parser.hpp>
 
 #include <sstream>
+#include <limits>
 #include <stdexcept>
 #include <string>
 
@@ -103,11 +104,10 @@ TEST(MatrixParserTest, RejectsMultipleHashes) {
     EXPECT_THROW(matrix_parser::parse_matrix_string("3#1,2#3", A, is_cs), std::invalid_argument);
 }
 
-TEST(MatrixParserTest, RejectsInvalidDimensionRange) {
+TEST(MatrixParserTest, RejectsZeroDimension) {
     matrix_frc A;
     bool is_cs = false;
     EXPECT_THROW(matrix_parser::parse_matrix_string("0#1", A, is_cs), std::invalid_argument);
-    EXPECT_THROW(matrix_parser::parse_matrix_string("65#1", A, is_cs), std::invalid_argument);
 }
 
 TEST(MatrixParserTest, RejectsNonDecimalDimensionText) {
@@ -131,6 +131,26 @@ TEST(MatrixParserTest, AcceptsMaximumSearchDimension) {
     EXPECT_TRUE(is_cs);
     EXPECT_EQ(A.rows(), 64);
     EXPECT_EQ(A.cols(), 64);
+}
+
+TEST(MatrixParserTest, AcceptsMultiwordDimensions) {
+    for (const size_t dimension : {65u, 128u, 129u}) {
+        matrix_frc A;
+        bool is_cs = false;
+        const std::string payload = std::to_string(dimension) + "#" + join_ones(dimension / 2);
+
+        ASSERT_NO_THROW(matrix_parser::parse_matrix_string(payload, A, is_cs)) << "dimension=" << dimension;
+        EXPECT_TRUE(is_cs);
+        EXPECT_EQ(A.rows(), dimension);
+        EXPECT_EQ(A.cols(), dimension);
+    }
+}
+
+TEST(MatrixParserTest, RejectsOverflowingDenseDimension) {
+    matrix_frc A;
+    bool is_cs = false;
+    const std::string payload = std::to_string(std::numeric_limits<size_t>::max()) + "#1";
+    EXPECT_THROW(matrix_parser::parse_matrix_string(payload, A, is_cs), std::invalid_argument);
 }
 
 TEST(MatrixParserTest, RejectsUnexpectedValueCount) {

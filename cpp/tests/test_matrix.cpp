@@ -1,7 +1,7 @@
 #include <gtest/gtest.h>
-#include <fracessa/find_candidate_fast.hpp>
-#include <fracessa/find_candidate_safe.hpp>
-#include <fracessa/find_candidate_test.hpp>
+#include <fracessa/fast_candidate_filter.hpp>
+#include <fracessa/exact_candidate_solver.hpp>
+#include <fracessa/test_candidate_filter.hpp>
 #include <linalg/integer.hpp>
 #include <linalg/matrix_fraction.hpp>
 #include <linalg/matrix_double.hpp>
@@ -67,13 +67,13 @@ TEST(MatrixFractionTest, FactoryFunctions) {
     EXPECT_EQ(S(1, 1), fraction(3));
 }
 
-TEST(FindCandidateFastTest, UsesExactPrecisionSpanCutoff) {
+TEST(FastCandidateFilterTest, UsesExactPrecisionSpanCutoff) {
     const auto fallback = [](const fraction& diagonal_0, const fraction& off_diagonal, const fraction& diagonal_1) {
         matrix_frc A(2, 2);
         A(0, 0) = diagonal_0;   A(0, 1) = off_diagonal;
         A(1, 0) = off_diagonal; A(1, 1) = diagonal_1;
-        find_candidate_safe safe(A);
-        find_candidate_fast fast(A);
+        exact_candidate_solver safe(A);
+        fast_candidate_filter fast(A);
         fast.convert_game_matrix(safe);
         return fast.safe_fallback_reason();
     };
@@ -86,13 +86,13 @@ TEST(FindCandidateFastTest, UsesExactPrecisionSpanCutoff) {
               safe_fallback::precision_span);
 }
 
-TEST(FindCandidateTest, UsesIntegerPrecisionSpanAfterRemovingCommonScale) {
+TEST(TestCandidateFilterTest, UsesIntegerPrecisionSpanAfterRemovingCommonScale) {
     const auto fallback = [](const fraction& diagonal_0, const fraction& off_diagonal, const fraction& diagonal_1) {
         matrix_frc A(2, 2);
         A(0, 0) = diagonal_0;   A(0, 1) = off_diagonal;
         A(1, 0) = off_diagonal; A(1, 1) = diagonal_1;
-        find_candidate_safe safe(A);
-        find_candidate_test test(A);
+        exact_candidate_solver safe(A);
+        test_candidate_filter test(A);
         test.convert_game_matrix(safe);
         return test.safe_fallback_reason();
     };
@@ -105,12 +105,12 @@ TEST(FindCandidateTest, UsesIntegerPrecisionSpanAfterRemovingCommonScale) {
               safe_fallback::precision_span);
 }
 
-TEST(FindCandidateFastAndTest, IgnoreOnlyExactZeroRowsDuringEquilibration) {
+TEST(CandidateFiltersTest, IgnoreOnlyExactZeroRowsDuringEquilibration) {
     matrix_frc harmless_zero_row(3, 3);
     harmless_zero_row(1, 2) = harmless_zero_row(2, 1) = fraction::one();
-    find_candidate_safe harmless_safe(harmless_zero_row);
-    find_candidate_fast harmless_fast(harmless_zero_row);
-    find_candidate_test harmless_test(harmless_zero_row);
+    exact_candidate_solver harmless_safe(harmless_zero_row);
+    fast_candidate_filter harmless_fast(harmless_zero_row);
+    test_candidate_filter harmless_test(harmless_zero_row);
     harmless_fast.convert_game_matrix(harmless_safe);
     harmless_test.convert_game_matrix(harmless_safe);
 
@@ -123,9 +123,9 @@ TEST(FindCandidateFastAndTest, IgnoreOnlyExactZeroRowsDuringEquilibration) {
     for (size_t leaf = 2; leaf < 17; ++leaf) {
         zero_row_with_bad_active_block(1, leaf) = zero_row_with_bad_active_block(leaf, 1) = fraction::one();
     }
-    find_candidate_safe bad_safe(zero_row_with_bad_active_block);
-    find_candidate_fast bad_fast(zero_row_with_bad_active_block);
-    find_candidate_test bad_test(zero_row_with_bad_active_block);
+    exact_candidate_solver bad_safe(zero_row_with_bad_active_block);
+    fast_candidate_filter bad_fast(zero_row_with_bad_active_block);
+    test_candidate_filter bad_test(zero_row_with_bad_active_block);
     bad_fast.convert_game_matrix(bad_safe);
     bad_test.convert_game_matrix(bad_safe);
 
@@ -138,9 +138,9 @@ TEST(FindCandidateFastAndTest, IgnoreOnlyExactZeroRowsDuringEquilibration) {
     nonconvergent_game(1, 4) = nonconvergent_game(4, 1) = fraction::one();
     nonconvergent_game(2, 3) = nonconvergent_game(3, 2) = fraction::one();
     nonconvergent_game(3, 4) = nonconvergent_game(4, 3) = fraction::one();
-    find_candidate_safe nonconvergent_safe(nonconvergent_game);
-    find_candidate_fast nonconvergent_fast(nonconvergent_game);
-    find_candidate_test nonconvergent_test(nonconvergent_game);
+    exact_candidate_solver nonconvergent_safe(nonconvergent_game);
+    fast_candidate_filter nonconvergent_fast(nonconvergent_game);
+    test_candidate_filter nonconvergent_test(nonconvergent_game);
     nonconvergent_fast.convert_game_matrix(nonconvergent_safe);
     nonconvergent_test.convert_game_matrix(nonconvergent_safe);
 
@@ -148,7 +148,7 @@ TEST(FindCandidateFastAndTest, IgnoreOnlyExactZeroRowsDuringEquilibration) {
     EXPECT_EQ(nonconvergent_test.safe_fallback_reason(), safe_fallback::equilibration_non_convergence);
 }
 
-TEST(FindCandidateFastAndTest, SendSmallPivotToExactArithmetic) {
+TEST(CandidateFiltersTest, SendSmallPivotToExactArithmetic) {
     matrix_frc A(3, 3);
     A(0, 0) = fraction(-3);
     A(0, 1) = A(1, 0) = fraction(1);
@@ -157,19 +157,19 @@ TEST(FindCandidateFastAndTest, SendSmallPivotToExactArithmetic) {
     A(1, 2) = A(2, 1) = fraction("-1999999999999/3000000000000");
     A(2, 2) = fraction("-4000000000001/3000000000000");
 
-    find_candidate_fast fast(A);
-    find_candidate_safe safe(A);
-    find_candidate_test test(A);
+    fast_candidate_filter fast(A);
+    exact_candidate_solver safe(A);
+    test_candidate_filter test(A);
     fast.convert_game_matrix(safe);
     test.convert_game_matrix(safe);
 
     EXPECT_EQ(fast.safe_fallback_reason(), safe_fallback::none);
     EXPECT_EQ(test.safe_fallback_reason(), safe_fallback::none);
-    EXPECT_TRUE(fast.find(bitset64{7}, 3));
-    EXPECT_TRUE(test.find(bitset64{7}, 3));
+    EXPECT_TRUE(fast.passes(bitset64{7}, 3));
+    EXPECT_TRUE(test.passes(bitset64{7}, 3));
 }
 
-TEST(FindCandidateFastAndTest, SolveNonsingularZeroDiagonalTwoByTwoPivot) {
+TEST(CandidateFiltersTest, SolveNonsingularZeroDiagonalTwoByTwoPivot) {
     /*
      * With strategy 0 as reference, the full-support reduced system is
      *
@@ -183,19 +183,19 @@ TEST(FindCandidateFastAndTest, SolveNonsingularZeroDiagonalTwoByTwoPivot) {
     game(0, 0) = fraction::zero(); game(0, 1) = game(1, 0) = fraction::one(); game(0, 2) = game(2, 0) = fraction::neg_one();
     game(1, 1) = fraction::two();  game(1, 2) = game(2, 1) = fraction::one(); game(2, 2) = fraction(-2);
 
-    find_candidate_safe safe(game);
-    find_candidate_fast fast(game);
-    find_candidate_test test(game);
+    exact_candidate_solver safe(game);
+    fast_candidate_filter fast(game);
+    test_candidate_filter test(game);
     fast.convert_game_matrix(safe);
     test.convert_game_matrix(safe);
 
     ASSERT_EQ(fast.safe_fallback_reason(), safe_fallback::none);
     ASSERT_EQ(test.safe_fallback_reason(), safe_fallback::none);
-    EXPECT_FALSE(fast.find(bitset64{7}, 3));
-    EXPECT_FALSE(test.find(bitset64{7}, 3));
+    EXPECT_FALSE(fast.passes(bitset64{7}, 3));
+    EXPECT_FALSE(test.passes(bitset64{7}, 3));
 }
 
-TEST(FindCandidateFastAndTest, RemoveCommonDenominatorAndNormalizeGameOnce) {
+TEST(CandidateFiltersTest, RemoveCommonDenominatorAndNormalizeGameOnce) {
     /*
      * Before the final common scale, support {0,1,2}, with strategy 0 as reference, has
      *
@@ -218,14 +218,36 @@ TEST(FindCandidateFastAndTest, RemoveCommonDenominatorAndNormalizeGameOnce) {
     game(2, 3) = game(3, 2) = fraction::zero();
     game(3, 3) = fraction::zero();
 
-    find_candidate_safe safe(game);
-    find_candidate_fast fast(game);
-    find_candidate_test test(game);
+    exact_candidate_solver safe(game);
+    fast_candidate_filter fast(game);
+    test_candidate_filter test(game);
     fast.convert_game_matrix(safe);
     test.convert_game_matrix(safe);
 
     ASSERT_EQ(fast.safe_fallback_reason(), safe_fallback::none);
     ASSERT_EQ(test.safe_fallback_reason(), safe_fallback::none);
-    EXPECT_FALSE(fast.find(bitset64{7}, 3));
-    EXPECT_FALSE(test.find(bitset64{7}, 3));
+    EXPECT_FALSE(fast.passes(bitset64{7}, 3));
+    EXPECT_FALSE(test.passes(bitset64{7}, 3));
+}
+
+TEST(CandidateFiltersTest, MultiwordOutsideTraversalCrossesBit63And64)
+{
+    constexpr size_t dimension = 65;
+    matrix_frc game(dimension, dimension);
+    for (size_t strategy = 0; strategy < dimension; ++strategy) game(strategy, strategy) = fraction::one();
+    game(0, 64) = game(64, 0) = fraction::two();
+
+    exact_candidate_solver safe(game);
+    fast_candidate_filter fast(game);
+    test_candidate_filter test(game);
+    fast.convert_game_matrix(safe);
+    test.convert_game_matrix(safe);
+
+    ASSERT_EQ(fast.safe_fallback_reason(), safe_fallback::none);
+    ASSERT_EQ(test.safe_fallback_reason(), safe_fallback::none);
+
+    bitset_multiword support(dimension);
+    support.set_bit_at_pos(0);
+    EXPECT_FALSE(fast.passes(support, 1));
+    EXPECT_FALSE(test.passes(support, 1));
 }

@@ -25,8 +25,9 @@ FracESSA is a C++17 analyzer for evolutionarily stable strategies in symmetric p
 - PyFracESSA: `python/pyfracessa/`, backed by the native `fracessa_core` module in `cpp/src/pybind_module.cpp`.
 
 Input uses `dimension#values`. Values are either the upper triangle of a symmetric matrix or the compact circular-symmetric form.
-The validating parser accepts dimensions 1 through 64 and exact integer or rational values. One `uint64_t` stores all 64 strategy
-positions; dimensions above 64 are not yet supported. Runtime remains exponential even when a dimension is representable.
+The validating parser accepts every positive dimension whose dense matrix size is representable and exact integer or rational values.
+Dimensions 1 through 64 use one `uint64_t`; dimensions 65 and above use fixed-width multiword support masks. Runtime remains
+exponential even when a dimension is representable, so the practical limit is normally much smaller than the storage limit.
 
 Every entry surface requires an explicit method; there is no default:
 
@@ -55,8 +56,9 @@ CLI or Pybind input
 
 Core implementation facts:
 
-- Supports are `uint64_t` masks. Production generates one support at a time and never materializes the complete support frontier.
-- Non-circular supports use fixed-cardinality binary DFS. Circular supports use the direct fixed-density bracelet generator V3.
+- Supports through dimension 64 are raw `uint64_t` masks; larger supports use fixed-width word vectors selected once before search.
+  Production generates one support at a time and never materializes the complete support frontier.
+- Non-circular supports use fixed-cardinality binary DFS. Circular supports use direct fixed-density bracelet generation.
 - Every exact equilibrium support forbids later strict supersets; ESS status is irrelevant to that pruning rule.
 - Fast/test convert and equilibrate the complete matrix once, solve reduced symmetric systems in binary64, and fall back to exact
   checking when preparation or a support solve is inconclusive.
@@ -102,6 +104,9 @@ or `test` method. `compute_matrix()` is the public low-level native adapter. One
 multiprocessing is across matrices.
 
 No production CLI, native, or Python workflow imposes a per-matrix computation timeout. A valid matrix may run for hours.
+
+CLI, JSON, and CSV expose support masks as arbitrary-width decimal integers. Python returns ordinary arbitrary-precision `int`
+objects. The current Parquet candidate schema remains `uint64` and rejects a candidate support above that range explicitly.
 
 The public API, result schema, multiprocessing details, timing contract, examples, and generated-documentation commands are in
 `aidocs/pyfracessa/README.md`.

@@ -47,72 +47,6 @@ TEST(Bitset64Test, FindFirst) {
     EXPECT_EQ(bs64::find_pos_first_set_bit(bits), 3);
 }
 
-TEST(Bitset64Test, FindNext) {
-    bitset64 bits = 0ULL;
-    bits = bs64::set_bit_at_pos(bits, 2);
-    bits = bs64::set_bit_at_pos(bits, 5);
-    bits = bs64::set_bit_at_pos(bits, 7);
-    
-    unsigned pos = bs64::find_pos_first_set_bit(bits);
-    EXPECT_EQ(pos, 2);
-    
-    pos = bs64::find_pos_next_set_bit(bits, pos);
-    EXPECT_EQ(pos, 5);
-    
-    pos = bs64::find_pos_next_set_bit(bits, pos);
-    EXPECT_EQ(pos, 7);
-    
-    pos = bs64::find_pos_next_set_bit(bits, pos);
-    EXPECT_EQ(pos, 64); // No more bits
-}
-
-// Test Iteration
-TEST(Bitset64Test, ForEachSetBit) {
-    bitset64 bits = 0ULL;
-    bits = bs64::set_bit_at_pos(bits, 1);
-    bits = bs64::set_bit_at_pos(bits, 3);
-    bits = bs64::set_bit_at_pos(bits, 5);
-    
-    std::vector<unsigned> positions;
-    for (unsigned i = bs64::find_pos_first_set_bit(bits); i < 64; i = bs64::find_pos_next_set_bit(bits, i)) {
-        positions.push_back(i);
-    }
-    
-    EXPECT_EQ(positions.size(), 3);
-    EXPECT_EQ(positions[0], 1);
-    EXPECT_EQ(positions[1], 3);
-    EXPECT_EQ(positions[2], 5);
-}
-
-TEST(Bitset64Test, ForEachSetBitEarlyExit) {
-    bitset64 bits = 0ULL;
-    bits = bs64::set_bit_at_pos(bits, 1);
-    bits = bs64::set_bit_at_pos(bits, 3);
-    bits = bs64::set_bit_at_pos(bits, 5);
-    
-    std::vector<unsigned> positions;
-    for (unsigned i = bs64::find_pos_first_set_bit(bits); i < 64; i = bs64::find_pos_next_set_bit(bits, i)) {
-        positions.push_back(i);
-        break; // Early exit
-    }
-    
-    EXPECT_EQ(positions.size(), 1);
-}
-
-TEST(Bitset64Test, ForEachSetBitNoExit) {
-    bitset64 bits = 0ULL;
-    bits = bs64::set_bit_at_pos(bits, 1);
-    bits = bs64::set_bit_at_pos(bits, 3);
-    bits = bs64::set_bit_at_pos(bits, 5);
-    
-    std::vector<unsigned> positions;
-    for (unsigned i = bs64::find_pos_first_set_bit(bits); i < 64; i = bs64::find_pos_next_set_bit(bits, i)) {
-        positions.push_back(i);
-    }
-    
-    EXPECT_EQ(positions.size(), 3);
-}
-
 // Test Rotations
 TEST(Bitset64Test, RotOneRight) {
     bitset64 bits = 0ULL;
@@ -184,18 +118,8 @@ TEST(Bitset64Test, ReflectMatchesDirectDefinitionForEveryDimension) {
 
 TEST(Bitset64Test, RotationsHandleDimension64) {
     EXPECT_EQ(bs64::rot_one_right(1ULL, 64), 1ULL << 63);
-    EXPECT_EQ(bs64::rot_left(1ULL << 63, 1, 64), 1ULL);
 }
 
-
-TEST(Bitset64Test, IsSmallestRepresentation) {
-    bitset64 bits = 0ULL;
-    bits = bs64::set_bit_at_pos(bits, 0);
-    bits = bs64::set_bit_at_pos(bits, 1);
-    // bits = 0011 (bits 0-3) - this is the smallest representation
-    
-    EXPECT_TRUE(bs64::is_smallest_representation(bits, 4));
-}
 
 // Test Subset Operations
 TEST(Bitset64Test, IsSubsetOf) {
@@ -247,25 +171,6 @@ TEST(Bitset64Test, LowestSetBitZero) {
 TEST(Bitset64Test, GosperNextSameCardinality) {
     EXPECT_EQ(bs64::next_same_cardinality(0b00111), 0b01011u);
     EXPECT_EQ(bs64::next_same_cardinality(0b01110), 0b10011u);
-}
-
-TEST(Bitset64Test, FindNextSetBitAtTopBit) {
-    bitset64 bits = 0ULL;
-    bits = bs64::set_bit_at_pos(bits, 63);
-
-    const size_t first = bs64::find_pos_first_set_bit(bits);
-    EXPECT_EQ(first, 63u);
-    EXPECT_EQ(bs64::find_pos_next_set_bit(bits, first), 64u);
-}
-
-TEST(Bitset64Test, BitsBeforePosBoundary) {
-    bitset64 bits = 0ULL;
-    bits = bs64::set_bit_at_pos(bits, 0);
-    bits = bs64::set_bit_at_pos(bits, 3);
-    bits = bs64::set_bit_at_pos(bits, 5);
-
-    EXPECT_EQ(bs64::bits_before_pos(bits, 0), 0ULL);
-    EXPECT_EQ(bs64::bits_before_pos(bits, 4), (1ULL << 0) | (1ULL << 3));
 }
 
 TEST(Bitset64Test, ExtractSetIndicesBasic) {

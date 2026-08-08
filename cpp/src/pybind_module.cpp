@@ -1,6 +1,5 @@
 #include <pybind11/pybind11.h>
 
-#include <array>
 #include <chrono>
 #include <cstdint>
 #include <mutex>
@@ -30,9 +29,9 @@ static std::mutex logging_mutex;
 struct NativeCandidate {
     size_t candidate_id = 0;
     std::string vector;
-    bitset64 support = 0;
+    std::string support;
     size_t support_size = 0;
-    bitset64 extended_support = 0;
+    std::string extended_support;
     size_t extended_support_size = 0;
     std::optional<size_t> multiplier;
     bool is_ess = false;
@@ -46,8 +45,8 @@ struct NativeResult {
     std::string error_message;
     size_t candidate_count = 0;
     size_t ess_count = 0;
-    std::array<size_t, bs64::kMaxBitsetDimension + 1> candidate_structure{};
-    std::array<size_t, bs64::kMaxBitsetDimension + 1> ess_structure{};
+    std::vector<size_t> candidate_structure;
+    std::vector<size_t> ess_structure;
     long long elapsed_ns = 0;
     candidate_search::safe_fallback safe_fallback = candidate_search::safe_fallback::none;
     std::vector<NativeCandidate> candidates;
@@ -65,6 +64,41 @@ std::string strategy_vector_to_string(const linalg::matrix_frc& vec)
         }
     }
     return out.str();
+}
+
+template<class Analyzer>
+void run_analyzer(search_method method, const linalg::matrix_frc& matrix, bool is_cs, bool include_candidates,
+                  bool full_support, bool enable_logging, std::int64_t matrix_id, NativeResult& result)
+{
+    const auto start = std::chrono::steady_clock::now();
+    Analyzer analyzer(method, matrix, is_cs, include_candidates, full_support, enable_logging, matrix_id);
+    const auto end = std::chrono::steady_clock::now();
+
+    result.elapsed_ns = std::chrono::duration_cast<std::chrono::nanoseconds>(end - start).count();
+    result.candidate_count = analyzer.candidate_count_;
+    result.ess_count = analyzer.ess_count_;
+    result.candidate_structure.assign(analyzer.candidate_structure_.begin(), analyzer.candidate_structure_.end());
+    result.ess_structure.assign(analyzer.ess_structure_.begin(), analyzer.ess_structure_.end());
+    result.safe_fallback = analyzer.safe_fallback_;
+
+    if (!include_candidates) return;
+
+    result.candidates.reserve(analyzer.candidates_.size());
+    for (const auto& candidate : analyzer.candidates_) {
+        NativeCandidate row;
+        row.candidate_id = candidate.candidate_id;
+        row.vector = strategy_vector_to_string(candidate.vector);
+        row.support = candidate.support_string();
+        row.support_size = candidate.support_size;
+        row.extended_support = candidate.extended_support_string();
+        row.extended_support_size = candidate.extended_support_size;
+        row.multiplier = candidate.multiplier;
+        row.is_ess = candidate.is_ess;
+        row.stability = candidate.stability;
+        row.payoff = candidate.payoff.to_string();
+        row.payoff_dbl = candidate.payoff_dbl;
+        result.candidates.push_back(std::move(row));
+    }
 }
 
 NativeResult compute_matrix_impl(
@@ -96,37 +130,12 @@ NativeResult compute_matrix_impl(
             logging_lock.lock();
         }
 
-        const auto start = std::chrono::steady_clock::now();
-        ::fracessa analyzer(method, parsed_matrix, is_cs, include_candidates, full_support, enable_logging, matrix_id);
-        const auto end = std::chrono::steady_clock::now();
-
-        result.elapsed_ns = std::chrono::duration_cast<std::chrono::nanoseconds>(end - start).count();
-        result.candidate_count = analyzer.candidate_count_;
-        result.ess_count = analyzer.ess_count_;
-        result.candidate_structure = analyzer.candidate_structure_;
-        result.ess_structure = analyzer.ess_structure_;
-        result.safe_fallback = analyzer.safe_fallback_;
+        if (parsed_matrix.rows() <= bs64::kMaxBitsetDimension)
+            run_analyzer<::fracessa>(method, parsed_matrix, is_cs, include_candidates, full_support, enable_logging, matrix_id, result);
+        else
+            run_analyzer<::multiword_fracessa>(method, parsed_matrix, is_cs, include_candidates, full_support, enable_logging,
+                                               matrix_id, result);
         result.status = kStatusOk;
-
-        if (include_candidates) {
-            // Copy all C++ data before the GIL is reacquired below.
-            result.candidates.reserve(analyzer.candidates_.size());
-            for (const auto& c : analyzer.candidates_) {
-                NativeCandidate row;
-                row.candidate_id = c.candidate_id;
-                row.vector = strategy_vector_to_string(c.vector);
-                row.support = c.support;
-                row.support_size = c.support_size;
-                row.extended_support = c.extended_support;
-                row.extended_support_size = c.extended_support_size;
-                row.multiplier = c.multiplier;
-                row.is_ess = c.is_ess;
-                row.stability = c.stability;
-                row.payoff = c.payoff.to_string();
-                row.payoff_dbl = c.payoff_dbl;
-                result.candidates.push_back(std::move(row));
-            }
-        }
 
         return result;
     } catch (const std::exception& e) {
@@ -183,9 +192,9 @@ py::dict compute_matrix(
         py::dict row;
         row["candidate_id"] = c.candidate_id;
         row["vector"] = c.vector;
-        row["support"] = c.support;
+        row["support"] = py::int_(py::str(c.support));
         row["support_size"] = c.support_size;
-        row["extended_support"] = c.extended_support;
+        row["extended_support"] = py::int_(py::str(c.extended_support));
         row["extended_support_size"] = c.extended_support_size;
         if (c.multiplier)
             row["multiplier"] = *c.multiplier;
@@ -206,10 +215,10 @@ candidate_search::safe_fallback classify_safe_fallback_impl(const std::string& m
     linalg::matrix_frc parsed_matrix;
     [[maybe_unused]] bool is_cs = false;
     matrix_parser::parse_matrix_string(matrix, parsed_matrix, is_cs);
-    candidate_search::find_candidate_safe safe_search(parsed_matrix);
-    candidate_search::find_candidate_fast fast_search(parsed_matrix);
-    fast_search.convert_game_matrix(safe_search);
-    return fast_search.safe_fallback_reason();
+    candidate_search::exact_candidate_solver exact_solver(parsed_matrix);
+    candidate_search::fast_candidate_filter fast_filter(parsed_matrix);
+    fast_filter.convert_game_matrix(exact_solver);
+    return fast_filter.safe_fallback_reason();
 }
 
 py::object classify_safe_fallback(const std::string& matrix)

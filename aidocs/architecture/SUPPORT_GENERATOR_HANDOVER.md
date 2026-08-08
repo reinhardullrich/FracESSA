@@ -21,13 +21,13 @@ binary64 candidate filters before exact confirmation; safe starts with exact can
 ## Agreed Production Architecture
 
 FracESSA no longer creates the complete set of nonempty supports or even a
-complete cardinality layer before solving. A support is one `uint64_t` mask.
-Each concrete generator owns the matrix dimension, the cardinality sweep, its
+complete cardinality layer before solving. Dimensions through 64 use one raw `uint64_t` support mask; larger dimensions use one
+fixed-width multiword mask per retained support. Each concrete generator owns the matrix dimension, the cardinality sweep, its
 recursive state, and the forbidden-support rules discovered during analysis.
 
-- `NonCircularSupportGenerator` uses fixed-cardinality binary DFS.
-- Production `CircularSupportGeneratorV3` uses direct fixed-density bracelet recursion, placing one selected bit per recursive
-  step and rejecting reflected duplicates during construction.
+- `NonCircularSupportGenerator` and its multiword counterpart use fixed-cardinality binary DFS.
+- `CircularSupportGenerator` and its multiword counterpart use direct fixed-density bracelet recursion, placing one
+  selected bit per recursive step and rejecting reflected duplicates during construction.
 - Both emit cardinality ascending first and numeric mask ascending second.
 - Both pass exactly one support and its cardinality to the analyzer at a time.
 - Both activate newly forbidden supports only when moving to the next
@@ -64,8 +64,9 @@ it is the simplest implementation of these recursive algorithms, not because a
 pull interface would be incorrect.
 
 The callback receives both the support mask and support size because the generator owns the cardinality loop. When an exact
-candidate is found, `add_forbidden()` is called synchronously before the callback returns. The removed V2 experiment also relied on
-this timing because its returned multiplier belonged to the support most recently emitted to that callback.
+candidate is found, `add_forbidden()` or circular `add_forbidden_orbit()` is called synchronously before the callback returns. The
+removed V2 experiment also relied on this timing because its returned multiplier belonged to the support most recently emitted to
+that callback.
 
 ## Candidate And Pruning Lifecycle
 
@@ -82,7 +83,7 @@ procedure creates one by itself.
 The explicit sequence remains visible in each of the three call paths: full
 support, circular generation, and non-circular generation. Moving generator
 registration into `analyze_support()` was considered and rejected. The two
-generators have different `add_forbidden()` results, while the full-support path
+generators have different registration results, while the full-support path
 has no generator at all; hiding those differences would require templates,
 overloads, inheritance, or another callback for only a few direct lines.
 
@@ -95,13 +96,12 @@ the candidate, and logging it.
 
 The two production generators share a tiny compile-time calling convention but
 not an implementation. Their recursive state and pruning representations are
-different, and circular `add_forbidden()` also produces an orbit multiplier.
+different, and circular `add_forbidden_orbit()` also produces an orbit multiplier.
 Two explicit matrix-type branches are shorter and clearer than a virtual base,
 adapter, or type-erased wrapper. They also keep the per-support hot path free of
 runtime dispatch.
 
-The same reasoning applies to the three retained circular implementations: keeping historical and experimental algorithms does
-not justify a runtime hierarchy.
+The same reasoning applies to retained historical circular algorithms: a test oracle does not justify a runtime hierarchy.
 
 ## Circular Output And Multiplier
 
@@ -109,12 +109,12 @@ By default, circular matrices store only the smallest integer support in each co
 non-null `multiplier` is the number of distinct raw supports represented by that row; it can be one. Non-circular candidates use a
 null multiplier.
 
-Every circular matrix automatically detects exact affine index multipliers once from the rational game. The helper filters V3
-output before `analyze_support()`. For an exact candidate it canonicalizes each multiplier image back to a bracelet, deduplicates
-those bracelets, and calls V3's existing `add_forbidden()` for each one, so the forbidden family remains closed under the verified
+Every circular matrix automatically detects exact affine index multipliers once from the rational game. The helper filters production
+bracelet output before `analyze_support()`. For an exact candidate it canonicalizes each multiplier image back to a bracelet,
+deduplicates those bracelets, and calls `add_forbidden_orbit()` for each one, so the forbidden family remains closed under the verified
 affine group. It also reconstructs one candidate row for every distinct dihedral image by exactly permuting the solved vector,
 support, and extended support. Each row's multiplier therefore retains its universal meaning—only distinct rotations and
-reflections, at most $2n$—and no matrix-specific symmetry information is required to expand the output. V3's recursion is
+reflections, at most $2n$—and no matrix-specific symmetry information is required to expand the output. The bracelet recursion is
 unchanged, the helper disengages when it finds no extra multiplier, and it never runs for non-circular matrices.
 
 Candidate and ESS totals remain mathematical totals, so circular ESS rows are
@@ -129,16 +129,17 @@ enough because canonicalization does not preserve subset relationships.
 
 ## Retained Circular Generators
 
-`CircularSupportGenerator` is V1: fixed-content FKM necklace recursion followed by reflection reduction. It remains available for
-regression and performance comparisons but is no longer wired into production.
+`ReferenceCircularSupportGenerator` is the test-only V1 oracle: fixed-content FKM necklace recursion followed by reflection
+reduction. It remains available for regression comparisons but is not part of production headers.
 
-`CircularSupportGeneratorV3` is the production path. It is the binary specialization of Karim-Alamgir-Husnine `BraceFD`: each
+`CircularSupportGenerator` is the production path formerly called V3. It is the binary specialization of Karim-Alamgir-Husnine
+`BraceFD`: each
 recursive step places one selected bit and skips the zero run before it, while the paper's reversal state rejects mirror branches
-during construction. V3 retains V1's callback, expanded forbidden-orbit masks, and independently calculated orbit multiplier.
+during construction. It retains V1's callback, expanded forbidden-orbit masks, and independently calculated orbit multiplier.
 
 ### Removed experimental `CircularSupportGeneratorV2`
 
-`CircularSupportGeneratorV2` was slower than V1 and V3, never entered production, and was removed from `supports.hpp` after its final
+`CircularSupportGeneratorV2` was slower than V1 and V3, never entered production, and was removed from source after its final
 comparison. This section and Git history retain the design so the failed approach is not accidentally repeated.
 
 V2 stores one forbidden support per bracelet orbit. During recursion it uses
@@ -155,8 +156,9 @@ therefore `period` or `2 * period` and is cached for the synchronous
 The compact representation is correct but slower. The focused 2026-08-02 fast-mode benchmark verified identical results on all 81
 quick-test matrices and timed the 33 circular cases. V2 was slower by 41.48% at the median and 91.40% by geometric mean; matrix 34
 was 6.824 times slower. V1 was faster on 28 cases, equal on three, and V2 won only two sub-microsecond dimension-2/3 measurements.
-V3 later superseded V1 and is also faster than V2. The expanded forbidden-orbit representation therefore remains in V3; only V2's
-compact pruning representation was rejected. See Git history and this document for the preserved method and result.
+V3 later superseded V1 and is also faster than V2. The expanded forbidden-orbit representation therefore remains in the production
+generator; only V2's compact pruning representation was rejected. See Git history and this document for the preserved method and
+result.
 
 ## Validation Record
 
@@ -178,8 +180,8 @@ for dimensions 19 and above. See `experiments/direct_bracelet_generation_2026-07
 
 ## Remaining Work
 
-The one-word runtime boundary is dimension 64. Focused tests cover bit 63 in both active generators without attempting to enumerate
-the complete `2^64` support space.
+The one-word runtime boundary remains dimension 64, while the public analyzer dispatches larger dimensions to the multiword
+generators. Focused tests cross positions 63/64 and 127/128 without attempting impractical complete searches.
 
 - Do not restore V2 unless a new end-to-end implementation beats V3 while preserving the same pruning contract.
 - Do not replace the callback with `next_support()` without a measured reason

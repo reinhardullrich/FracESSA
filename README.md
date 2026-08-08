@@ -40,9 +40,13 @@ This exact representation is independent of the selected search method.
 The main limitations are:
 
 - the matrix must be symmetric and contain rational values;
-- the dimension must be between 1 and 64;
+- dimensions 1 through 64 use one `uint64_t` support word, while larger dimensions use a runtime-sized multiword mask;
 - the $2^n-1$ nonempty supports make some larger or difficult matrices computationally expensive;
 - one matrix is processed on one CPU core, although the Python API can process several matrices in parallel.
+
+There is no separate arbitrary dimension cap. The parser rejects dimensions whose dense matrix size cannot be represented safely,
+and available memory and exponential search time impose much smaller practical limits. Full-support and strongly pruned searches can
+still make dimensions above 64 useful.
 
 ## Choose a search method
 
@@ -146,7 +150,7 @@ $$
 ```text
 {"run_id":null,"matrix_id":-1,"status":0,"candidate_count":1,"ess_count":1,"candidate_structure":{"3":1},"ess_structure":{"3":1},"elapsed_ns":33291,"safe_fallback":null,"error_message":""}
 candidate_id;vector;support;support_size;extended_support;extended_support_size;multiplier;is_ess;stability;payoff;payoff_dbl
-1;6/11,3/11,2/11;7;3;7;3;;1;T_pd_frc;-6/11;-0.54545454545454541
+1;6/11,3/11,2/11;7;3;7;3;;1;T_reduced_hessian_nd;-6/11;-0.54545454545454541
 ```
 
 Every analysis writes exactly one JSON summary line. It contains the status, weighted candidate and ESS counts, both support-size
@@ -155,8 +159,8 @@ structures, native elapsed nanoseconds, the optional whole-matrix safe-fallback 
 between runs. `--candidates` appends the candidate CSV after the summary line.
 
 The `vector` and `payoff` CSV columns retain exact fractions, while `payoff_dbl` is only a convenient floating-point approximation.
-`support` is a bit mask, and `is_ess` is `1` for an ESS. For compact circular input, `multiplier` says how many rotations and
-reflections the displayed representative covers; a blank `multiplier` means one candidate.
+`support` is a decimal integer bit mask of arbitrary width, and `is_ess` is `1` for an ESS. For compact circular input, `multiplier`
+says how many rotations and reflections the displayed representative covers; a blank `multiplier` means one candidate.
 
 Useful options:
 

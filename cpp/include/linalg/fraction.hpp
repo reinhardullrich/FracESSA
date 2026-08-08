@@ -15,8 +15,8 @@ namespace linalg {
  *
  * Every object initializes and clears one FLINT rational. FLINT keeps values
  * canonical, so arithmetic and comparisons are exact and need no epsilon.
- * Returning operators keep formulas readable; destination-first and in-place
- * helpers avoid wrapper temporaries in the small-matrix inner loops.
+ * Returning operators keep formulas readable; compound assignment avoids
+ * wrapper temporaries when an existing value can be updated in place.
  *
  * Value constructors assume every denominator is nonzero. The matrix parser
  * validates external text before construction; internal callers deliberately
@@ -100,24 +100,7 @@ public:
         fmpq_set_fmpz_frac(data_, numerator.native_handle(), denominator.native_handle());
     }
     
-    // Destination-first helpers avoid returning temporary fraction objects.
-    static void mul(fraction& res, const fraction& a, const fraction& b) noexcept {
-        fmpq_mul(res.data_, a.data_, b.data_);
-    }
-
-    static void div(fraction& res, const fraction& a, const fraction& b) {
-        if (fmpq_is_zero(b.data_)) {
-            throw std::domain_error("Division by zero");
-        }
-        fmpq_div(res.data_, a.data_, b.data_);
-    }
-
-    static void add(fraction& res, const fraction& a, const fraction& b) noexcept {
-        fmpq_add(res.data_, a.data_, b.data_);
-    }
-
-    // Returning operators favor readable formulas; hot loops use the helpers above.
-    
+    // Returning operators favor readable formulas.
     fraction operator*(const fraction& other) const {
         fraction result;
         fmpq_mul(result.data_, data_, other.data_);

@@ -107,7 +107,7 @@ class NativeIntegrationTests(unittest.TestCase):
                 "extended_support_size": 2,
                 "multiplier": None,
                 "is_ess": True,
-                "stability": "T_pd_frc",
+                "stability": "T_reduced_hessian_nd",
                 "payoff": "1/2",
                 "payoff_dbl": 0.5,
             },
@@ -150,10 +150,29 @@ class NativeIntegrationTests(unittest.TestCase):
         self.assertEqual(without_rows["ess_structure"], {3: 5})
         self.assertEqual(without_rows["candidates"], [])
 
+    def test_multiword_native_returns_python_integers(self):
+        dimension = 65
+        matrix = f"{dimension}#" + ",".join(["1"] * (dimension // 2))
+        expected_support = (1 << dimension) - 1
+
+        for method in ("safe", "fast", "test"):
+            with self.subTest(method=method):
+                result = run(
+                    method,
+                    Matrix(matrix_id=65, matrix=matrix),
+                    RunConfig(full_support=True, include_candidates=True),
+                    run_id=f"native_multiword_{method}",
+                )
+                self.assertEqual(result["status"], 0)
+                self.assertEqual(result["candidate_structure"], {dimension: 1})
+                self.assertEqual(result["ess_structure"], {dimension: 1})
+                self.assertEqual(result["candidates"][0]["support"], expected_support)
+                self.assertEqual(result["candidates"][0]["extended_support"], expected_support)
+                self.assertIs(type(result["candidates"][0]["support"]), int)
+
     def test_invalid_matrix_strings_return_parser_error(self):
         invalid_matrices = {
             "2##0": "Multiple '#' characters found in matrix string",
-            "65#0": "Parser supports dimensions in [1, 64], got 65",
             "2#0,1": "Expected 1 (CS) or 3 (Sym) values, got 2",
             "2#0,1/0,0": "Rational denominator cannot be zero: 1/0",
         }

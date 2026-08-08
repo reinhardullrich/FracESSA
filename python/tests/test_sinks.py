@@ -127,6 +127,23 @@ class SinkTests(unittest.TestCase):
         self.assertEqual(fallbacks, [None, None])
         self.assertEqual(candidate_structures, ['{"2":1}', '{"2":1}'])
 
+    def test_parquet_rejects_support_above_uint64(self):
+        try:
+            import pyarrow  # noqa: F401
+            from pyfracessa.sinks_parquet import ParquetSink
+        except ImportError:
+            self.skipTest("pyarrow is not installed")
+
+        result = _sample_result()
+        result["candidates"][0]["support"] = 1 << 64
+
+        with tempfile.TemporaryDirectory() as tmpdir:
+            paths = [Path(tmpdir) / "summary.parquet", Path(tmpdir) / "candidates.parquet"]
+            sink = ParquetSink(*paths)
+            with self.assertRaisesRegex(OverflowError, "support exceeds uint64"):
+                sink.write_result(result)
+            self.assertTrue(all(not path.exists() for path in paths))
+
     def test_json_sink_replaces_non_finite_floats_with_null(self):
         result = _sample_result()
         result["candidates"][0]["payoff_dbl"] = float("inf")

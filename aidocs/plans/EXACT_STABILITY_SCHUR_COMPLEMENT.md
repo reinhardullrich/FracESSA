@@ -18,7 +18,7 @@ Correctness remains the first requirement. The optimization is acceptable only i
 
 ## 2. What the current solver preserves
 
-For a support of size `s`, `find_candidate_safe::find()` constructs the integer-scaled reduced Hessian
+For a support of size `s`, `exact_candidate_solver::find()` constructs the integer-scaled reduced Hessian
 
 $$
 \widehat H=dH\in\mathbb Z^{r\times r},
@@ -168,10 +168,10 @@ Future implementation should change only these existing source files:
 | File | Minimal change |
 |---|---|
 | `cpp/include/linalg/fraction_free_ldlt_kkt.hpp` | Add one multi-column solve that reuses an unmodified negative-definite factorization. |
-| `cpp/include/fracessa/find_candidate_safe.hpp` | Declare the reduced-$B$ builder and one reusable integer matrix for $N$. |
-| `cpp/src/find_candidate_safe.cpp` | Build $\widehat G$ and $\widehat Q$ from the existing integer game/cache, reuse the factorization, and write $\widehat S$. |
+| `cpp/include/fracessa/exact_candidate_solver.hpp` | Declare the reduced-$B$ builder and one reusable integer matrix for $N$. |
+| `cpp/src/exact_candidate_solver.cpp` | Build $\widehat G$ and $\widehat Q$ from the existing integer game/cache, reuse the factorization, and write $\widehat S$. |
 | `cpp/include/fracessa/fracessa.hpp` | Rename `bee_matrix_` to the accurate `scaled_reduced_b_`. |
-| `cpp/src/checkstab.cpp` | Replace complete `Bee` construction and recursive elimination with the reduced-$B$ builder and checks on the smaller matrix. |
+| `cpp/src/check_stability.cpp` | Replace complete `Bee` construction and recursive elimination with the reduced-$B$ builder and checks on the smaller matrix. |
 | `cpp/tests/test_linear_solver.cpp` | Add one focused multi-right-hand-side factor-reuse test. |
 
 No parser, CLI, Python, candidate-output, database, support-generator, fast-search, or copositivity source file needs to change.
@@ -335,17 +335,17 @@ The early decisions remain unchanged:
 Only the remaining outside-best-reply path changes:
 
 ```cpp
-const bitset64 kay = bs64::subtract(candidate_.extended_support, candidate_.support);
-find_candidate_safe_.build_scaled_reduced_b(
-    candidate_.support, kay, scaled_reduced_b_);
+const bitset64 outside_best_replies = bs64::subtract(candidate_.extended_support, candidate_.support);
+exact_candidate_solver_.build_scaled_reduced_b(
+    candidate_.support, outside_best_replies, scaled_reduced_b_);
 
 if (scaled_reduced_b_.is_positive_definite()) {
-    candidate_.stability = "T_pd_frc";
+    candidate_.stability = "T_reduced_hessian_nd";
     candidate_.is_ess = true;
     return;
 }
 
-if (kay_size <= 1) {
+if (outside_best_reply_count <= 1) {
     candidate_.stability = "F_not_pd_kay_0_1";
     candidate_.is_ess = false;
     return;
@@ -402,7 +402,7 @@ that divides by the previous pivot. The same test also covers column handling an
 
 Run the existing complete C++ and matrix-correctness suites. In particular, preserve examples that reach all relevant final states:
 
-- positive-definite acceptance (`T_pd_frc`);
+- reduced-Hessian negative-definite acceptance (`T_reduced_hessian_nd`);
 - one outside best reply rejected after positive definiteness fails (`F_not_pd_kay_0_1`);
 - strict-copositivity acceptance (`T_copos`; canonical database matrix 29 contains such a candidate);
 - strict-copositivity rejection (`F_not_copos`; canonical database matrices 4 and 7 contain examples); and
@@ -417,7 +417,7 @@ should also remain unchanged.
 The implementation was compared row for row with the canonical database on all 309 analyzed matrices with an outside-best-reply
 candidate and a sub-second safe baseline. All 7,808 stored representative candidates matched in candidate ID, exact vector, support,
 extended support, multiplier, ESS decision, stability label, and exact payoff. Their multipliers represent 14,659 candidates. This
-includes matrices 4, 5, 6, 7, 19, 20, 29, and 32, which together exercise `T_pd_frc`, `F_not_copos`,
+includes matrices 4, 5, 6, 7, 19, 20, 29, and 32, which together exercise `T_reduced_hessian_nd`, `F_not_copos`,
 `F_reduced_hessian_not_nd`, `T_copos`, `F_not_pd_kay_0_1`, the zero-dimensional support block, and rejection before Schur
 construction.
 

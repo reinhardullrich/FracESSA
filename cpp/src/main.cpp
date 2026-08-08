@@ -40,7 +40,8 @@ void write_json_string(std::ostream& output, std::string_view value)
     output << '"';
 }
 
-void write_structure(std::ostream& output, const std::array<size_t, bs64::kMaxBitsetDimension + 1>& structure)
+template<class Structure>
+void write_structure(std::ostream& output, const Structure& structure)
 {
     output << '{';
     bool first = true;
@@ -53,13 +54,14 @@ void write_structure(std::ostream& output, const std::array<size_t, bs64::kMaxBi
     output << '}';
 }
 
+template<class Structure>
 void write_summary(
     std::int64_t matrix_id,
     int status,
     size_t candidate_count,
     size_t ess_count,
-    const std::array<size_t, bs64::kMaxBitsetDimension + 1>& candidate_structure,
-    const std::array<size_t, bs64::kMaxBitsetDimension + 1>& ess_structure,
+    const Structure& candidate_structure,
+    const Structure& ess_structure,
     long long elapsed_ns,
     candidate_search::safe_fallback safe_fallback,
     std::string_view error_message)
@@ -96,6 +98,25 @@ void write_error(std::int64_t matrix_id, int status, std::string_view message)
         0,
         candidate_search::safe_fallback::none,
         message);
+}
+
+template<class Analyzer>
+void run_analysis(search_method method, const linalg::matrix_frc& matrix, bool is_circular_symmetric,
+                  bool include_candidates, bool full_support, bool enable_logging, std::int64_t matrix_id)
+{
+    const auto start_time = std::chrono::steady_clock::now();
+    Analyzer analyzer(method, matrix, is_circular_symmetric, include_candidates, full_support, enable_logging, matrix_id);
+    const auto end_time = std::chrono::steady_clock::now();
+    const auto elapsed_ns = std::chrono::duration_cast<std::chrono::nanoseconds>(end_time - start_time).count();
+
+    write_summary(matrix_id, kStatusOk, analyzer.candidate_count_, analyzer.ess_count_, analyzer.candidate_structure_,
+                  analyzer.ess_structure_, elapsed_ns, analyzer.safe_fallback_, "");
+
+    if (include_candidates) {
+        using candidate_type = typename Analyzer::candidate_type;
+        std::cout << candidate_type::header() << std::endl;
+        for (const auto& row : analyzer.candidates_) std::cout << row.to_string() << std::endl;
+    }
 }
 
 } // namespace
@@ -148,29 +169,18 @@ int main(int argc, char *argv[])
         write_error(matrix_id, kStatusParseError, error.what());
         std::cerr << "Error: " << error.what() << std::endl;
         return EXIT_FAILURE;
+    } catch (const std::exception& error) {
+        write_error(matrix_id, kStatusExecError, error.what());
+        std::cerr << "Error: " << error.what() << std::endl;
+        return EXIT_FAILURE;
     }
 
     try {
-        const auto start_time = std::chrono::steady_clock::now();
-        ::fracessa analyzer(method, matrix, is_circular_symmetric, include_candidates, full_support, enable_logging, matrix_id);
-        const auto end_time = std::chrono::steady_clock::now();
-        const auto elapsed_ns = std::chrono::duration_cast<std::chrono::nanoseconds>(end_time - start_time).count();
-
-        write_summary(
-            matrix_id,
-            kStatusOk,
-            analyzer.candidate_count_,
-            analyzer.ess_count_,
-            analyzer.candidate_structure_,
-            analyzer.ess_structure_,
-            elapsed_ns,
-            analyzer.safe_fallback_,
-            "");
-
-        if (include_candidates) {
-            std::cout << candidate::header() << std::endl;
-            for (const auto& row : analyzer.candidates_) std::cout << row.to_string() << std::endl;
-        }
+        if (matrix.rows() <= bs64::kMaxBitsetDimension)
+            run_analysis<::fracessa>(method, matrix, is_circular_symmetric, include_candidates, full_support, enable_logging, matrix_id);
+        else
+            run_analysis<::multiword_fracessa>(method, matrix, is_circular_symmetric, include_candidates, full_support,
+                                               enable_logging, matrix_id);
     } catch (const std::exception& error) {
         write_error(matrix_id, kStatusExecError, error.what());
         std::cerr << "Error: " << error.what() << std::endl;

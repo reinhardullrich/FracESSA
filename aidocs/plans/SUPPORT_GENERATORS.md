@@ -1,7 +1,7 @@
 # Support Generators With DFS And Direct Bracelets
 
-Status: implemented in production. Non-circular generation uses DFS; circular generation uses V3 direct fixed-density bracelet
-recursion. The former V1 FKM generator remains available for comparisons. Compact bit-parallel V2 was slower than V1 and V3, never
+Status: implemented in production. Non-circular generation uses DFS; circular generation uses direct fixed-density bracelet
+recursion. The former V1 FKM generator remains as a test-only reference. Compact bit-parallel V2 was slower than V1 and V3, never
 entered production, and has been removed from source while its design and measurements remain documented here.
 
 Document role: current implemented design plus retained proofs, rejected alternatives, and benchmark evidence.
@@ -52,12 +52,12 @@ C++17.
 
 ### Support mask
 
-A support is one `uint64_t` mask. Bit `i` means strategy `i` is present. The analyzer contract is `1 <= dimension <= 64`; bit 63 is
-the final strategy position at the upper boundary.
+Bit `i` means strategy `i` is present. Dimensions 1 through 64 use one raw `uint64_t`; dimensions 65 and above use a fixed-width
+`bitset_multiword`. The representation is selected once before support generation, so the one-word path keeps its direct operations.
 
 ### Exact candidate and forbidden support
 
-An exact candidate is a support accepted by `find_candidate_safe::find()`. Only that
+An exact candidate is a support accepted by `exact_candidate_solver::find()`. Only that
 exact result may create a pruning rule. A support passed on by a preliminary
 double procedure must never prune anything.
 
@@ -102,7 +102,7 @@ from the current period, or choose the next larger symbol and start a new
 period. For binary supports, the content is fixed by the required number of
 ones.
 
-This describes retained V1. Production V3 instead specializes the paper's `BraceFD` recursion to binary supports: it places one
+This describes the retained V1 test oracle. Production specializes the paper's `BraceFD` recursion to binary supports: it places one
 selected bit per recursion, skips the intervening zero run, and tracks reversal order while constructing the bracelet.
 
 ## Former Eager Production Behavior
@@ -518,8 +518,9 @@ comparison; V2's documented results remain evidence of the rejected compact-prun
 
 ## Implemented Shape
 
-`cpp/include/fracessa/supports.hpp` contains the two production paths and the retained V1 circular oracle with the same compile-time
-interface and no inheritance:
+The production paths are split between `cpp/include/fracessa/non_circular_support_generator.hpp` and
+`cpp/include/fracessa/circular_support_generator.hpp`. The independent V1 oracle lives only in
+`cpp/tests/reference_circular_support_generator.hpp`. They retain the same compile-time callback shape without inheritance:
 
 ```cpp
 template<class Consumer>
@@ -528,15 +529,15 @@ void generate(Consumer&& consume); // consume(support, support_size)
 // NonCircularSupportGenerator
 void add_forbidden(bitset64 support);
 
-// CircularSupportGeneratorV3
-size_t add_forbidden(bitset64 support); // distinct-orbit multiplier
+// CircularSupportGenerator
+size_t add_forbidden_orbit(bitset64 support); // distinct-orbit multiplier
 ```
 
 - `NonCircularSupportGenerator` uses fixed-cardinality binary DFS and preserves
   increasing numeric mask order.
-- Production `CircularSupportGeneratorV3` uses direct fixed-density bracelet recursion, expanded dihedral forbidden masks, and
+- `CircularSupportGenerator` uses direct fixed-density bracelet recursion, expanded dihedral forbidden masks, and
   returns their distinct orbit size as the candidate multiplier.
-- `CircularSupportGenerator` retains V1's FKM recursion and reflection reduction. It is not selected by `fracessa`.
+- `ReferenceCircularSupportGenerator` retains V1's FKM recursion and reflection reduction for tests only.
 - `fracessa::analyze_support()` runs the optional fast heuristic, then safe
   exact candidate analysis, and owns exact stability classification.
 - `fracessa::finalize_candidate()` owns representative IDs, weighted ESS counting,

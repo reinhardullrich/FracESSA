@@ -52,7 +52,7 @@ The actual results are:
 The `safe` result is
 
 ```text
-1;1/3,1/3,1/3;7;3;7;3;;1;T_pd_frc;0;0.000000
+1;1/3,1/3,1/3;7;3;7;3;;1;T_reduced_hessian_nd;0;0.000000
 ```
 
 ## Why It Is an Exact Candidate
@@ -162,7 +162,7 @@ This example still fails after every pivot below $10^{-12}$ is sent to the safe 
 The exact full-support result is
 
 ```text
-1;1/10000000000,1/2,4999999999/10000000000;7;3;7;3;;1;T_pd_frc;25000000010002500001/1000000000000000000;25.000000
+1;1/10000000000,1/2,4999999999/10000000000;7;3;7;3;;1;T_reduced_hessian_nd;25000000010002500001/1000000000000000000;25.000000
 ```
 
 | Pivot-fallback method | Candidates | ESS |
@@ -230,7 +230,7 @@ This four-strategy example also fails after small pivots are sent to the safe so
 The safe solver finds two ESS. The one lost by the pivot-fallback fast variant is
 
 ```text
-1;1/1000,1/2,499/1000,0;7;3;7;3;;1;T_pd_frc;10040040000001/400000000000;25.100100
+1;1/1000,1/2,499/1000,0;7;3;7;3;;1;T_reduced_hessian_nd;10040040000001/400000000000;25.100100
 ```
 
 | Pivot-fallback method | Candidates | ESS |

@@ -121,10 +121,10 @@ the proper-principal-submatrix invariant above.
 Call
 
 ```cpp
-fmpz_mat_nullspace(nullspace.native_handle(), subMat.native_handle());
+fmpz_mat_nullspace(nullspace.native_handle(), principal_submatrix.native_handle());
 ```
 
-after restoring `subMat` to the original principal matrix. FLINT returns the nullity and writes independent right-nullspace basis
+after restoring `principal_submatrix` to the original principal matrix. FLINT returns the nullity and writes independent right-nullspace basis
 vectors into the first `nullity` columns of an output allocated with at least $\ell\times\ell$ entries. When the nullity is one,
 inspect only column zero. The determinant has already proved singularity, so retain only a debug assertion that the returned nullity
 is positive.
@@ -327,11 +327,11 @@ proper principal submatrices have passed.
 
 ### 5.6 Current core implementation
 
-The current `is_copositive_hadeler()` generic branch:
+The current `is_strictly_copositive_hadeler()` generic branch:
 
 1. extracts `subset_indices` into the fixed stack buffer;
-2. copies the current principal matrix into `subMat`;
-3. factorizes `subMat` in place;
+2. copies the current principal matrix into `principal_submatrix`;
+3. factorizes `principal_submatrix` in place;
 4. reads the exact determinant sign.
 
 The determinant decision after step 4 is:
@@ -345,7 +345,7 @@ if (nonsingular) { // Here determinant_sign < 0.
     for (size_t row = 0; row < current_dim; ++row) solution(row, 0) = minus_one;
 
     integer denominator;
-    factorization_.solve_inplace(solution, denominator, subMat);
+    factorization_.solve_inplace(solution, denominator, principal_submatrix);
     assert(denominator.sign() > 0);
 
     for (size_t row = 0; row < current_dim; ++row)
@@ -353,13 +353,13 @@ if (nonsingular) { // Here determinant_sign < 0.
     return false;
 }
 
-// factorize_inplace() overwrote subMat. Restore the original principal matrix only for this singular branch.
+// factorize_inplace() overwrote principal_submatrix. Restore the original principal matrix only for this singular branch.
 for (size_t row = 0; row < current_dim; ++row)
     for (size_t column = 0; column < current_dim; ++column)
-        subMat(row, column) = A(subset_indices[row], subset_indices[column]);
+        principal_submatrix(row, column) = A(subset_indices[row], subset_indices[column]);
 
 matrix_int nullspace(current_dim, current_dim);
-const slong nullity = fmpz_mat_nullspace(nullspace.native_handle(), subMat.native_handle());
+const slong nullity = fmpz_mat_nullspace(nullspace.native_handle(), principal_submatrix.native_handle());
 assert(nullity > 0);
 if (nullity != 1) return true;
 
@@ -388,10 +388,10 @@ That isolated replacement required no change in:
 - `fraction_free_ldlt.hpp`: it already solves one or many right-hand sides and guarantees a positive denominator;
 - `matrix_integer.hpp`: it already exposes the FLINT matrix handle and required entry operations;
 - CMake or the FLINT minimum: `fmpz_mat_nullspace` exists in both supported local FLINT 3.4 and project-local FLINT 3.6;
-- `checkstab.cpp`, candidate search, support generation, CLI, Pybind, Python, SQLite, or release workflow.
+- `check_stability.cpp`, candidate search, support generation, CLI, Pybind, Python, SQLite, or release workflow.
 
 The 2026-08-08 production restoration necessarily moved the already-verified general factorization from `archive/` back to active
-`linalg`, reconnected `checkstab.cpp`, and retained the independently implemented negative-component reduction. Those restoration
+`linalg`, reconnected `check_stability.cpp`, and retained the independently implemented negative-component reduction. Those restoration
 changes do not alter the one-solve/nullspace proof.
 
 ### 5.8 Focused regression cases

@@ -2,8 +2,8 @@
 
 `fracessa_testdata.sqlite3` is the canonical store for exact test matrices,
 complete expected candidate results where available, and timing data.
-The analyzer accepts dimensions through 64, but this database intentionally remains limited to dimensions 1 through 63: candidate
-supports are stored as signed SQLite `INTEGER` values, which cannot represent a `uint64_t` mask with bit 63 set.
+The database accepts every positive dimension supported by the analyzer. Candidate support masks are canonical positive decimal
+`TEXT`, so SQLite's signed 64-bit `INTEGER` range does not limit multiword supports.
 
 `Copos_testdata.sqlite3` is the separate exact test corpus for general strict-copositivity and copositivity decisions. It is not
 limited by FracESSA's one-word analyzer representation. Its `matrices` table contains 1,569 permutation-inequivalent exact
@@ -54,9 +54,9 @@ ordinary-copositivity result means that the tested algorithm did not determine i
 not be assessed from the available expected classification. `published_benchmarks` remains separate because it records literature
 results rather than measurements of the current implementation.
 
-The current snapshot contains 1,375 distinct strategically normalized matrices. The 1,064 exact or exact-fallback baselines and 18
-additional unverified fast-only results have 68,707 stored candidate representatives whose multipliers represent 112,381
-candidates and 96,730 ESS. The other 293 rows are catalog-only and have null candidate fields.
+The current snapshot contains 1,403 distinct strategically normalized matrices. The 1,092 exact or exact-fallback baselines and 18
+additional unverified fast-only results have 71,021 stored candidate representatives whose multipliers represent 114,695
+candidates and 96,758 ESS. The other 293 rows are catalog-only and have null candidate fields.
 
 It contains each distinct matrix from Tables 1 and 2 of the
 Bomze-Schachinger-Ullrich ESS-growth paper exactly once. IDs 18 and 26 hold the
@@ -92,6 +92,12 @@ include failures with accepted pivots above $10^{-12}$, $10^{-10}$, and $10^{-2}
 human-readable calibration log stating the observed fast failure. ID 2998 has fast calibration `-1` because its failed
 full-support decision would otherwise continue into an impractical exhaustive dimension-33 search.
 
+IDs 2999-3026 are matched constructed tests at dimensions 63, 64, 65, 96, 128, 160, and 200. Each dimension has one game whose
+unique ESS has support size 1, 2, 3, or the complete simplex. Singleton equilibria outside the prescribed size-1-through-3 block
+prune every larger mixed support. The complete-simplex case is the compact circular game $J-I$ and must use the direct
+`full_support` path; its proper supports are not candidates, but enumerating them normally would still be exponential. Exact and
+fast analysis agree on all 2,314 stored candidate rows and all 28 ESS.
+
 IDs 2210-2687 contain 450 retained exact representatives from a combined audit of Anymatrix, TypedMatrices.jl, and Matrix
 Depot. The raw selection contributed 478 rows. Circular normalization removed exact duplicate ID 2215; the positive-scale audit
 then removed IDs 2212-2214, 2220, and 2254 in favor of older strategically equivalent rows, dimension-one consolidation
@@ -111,9 +117,9 @@ rule. All paired ESS counts match. Build label, revision, and binary hash
 identify every stored build.
 
 Matrix rows contain nullable `fast_calibration_ns` and `safe_calibration_ns` values used only to choose benchmark iteration
-counts. Fast calibration covers all 1,375 matrices with 1,081 positive measurements and 294 `-1` timeouts; safe has 1,064 positive
-measurements and 311 timeouts. No calibration field remains null, and every row has a completed audit timestamp. The current
-whole-matrix classifications are 1,168 without fallback, 135 `precision_span`, four `equilibration_invalid`, and 68
+counts. Fast calibration has 1,081 positive measurements and 294 `-1` timeouts; safe has 1,064 positive measurements and 311
+timeouts. The 28 prescribed-support rows have not received canonical calibrations or audit timestamps. The current whole-matrix
+classifications are 1,196 without fallback, 135 `precision_span`, four `equilibration_invalid`, and 68
 `equilibration_non_convergence`. A value of `-1` records a calibration run killed at its cutoff
 and selects one benchmark iteration. Positive integer nanoseconds preserve the native value exactly; divide by `1000.0` when
 displaying decimal microseconds.
@@ -464,8 +470,8 @@ revisions, family list, exact normalization checks, and retained counts are reco
 Each row stores one exact matrix input and its summary:
 
 - `matrix_id`: stable FracESSA verification ID.
-- `dimension`: number of strategies, from 1 through 63.
-- `size_class`: `small` for dimensions 1-8, `medium` for 9-16, `large` for 17-25, and `super_large` for 26-63.
+- `dimension`: positive number of strategies; the database imposes no upper bound.
+- `size_class`: `small` for dimensions 1-8, `medium` for 9-16, `large` for 17-25, and `super_large` for 26 and above.
 - `is_cs`: 1 for compact circular-symmetric input, otherwise 0.
 - `matrix`: the exact comma-separated input values, without the `n#` prefix.
 - `candidate_count` and `ess_count`: complete weighted baseline counts, or null
@@ -533,7 +539,8 @@ smallest support in its rotation/reflection orbit, and its non-null `multiplier`
 is the number of distinct supports represented. A non-circular row has a null
 multiplier. Exact fractions and vectors remain text; `payoff_double` is also
 text so database reads cannot alter formatting. `(matrix_id, candidate_id)` is
-the primary key, and a support may occur only once for a matrix.
+the primary key, and a support may occur only once for a matrix. `support` and `extended_support` use canonical positive decimal
+text because SQLite integers are limited to signed 64-bit values.
 
 Fixed facts already represented by columns, including size, circular symmetry,
 counts, and support-size structures, are not duplicated in `tags`.
