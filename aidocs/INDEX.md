@@ -18,6 +18,8 @@ duplicating its contents.
   measurements, and future benchmark gates.
 - `plans/CHEAP_CYCLIC_SYMMETRY_FILTER.md`: implemented affine cyclic-symmetry reduction, verification, and promotion evidence.
 - `plans/EXACT_STABILITY_SCHUR_COMPLEMENT.md`: implemented exact Schur-complement stability reduction and verification plan.
+- `plans/MULTIWORD_BIT_ARRAY.md`: implementation plan for removing dead bitset code, supporting dimension 64 with one word, and
+  extending support and copositivity masks above 64 without slowing the one-word path.
 - `correctness/DOUBLE_PD_FALSE_POSITIVES.md`: exact analysis of the removed binary64 positive-definiteness certificate bug.
 - `correctness/FAST_CANDIDATE_FALSE_REJECTION.md`: exact ESS counterexamples for former fast rejection rules and current mitigations.
 - `reference/ELIMINATING_THE_BORDERED_CANDIDATE_SYSTEM.md`: mathematical derivation of the reduced symmetric candidate system.
