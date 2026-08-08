@@ -1264,3 +1264,35 @@ and rejects 65; and candidate/ESS structures include support size 64. Focused te
 bounded circular and non-circular support generation, full-support and circular end-to-end searches, copositivity component masks,
 and CLI/Pybind parser boundaries. Release CTest, Python tests, and focused ASan/UBSan tests pass. The canonical SQLite game database
 remains limited to dimension 63 because its signed `INTEGER` support column cannot represent bit 63.
+
+372. Added the isolated runtime-sized support primitive for the future dimension-above-64 path:
+`bitset_multiword` owns a fixed word vector per matrix dimension and provides only the required set algebra, traversal, ordering,
+one-position rotation, reflection, extraction, and diagnostic bitstring operations. Independent `std::vector<bool>` reference tests
+cover every reflection dimension from 1 through 260 and all other operations at dimensions 65, 70, 128, and 129. Reflection now
+reverses and realigns complete words rather than testing every bit; ARM64 uses its single `rbit` instruction through the shared
+one-word helper and other targets retain the portable mask-and-shift implementation. Representative 65-256-bit kernel measurements
+were about 2.5-10x faster than the initial per-bit version. The primitive is not connected to the analyzer, so the public maximum
+remains 64. Matched CPU-2 persistent-Pybind checks over ten representative games had an exact 1.000 median current/baseline ratio in
+both fast and safe modes. All ten Release CTests, all 66 Python tests, and the focused ASan/UBSan tests pass.
+
+373. Removed the rejected adaptive simplicial-cone checker and restored the optimized exact Hadeler fallback. Principal submatrices
+are enumerated by increasing cardinality, dimensions one through three use direct exact criteria, and every larger unresolved
+submatrix uses one fraction-free determinant followed by at most one retained solve or one exact nullspace. The general symmetric
+fraction-free factorization returned from `archive/` to active `linalg`; its unused positive-inertia bookkeeping was omitted. The
+negative-entry connected-component reduction remains in front of Hadeler. Historical cone measurements remain in entries 367-369 so
+the failed direction is not repeated. All ten Release CTests, all 66 Python tests, five focused ASan/UBSan targets, and both SQLite
+integrity checks pass. A temporary production-path corpus sweep completed 1,401 matrices through dimension 24 with zero mismatches;
+361 reached Hadeler, while one known hard strict dimension-24 matrix exceeded the external 120-second verification cutoff.
+
+374. Extended exact Hadeler copositivity and its negative-entry component reduction beyond dimension 64 without changing the
+one-word subset loop. The large path recursively enumerates fixed-cardinality principal subsets while carrying selected positions
+directly in one reusable index vector, so it needs neither a subset mask nor per-subset index extraction. Its sign scan stores one
+multiword negative-neighbor mask per row, and connected-component traversal reuses fixed-width component, frontier, and discovery
+masks. Focused tests cover positions 63, 64, and 128, disconnected components, and a connected 65-vertex graph while rejecting early
+enough to avoid impractical exhaustive searches. All ten FLINT 3.6 Release CTests, all 66 Python tests, focused ASan/UBSan, both
+SQLite integrity checks, and `git diff --check` pass. Public candidate search remains limited to dimension 64.
+
+375. Removed the unused `CircularSupportGeneratorV2` implementation after its retained benchmark record had already established
+that it was slower than both V1 and production V3. V1 remains as the independent test oracle and V3 remains the only circular
+generator selected by production. Current documentation now preserves V2 as a rejected historical design rather than claiming its
+source is still active.

@@ -81,17 +81,26 @@ inline bitset64 rot_left(bitset64 bits, size_t shift, size_t n) noexcept {
   return ((bits << shift) | (bits >> (n - shift))) & mask;
 }
 
-// Mirror strategy i to n-1-i. Rotations of this result cover every reflection
-// axis of a circular support.
-inline bitset64 reflect(bitset64 bits, size_t n) noexcept {
-  if (n == 0) return 0;
+inline bitset64 reverse_bits(bitset64 bits) noexcept {
+#if defined(__aarch64__) && (defined(__GNUC__) || defined(__clang__))
+  // GCC does not recognize the portable mask sequence as ARM64's single rbit instruction.
+  __asm__("rbit %0, %1" : "=r"(bits) : "r"(bits));
+  return bits;
+#else
   bits = ((bits >> 1) & 0x5555555555555555ULL) | ((bits & 0x5555555555555555ULL) << 1);
   bits = ((bits >> 2) & 0x3333333333333333ULL) | ((bits & 0x3333333333333333ULL) << 2);
   bits = ((bits >> 4) & 0x0f0f0f0f0f0f0f0fULL) | ((bits & 0x0f0f0f0f0f0f0f0fULL) << 4);
   bits = ((bits >> 8) & 0x00ff00ff00ff00ffULL) | ((bits & 0x00ff00ff00ff00ffULL) << 8);
   bits = ((bits >> 16) & 0x0000ffff0000ffffULL) | ((bits & 0x0000ffff0000ffffULL) << 16);
-  bits = (bits >> 32) | (bits << 32);
-  return bits >> (64 - n);
+  return (bits >> 32) | (bits << 32);
+#endif
+}
+
+// Mirror strategy i to n-1-i. Rotations of this result cover every reflection
+// axis of a circular support.
+inline bitset64 reflect(bitset64 bits, size_t n) noexcept {
+  if (n == 0) return 0;
+  return reverse_bits(bits) >> (64 - n);
 }
 
 inline bool is_set_at_pos(bitset64 bits, size_t pos) noexcept {
@@ -136,7 +145,7 @@ inline bitset64 lowest_set_bit_as_bit(bitset64 bits) noexcept {
 }
 
 // Gosper's algorithm: return the next larger bit pattern with the same number
-// of set bits. Caller guarantees bits != 0 and complete enumeration uses n < 64.
+// of set bits. Caller guarantees bits != 0 and that another pattern remains in the active width.
 inline bitset64 next_same_cardinality(bitset64 bits) noexcept {
   const bitset64 lowest = lowest_set_bit_as_bit(bits);
   const bitset64 ripple = bits + lowest;
@@ -171,7 +180,7 @@ inline bool is_smallest_representation(bitset64 bits, size_t n) noexcept {
 // Convert to bitstring representation (MSB first, like std::bitset::to_string())
 // Only outputs bits 0 to dimension-1 (rightmost dimension bits)
 // Example: dimension=5, bits 0,3,4 set -> "11001"
-inline std::string to_bitstring(bitset64 bits, size_t dimension) noexcept {
+inline std::string to_bitstring(bitset64 bits, size_t dimension) {
   if (dimension == 0) return "";
   
   std::string result;
@@ -186,7 +195,7 @@ inline std::string to_bitstring(bitset64 bits, size_t dimension) noexcept {
 }
 
 // Convert to string representation (decimal representation of uint64)
-inline std::string to_string(bitset64 bits) noexcept {
+inline std::string to_string(bitset64 bits) {
   return std::to_string(bits);
 }
 

@@ -128,9 +128,9 @@ void fracessa::check_stability()
     }
 
     // Path 9, final decision: nonnegative interactions between distinct components of the negative-entry graph cannot create a
-    // nonpositive value on the nonnegative orthant. Check each component independently with the exact adaptive-cone test.
-    if (linalg::CopositivityChecker::are_negative_components_strictly_copositive(
-            scaled_reduced_b_, sign_scan.negative_neighbors)) {
+    // nonpositive value on the nonnegative orthant. Check each component independently with exact Hadeler enumeration.
+    linalg::CopositivityChecker copositivity_checker(kay_size);
+    if (copositivity_checker.are_negative_components_strictly_copositive(scaled_reduced_b_, sign_scan.negative_neighbors)) {
         if (conf_with_log_) logger_->info("Reason: true_copositive");
         candidate_.stability = "T_copos";
         candidate_.is_ess = true;

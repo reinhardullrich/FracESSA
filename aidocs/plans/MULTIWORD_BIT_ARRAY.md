@@ -1,7 +1,7 @@
 # Multiword Bit Array Plan
 
-Status: implementation plan for dimension 65 and above. Dimension 64 was completed on the existing one-word path on 2026-08-08 and
-is an available prerequisite. No multiword source changes have been made from this plan.
+Status: staged implementation for dimension 65 and above. Dimension 64, the isolated multiword primitive, and the dimension-independent
+exact Hadeler checker were completed on 2026-08-08. Candidate search and public analyzer dispatch remain limited to dimension 64.
 
 ## Goal
 
@@ -67,14 +67,13 @@ The following `bitset64.hpp` helpers have no production caller. Their remaining 
 
 - `two_to_the_power_of()`;
 - `find_pos_next_set_bit()`;
-- `next_same_cardinality()`;
 - `bits_before_pos()`;
 - `is_smallest_representation()`.
 
 Delete those helpers and their dedicated tests. Do not port them to the multiword type.
 
-`CircularSupportGeneratorV2` in `supports.hpp` has no caller in production or tests. Its failed experiment is already preserved in
-the historical documentation. Delete the implementation instead of porting it.
+`CircularSupportGeneratorV2` had no caller in production or tests and was removed. Its failed experiment remains preserved in the
+historical documentation. Do not restore or port it.
 
 `CircularSupportGenerator` V1 is test-only, but it remains a useful independent oracle for V3. Keep it one-word-only during this
 work; do not generalize it. Production uses only `NonCircularSupportGenerator` and `CircularSupportGeneratorV3`.
@@ -99,10 +98,10 @@ Keep two concrete types:
 
 ```cpp
 using bitset64 = uint64_t;       // production path for n <= 64
-class multiword_bitset;         // production path for n >= 65
+class bitset_multiword;         // production path for n >= 65
 ```
 
-`multiword_bitset` owns `std::vector<uint64_t> words_`. Bit `i` is stored in:
+`bitset_multiword` owns `std::vector<uint64_t> words_`. Bit `i` is stored in:
 
 ```text
 word index = i / 64
@@ -166,7 +165,7 @@ template<class SupportMask>
 struct basic_candidate;
 
 using fracessa = basic_fracessa<bitset64>;
-using multiword_fracessa = basic_fracessa<multiword_bitset>;
+using multiword_fracessa = basic_fracessa<bitset_multiword>;
 ```
 
 The existing `fracessa` alias preserves the current one-word C++ tests and generated code. CLI and Pybind dispatch once after parsing
@@ -176,7 +175,7 @@ the dimension:
 if (dimension <= 64)
     run_typed<bitset64>(...);
 else
-    run_typed<multiword_bitset>(...);
+    run_typed<bitset_multiword>(...);
 ```
 
 `find_candidate_fast`, `find_candidate_test`, and `find_candidate_safe` should keep owning their present numerical matrices and
@@ -249,15 +248,15 @@ iterating its set positions and setting their mapped destination bits in a pre-s
 
 | File | Dimension-above-64 change |
 |---|---|
-| `cpp/include/fracessa/multiword_bitset.hpp` | Add the fixed-width-per-run word vector and only the required operations. |
-| `cpp/tests/test_multiword_bitset.cpp` | Compare every operation with an independent `std::vector<bool>` reference at the 63/64, 127/128, and unused-high-bit boundaries. |
+| `cpp/include/fracessa/bitset_multiword.hpp` | Add the fixed-width-per-run word vector and only the required operations. |
+| `cpp/tests/test_bitset_multiword.cpp` | Compare every operation with an independent `std::vector<bool>` reference at the 63/64, 127/128, and unused-high-bit boundaries. |
 | `cpp/tests/CMakeLists.txt` | Build and register the isolated primitive test. |
 | `cpp/include/fracessa/supports.hpp` | Leave the one-word generators intact; add separate mutable-work-mask non-circular and V3 circular generators. Do not restore or port V2. |
 | `cpp/include/fracessa/circular_affine_symmetry.hpp` | Keep the present one-word implementation and add a multiword specialization with destination-position tables and reusable scratch masks. |
 | `cpp/include/fracessa/candidate.hpp` | Make the working candidate depend on `SupportMask`; keep support and extended support in the same fixed-width representation. |
 | `cpp/include/fracessa/fracessa.hpp`, `cpp/src/fracessa.cpp`, `cpp/src/checkstab.cpp` | Template the search engine over the mask type, keep one static dispatch before the search, and replace result-structure arrays with dimension-sized vectors. |
 | `cpp/include/fracessa/find_candidate_*.hpp`, `cpp/src/find_candidate_*.cpp` | Template only support-dependent methods. Give the large instantiation reusable `size_t` index and numerical scratch vectors; retain all one-word stack arrays. |
-| `cpp/include/linalg/copositive_integer.hpp` | Replace the fixed 64-row negative-neighbor representation only for the large path; do not alter the cone kernel. Coordinate ownership with the separate Coposit extraction. |
+| `cpp/include/linalg/copositive_integer.hpp` | Add recursive large-dimension Hadeler enumeration and multiword negative-neighbor components; retain the one-word Hadeler implementation unchanged. |
 | `cpp/src/main.cpp`, `cpp/src/pybind_module.cpp` | Dispatch once, serialize arbitrary-width masks, and use dimension-sized result structures. |
 | `cpp/include/fracessa/matrix_parser.hpp` | Remove the bitmask-derived maximum only after all paths are connected; add checked triangular-size arithmetic. |
 | `python/pyfracessa/sinks_parquet.py` | Reject an out-of-range support explicitly until a separately approved schema replaces `uint64`; CSV and JSON need no schema change. |
@@ -277,37 +276,48 @@ Dimension 64 works with raw `uint64_t`, including bit 63, rotation, reflection, 
 structures through support size 64, parser and CLI/Pybind boundaries, and the copositivity component mask. Focused generator tests
 prune after the singleton layer and never attempt to enumerate `2^64` supports. The remaining stages do not reimplement that case.
 
-Remove the dead `bitset64.hpp` helpers and `CircularSupportGeneratorV2` listed in the Ponytail audit in a separately approved cleanup
-before templating or duplicating their callers. They do not block the isolated primitive and must not enlarge Stage 1.
+Remove the dead `bitset64.hpp` helpers listed in the Ponytail audit in a separately approved cleanup before templating or duplicating
+their callers. V2 has already been removed.
 
 The canonical SQLite candidate table may remain restricted to dimension at most 63 because signed SQLite `INTEGER` cannot store a
 mask with bit 63 set. Runtime support and canonical database storage are separate changes.
 
-### Stage 1: Add and prove the multiword primitive
+### Completed Stage 1: Add and prove the multiword primitive
 
-Add the minimal multiword type and focused tests without connecting it to FracESSA yet. Required boundaries:
+The minimal multiword type and focused tests were added without connecting it to FracESSA. Covered boundaries are:
 
 - dimensions 65, 128, 129, and a non-power-of-two dimension;
 - bits 0, 63, 64, 127, and 128;
 - unused high-bit masking;
 - subset, union, difference, count, extraction, ordering, one-position rotation, reflection, and bitstring round trips.
 
-No benchmark is needed for an unconnected primitive. The tests must compare operations against a simple independent boolean-vector
-reference.
+The tests compare every operation against a simple independent boolean-vector reference. Reflection is checked at every dimension
+from 1 through 260, including unused-word boundaries, and is verified as an involution. Release and ASan/UBSan tests pass.
 
-### Stage 2: Extend the copositivity graph
+The initial per-bit reflection was replaced with in-place word-order reversal, one bit reversal per word, and one fused alignment
+pass. On the ARM64 laptop, representative 65-256-bit kernel measurements were about 7-10x faster than the per-bit implementation
+except at dimension 70, which was about 2.5x faster. The shared one-word reversal uses ARM64's single `rbit` instruction and retains
+the portable mask-and-shift implementation elsewhere. A matched CPU-2 persistent-Pybind benchmark over ten representative circular
+and non-circular matrices reported a median current/baseline ratio of exactly 1.000 in both fast and safe modes. This confirms that
+the isolated stage did not regress the existing production path; no multiword analyzer benchmark exists because that path is not
+connected yet.
 
-This is the smallest useful production slice. Replace the fixed 64-row sign-scan storage only on the large path:
+### Completed Stage 2: Extend exact Hadeler copositivity
+
+Hadeler enumeration and the fixed 64-row sign-scan storage now have a separate large-dimension path:
 
 - one-word matrices continue to use the existing fixed `uint64_t` neighbor rows;
+- larger matrices recursively enumerate fixed-cardinality principal subsets and carry their selected positions directly in one
+  pre-sized `std::vector<size_t>`; no subset mask, index extraction, or per-subset allocation is needed;
 - larger matrices use one multiword neighbor mask per row and dynamically sized row sums;
-- connected-component traversal uses the same mathematical algorithm.
+- connected-component traversal uses the same mathematical algorithm and reuses its component, frontier, and discovery masks;
+- only graph-discovered components require one index extraction before constructing their dense principal matrices.
 
-Test disconnected and connected negative-entry graphs across bits 63/64 and across several words. The cone algorithm itself has no
-64-dimensional bitset limit; `pending.reserve(64)` is only an initial vector capacity.
+Focused tests cover a bad pair across positions 63/64, a cardinality-three rejection spanning positions 0/64/128 after all proper
+principal subsets pass, a disconnected component spanning three words, and a connected 65-vertex negative graph. Every case decides
+before exponential enumeration becomes impractical. Release, ASan/UBSan, Python, and database-integrity checks pass.
 
-This work belongs in the extracted Coposit repository if that extraction has happened first. FracESSA should then consume the
-dimension-independent checker rather than retain a second large-graph implementation.
+The checker remains in FracESSA because no separate Coposit repository currently owns this implementation.
 
 ### Stage 3: Template the candidate and stability core
 
@@ -390,7 +400,7 @@ Benchmark the one-word baseline before Stage 3 and again after Stages 3 and 6 wi
 If the shared template changes one-word code generation or produces a measurable regression, keep separate one-word and multiword
 implementations. A little source duplication is cheaper than slowing the operation executed billions of times.
 
-## Recommended First Approval
+## Next Approval
 
-After removing the dead one-word code, approve only Stage 1: the isolated `multiword_bitset` plus its independent reference tests.
-It changes no analyzer behavior and establishes the fixed-width-per-run invariant before templates or generators are touched.
+Remove the remaining dead one-word helpers in one isolated cleanup before Stage 3. Then implement the candidate and stability
+templates separately; do not combine that work with either support generator.

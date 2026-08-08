@@ -1,8 +1,8 @@
 # Support Generators With DFS And Direct Bracelets
 
 Status: implemented in production. Non-circular generation uses DFS; circular generation uses V3 direct fixed-density bracelet
-recursion. The former V1 FKM generator remains available for comparisons. Compact bit-parallel V2 is deliberately retained as a
-failed experiment; it was slower than V1 and V3 and never entered production.
+recursion. The former V1 FKM generator remains available for comparisons. Compact bit-parallel V2 was slower than V1 and V3, never
+entered production, and has been removed from source while its design and measurements remain documented here.
 
 Document role: current implemented design plus retained proofs, rejected alternatives, and benchmark evidence.
 
@@ -395,9 +395,8 @@ contained in `P`.
 
 This stores only one mask per candidate orbit, but each query costs roughly
 `popcount(S)` rotations and intersections per candidate representative. It may
-move more work into the hot branch test than explicit orbit expansion. The
-retained experimental `CircularSupportGeneratorV2` implements this representation; production does not call it, and it currently
-has no test.
+move more work into the hot branch test than explicit orbit expansion. The former experimental `CircularSupportGeneratorV2`
+implemented this representation and was removed after the comparison below.
 
 ### More elaborate representations
 
@@ -515,12 +514,12 @@ gate predicts it. The discovered candidate family is matrix-specific.
 
 Conclusion: circular orbit reduction is the strongest measured opportunity.
 The later V3 end-to-end comparison justified the direct fixed-density recursion and promoted it to production. V1 remains for
-comparison; V2 remains only as evidence of the rejected compact-pruning design.
+comparison; V2's documented results remain evidence of the rejected compact-pruning design.
 
 ## Implemented Shape
 
-`cpp/include/fracessa/supports.hpp` contains the two production paths and two retained circular alternatives with the same
-compile-time interface and no inheritance:
+`cpp/include/fracessa/supports.hpp` contains the two production paths and the retained V1 circular oracle with the same compile-time
+interface and no inheritance:
 
 ```cpp
 template<class Consumer>
@@ -537,8 +536,7 @@ size_t add_forbidden(bitset64 support); // distinct-orbit multiplier
   increasing numeric mask order.
 - Production `CircularSupportGeneratorV3` uses direct fixed-density bracelet recursion, expanded dihedral forbidden masks, and
   returns their distinct orbit size as the candidate multiplier.
-- `CircularSupportGenerator` retains V1's FKM recursion and reflection reduction. `CircularSupportGeneratorV2` retains the compact
-  bit-parallel pruning experiment. Neither is selected by `fracessa`.
+- `CircularSupportGenerator` retains V1's FKM recursion and reflection reduction. It is not selected by `fracessa`.
 - `fracessa::analyze_support()` runs the optional fast heuristic, then safe
   exact candidate analysis, and owns exact stability classification.
 - `fracessa::finalize_candidate()` owns representative IDs, weighted ESS counting,
@@ -550,14 +548,13 @@ The two generator objects are selected once per matrix with two explicit
 branches. Their templated callback is compiler-inlineable; the support hot path
 has no virtual call, `std::function`, or per-support matrix-type branch.
 
-### Retained compact orbit experiment
+### Removed compact orbit experiment
 
-`CircularSupportGeneratorV2` is present in `supports.hpp` as a deliberately retained failed experiment with no current caller or
-test. It stores one forbidden representative and uses two 64-bit alignment masks to test rotations and reflections in parallel.
-It never entered production. The 2026-08-02 quick-test comparison proved identical results but found V2 41.48% slower at the median
+`CircularSupportGeneratorV2` stored one forbidden representative and used two 64-bit alignment masks to test rotations and
+reflections in parallel. It never entered production. The 2026-08-02 quick-test comparison proved identical results but found V2
+41.48% slower at the median
 and 91.40% slower by geometric mean across the 33 circular cases, with slowdowns reaching 6.824 times. V3 later superseded V1 and
-is also faster than V2. Keep V2's source as a record of the rejected approach, but keep V3's expanded production masks; the complete
-V1/V2 results are in `experiments/circular_support_v2_2026-08-02/README.md`.
+is also faster than V2. V2's unused source was removed; this document and Git history retain the rejected approach and its evidence.
 
 ## Future Experimental Measurements
 

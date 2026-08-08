@@ -24,8 +24,8 @@ duplicating its contents.
 - `correctness/FAST_CANDIDATE_FALSE_REJECTION.md`: exact ESS counterexamples for former fast rejection rules and current mitigations.
 - `reference/ELIMINATING_THE_BORDERED_CANDIDATE_SYSTEM.md`: mathematical derivation of the reduced symmetric candidate system.
 - `reference/FIND_POS_FIRST_SET_BIT_CALL_CHAIN.md`: current production-only bit-scanning call chain.
-- `handoffs/COPOSITIVITY_CHECKER_EXTRACTION_HANDOFF.md`: current extraction map for moving the exact copositivity work into a
-  separate repository, including algorithms, matrices, evidence, corpus schema, and source files.
+- `reference/INTEGER_HADELER_COPOSITIVITY.md`: current proof, exact algorithm, branch tests, and benchmark evidence for the optimized
+  integer Hadeler checker.
 
 ## Research And Open Options
 
@@ -38,8 +38,6 @@ duplicating its contents.
 - `history/CPP_PERFORMANCE_EXPERIMENTS_2026-08-03.md`: completed C++ allocation and performance experiments, especially rejected
   changes.
 - `history/FAST_PIPELINE_EXPERIMENTS_2026-08-03.md`: completed and rejected binary64 candidate-path experiments.
-- `history/INTEGER_STABILITY_COPOSITIVITY_2026-08-06.md`: retired Hadeler implementation, proof, and benchmarks preserved after the
-  adaptive-cone replacement.
 - `history/INTEGER_STABILITY_MATRIX_MIGRATION_ONLY_2026-08-06.md`: completed integer-storage migration plan.
 - `reference/MATRIX_GENERATOR_CATALOGUE_AUDIT.md`: immutable matrix-generator catalogue import audit; its counts are not live database
   counts.

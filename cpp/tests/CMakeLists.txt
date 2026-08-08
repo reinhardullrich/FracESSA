@@ -6,6 +6,7 @@ set(TEST_LIST
     test_linear_solver
     test_copositivity
     test_bitset64
+    test_bitset_multiword
     test_integration
     test_fraction
 )
@@ -29,6 +30,7 @@ add_test(NAME SupportsTests COMMAND test_supports)
 add_test(NAME LinearSolverTests COMMAND test_linear_solver)
 add_test(NAME CopositivityTests COMMAND test_copositivity)
 add_test(NAME Bitset64Tests COMMAND test_bitset64)
+add_test(NAME BitsetMultiwordTests COMMAND test_bitset_multiword)
 add_test(NAME IntegrationTests COMMAND test_integration)
 add_test(NAME FractionTests COMMAND test_fraction)
 

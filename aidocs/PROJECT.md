@@ -1,6 +1,6 @@
 # FracESSA Project Overview
 
-Last verified: 2026-08-07
+Last verified: 2026-08-08
 
 ## Repository Map
 
@@ -65,9 +65,10 @@ Core implementation facts:
 - Stability reuses exact reduced-Hessian inertia. The rare unresolved outside-reply case constructs an integer-scaled reduced Bomze
   matrix through an exact Schur complement and decides strict copositivity exactly.
 - The final strict-copositivity path applies low-dimensional and sign checks, splits the negative-entry graph into connected
-  components, and sends unresolved components to the exact adaptive simplicial-cone checker.
-- The cone checker stores only the integer Gram matrix, splits on a selected negative pair using `v_i + v_j`, and updates one row and
-  column per child. A binary64 value is never accepted as a stability certificate.
+  components, and sends unresolved components to exact Hadeler enumeration.
+- Hadeler checks principal submatrices by increasing cardinality. Each unresolved submatrix uses an exact fraction-free determinant,
+  one retained solve when nonsingular, or one exact nullspace when singular. A binary64 value is never accepted as a stability
+  certificate.
 - Rational matrices remain at parsed-input and public-output boundaries. Exact candidate and stability kernels use
   `linalg::integer` and `linalg::matrix_int`.
 

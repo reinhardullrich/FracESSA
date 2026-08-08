@@ -1,8 +1,9 @@
-# Retired Integer Hadeler Stability And Copositivity Plan
+# Integer Hadeler Stability And Copositivity
 
-Status: implemented and verified, then replaced by the exact adaptive-cone checker on 2026-08-06; retained only as history.
+Status: current implementation and mathematical reference. Initially implemented and verified on 2026-08-06, then restored as the
+production exact fallback on 2026-08-08.
 
-Date: 2026-08-06.
+Initial implementation and verification: 2026-08-06. Production restoration: 2026-08-08.
 
 ## Implemented boundary
 
@@ -324,16 +325,16 @@ Likewise, the nullity-at-least-two pass is not a new copositivity theorem. It is
 classification: every singular failure has rank \(n-1\), so a matrix of nullity at least two cannot be such a failure once all
 proper principal submatrices have passed.
 
-### 5.6 Minimal implementation
+### 5.6 Current core implementation
 
-Keep the current `is_copositive_hadeler()` structure and variable names. Its generic branch already:
+The current `is_copositive_hadeler()` generic branch:
 
 1. extracts `subset_indices` into the fixed stack buffer;
 2. copies the current principal matrix into `subMat`;
 3. factorizes `subMat` in place;
 4. reads the exact determinant sign.
 
-Replace only the code after step 4.
+The determinant decision after step 4 is:
 
 ```cpp
 if (determinant_sign > 0) return true;
@@ -369,35 +370,33 @@ for (size_t row = 1; row < current_dim; ++row)
 return false;
 ```
 
-This is illustrative code, not permission to change names or surrounding control flow unnecessarily. During implementation, avoid a
-helper class, generic witness abstraction, solver wrapper, or persistent scratch framework. The current local objects are already
-smaller than the adjugate matrices they replace. Reusable allocation is a separate optimization only if profiling later shows that
-these remaining allocations matter.
+The implementation deliberately has no helper class, generic witness abstraction, solver wrapper, or persistent scratch framework.
+The local objects are already smaller than the adjugate matrices they replaced. Reusable allocation remains unjustified unless a
+representative benchmark shows that these allocations matter.
 
-Delete the private `adjugate()` and `all_entries_greater_zero()` methods after their only call sites disappear. Do not retain dead
-adjugate code beside the new decision.
+### 5.7 Historical one-solve patch scope
 
-### 5.7 Exact file scope
-
-Only two source files need to change:
+The original 2026-08-06 replacement of explicit adjugates changed only two source files:
 
 | File | Minimal change |
 |---|---|
 | `cpp/include/linalg/copositive_integer.hpp` | Include `<cassert>` directly, replace the negative and singular adjugate branches, and delete the two now-unused private helpers. |
 | `cpp/tests/test_copositivity.cpp` | Rename the affected branch tests and add the missing passing witnesses. |
 
-No change is required in:
+That isolated replacement required no change in:
 
 - `fraction_free_ldlt.hpp`: it already solves one or many right-hand sides and guarantees a positive denominator;
 - `matrix_integer.hpp`: it already exposes the FLINT matrix handle and required entry operations;
 - CMake or the FLINT minimum: `fmpz_mat_nullspace` exists in both supported local FLINT 3.4 and project-local FLINT 3.6;
 - `checkstab.cpp`, candidate search, support generation, CLI, Pybind, Python, SQLite, or release workflow.
 
-If implementation appears to require another source file, stop and review the reason before widening this scope.
+The 2026-08-08 production restoration necessarily moved the already-verified general factorization from `archive/` back to active
+`linalg`, reconnected `checkstab.cpp`, and retained the independently implemented negative-component reduction. Those restoration
+changes do not alter the one-solve/nullspace proof.
 
-### 5.8 Focused correctness tests
+### 5.8 Focused regression cases
 
-All focused matrices must have dimension four so they reach the generic Hadeler branch after their proper principal submatrices pass.
+The focused matrices use dimension four so they reach the generic Hadeler branch after their proper principal submatrices pass.
 
 1. **Negative determinant, reject:** diagonal `5`, off-diagonal `-2`. The all-ones vector solves $Cy=-\mathbf 1$ and is positive.
 2. **Negative determinant, pass:** diagonal `1`, off-diagonal `2`. The matrix is strictly copositive, while the unique solution of
@@ -409,13 +408,11 @@ All focused matrices must have dimension four so they reach the generic Hadeler 
 6. **Arbitrary precision:** multiply at least one negative-determinant and one singular case by a positive integer larger than 64
    bits; the decisions must be unchanged.
 
-Retain all existing one-, two-, and three-dimensional, sign-scan, and early-termination tests. Rename
-`FourByFourNegativeDeterminantUsesRetainedSolve` to state that it uses one right-hand side, and rename
-`FourByFourSingularUsesCofactors` to state that it uses the positive-nullspace decision.
+The suite also retains the one-, two-, and three-dimensional, sign-scan, and early-termination tests.
 
-### 5.9 Complete verification
+### 5.9 Historical verification procedure
 
-Correctness is the release gate:
+The original one-solve/nullspace change used this acceptance procedure:
 
 1. Build the current commit in a separate ignored Release directory and preserve it as the before-change checker.
 2. Run the before and after checkers over every row of `testdata/Copos_testdata.sqlite3`. All 1,069 permutation-inequivalent matrices
@@ -431,10 +428,10 @@ Any mismatch blocks the change. No tolerance comparison is relevant because ever
 The corpus is deliberately not wired into production or CTest. Use one temporary ignored C++ driver for Step 2 and the corpus
 benchmark, then remove it after verification; do not add a permanent framework for this one implementation comparison.
 
-### 5.10 Performance verification
+### 5.10 Historical performance procedure
 
-Benchmark only after correctness passes. Compare clean current and proposed Release/native/LTO builds with the same compiler, FLINT
-3.6, persistent process, CPU 2, and native nanosecond medians.
+After correctness passed, the original change compared clean before and after Release/native/LTO builds with the same compiler,
+FLINT 3.6, persistent process, CPU 2, and native nanosecond medians.
 
 Measure:
 
@@ -451,9 +448,9 @@ Retain the change only if all exact results match, the affected branches improve
 material regression. Do not add factorization caching or reusable allocation merely because it looks faster; benchmark this minimal
 replacement first.
 
-### 5.11 Reviewed exclusions
+### 5.11 Historical scope exclusions
 
-Do not combine this task with:
+The original one-solve/nullspace patch intentionally excluded:
 
 - negative-edge connected-component decomposition;
 - recursive row, duplicate-row, or Schur reductions;
@@ -465,8 +462,9 @@ Do not combine this task with:
 - a generic linear-algebra or copositivity interface;
 - changes to the KKT candidate factorization.
 
-Those are independent decisions. This plan has one job: replace explicit adjugate construction with one retained solve or one exact
-nullspace while preserving Hadeler's exact decision.
+Those were independent decisions. The negative-entry connected-component decomposition was implemented and verified later and is
+now part of the current production path. The mathematical job described here remains unchanged: replace explicit adjugate
+construction with one retained solve or one exact nullspace while preserving Hadeler's exact decision.
 
 ### 5.12 References
 
@@ -476,7 +474,7 @@ nullspace while preserving Hadeler's exact decision.
 - FLINT 3.6 integer-matrix documentation: <https://flintlib.org/doc/fmpz_mat.html>. `fmpz_mat_nullspace` returns the exact right
   nullity and writes basis vectors into columns; the official 3.6 source writes them into the first `nullity` columns.
 
-### 5.13 Verified result
+### 5.13 Verified 2026-08-06 result
 
 - Only `copositive_integer.hpp` and its focused test file changed in executable source.
 - All 1,069 reduced-B corpus rows retained their stored exact result: 41 strictly copositive and 1,028 not strictly copositive.

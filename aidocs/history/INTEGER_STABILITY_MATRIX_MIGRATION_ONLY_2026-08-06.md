@@ -33,7 +33,7 @@ This is not a project-wide removal of rational arithmetic. Rational arithmetic r
 ## 2. Explicit non-goals
 
 This migration must not introduce any of the algorithm changes proposed in
-`INTEGER_STABILITY_COPOSITIVITY_2026-08-06.md`.
+`../reference/INTEGER_HADELER_COPOSITIVITY.md`.
 
 In particular, do not:
 

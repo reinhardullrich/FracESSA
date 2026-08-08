@@ -64,8 +64,8 @@ it is the simplest implementation of these recursive algorithms, not because a
 pull interface would be incorrect.
 
 The callback receives both the support mask and support size because the generator owns the cardinality loop. When an exact
-candidate is found, `add_forbidden()` is called synchronously before the callback returns. This is especially important for the
-retained experimental V2 generator, whose returned multiplier belongs to the support most recently emitted to that callback.
+candidate is found, `add_forbidden()` is called synchronously before the callback returns. The removed V2 experiment also relied on
+this timing because its returned multiplier belonged to the support most recently emitted to that callback.
 
 ## Candidate And Pruning Lifecycle
 
@@ -136,11 +136,10 @@ regression and performance comparisons but is no longer wired into production.
 recursive step places one selected bit and skips the zero run before it, while the paper's reversal state rejects mirror branches
 during construction. V3 retains V1's callback, expanded forbidden-orbit masks, and independently calculated orbit multiplier.
 
-### Experimental `CircularSupportGeneratorV2`
+### Removed experimental `CircularSupportGeneratorV2`
 
-`cpp/include/fracessa/supports.hpp` also contains `CircularSupportGeneratorV2`. It is deliberately retained historical experiment
-source with no current caller or test. V2 was slower than V1 and V3, never entered production, and is not a future production
-candidate unless new measurements overturn that result.
+`CircularSupportGeneratorV2` was slower than V1 and V3, never entered production, and was removed from `supports.hpp` after its final
+comparison. This section and Git history retain the design so the failed approach is not accidentally repeated.
 
 V2 stores one forbidden support per bracelet orbit. During recursion it uses
 two 64-bit alignment masks to test all rotations and reflections in parallel.
@@ -157,8 +156,7 @@ The compact representation is correct but slower. The focused 2026-08-02 fast-mo
 quick-test matrices and timed the 33 circular cases. V2 was slower by 41.48% at the median and 91.40% by geometric mean; matrix 34
 was 6.824 times slower. V1 was faster on 28 cases, equal on three, and V2 won only two sub-microsecond dimension-2/3 measurements.
 V3 later superseded V1 and is also faster than V2. The expanded forbidden-orbit representation therefore remains in V3; only V2's
-compact pruning representation was rejected. Its source remains so the failed approach is not accidentally repeated. See
-`experiments/circular_support_v2_2026-08-02/README.md` for the complete method and table.
+compact pruning representation was rejected. See Git history and this document for the preserved method and result.
 
 ## Validation Record
 
@@ -183,8 +181,7 @@ for dimensions 19 and above. See `experiments/direct_bracelet_generation_2026-07
 The one-word runtime boundary is dimension 64. Focused tests cover bit 63 in both active generators without attempting to enumerate
 the complete `2^64` support space.
 
-- Keep V2 as historical evidence, not as a production candidate. Revisit it only if a new end-to-end measurement beats V3 while
-  preserving the same pruning contract.
+- Do not restore V2 unless a new end-to-end implementation beats V3 while preserving the same pruning contract.
 - Do not replace the callback with `next_support()` without a measured reason
   that justifies a resumable generator implementation.
 - Do not funnel generator registration into `analyze_support()` unless the
