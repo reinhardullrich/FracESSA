@@ -1,5 +1,8 @@
 # Why Double Positive-Definiteness Was Not a Valid ESS Certificate
 
+Status: historical correctness analysis. The binary64 stability certificate was removed; current stability uses exact reduced-Hessian
+inertia and an exact integer scaled reduced $B$ matrix when outside best replies remain.
+
 Last verified: 2026-07-26
 
 ## Summary
@@ -533,16 +536,16 @@ complex than the exact rational PD check already available in FracESSA.
 
 ## Correct Resolution
 
-The minimal correctness-first resolution is the implemented one:
+The correctness-first resolution is the implemented one:
 
-1. Do not construct `Bee_dbl` for stability.
-2. Do not allow a floating PD result to declare ESS.
-3. Construct the exact rational Bee matrix directly.
-4. Use exact LDL^T signs and the existing exact copositivity path.
+1. Do not construct a binary64 stability matrix or allow a floating positive-definiteness result to declare ESS.
+2. Reuse exact reduced-Hessian inertia for the common stability decisions.
+3. When outside best replies remain, construct the exact integer scaled reduced $B$ matrix through a Schur complement.
+4. Use exact integer positive-definiteness, sign shortcuts, component decomposition, and Hadeler copositivity for the remaining result.
 
-The previously measured cost was approximately 10% for repeated small matrices
-and approximately 1% over the 35 historical benchmark matrices. That cost buys
-a deterministic mathematical decision rather than a compiler-dependent guess.
+Removing the original shortcut cost approximately 10% for repeated small matrices and approximately 1% over the 35 historical
+benchmark matrices at that time. Later exact-integer and Schur-complement work changed that performance boundary; these figures are
+historical evidence, not current calibration data.
 
 Related files:
 

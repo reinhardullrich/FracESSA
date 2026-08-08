@@ -235,7 +235,8 @@ The multiword generators must instead own one preallocated working mask:
 
 The callback is synchronous. Its reference becomes invalid as soon as the callback returns and generation continues. Candidate
 solvers may read it without copying. A successful exact candidate copies it once into the working candidate; generator registration
-then copies it once into persistent pruning storage. Candidate output copies it only when candidate output or logging was requested.
+then copies it once into persistent pruning storage. Retained candidate output copies it only when candidate output was requested;
+logging reads the working candidate directly.
 
 The one-word generators should retain their current by-value operations. Do not force the small path through the mutable multiword
 implementation merely to make both source paths look identical.
@@ -253,7 +254,7 @@ iterating its set positions and setting their mapped destination bits in a pre-s
 | `cpp/include/fracessa/bitset_multiword.hpp` | Add the fixed-width-per-run word vector and only the required operations. |
 | `cpp/tests/test_bitset_multiword.cpp` | Compare every operation with an independent `std::vector<bool>` reference at the 63/64, 127/128, and unused-high-bit boundaries. |
 | `cpp/tests/CMakeLists.txt` | Build and register the isolated primitive test. |
-| `cpp/include/fracessa/non_circular_support_generator.hpp`, `cpp/include/fracessa/circular_support_generator.hpp` | Keep separate one-word and mutable-work-mask multiword generators. Do not restore or port V2. |
+| `cpp/include/fracessa/support_generator_non_circular.hpp`, `cpp/include/fracessa/support_generator_circular.hpp` | Keep separate one-word and mutable-work-mask multiword generators. Do not restore or port V2. |
 | `cpp/include/fracessa/circular_affine_symmetry.hpp` | Keep the present one-word implementation and add a multiword specialization with destination-position tables and reusable scratch masks. |
 | `cpp/include/fracessa/candidate.hpp` | Make the working candidate depend on `SupportMask`; keep support and extended support in the same fixed-width representation. |
 | `cpp/include/fracessa/fracessa.hpp`, `cpp/src/fracessa.cpp`, `cpp/src/check_stability.cpp` | Template the search engine over the mask type, keep one static dispatch before the search, and replace result-structure arrays with dimension-sized vectors. |
@@ -335,7 +336,7 @@ dimensions 65, 128, and 129 cover mask ownership, index extraction, exact candid
 support, support-size structures, and the reduced-Hessian stability decision.
 
 Full support has no outside strategy, so it cannot reach the reduced-B branch. A separate dimension-66 exact candidate test uses a
-65-strategy support plus one tied outside reply across the 63/64 boundary, then constructs and checks the one-dimensional scaled
+65-strategy support plus one outside best reply across the 63/64 boundary, then constructs and checks the one-dimensional scaled
 reduced B matrix. A Stage-4 dimension-65 zero-game regression now also reaches the complete multiword `check_stability()` reduced-B
 path through the analyzer. Existing Release, Python, sanitizer, and database checks pass.
 

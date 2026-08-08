@@ -9,9 +9,6 @@
 #include <string_view>
 #include <type_traits>
 
-#include <spdlog/spdlog.h>
-#include <spdlog/sinks/rotating_file_sink.h>
-
 #include <linalg/matrix_fraction.hpp>
 #include <linalg/matrix_integer.hpp>
 #include <fracessa/candidate.hpp>
@@ -27,6 +24,10 @@ enum class search_method {
 };
 
 search_method parse_search_method(std::string_view name);
+
+namespace spdlog {
+class logger;
+}
 
 /*
  * Runs the complete ESS search for one payoff matrix.
@@ -79,11 +80,19 @@ private:
     bool conf_with_candidates_;
     search_method method_;
     bool conf_full_support_;
-    bool conf_with_log_;
 
     candidate_type candidate_;
 
     std::shared_ptr<spdlog::logger> logger_;
+    size_t last_logged_support_size_ = 0;
+
+    // Keep logging calls semantic so the search and stability code do not own formatting details.
+    void start_log(search_method requested_method, bool is_cs, std::int64_t matrix_id);
+    void log_support_size(size_t support_size);
+    void log_candidate();
+    void log_reduced_b(const SupportMask& outside_best_replies);
+    void set_stability_result(bool is_ess, std::string_view reason);
+    void finish_log();
 
     // Test one support through the selected search method and exact stability.
     // True means an exact equilibrium was found and may prune later supports.

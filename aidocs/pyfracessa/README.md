@@ -209,6 +209,12 @@ independent processes cannot safely rotate the shared native log file. Direct
 logging-enabled calls from Python threads are serialized by the native binding;
 non-logging calls remain concurrent.
 
+The native `log/fracessa.log` file is a human diagnostic trace: it records the requested and effective method, exact matrix rows,
+support-size progress, solved candidate representatives, stability reasons, and weighted final counts. For circular games, symmetry
+expansion can produce several stored representatives and each can cover multiple rotations or reflections. The log is not a
+candidate-data export and does not contain the CLI candidate CSV; request candidates through the normal result API or a CSV, JSON,
+or Parquet sink instead.
+
 The `if __name__ == "__main__":` guard is required in scripts when using the
 default `spawn` start method.
 

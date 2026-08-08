@@ -77,7 +77,7 @@ the active generator and then calls `finalize_candidate()`.
 
 Every exact equilibrium support becomes forbidden for larger cardinalities,
 whether or not stability classifies that candidate as an ESS. A result accepted
-only by exact rational analysis may become a pruning rule; neither numerical
+only by exact analysis may become a pruning rule; neither numerical
 procedure creates one by itself.
 
 The explicit sequence remains visible in each of the three call paths: full
@@ -90,7 +90,8 @@ overloads, inheritance, or another callback for only a few direct lines.
 `finalize_candidate()` remains separate because it performs work that follows
 successful analysis and generator registration: assigning the representative
 ID, applying the optional orbit multiplier to the ESS count, optionally storing
-the candidate, and logging it.
+the candidate. Diagnostic logging reads the working candidate directly during
+analysis and does not retain an output row.
 
 ## Why There Is No Generator Base Class
 

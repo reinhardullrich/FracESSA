@@ -4,7 +4,6 @@
 #include <flint/fmpz_mat.h>
 
 #include <cstddef>
-#include <iomanip>
 #include <sstream>
 #include <string>
 
@@ -83,17 +82,20 @@ public:
 
     void swap(matrix_int& other) noexcept { fmpz_mat_swap(data_, other.data_); }
 
-    std::string to_log_string() const
+    std::string to_pretty_string() const
     {
         std::stringstream stream;
         for (size_t row = 0; row < rows(); ++row) {
+            stream << "  " << row << ": [";
             for (size_t column = 0; column < cols(); ++column) {
+                if (column != 0) stream << ", ";
                 char* value = fmpz_get_str(
                     nullptr, 10, fmpz_mat_entry(data_, static_cast<slong>(row), static_cast<slong>(column)));
-                stream << std::setw(12) << value << ' ';
+                stream << value;
                 flint_free(value);
             }
-            stream << '\n';
+            stream << ']';
+            if (row + 1 != rows()) stream << '\n';
         }
         return stream.str();
     }

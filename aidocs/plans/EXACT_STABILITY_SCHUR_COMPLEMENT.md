@@ -1,6 +1,7 @@
-# Exact Stability Schur-Complement Plan
+# Exact Stability Schur Complement
 
-Status: implemented and verified on 2026-08-05.
+Status: current mathematical design and implementation record. Implemented and verified on 2026-08-05; later exact-copositivity
+shortcuts changed only the decisions made after this reduction.
 
 ## 1. Goal
 
@@ -39,7 +40,7 @@ That call overwrites three different objects in three different ways:
 The back-substitution loop reads `reduced_system_`; it does **not** overwrite it. Therefore, the factorization is still valid when
 `check_stability()` is called immediately after the successful exact candidate solve.
 
-The original right-hand side is the disposable object. This is not a problem for the proposed stability solve: the new matrix
+The original right-hand side is the disposable object. This is not a problem for the retained stability solve: the new matrix
 right-hand side $\widehat G$ can be rebuilt from the existing reduced-entry cache, and those cached entries remain available after
 the solve.
 
@@ -55,7 +56,7 @@ Let:
 - $J$ be the extended support, including unused pure strategies that tie the candidate payoff;
 - $m\in I$ be the same reference strategy used by the candidate solve;
 - $U=I\setminus\{m\}$;
-- $K=J\setminus I$.
+- $K=J\setminus I$ be the set of outside best replies.
 
 Define
 
@@ -88,11 +89,20 @@ $$
 The Bomze matrix is `Bee = -2R`. Since candidate stability reaches this path only after proving $H\prec0$, its support block
 $P=-2H$ is positive definite.
 
-The final matrix that must be strictly copositive is the Schur complement
+Bomze's final matrix is the Schur complement
 
 $$
-S=-2\left(Q-G^TH^{-1}G\right)\in\mathbb Q^{k\times k}.
+B^{(r)}=-2\left(Q-G^TH^{-1}G\right)\in\mathbb Q^{k\times k}.
 $$
+
+Production stores the half-scaled matrix
+
+$$
+C=-\left(Q-G^TH^{-1}G\right).
+$$
+
+Since $B^{(r)}=2C$ and strict copositivity is unchanged by multiplication by a positive scalar, testing $C$ is equivalent and avoids
+one unnecessary multiplication of every entry.
 
 No inverse will be constructed. We solve
 
@@ -133,18 +143,17 @@ $$
 Construct the integer matrix
 
 $$
-\widehat S=-2\left(\delta\widehat Q-\widehat G^TN\right).
+\widehat C=-\left(\delta\widehat Q-\widehat G^TN\right).
 $$
 
 Then
 
 $$
-\widehat S=d\delta S.
+\widehat C=d\delta C.
 $$
 
 Both `d` and $\delta$ are positive. Multiplication by `d * delta` changes neither positive definiteness nor strict copositivity.
-The existing rational routines can therefore receive $\widehat S$ as a rational matrix with denominator one. No rational matrix
-division is needed during Schur-complement construction.
+The exact integer routines therefore test $\widehat C$ directly. No rational matrix construction or division is needed.
 
 ## 5. Why the reused solve can be narrow
 
@@ -158,30 +167,31 @@ The stability reuse method does not need that general mechanism:
 3. every active Bareiss diagonal pivot is consequently nonzero; and
 4. the candidate factorization recorded no coordinate swap or coordinate addition.
 
-The new method should therefore be named for this restricted contract and assert that `operation_count_ == 0`. It should not grow
+The reuse method is named for this restricted contract and asserts that `operation_count_ == 0`. It must not grow
 into a second general solver or replay pivot operations that cannot occur on this path.
 
-## 6. Proposed source changes
+## 6. Implemented source changes
 
-Future implementation should change only these existing source files:
+The original patch changed only these source files:
 
 | File | Minimal change |
 |---|---|
-| `cpp/include/linalg/fraction_free_ldlt_kkt.hpp` | Add one multi-column solve that reuses an unmodified negative-definite factorization. |
-| `cpp/include/fracessa/exact_candidate_solver.hpp` | Declare the reduced-$B$ builder and one reusable integer matrix for $N$. |
-| `cpp/src/exact_candidate_solver.cpp` | Build $\widehat G$ and $\widehat Q$ from the existing integer game/cache, reuse the factorization, and write $\widehat S$. |
-| `cpp/include/fracessa/fracessa.hpp` | Rename `bee_matrix_` to the accurate `scaled_reduced_b_`. |
-| `cpp/src/check_stability.cpp` | Replace complete `Bee` construction and recursive elimination with the reduced-$B$ builder and checks on the smaller matrix. |
-| `cpp/tests/test_linear_solver.cpp` | Add one focused multi-right-hand-side factor-reuse test. |
+| `cpp/include/linalg/fraction_free_ldlt_kkt.hpp` | Added one multi-column solve that reuses an unmodified negative-definite factorization. |
+| `cpp/include/fracessa/exact_candidate_solver.hpp` | Declared the reduced-$B$ builder and one reusable integer matrix for $N$. |
+| `cpp/src/exact_candidate_solver.cpp` | Builds $\widehat G$ and $\widehat Q$ from the integer game/cache, reuses the factorization, and writes $\widehat C$. |
+| `cpp/include/fracessa/fracessa.hpp` | Renamed `bee_matrix_` to the accurate `scaled_reduced_b_`. |
+| `cpp/src/check_stability.cpp` | Replaced complete `Bee` construction and recursive elimination with the reduced-$B$ builder and checks on the smaller matrix. |
+| `cpp/tests/test_linear_solver.cpp` | Added one focused multi-right-hand-side factor-reuse test. |
 
-No parser, CLI, Python, candidate-output, database, support-generator, fast-search, or copositivity source file needs to change.
+No parser, CLI, Python, candidate-output, database, support-generator, fast-search, or copositivity source file changed in the original
+patch.
 
-## 7. Proposed factor-reuse method
+## 7. Factor-reuse method
 
-The method should overwrite the supplied right-hand-side matrix with its solution numerators. This avoids adding a second temporary
+The method overwrites the supplied right-hand-side matrix with its solution numerators. This avoids a second temporary
 matrix. The caller already has the positive denominator from the original factorization.
 
-Proposed interface:
+Implemented interface:
 
 ```cpp
 // Solve factored_system * X = right_hand_sides * denominator for several columns.
@@ -234,82 +244,34 @@ for (size_t column = 0; column < right_hand_side_count; ++column) {
 }
 ```
 
-The first version should use the normal FLINT `fmpz_mul`, `fmpz_submul`, and `fmpz_divexact` operations already wrapped by
-`integer::reference`. It should not duplicate the specialized immediate-integer machinery before a benchmark demonstrates that this
-rare stability path needs it.
+The implementation uses the normal FLINT `fmpz_mul`, `fmpz_submul`, and `fmpz_divexact` operations already wrapped by
+`integer::reference`. It does not duplicate the specialized immediate-integer machinery used by hotter paths.
 
-## 8. Proposed Schur builder
+## 8. Schur builder
 
-Add one method to the exact candidate object because it owns all required private state: the integer game, retained factorization,
-common denominator, and reduced-entry cache.
-
-```cpp
-// Build a positive integer multiple of Bomze's final reduced B^(r) matrix through its exact Schur complement.
-// Called immediately after find() succeeds for the same support and proves H negative definite.
-void build_scaled_reduced_b(
-    bitset64 support,
-    bitset64 outside_best_replies,
-    linalg::matrix_frc& result);
-```
-
-Implementation outline:
+The exact candidate object owns the builder because it already owns the integer game, retained factorization, common denominator, and
+reduced-entry cache. One-word and multiword overloads extract indices and call the same internal implementation:
 
 ```cpp
-uint8_t support_indices[bs64::kMaxBitsetDimension];
-uint8_t outside_indices[bs64::kMaxBitsetDimension];
-const size_t support_size = bs64::extract_set_indices(support, dimension_, support_indices);
-const size_t outside_size = bs64::extract_set_indices(outside_best_replies, dimension_, outside_indices);
-const size_t reduced_dimension = support_size - 1;
-const size_t reference = support_indices[0];
-
-stability_solution_numerators_.resize(reduced_dimension, outside_size);
-
-// Before the solve this matrix is G-hat. Afterwards it is N.
-for (size_t row = 0; row < reduced_dimension; ++row) {
-    const size_t i = support_indices[row + 1];
-    for (size_t column = 0; column < outside_size; ++column) {
-        stability_solution_numerators_(row, column) = reduced_entry(reference, i, outside_indices[column]);
-    }
-}
-
-if (reduced_dimension > 0) {
-    ffldlt_workspace_.solve_factored_negative_definite_inplace(
-        stability_solution_numerators_, solution_denominator_, reduced_system_);
-}
-
-if (result.rows() != outside_size || result.cols() != outside_size) {
-    result = linalg::matrix_frc(outside_size, outside_size);
-}
-
-linalg::integer scaled_entry;
-linalg::integer one(1);
-for (size_t row = 0; row < outside_size; ++row) {
-    for (size_t column = 0; column <= row; ++column) {
-        scaled_entry.set_product(
-            solution_denominator_, reduced_entry(reference, outside_indices[row], outside_indices[column]));
-
-        for (size_t inner = 0; inner < reduced_dimension; ++inner) {
-            const size_t i = support_indices[inner + 1];
-            scaled_entry.submul(
-                reduced_entry(reference, i, outside_indices[row]), stability_solution_numerators_(inner, column));
-        }
-
-        scaled_entry.multiply(2);
-        scaled_entry.negate();
-        result(row, column).set_ratio(scaled_entry, one);
-        if (row != column) result(column, row) = result(row, column);
-    }
-}
+size_t build_scaled_reduced_b(bitset64 support, bitset64 outside_best_replies, linalg::matrix_int& result);
+size_t build_scaled_reduced_b(
+    const bitset_multiword& support,
+    const bitset_multiword& outside_best_replies,
+    linalg::matrix_int& result);
 ```
 
-`reduced_entry(reference, row, column)` should be a small private cache accessor implementing the same formula already used by
+The shared builder fills $\widehat G$, replays the retained factorization to obtain $N$, and writes only one triangle of
+$\widehat C=-(\delta\widehat Q-\widehat G^TN)$ before mirroring it. The result is an integer matrix; the discarded factor two is a
+positive global scale and has no effect on either exact decision.
+
+`reduced_entry(reference, row, column)` is a small private cache accessor implementing the same formula used by
 `build_reduced_system()`:
 
 $$
 d\left(A_{ij}-A_{mj}-A_{im}+A_{mm}\right).
 $$
 
-The accessor should populate the existing dense cache on the first request and return the stored integer thereafter. It need not
+The accessor populates the existing dense cache on first request and returns the stored integer thereafter. It does not
 replace the current row-specialized loop in `build_reduced_system()`: changing that proven hot loop is unnecessary.
 
 The solver overwrites $\widehat G$ with $N$. This does not require a second $r\times k$ matrix because every original
@@ -320,46 +282,26 @@ For a pure support, `reduced_dimension == 0`. The solve is skipped, `solution_de
 correctly to
 
 $$
-\widehat S=-2\widehat Q.
+\widehat C=-\widehat Q.
 $$
 
 This explicit case also prevents accidental reuse of a stale nonempty factorization left by an earlier support.
 
-## 9. Proposed `check_stability()` tail
+## 9. Current `check_stability()` flow
 
 The early decisions remain unchanged:
 
 1. reject when the retained reduced Hessian is not negative definite;
 2. accept when the extended support equals the support.
 
-Only the remaining outside-best-reply path changes:
+The remaining path builds `scaled_reduced_b_` once. Dimensions one through three use direct exact criteria. Larger matrices receive
+one triangular sign scan, followed by cheap exact acceptance/rejection rules and negative-entry connected-component decomposition.
+Only unresolved components reach exact Hadeler enumeration.
 
-```cpp
-const bitset64 outside_best_replies = bs64::subtract(candidate_.extended_support, candidate_.support);
-exact_candidate_solver_.build_scaled_reduced_b(
-    candidate_.support, outside_best_replies, scaled_reduced_b_);
-
-if (scaled_reduced_b_.is_positive_definite()) {
-    candidate_.stability = "T_reduced_hessian_nd";
-    candidate_.is_ess = true;
-    return;
-}
-
-if (outside_best_reply_count <= 1) {
-    candidate_.stability = "F_not_pd_kay_0_1";
-    candidate_.is_ess = false;
-    return;
-}
-
-candidate_.is_ess = linalg::is_strictly_copositive(scaled_reduced_b_);
-candidate_.stability = candidate_.is_ess ? "T_copos" : "F_not_copos";
-```
-
-The current complete `Bee` construction, `r`-step recursive reduction, rolling rational matrices, and partial-pivot checks are then
-deleted. They are mathematically represented by the one block Schur complement. The Schur-complement change itself preserved the
-existing labels. A later diagnostic cleanup renamed the early reduced-Hessian rejection to `F_reduced_hessian_not_nd`. The result is
-now called the `scaled reduced B matrix`: it represents Bomze's final $B^{(r)}$ up to positive scaling and is computed as one Schur
-complement.
+The former complete `Bee` construction, $r$ recursive reductions, rolling rational matrices, and partial-pivot checks are gone. The
+single block Schur complement represents all of those operations. The stored integer result is called the `scaled reduced B matrix`:
+it is a positive multiple of Bomze's final $B^{(r)}$ and therefore has exactly the same positive-definiteness and strict-copositivity
+decisions.
 
 ## 10. Correctness checks
 
@@ -398,32 +340,32 @@ The implemented test factors `H` once through the existing solver, calls the new
 17 and numerator matrix $17H^{-1}G$ exactly. Three rows are necessary here: unlike a 2-by-2 example, this reaches the Bareiss step
 that divides by the previous pivot. The same test also covers column handling and in-place back substitution.
 
-### 10.2 Stability regression coverage
+### 10.2 Current stability regression coverage
 
-Run the existing complete C++ and matrix-correctness suites. In particular, preserve examples that reach all relevant final states:
+The maintained tests preserve examples that reach the relevant final states:
 
+- pure-strategy acceptance (`T_pure_ess`);
 - reduced-Hessian negative-definite acceptance (`T_reduced_hessian_nd`);
-- one outside best reply rejected after positive definiteness fails (`F_not_pd_kay_0_1`);
-- strict-copositivity acceptance (`T_copos`; canonical database matrix 29 contains such a candidate);
-- strict-copositivity rejection (`F_not_copos`; canonical database matrices 4 and 7 contain examples); and
-- rejection before Schur construction because $H$ is not negative definite (`F_reduced_hessian_not_nd`).
+- rejection before Schur construction because $H$ is not negative definite (`F_reduced_hessian_not_nd`);
+- direct one-, two-, and three-dimensional decisions (`T_copos_small` and `F_not_copos_small`);
+- sign-scan acceptance and rejection; and
+- final component/Hadeler decisions (`T_copos` and `F_not_copos`).
 
 Candidate count, ESS count, support structure, extended supports, exact vectors, exact payoffs, and stability labels must match the
 current baseline. Candidate IDs are not a mathematical requirement, but this change does not alter support enumeration, so they
 should also remain unchanged.
 
-### 10.3 Direct equivalence check during development
+### 10.3 Promotion-time direct equivalence check
 
-The implementation was compared row for row with the canonical database on all 309 analyzed matrices with an outside-best-reply
+The implementation was compared row for row with the canonical database on all 309 analyzed matrices with an outside best reply
 candidate and a sub-second safe baseline. All 7,808 stored representative candidates matched in candidate ID, exact vector, support,
 extended support, multiplier, ESS decision, stability label, and exact payoff. Their multipliers represent 14,659 candidates. This
-includes matrices 4, 5, 6, 7, 19, 20, 29, and 32, which together exercise `T_reduced_hessian_nd`, `F_not_copos`,
-`F_reduced_hessian_not_nd`, `T_copos`, `F_not_pd_kay_0_1`, the zero-dimensional support block, and rejection before Schur
-construction.
+includes matrices 4, 5, 6, 7, 19, 20, 29, and 32, which together exercised acceptance, rejection, the zero-dimensional support
+block, outside best replies, and rejection before Schur construction under the labels in force at promotion time.
 
-## 11. Performance measurement
+## 11. Promotion-time performance evidence
 
-Benchmark only after correctness passes. Compare current code with the Schur version on:
+The retained comparison covered:
 
 1. matrices whose candidates almost always have `extended_support == support`, to confirm no measurable regression in the common path;
 2. matrices 4, 7, 19, 20, 29, and 32, which exercise outside best replies and copositivity paths; and
@@ -438,17 +380,15 @@ Expected work on the changed path:
 | Up to `r` rational rank-one reductions with new matrices. | One multi-RHS solve, $O(r^2k)$ integer operations. |
 | Final strict copositivity on a $k\times k$ matrix. | Same final strict copositivity on a $k\times k$ matrix. |
 
-The retained implementation should show a repeatable end-to-end improvement on the affected matrices and no meaningful regression
-on the common no-outside-reply path. If it does not, keep this document as a rejected experiment and revert the source patch.
-
 The retained Release benchmark used CPU 2 and one persistent Pybind process per build. Repeated measurements showed approximately
 45.7% less time for matrix 19, 22.8% less for matrix 20, and 9.5% less for matrix 29. Matrix 32 was unchanged within noise because its
-outside-reply candidates fail the reduced-Hessian inertia check before Schur construction. Small matrices 4-7 improved by roughly
-8-20% in the first run. The complete C++ suite, all 66 Python tests, and the exact database comparison passed before retention.
+candidates with outside best replies fail the reduced-Hessian inertia check before Schur construction. Small matrices 4-7
+improved by roughly 8-20% in the first run. The complete C++ suite, all 66 Python tests, and the exact database comparison passed
+before retention.
 
-## 12. Deliberately excluded work
+## 12. Work excluded from the original patch
 
-Do not include any of the following in the first implementation:
+The original patch deliberately excluded:
 
 - explicit construction of $H^{-1}$;
 - a generic reusable factorization class;
@@ -459,5 +399,5 @@ Do not include any of the following in the first implementation:
 - changes to the existing candidate factorization loop; or
 - unrelated solver, parser, Python, CLI, or support-generator changes.
 
-These additions are unnecessary for correctness and would make the patch harder to audit. Add one only after a measured result shows
-that this smaller implementation is insufficient.
+These additions were unnecessary for correctness and would have made the patch harder to audit. Add one only after a measured result
+shows that the smaller implementation is insufficient.

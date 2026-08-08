@@ -8,8 +8,8 @@
 #include <vector>
 
 #include <fracessa/circular_affine_symmetry.hpp>
-#include <fracessa/circular_support_generator.hpp>
-#include <fracessa/non_circular_support_generator.hpp>
+#include <fracessa/support_generator_circular.hpp>
+#include <fracessa/support_generator_non_circular.hpp>
 
 #include "reference_circular_support_generator.hpp"
 

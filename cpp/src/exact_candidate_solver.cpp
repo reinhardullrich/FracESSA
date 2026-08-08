@@ -224,7 +224,8 @@ linalg::integer::const_reference exact_candidate_solver::reduced_entry(size_t re
 }
 
 /*
- * Let U=I\{m} and K=J\I. In the coordinate order (U,K), write the reduced extended Hessian as
+ * Let U=I\{m}; the indices in J\I are the outside best replies. With the unrestricted U coordinates first and the coordinates of
+ * the outside best replies second, write the reduced extended Hessian as
  *
  *     R = [ H  G ],
  *         [ G' Q ]
@@ -421,7 +422,7 @@ bool exact_candidate_solver::find_from_indices(const SupportMask& support, size_
     else
         result.extended_support_size = result.extended_support.count_set_bits();
 
-    // Stability does not consume the dense probability vector. Build it only when candidate output or logging requested it.
+    // Stability and logging do not consume the dense probability vector. Build it only when candidate output requests it.
     if (materialize_vector) {
         ensure_candidate_vector(result);
         for (size_t position = 0; position < non_support_count; ++position) result.vector(non_support_indices[position], 0) = fraction::zero();

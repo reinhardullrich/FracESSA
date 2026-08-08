@@ -64,8 +64,8 @@ Core implementation facts:
   checking when preparation or a support solve is inconclusive.
 - Safe clears denominators once, solves the border-eliminated symmetric candidate system with fraction-free exact integer arithmetic,
   and constructs rational probabilities and payoff only for successful public output.
-- Stability reuses exact reduced-Hessian inertia. The rare unresolved outside-reply case constructs an integer-scaled reduced Bomze
-  matrix through an exact Schur complement and decides strict copositivity exactly.
+- Stability reuses exact reduced-Hessian inertia. The rare case with unresolved outside best replies constructs an integer-scaled
+  reduced Bomze matrix through an exact Schur complement and decides strict copositivity exactly.
 - The final strict-copositivity path applies low-dimensional and sign checks, splits the negative-entry graph into connected
   components, and sends unresolved components to exact Hadeler enumeration.
 - Hadeler checks principal submatrices by increasing cardinality. Each unresolved submatrix uses an exact fraction-free determinant,

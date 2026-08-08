@@ -167,7 +167,7 @@ def assert_multiword_cli_output(fracessa_exe: Path) -> None:
 
     with tempfile.TemporaryDirectory() as directory:
         result = subprocess.run(
-            [str(fracessa_exe.resolve()), "--fullsupport", "--candidates", "--log", "safe", dimension_65_matrix],
+            [str(fracessa_exe.resolve()), "--fullsupport", "--log", "safe", dimension_65_matrix],
             capture_output=True,
             text=True,
             timeout=30.0,
@@ -176,15 +176,35 @@ def assert_multiword_cli_output(fracessa_exe: Path) -> None:
         if result.returncode != 0:
             raise AssertionError(f"multiword_logging: failed with stderr={result.stderr.strip()}")
         log = (Path(directory) / "log" / "fracessa.log").read_text(encoding="utf-8")
-        if "36893488147419103231" not in log:
-            raise AssertionError("multiword_logging: decimal support missing from log")
+        if "support:              {0, 1, 2" not in log or ", 62, 63, 64}" not in log:
+            raise AssertionError("multiword_logging: readable support indices missing from log")
+        if "36893488147419103231" in log:
+            raise AssertionError("multiword_logging: obsolete decimal support remains in log")
 
 
-def assert_logged_candidates_match_sorted_output(fracessa_exe: Path) -> None:
+def assert_candidate_ids_are_sorted(fracessa_exe: Path) -> None:
     matrix = "13#7,18,18,10,7,10"
+    result = run_case(fracessa_exe, ["--candidates", "safe", matrix])
+    if result.returncode != 0:
+        raise AssertionError(
+            f"candidate_ids: expected success, got rc={result.returncode}, stderr={result.stderr.strip()}"
+        )
+
+    lines = output_lines(result.stdout)
+    summary = parse_summary(result.stdout, "candidate_ids")
+    if summary["ess_count"] != 143 or len(lines[2:]) != 7:
+        raise AssertionError("candidate_ids: wrong ESS total or representative count")
+
+    expected_ids = list(range(1, len(lines[1:])))
+    actual_ids = [int(row.split(";", 1)[0]) for row in lines[2:]]
+    if actual_ids != expected_ids:
+        raise AssertionError(f"candidate_ids: output IDs are not sequential: {actual_ids}")
+
+
+def assert_human_readable_log(fracessa_exe: Path) -> None:
     with tempfile.TemporaryDirectory() as directory:
         result = subprocess.run(
-            [str(fracessa_exe.resolve()), "--candidates", "--log", "safe", matrix],
+            [str(fracessa_exe.resolve()), "--log", "safe", "1#1/3"],
             capture_output=True,
             text=True,
             timeout=30.0,
@@ -192,34 +212,77 @@ def assert_logged_candidates_match_sorted_output(fracessa_exe: Path) -> None:
         )
         if result.returncode != 0:
             raise AssertionError(
-                f"logged_candidate_ids: expected success, got rc={result.returncode}, stderr={result.stderr.strip()}"
+                f"human_log: expected success, got rc={result.returncode}, stderr={result.stderr.strip()}"
             )
 
-        lines = output_lines(result.stdout)
-        summary = parse_summary(result.stdout, "logged_candidate_ids")
-        if summary["ess_count"] != 143 or len(lines[2:]) != 7:
-            raise AssertionError("logged_candidate_ids: wrong ESS total or representative count")
+        log = (Path(directory) / "log" / "fracessa.log").read_text(encoding="utf-8")
+        expected_fragments = (
+            "run started: matrix_id=none requested=safe effective=safe dimension=1 circular=false fallback=none",
+            "game matrix (1 x 1):\n  0: [1/3]",
+            "solved candidate representative\n"
+            "  support:              {0}\n"
+            "  extended:             {0}\n"
+            "  reference:            0\n"
+            "  outside best replies: {}",
+            "stability: accepted [T_pure_ess]",
+            "run finished: weighted candidates=1 weighted ESS=1",
+        )
+        for fragment in expected_fragments:
+            if fragment not in log:
+                raise AssertionError(f"human_log: expected fragment missing: {fragment!r}")
+        if "candidate_id;" in log:
+            raise AssertionError("human_log: machine-readable candidate CSV remains in diagnostic log")
 
-        expected_rows = lines[1:]
-        expected_ids = list(range(1, len(expected_rows)))
-        actual_ids = [int(row.split(";", 1)[0]) for row in expected_rows[1:]]
-        if actual_ids != expected_ids:
-            raise AssertionError(f"logged_candidate_ids: output IDs are not sequential: {actual_ids}")
+    with tempfile.TemporaryDirectory() as directory:
+        result = subprocess.run(
+            [str(fracessa_exe.resolve()), "--log", "fast", "2#1,1000000000,1"],
+            capture_output=True,
+            text=True,
+            timeout=30.0,
+            cwd=directory,
+        )
+        if result.returncode != 0:
+            raise AssertionError(f"fallback_log: failed with stderr={result.stderr.strip()}")
+        log = (Path(directory) / "log" / "fracessa.log").read_text(encoding="utf-8")
+        if "requested=fast effective=safe dimension=2 circular=false fallback=precision_span" not in log:
+            raise AssertionError("fallback_log: requested method, effective method, or fallback reason missing")
 
-        log_path = Path(directory) / "log" / "fracessa.log"
-        marker = "] [info] "
-        log_payloads = [
-            line.split(marker, 1)[1]
-            for line in log_path.read_text(encoding="utf-8").splitlines()
-            if marker in line
-        ]
-        header_positions = [index for index, payload in enumerate(log_payloads) if payload == expected_rows[0]]
-        if not header_positions:
-            raise AssertionError("logged_candidate_ids: candidate header missing from log")
-        start = header_positions[-1]
-        logged_rows = log_payloads[start:start + len(expected_rows)]
-        if logged_rows != expected_rows:
-            raise AssertionError("logged_candidate_ids: logged rows differ from sorted CLI candidate output")
+    with tempfile.TemporaryDirectory() as directory:
+        result = subprocess.run(
+            [str(fracessa_exe.resolve()), "--log", "safe", "13#7,18,18,10,7,10"],
+            capture_output=True,
+            text=True,
+            timeout=30.0,
+            cwd=directory,
+        )
+        if result.returncode != 0:
+            raise AssertionError(f"circular_log: failed with stderr={result.stderr.strip()}")
+        log = (Path(directory) / "log" / "fracessa.log").read_text(encoding="utf-8")
+        if "solved candidate representative\n" not in log:
+            raise AssertionError("circular_log: solved symmetry representative missing")
+        if "run finished: weighted candidates=143 weighted ESS=143" not in log:
+            raise AssertionError("circular_log: weighted final counts missing")
+
+    with tempfile.TemporaryDirectory() as directory:
+        result = subprocess.run(
+            [str(fracessa_exe.resolve()), "--log", "safe", "5#0,0,0,0,0,-1,2,0,0,-1,0,0,-10,0,-10"],
+            capture_output=True,
+            text=True,
+            timeout=30.0,
+            cwd=directory,
+        )
+        if result.returncode != 0:
+            raise AssertionError(f"reduced_b_log: failed with stderr={result.stderr.strip()}")
+        log = (Path(directory) / "log" / "fracessa.log").read_text(encoding="utf-8")
+        reduced_b = (
+            "scaled reduced B for outside best replies {1, 2, 3, 4} (4 x 4):\n"
+            "  0: [1, -2, 0, 0]\n"
+            "  1: [-2, 1, 0, 0]\n"
+            "  2: [0, 0, 10, 0]\n"
+            "  3: [0, 0, 0, 10]"
+        )
+        if reduced_b not in log or "stability: rejected [F_not_copos]" not in log:
+            raise AssertionError("reduced_b_log: exact reduced-B matrix or decision missing")
 
 
 def main() -> int:
@@ -310,7 +373,8 @@ def main() -> int:
 
     # Other success paths
     assert_success_with_ess_output(fracessa_exe, ["safe", "5#1,3"], "circular_success")
-    assert_logged_candidates_match_sorted_output(fracessa_exe)
+    assert_candidate_ids_are_sorted(fracessa_exe)
+    assert_human_readable_log(fracessa_exe)
     assert_failure_with_stderr(
         fracessa_exe,
         ["--cyclic-symmetry-filter", "safe", "5#1,3"],

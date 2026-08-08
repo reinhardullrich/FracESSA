@@ -518,8 +518,8 @@ comparison; V2's documented results remain evidence of the rejected compact-prun
 
 ## Implemented Shape
 
-The production paths are split between `cpp/include/fracessa/non_circular_support_generator.hpp` and
-`cpp/include/fracessa/circular_support_generator.hpp`. The independent V1 oracle lives only in
+The production paths are split between `cpp/include/fracessa/support_generator_non_circular.hpp` and
+`cpp/include/fracessa/support_generator_circular.hpp`. The independent V1 oracle lives only in
 `cpp/tests/reference_circular_support_generator.hpp`. They retain the same compile-time callback shape without inheritance:
 
 ```cpp

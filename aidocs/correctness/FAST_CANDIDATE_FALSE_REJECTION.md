@@ -1,5 +1,8 @@
 # Historical Fast Candidate False Rejections
 
+Status: current correctness reference for historical failures and the present non-certifying mitigations. Fast remains heuristic;
+safe is the exact method.
+
 Last verified: 2026-08-01 against historical fast revision `8697ebaf` and the current working tree
 
 ## Result

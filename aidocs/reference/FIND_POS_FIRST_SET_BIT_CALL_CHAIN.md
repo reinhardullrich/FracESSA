@@ -1,63 +1,64 @@
 # `find_pos_first_set_bit` Production Call Chain
 
-Last verified: 2026-08-09
-
-Scope: production C++ under `cpp/include/` and `cpp/src/`; tests are excluded.
+Status: current production reference. Last verified: 2026-08-09. Tests are excluded.
 
 ## Contract
 
-`bs64::find_pos_first_set_bit(bits)` returns the zero-based position of the
-lowest set bit. It delegates to the branch-free `ctz64()` primitive and requires
-`bits != 0`. Every production caller below establishes that precondition.
-`lowest_set_bit_as_bit()` is separate: it directly isolates the lowest bit and
-is defined for zero.
+- `bs64::find_pos_first_set_bit(bits)` returns the zero-based position of the lowest set bit. It delegates to branch-free `ctz64()`
+  and requires `bits != 0`.
+- `bitset_multiword::find_pos_first_set_bit()` scans words from low to high, applies `ctz64()` to the first nonzero word, and requires
+  a nonempty set.
+- `bs64::lowest_set_bit_as_bit()` is separate: it isolates the lowest bit directly and is defined for zero.
+- The former `find_pos_next_set_bit()` helper no longer exists. Iteration clears the current lowest bit or extracts all indices once.
 
-## Direct Calls
+## Direct Production Calls
 
 | Location | Caller | Purpose |
 |---|---|---|
-| `cpp/src/check_stability.cpp:15` | `first_support_position` | Return the deterministic reference index used by `basic_fracessa::check_stability`. |
-| `cpp/src/fast_candidate_filter.cpp:488` | `fast_candidate_filter::passes_from_indices` | Visit the next outside-support strategy in the heuristic payoff check. |
-| `cpp/src/test_candidate_filter.cpp:488` | `test_candidate_filter::passes_from_indices` | Visit the next outside-support strategy in the experimental payoff check. |
+| `cpp/src/fracessa.cpp` | `basic_fracessa::log_candidate` | Find the deterministic reference strategy for optional diagnostic logging. |
+| `cpp/src/fast_candidate_filter.cpp` | `fast_candidate_filter::passes_from_indices` | Visit outside-support strategies in the one-word binary64 payoff check. |
+| `cpp/src/test_candidate_filter.cpp` | `test_candidate_filter::passes_from_indices` | Visit outside-support strategies in the one-word experimental payoff check. |
 | `cpp/include/linalg/copositive_integer.hpp` | `CopositivityChecker::is_strictly_copositive_hadeler` | Read the only index of a one-coordinate principal subset. |
-| `cpp/include/linalg/copositive_integer.hpp` | `CopositivityChecker::are_negative_components_strictly_copositive` | Visit one vertex of the current negative-entry component. |
+| `cpp/include/linalg/copositive_integer.hpp` | `CopositivityChecker::are_negative_components_strictly_copositive` | Visit vertices while constructing negative-entry graph components. |
+| `cpp/include/fracessa/support_generator_non_circular.hpp` | `NonCircularSupportGenerator<bitset_multiword>::activate_pending` | Bucket a newly forbidden multiword support by its lowest strategy. |
+| `cpp/include/fracessa/support_generator_circular.hpp` | `CircularSupportGenerator<bitset_multiword>::activate_pending` | Bucket a newly forbidden multiword orbit member by its lowest strategy. |
 
-`find_pos_next_set_bit()` has no production caller. Hadeler advances complete principal subsets with
-`next_same_cardinality()` and extracts their indices with `extract_set_indices()`.
+Every caller establishes nonemptiness through its loop, candidate, principal-subset, component, or forbidden-support invariant.
 
-## Analyzer Call Graph
+## Call Graph
 
 ```text
-main / fracessa_core.compute_matrix
-  -> fracessa::fracessa
-     -> fracessa::analyze_support
-        -> fracessa::check_stability
-           -> find_pos_first_set_bit
-           -> lowest_set_bit_as_bit
-           -> CopositivityChecker::are_negative_components_strictly_copositive
-              -> find_pos_first_set_bit
-              -> CopositivityChecker::is_strictly_copositive
-                 -> CopositivityChecker::is_strictly_copositive_hadeler
-                    -> find_pos_first_set_bit (one-coordinate subset only)
+basic_fracessa::run
+  -> basic_fracessa::analyze_support
+     -> basic_fracessa::log_candidate (logging only)
+        -> one-word or multiword find_pos_first_set_bit
+     -> basic_fracessa::check_stability
+        -> CopositivityChecker::are_negative_components_strictly_copositive
+           -> one-word or multiword find_pos_first_set_bit
+           -> CopositivityChecker::is_strictly_copositive
+              -> CopositivityChecker::is_strictly_copositive_hadeler
+                 -> bs64::find_pos_first_set_bit (one-coordinate one-word subset only)
 
 basic_fracessa::analyze_support
   -> fast_candidate_filter::passes / test_candidate_filter::passes
-     -> find_pos_first_set_bit
+     -> bs64::find_pos_first_set_bit (one-word outside-strategy iteration)
+
+multiword support generator::generate
+  -> activate_pending
+     -> bitset_multiword::find_pos_first_set_bit
 ```
 
 ## Separate Index-Extraction Path
 
-`bs64::extract_set_indices()` does not call this helper. It masks to the active
-dimension, then repeatedly executes `ctz64(bits)` and `bits &= bits - 1`.
-Production callers are:
+Neither `extract_set_indices()` implementation calls `find_pos_first_set_bit()`. Both repeatedly apply `ctz64()` and clear the bit
+with `word &= word - 1`; the multiword version repeats that operation for every word.
 
-- `cpp/include/linalg/copositive_integer.hpp` for two-, three-, and general-dimensional Hadeler subsets and disconnected components
-- `cpp/src/fast_candidate_filter.cpp:395`
-- `cpp/src/exact_candidate_solver.cpp:247`
-- `cpp/src/exact_candidate_solver.cpp:248`
-- `cpp/src/exact_candidate_solver.cpp:344`
-- `cpp/src/exact_candidate_solver.cpp:346`
-- `cpp/src/test_candidate_filter.cpp:395`
+Production uses index extraction in:
+
+- `cpp/include/linalg/copositive_integer.hpp` for Hadeler subsets and disconnected components;
+- `cpp/src/exact_candidate_solver.cpp` for candidate systems, scaled reduced $B$, and outside-payoff checks;
+- `cpp/src/fast_candidate_filter.cpp` and `cpp/src/test_candidate_filter.cpp` for binary64 candidate systems; and
+- `cpp/include/fracessa/circular_affine_symmetry.hpp` for multiword support permutations.
 
 Regenerate the occurrence list with:
 

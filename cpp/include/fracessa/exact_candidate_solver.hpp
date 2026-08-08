@@ -55,7 +55,8 @@ public:
     // Its negative definiteness is the support-only second-order ESS condition.
     bool reduced_hessian_is_negative_definite() const noexcept { return reduced_hessian_is_negative_definite_; }
 
-    // Build an integer matrix that is a positive multiple of Bomze's final reduced B^(r) matrix and return its dimension |K|.
+    // Build an integer matrix that is a positive multiple of Bomze's final reduced B^(r) matrix and return the number of outside
+    // best replies.
     // Method: eliminate the unrestricted support block through one exact Schur complement; no inverse is formed.
     // Valid immediately after find() succeeds for the same support and reports a negative-definite reduced Hessian.
     size_t build_scaled_reduced_b(bitset64 support, bitset64 outside_best_replies, linalg::matrix_int& result);

@@ -1,5 +1,7 @@
 # Eliminating the Border from the Candidate System
 
+Status: current mathematical derivation of the reduced symmetric system used by the exact candidate solver.
+
 ## Purpose
 
 This note explains one mathematical simplification of the candidate equations.

@@ -12,106 +12,75 @@ inline bitset_multiword support_difference(bitset_multiword left, const bitset_m
     return left;
 }
 
-inline size_t first_support_position(bitset64 support) noexcept { return bs64::find_pos_first_set_bit(support); }
-inline size_t first_support_position(const bitset_multiword& support) noexcept { return support.find_pos_first_set_bit(); }
-
-inline void clear_support_position(bitset64& support, size_t position) noexcept
-{
-    support = bs64::subtract(support, bs64::single_bit_at_pos(position));
-}
-
-inline void clear_support_position(bitset_multiword& support, size_t position) noexcept { support.clear_bit_at_pos(position); }
-
-inline std::string support_bitstring(bitset64 support, size_t dimension) { return bs64::to_bitstring(support, dimension); }
-inline std::string support_bitstring(const bitset_multiword& support, size_t) { return support.to_bitstring(); }
-
 } // namespace
 
 /*
  * Exact stability test for a candidate equilibrium p.
  *
- * Write I=I(p) for its support, J=J(p) for all pure best replies, and K=J\I for the unused best replies. Choosing one reference
- * m in I leaves the I\{m} coordinates unrestricted and the K coordinates nonnegative in Bomze's stability cone.
+ * Write I=I(p) for its support and J=J(p) for all pure best replies. The strategies in J\I are the outside best replies. Choosing
+ * one reference m in I leaves the I\{m} coordinates unrestricted and the coordinates of the outside best replies nonnegative in
+ * Bomze's stability cone.
  *
  * The candidate solve has already factored the reduced Hessian H on I\{m}. Its inertia settles the common cases directly. When
- * H is negative definite and K is nonempty, the retained factorization constructs Bomze's scaled reduced B^(r) matrix through one
- * Schur complement. Stability then reduces to ordinary strict copositivity of that smaller exact matrix.
+ * H is negative definite and outside best replies remain, the retained factorization constructs Bomze's scaled reduced B^(r)
+ * matrix through one Schur complement. Stability then reduces to ordinary strict copositivity of that smaller exact matrix.
  */
 
 template<class SupportMask>
 void basic_fracessa<SupportMask>::check_stability()
 {
-    if (conf_with_log_) {
-        // Any m in I is valid. The lowest set bit matches the deterministic reference used by the exact candidate solve.
-        const size_t m = first_support_position(candidate_.support);
-        SupportMask extended_support_reduced = candidate_.extended_support;
-        clear_support_position(extended_support_reduced, m);
-        logger_->info("Support: {}", support_bitstring(candidate_.support, dimension_));
-        logger_->info("Support size: {}", candidate_.support_size);
-        logger_->info("Extended support: {}", support_bitstring(candidate_.extended_support, dimension_));
-        logger_->info("Extended support size: {}", candidate_.extended_support_size);
-        logger_->info("Extended support reduced: {}", support_bitstring(extended_support_reduced, dimension_));
-        logger_->info("index m: {}", m);
-    }
-
     // Path 1, early acceptance: J contains only the pure support strategy.
     // No other strategy ties its payoff, so this is a strict ESS.
     if (candidate_.extended_support_size == 1) {
-        if (conf_with_log_) logger_->info("Reason: true_pure_ess");
-        candidate_.stability = "T_pure_ess";
-        candidate_.is_ess = true;
+        set_stability_result(true, "T_pure_ess");
         return;
     }
 
-    // K contains best replies that receive zero probability in p. Only their coordinates are sign constrained.
+    // Outside best replies tie the candidate payoff but receive zero probability. Only their coordinates are sign constrained.
     const SupportMask outside_best_replies = support_difference(candidate_.extended_support, candidate_.support);
 
     // Path 2, early rejection: H is not negative definite. A support-only direction already violates strict stability,
     // so reject the candidate.
     if (!exact_candidate_solver_.reduced_hessian_is_negative_definite()) {
-        if (conf_with_log_) logger_->info("Reason: false_reduced_hessian_not_negative_definite");
-        candidate_.stability = "F_reduced_hessian_not_nd";
-        candidate_.is_ess = false;
+        set_stability_result(false, "F_reduced_hessian_not_nd");
         return;
     }
 
-    // Path 3, early acceptance: H is negative definite and K is empty. No unused tied best reply remains,
+    // Path 3, early acceptance: H is negative definite and no outside best reply remains,
     // so -2H proves that the candidate is an ESS.
     if (candidate_.extended_support == candidate_.support) {
-        if (conf_with_log_) logger_->info("Reason: T_reduced_hessian_nd");
-        candidate_.stability = "T_reduced_hessian_nd";
-        candidate_.is_ess = true;
+        set_stability_result(true, "T_reduced_hessian_nd");
         return;
     }
     // The remaining case has H negative definite and at least one unused tied best reply.
     const size_t outside_best_reply_count =
         exact_candidate_solver_.build_scaled_reduced_b(candidate_.support, outside_best_replies, scaled_reduced_b_);
 
-    if (conf_with_log_) {
-        logger_->info("outside best replies: {}", support_bitstring(outside_best_replies, dimension_));
-        logger_->info("scaled reduced B matrix:\n{}", scaled_reduced_b_.to_log_string());
-    }
+    log_reduced_b(outside_best_replies);
 
-    // Path 4, direct decision: Small K has fixed exact criteria, cheaper than collecting data for the general copositivity path.
+    // Path 4, direct decision: One to three outside best replies have fixed exact criteria, cheaper than the general path.
     switch (outside_best_reply_count) {
         case 1:
-            candidate_.is_ess = linalg::is_strictly_copositive_1x1(scaled_reduced_b_(0, 0));
-            candidate_.stability = candidate_.is_ess ? "T_copos_small" : "F_not_copos_small";
-            if (conf_with_log_) logger_->info("Reason: {}", candidate_.stability);
+        {
+            const bool is_ess = linalg::is_strictly_copositive_1x1(scaled_reduced_b_(0, 0));
+            set_stability_result(is_ess, is_ess ? "T_copos_small" : "F_not_copos_small");
             return;
+        }
         case 2:
-            candidate_.is_ess = linalg::is_strictly_copositive_2x2(
+        {
+            const bool is_ess = linalg::is_strictly_copositive_2x2(
                 scaled_reduced_b_(0, 0), scaled_reduced_b_(0, 1), scaled_reduced_b_(1, 1));
-            candidate_.stability = candidate_.is_ess ? "T_copos_small" : "F_not_copos_small";
-            if (conf_with_log_) logger_->info("Reason: {}", candidate_.stability);
+            set_stability_result(is_ess, is_ess ? "T_copos_small" : "F_not_copos_small");
             return;
+        }
         case 3:
-            candidate_.is_ess = linalg::is_strictly_copositive_3x3(
+        {
+            const bool is_ess = linalg::is_strictly_copositive_3x3(
                 scaled_reduced_b_(0, 0), scaled_reduced_b_(0, 1), scaled_reduced_b_(0, 2),
                 scaled_reduced_b_(1, 1), scaled_reduced_b_(1, 2), scaled_reduced_b_(2, 2));
-            candidate_.stability = candidate_.is_ess ? "T_copos_small" : "F_not_copos_small";
-            if (conf_with_log_) logger_->info("Reason: {}", candidate_.stability);
+            set_stability_result(is_ess, is_ess ? "T_copos_small" : "F_not_copos_small");
             return;
+        }
         default:
             break;
     }
@@ -120,51 +89,37 @@ void basic_fracessa<SupportMask>::check_stability()
         // This must be the first sign-scan decision: every other scan field is incomplete when a diagonal fails.
         // Path 5, early rejection: A nonpositive diagonal is an explicit coordinate-vector witness against strict copositivity.
         if (!sign_scan.all_diagonal_positive) {
-            if (conf_with_log_) logger_->info("Reason: F_not_copos_nonpositive_diagonal");
-            candidate_.stability = "F_not_copos_nonpositive_diagonal";
-            candidate_.is_ess = false;
+            set_stability_result(false, "F_not_copos_nonpositive_diagonal");
             return;
         }
 
         // Path 6, early acceptance: Positive diagonals and nonnegative off-diagonal entries make every term in the quadratic form
         // nonnegative, with at least one positive term for every nonzero nonnegative vector.
         if (!sign_scan.has_negative_off_diagonal) {
-            if (conf_with_log_) logger_->info("Reason: T_copos_nonnegative_off_diagonal");
-            candidate_.stability = "T_copos_nonnegative_off_diagonal";
-            candidate_.is_ess = true;
+            set_stability_result(true, "T_copos_nonnegative_off_diagonal");
             return;
         }
 
         // Path 7, early acceptance: Liqun Qi, LAA 439 (2013), Theorem 10, eq. (12): a positive diagonal plus all negative
         // off-diagonal entries in every row implies strict copositivity.
         if (sign_scan.all_negative_part_row_sums_positive) {
-            if (conf_with_log_) logger_->info("Reason: T_copos_negative_part_diagonal_dominance");
-            candidate_.stability = "T_copos_negative_part_diagonal_dominance";
-            candidate_.is_ess = true;
+            set_stability_result(true, "T_copos_negative_part_diagonal_dominance");
             return;
         }
 
         // Path 8, early rejection: The all-ones vector is nonzero and nonnegative. If its exact quadratic value is nonpositive,
         // the scaled reduced B matrix is not strictly copositive.
         if (sign_scan.all_ones_quadratic_value.sign() <= 0) {
-            if (conf_with_log_) logger_->info("Reason: F_not_copos_nonpositive_all_ones_value");
-            candidate_.stability = "F_not_copos_nonpositive_all_ones_value";
-            candidate_.is_ess = false;
+            set_stability_result(false, "F_not_copos_nonpositive_all_ones_value");
             return;
         }
 
         // Path 9, final decision: nonnegative interactions between distinct components of the negative-entry graph cannot create a
         // nonpositive value on the nonnegative orthant. Check each component independently with exact Hadeler enumeration.
         linalg::CopositivityChecker copositivity_checker(outside_best_reply_count);
-        if (copositivity_checker.are_negative_components_strictly_copositive(scaled_reduced_b_, sign_scan.negative_neighbors)) {
-            if (conf_with_log_) logger_->info("Reason: true_copositive");
-            candidate_.stability = "T_copos";
-            candidate_.is_ess = true;
-        } else {
-            if (conf_with_log_) logger_->info("Reason: false_not_copositive");
-            candidate_.stability = "F_not_copos";
-            candidate_.is_ess = false;
-        }
+        const bool is_ess = copositivity_checker.are_negative_components_strictly_copositive(
+            scaled_reduced_b_, sign_scan.negative_neighbors);
+        set_stability_result(is_ess, is_ess ? "T_copos" : "F_not_copos");
     };
 
     // The reduced B dimension, not the original game dimension, determines whether one or several words are needed. Keep the

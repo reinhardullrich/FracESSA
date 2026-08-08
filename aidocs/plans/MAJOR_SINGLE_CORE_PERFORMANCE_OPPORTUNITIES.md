@@ -1,8 +1,7 @@
 # Major Single-Core Performance Opportunities
 
-Status: research-level design review only. No source change, prototype, or new
-benchmark was made for this review. Every performance statement below is a
-mechanism-based hypothesis that still requires measurement before adoption.
+Status: current research backlog. The integer exact kernel and shared candidate/stability factorization proposed by the original
+review have been implemented; the remaining opportunities are unimplemented hypotheses that require measurement before adoption.
 
 ## Scope
 
@@ -29,17 +28,16 @@ $$
 (Ax)_i\leq u\quad(i\notin S).
 $$
 
-The current program is therefore an exhaustive active-set method for a
-quadratic program: it enumerates a support $S$, solves its KKT equations, and
-then runs a separate second-order stability test. The largest improvements must
-either examine far fewer active sets or make exact KKT/stability work
-substantially cheaper.
+The current program is therefore an exhaustive active-set method for a quadratic program: it enumerates a support $S$, solves its KKT
+equations, and classifies stability, reusing the candidate factorization whenever possible. The largest remaining improvements must
+either examine far fewer active sets or avoid material exact work that profiling still shows to be expensive.
 
 ## Evidence From The Retained Workload
 
-These are existing database measurements, not new tests:
+These are historical measurements from the 87-matrix snapshot used for the original review, not current whole-database results or new
+tests:
 
-- Across the current 87-matrix timing session, verified, unsafe, and exact
+- Across that 87-matrix timing session, the then-used verified, unsafe, and exact
   totals are respectively `347.148 s`, `59.389 s`, and `1437.953 s`.
 - Five structured many-candidate matrices (IDs 66, 65, 90, 64, and 89) account
   for `291.510 s`, or about 84% of the complete verified total.
@@ -47,17 +45,27 @@ These are existing database measurements, not new tests:
   (98.95%) have extended support equal to support. Thus almost every retained
   candidate reaches the common easy stability case with no unused tied best
   reply.
-- The 5.8-fold verified-to-unsafe total gap is not permission to use the unsafe
-  result and does not prove that the gap is attainable. It does quantify how
-  much single-core time the present rigorous per-support path adds.
+- The 5.8-fold verified-to-unsafe total gap was not permission to use the unsafe result and did not prove that the gap was attainable.
+  It quantified how much single-core time the rigorous per-support path added at that time.
 
-This workload makes two different strategies important: structure-aware
-algorithms for the dominant graph-like families, and a broadly faster exact or
-verified kernel for unstructured games.
+That snapshot suggested two different strategies: structure-aware algorithms for the dominant graph-like families and a broadly faster
+exact kernel for unstructured games.
 
-## Ranked Heavy Hitters
+## Completed Foundations
 
-The rank reflects potential against the retained workload, not implementation
+The following proposals from the original review are now production behavior:
+
+- The parser clears denominators once and the exact candidate and stability kernels use FLINT integers rather than rational arithmetic.
+- One reduced symmetric candidate system of dimension $k-1$ replaces the bordered system of dimension $k+1$.
+- The fraction-free $LDL^T$ factorization returns the exact solution and inertia. Stability reuses that factorization and constructs
+  only the smaller scaled reduced $B$ matrix through a Schur complement when outside best replies leave the result unresolved.
+
+The implementation details belong in `aidocs/PROJECT.md` and `aidocs/plans/EXACT_STABILITY_SCHUR_COMPLEMENT.md`; they are not repeated
+as open proposals here.
+
+## Open Heavy Hitters
+
+The rank reflects potential against the retained historical snapshot, not implementation
 order or a promise of measured speedup. “Very high” means that the mechanism
 can remove an exponential search or thousands of repeated factorizations.
 “High” means that it can remove a whole factorization or replace rational
@@ -66,15 +74,13 @@ arithmetic throughout a major stage.
 | Rank | Opportunity | Plausible reach | Coverage | Risk |
 |---:|:---|:---|:---|:---|
 | 1 | Recognize graph-payoff families and enumerate maximal cliques | Very high | Structured graph games | Medium |
-| 2 | Normalize once and move the exact core from rationals to integers | High | Broad | Medium |
-| 3 | Use one symmetric KKT factorization for both solution and curvature | High | Broad, especially candidate-heavy games | Medium |
-| 4 | Detect strictly concave games and solve their unique equilibrium directly | Very high | Mathematically qualifying games | Medium |
-| 5 | Quotient support search by exact matrix automorphisms | Very high | Symmetric/repeated-block games | Medium to high |
-| 6 | Reuse linear algebra across neighboring supports | High | Broad exponential scans | High |
-| 7 | Certify positive definiteness numerically before rational stability | High | Candidate-heavy games | Medium |
-| 8 | Probe promising full support automatically | Very high when it succeeds | Full-support ESS games | Low |
-| 9 | Eliminate never-best-response strategies before enumeration | Exponential in strategies removed | Reducible games | Low to medium |
-| 10 | Replace support enumeration by complementarity reverse search | Potentially very high | General nondegenerate cases | Very high |
+| 2 | Detect strictly concave games and solve their unique equilibrium directly | Very high | Mathematically qualifying games | Medium |
+| 3 | Quotient support search by exact matrix automorphisms | Very high | Symmetric/repeated-block games | Medium to high |
+| 4 | Reuse linear algebra across neighboring supports | High | Broad exponential scans | High |
+| 5 | Certify positive definiteness numerically before exact stability | High | Candidate-heavy games | Medium |
+| 6 | Probe promising full support automatically | Very high when it succeeds | Full-support ESS games | Low |
+| 7 | Eliminate never-best-reply strategies before enumeration | Exponential in strategies removed | Reducible games | Low to medium |
+| 8 | Replace support enumeration by complementarity reverse search | Potentially very high | General nondegenerate cases | Very high |
 
 ### 1. Exact graph-family dispatch to maximal-clique enumeration
 
@@ -86,8 +92,8 @@ linear systems.
 
 For a theorem-approved graph payoff family, recognize exact affine equivalence
 to a regularized adjacency game, then enumerate the corresponding maximal
-cliques directly with a 64-bit branch-and-bound algorithm such as
-Bron--Kerbosch with pivoting. Affine recognition must be exact because adding a
+cliques directly with a bitset branch-and-bound algorithm such as Bron--Kerbosch with pivoting. The existing support representation
+keeps the one-word fast path through dimension 64 and uses multiple words above it. Affine recognition must be exact because adding a
 common payoff and multiplying by a positive scalar preserve candidates and
 ESS, while approximate pattern recognition would not.
 
@@ -109,109 +115,12 @@ Correctness boundaries:
   engine, not merely each emitted support. At runtime, fall back if recognition
   or a detector invariant fails.
 
-This is the first workload-specific experiment because the retained timings say
-that graph-like instances, not random matrices, dominate current total time.
+This is the first workload-specific experiment because graph-like instances, not random matrices, dominated the historical snapshot.
 Bomze's regularized maximum-clique formulation is the relevant mathematical
 starting point; maximal-clique enumeration itself can use the classic
 [Bron--Kerbosch algorithm](https://doi.org/10.1145/362342.362367).
 
-### 2. Store a scaled integer game and use fraction-free exact algebra
-
-The current exact candidate solver performs Gaussian elimination directly on
-canonical FLINT rationals. Every inner-loop division and multiply-subtract can
-therefore create large numerators and denominators and trigger repeated gcd
-normalization.
-
-Instead, apply one exact affine transformation
-
-$$
-B=D(A-c\mathbf1\mathbf1^T),\qquad D>0,
-$$
-
-chosen so that $B$ is integral and its coefficients are as small as practical.
-The strategy vector is unchanged, every candidate and ESS inequality is
-preserved, and an output payoff is mapped back by the inverse affine
-transformation. All heavy exact work can then remain over `fmpz` integers:
-
-- solve the bordered KKT system with fraction-free elimination or FLINT's
-  integer solver;
-- retain the solution as integer numerators with one common denominator;
-- test probability signs and outside gains with integer dot products;
-- build the stability matrix with integers;
-- run the already division-free Bomze reduction with integers;
-- materialize canonical `fmpq` values only for a successful candidate that must
-  be returned or logged.
-
-This is not a speculative arithmetic trick. FLINT's own
-[`fmpq_mat` documentation](https://flintlib.org/doc/fmpq_mat.html) says that
-rational arithmetic is expensive and that its matrix algorithms normally clear
-denominators and perform the heavy work over integers. It already exposes
-matrix-wise and row-wise denominator clearing plus fraction-free, Dixon, and
-multimodular solvers. The exact elimination inside `exact_candidate_solver` is the
-production point corresponding to this proposal. Bareiss's original
-[integer-preserving elimination](https://www.ams.org/mcom/1968-22-103/S0025-5718-1968-0226829-0/S0025-5718-1968-0226829-0.pdf)
-provides the underlying method.
-
-The lazy first implementation is not a new big-integer library. Wrap the
-already linked FLINT `fmpz_mat`/`fmpq_mat_solve` operations and compare them
-with the current kernel. A checked 64- or 128-bit Bareiss fast path is a later
-option only if profiling shows that the FLINT wrapper is still the bottleneck
-and typical determinant bounds fit fixed width.
-
-### 3. Solve the candidate and classify the common stability case with one factorization
-
-**Implemented in the integer fraction-free exact kernel.** The original bordered candidate
-system can be written as the symmetric KKT matrix
-
-$$
-K_S=
-\begin{bmatrix}
-A_S&-\mathbf1\\
--\mathbf1^T&0
-\end{bmatrix},
-\qquad
-K_S
-\begin{bmatrix}x\\u\end{bmatrix}
-=
-\begin{bmatrix}0\\-1\end{bmatrix}.
-$$
-
-Rather than factor the larger bordered matrix directly, production now chooses
-one reference strategy $m$, writes every normalized support vector as
-$x=e_m+Zy$, and eliminates the payoff and normalization border:
-
-$$
-Hy=r,\qquad H=Z^TA_SZ,\qquad r=-Z^TA_Se_m.
-$$
-
-This reduces a support of size $k$ from a $(k+1)$-dimensional bordered
-system to one symmetric $(k-1)$-dimensional system. The game denominators are
-cleared once, after which one exact fraction-free congruence factorization of
-the integer-scaled system provides all of the following:
-
-1. nonsingularity of the exact candidate system;
-2. the exact solution;
-3. the inertia of $H$.
-
-The Bee support block is exactly $-2H$. Therefore a candidate cannot be an ESS when $H$ is not negative definite, regardless of
-outside best replies; when $H$ is negative definite and extended support equals support, the candidate is an ESS without
-constructing Bee or factoring a second exact matrix. For $H\prec0$ with outside best replies, production now replays only the
-right-hand-side part of the retained fraction-free factorization and constructs the smaller exact Schur complement directly. This
-replaces complete rational Bee construction and recursive elimination; only the final exact positive-definiteness or
-strict-copositivity check remains.
-
-The retained data make this unusually relevant: 49,064 of 49,157 stored
-candidate representatives (99.811%) have `extended_support == support`.
-Weighted by circular multipliers, the corresponding share is 98.95%.
-
-The reusable FLINT-style kernel keeps Bareiss updates in `fmpz_t`. A nonzero
-active diagonal gives a 1-by-1 pivot. If every active diagonal is zero but the
-matrix is nonsingular, one unimodular symmetric coordinate addition creates a
-nonzero diagonal without changing determinant or inertia; the solve undoes that
-coordinate change before returning. Production constructs `fraction` values
-only after every candidate condition succeeds.
-
-### 4. Strict-concavity fast path: one equilibrium, no support enumeration
+### 2. Strict-concavity fast path: one equilibrium, no support enumeration
 
 Choose any full-rank tangent basis, for example columns $e_i-e_m$, and test
 
@@ -242,7 +151,7 @@ full-support test alone cannot find. In game-theory terminology these are
 strictly stable games; negative definiteness on the simplex tangent space is
 the key condition.
 
-### 5. Generate support orbits under the actual automorphism group
+### 3. Generate support orbits under the actual automorphism group
 
 The circular generator uses a known dihedral symmetry group, but a general
 symmetric matrix may have a much larger automorphism group
@@ -273,11 +182,11 @@ branches. Candidate output can either be expanded from the orbit or represented
 with a generalized multiplier; the latter would be an API decision, not merely
 an optimization.
 
-### 6. Reuse factorization state across the subset lattice
+### 4. Reuse factorization state across the subset lattice
 
-For each support $S$, $K_S$ is a principal submatrix of one global bordered KKT
-matrix. The current code discards that relationship and factors every support
-from scratch in $O(k^3)$ work.
+Candidate supports overlap heavily, but the current code factors each reduced system from scratch in $O(k^3)$ work. Reuse is not a
+drop-in update: the reduced matrix depends on the chosen reference strategy, while the larger bordered KKT systems have the simpler
+principal-submatrix relationship.
 
 Two related redesigns can lower the per-support algebra:
 
@@ -295,18 +204,15 @@ FracESSA needs more than determinants: it needs the last inverse column for
 $(x,u)$ and exact outside inequalities. Nevertheless, the same block inverse or
 Schur state can update that solution in quadratic rather than cubic work.
 
-This is a credible general 30--50% class improvement, but it is a high-risk
-implementation. Singular intermediate principal submatrices, exact integer
-growth, stable verified updates, and support-pruning order all need explicit
-fallbacks. It should be attempted only after the simpler integer KKT kernel is
-measured, because fraction-free FLINT may already remove most of the time this
-redesign targets.
+This is a credible general improvement, but it is a high-risk implementation. Singular intermediate principal submatrices, exact
+integer growth, stable verified updates, reference changes, and support-pruning order all need explicit fallbacks. Attempt it only if
+profiling of the current fraction-free kernel still shows support-by-support factorization as a dominant cost.
 
-### 7. One-sided ball Cholesky before exact reduced-B classification
+### 5. One-sided ball Cholesky before exact reduced-B classification
 
 After exact candidate construction has established the exact extended support,
 try to prove the scaled reduced $B$ matrix positive definite with rigorous ball arithmetic. A successful ball Cholesky is
-a complete proof and can skip its rational positive-definiteness factorization. An inconclusive result falls through to the
+a complete proof and can skip its exact integer positive-definiteness factorization. An inconclusive result falls through to the
 unchanged exact reduced-$B$ classification.
 
 FLINT already ships Arb, and
@@ -321,7 +227,7 @@ global matrix required by the strict-concavity fast path. It does not justify
 optimizing full copositivity first: the retained workload reaches successful
 full copositivity for only a handful of candidate representatives.
 
-### 8. Automatic, cheap full-support probe
+### 6. Automatic, cheap full-support probe
 
 The existing `--fullsupport` path can turn a full-support ESS game from an
 exponential search into one candidate and stability test. A completely mixed
@@ -341,7 +247,7 @@ orders-of-magnitude win for the retained full-support examples and a small
 bounded overhead elsewhere. It is also far simpler than a new enumeration
 engine, so it should be tested early even though its coverage is narrow.
 
-### 9. Eliminate strategies that can never be best replies
+### 7. Eliminate strategies that can never be best replies
 
 Before support generation, prove that a strategy is never a best response to
 any point of the simplex. A purely strictly dominated row is the cheapest case;
@@ -358,7 +264,7 @@ equilibrium enumeration, and a floating LP status alone is not a proof. Start
 with the short $O(n^3)$ pure-dominance scan; add mixed-dominance certificates
 only if real matrices actually benefit.
 
-### 10. Output-sensitive complementarity or reverse-search enumeration
+### 8. Output-sensitive complementarity or reverse-search enumeration
 
 The candidate equations can be written as the complementarity system
 
@@ -399,30 +305,21 @@ The following may still be reasonable maintenance work, but they are not
 - compiler flag, inlining, loop-unrolling, or logging cleanup presented as the
   main performance plan.
 
-The allocation audit already shows the general lesson: dramatically fewer
-allocator calls did not produce a stable application-level speedup. The next
-round should change mathematics or arithmetic representation, not polish
-memory ownership again.
+The allocation audit already shows the general lesson: dramatically fewer allocator calls did not produce a stable application-level
+speedup. The next round should change the number of supports examined or remove a measured mathematical kernel, not polish memory
+ownership again.
 
 ## Recommended Research Sequence
 
-1. **Implemented:** reduce the bordered candidate system to $H=Z^TA_SZ$, solve
-   it with exact symmetric $LDL^T$, return inertia, and bypass Bee whenever
-   that inertia decides stability.
-2. **Implemented:** replace rational $LDL^T$ arithmetic with the measured
-   fraction-free FLINT-style integer kernel without changing the reduction or
-   public flow.
-3. **Implemented:** reuse the retained negative-definite factorization to build the exact scaled reduced $B$ matrix directly through
-   its Schur complement, replacing complete rational Bee construction and recursive elimination.
-4. Add exact recognition for the complete-multipartite/graph family that
-   dominates retained time, using the narrowest theorem-backed detector.
-5. Test the global strict-concavity and automatic full-support fast paths.
-6. Add the one-sided Arb positive-definiteness filter if exact Schur classification is still material after steps 1--5.
-7. Add twin-class orbit generation before considering a full automorphism
-   package.
-8. Attempt subset-lattice updates or complementarity reverse search only if the
-   simpler changes leave support-by-support factorization as the measured
-   bottleneck.
+1. Profile the current build on the balanced matrix panel before selecting another project; the historical 87-matrix totals are not a
+   current bottleneck measurement.
+2. If graph-like families still dominate, add the narrowest theorem-backed exact recognizer and compare direct maximal-clique output
+   with the complete exact engine.
+3. Test the global strict-concavity and automatic full-support paths as separate small experiments.
+4. Add one-sided Arb positive-definiteness only if exact scaled-reduced-$B$ classification remains material.
+5. Try exact twin-class orbit generation before considering a full automorphism package.
+6. Attempt subset-lattice updates or complementarity reverse search only if simpler changes leave support-by-support factorization as
+   the measured bottleneck.
 
 Each experiment should be retained only after the established balanced panel
 covers small and large dimensions, circular and non-circular inputs, and

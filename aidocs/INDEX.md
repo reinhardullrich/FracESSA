@@ -20,7 +20,8 @@ duplicating its contents.
 - `plans/EXACT_STABILITY_SCHUR_COMPLEMENT.md`: implemented exact Schur-complement stability reduction and verification plan.
 - `plans/MULTIWORD_BIT_ARRAY.md`: implemented dimension-64 and multiword support architecture, staged verification, and performance
   evidence for preserving the one-word path.
-- `correctness/DOUBLE_PD_FALSE_POSITIVES.md`: exact analysis of the removed binary64 positive-definiteness certificate bug.
+- `plans/LOGGING_AND_MATRIX_FORMATTING.md`: implemented design and verification record for the human-only native diagnostic log,
+  semantic logging helpers, readable exact matrices, and unchanged machine-result destinations.
 - `correctness/FAST_CANDIDATE_FALSE_REJECTION.md`: exact ESS counterexamples for former fast rejection rules and current mitigations.
 - `reference/ELIMINATING_THE_BORDERED_CANDIDATE_SYSTEM.md`: mathematical derivation of the reduced symmetric candidate system.
 - `reference/FIND_POS_FIRST_SET_BIT_CALL_CHAIN.md`: current production-only bit-scanning call chain.
@@ -29,7 +30,8 @@ duplicating its contents.
 
 ## Research And Open Options
 
-- `plans/MAJOR_SINGLE_CORE_PERFORMANCE_OPPORTUNITIES.md`: unimplemented research review of possible material single-core speedups.
+- `plans/MAJOR_SINGLE_CORE_PERFORMANCE_OPPORTUNITIES.md`: current research backlog for material single-core speedups, with completed
+  exact-kernel foundations separated from the remaining unimplemented ideas.
 
 ## Historical Decisions And Audits
 
@@ -39,6 +41,7 @@ duplicating its contents.
   changes.
 - `history/FAST_PIPELINE_EXPERIMENTS_2026-08-03.md`: completed and rejected binary64 candidate-path experiments.
 - `history/INTEGER_STABILITY_MATRIX_MIGRATION_ONLY_2026-08-06.md`: completed integer-storage migration plan.
+- `correctness/DOUBLE_PD_FALSE_POSITIVES.md`: historical exact analysis of the removed binary64 positive-definiteness certificate bug.
 - `reference/MATRIX_GENERATOR_CATALOGUE_AUDIT.md`: immutable matrix-generator catalogue import audit; its counts are not live database
   counts.
 

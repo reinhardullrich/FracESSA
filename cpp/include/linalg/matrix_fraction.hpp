@@ -5,7 +5,6 @@
 #include <vector>
 #include <string>
 #include <sstream>
-#include <iomanip>
 #include <linalg/fraction.hpp>
 
 namespace linalg {
@@ -39,13 +38,16 @@ public:
         return data_[i * cols_ + j];
     }
 
-    std::string to_log_string() const {
+    std::string to_pretty_string() const {
         std::stringstream ss;
         for (size_t i = 0; i < rows_; ++i) {
+            ss << "  " << i << ": [";
             for (size_t j = 0; j < cols_; ++j) {
-                ss << std::setw(12) << (*this)(i, j).to_string() << " ";
+                if (j != 0) ss << ", ";
+                ss << (*this)(i, j).to_string();
             }
-            ss << "\n";
+            ss << ']';
+            if (i + 1 != rows_) ss << '\n';
         }
         return ss.str();
     }

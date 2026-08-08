@@ -190,7 +190,7 @@ TEST(IntegrationTest, MultiwordStabilityUsesLargeSignScan) {
     for (size_t strategy = 1; strategy < dimension; ++strategy) B(strategy, strategy) = fraction::neg_one();
 
     // Treating this focused matrix as circular makes the generator prune the complete singleton orbit after checking strategy zero.
-    // That candidate has 65 tied outside replies and therefore exercises the multiword reduced-B sign scan and component dispatch.
+    // That candidate has 65 outside best replies and therefore exercises the multiword reduced-B sign scan and component dispatch.
     multiword_fracessa analyzer(search_method::safe, B, true, true, false, false);
 
     ASSERT_EQ(analyzer.candidates_.size(), 1u);
