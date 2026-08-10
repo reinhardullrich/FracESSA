@@ -14,7 +14,11 @@ _native_lock = threading.Lock()
 
 
 def new_run_id(prefix: str = "run") -> str:
-    """Return a UTC timestamp-based identifier using ``prefix``."""
+    """Return ``prefix`` plus the current UTC timestamp to second precision.
+
+    The result is convenient for output file names but is not a globally unique identifier when several calls use the same prefix
+    during one second.
+    """
 
     return f"{prefix}_{datetime.now(tz=timezone.utc).strftime('%Y%m%dT%H%M%SZ')}"
 
@@ -118,18 +122,26 @@ def _matrix_cli_string(matrix: Matrix) -> str:
 def compute_matrix(method: SearchMethod, matrix: Matrix, config: RunConfig, run_id: str) -> dict:
     """Compute one matrix with the native extension and normalize its result.
 
-    Candidate rows are augmented with ``run_id`` and ``matrix_id``. The returned
-    dictionary is the canonical result shape consumed by every file sink.
+    This is the low-level public adapter used by :func:`run` and :func:`run_multiprocessing`. Candidate rows are augmented with
+    ``run_id`` and ``matrix_id``. Parser and analyzer failures are returned as nonzero status codes with ``error_message`` rather
+    than raised by the native boundary.
 
     Args:
-        method: Required candidate-search method: ``"fast"``, ``"safe"``, or experimental ``"test"``.
+        method: Required candidate-search method. ``"safe"`` is complete and exact; ``"fast"`` uses a potentially incomplete
+            binary64 candidate filter before exact verification; ``"test"`` is the experimental fast-route copy.
         matrix: Validated matrix input.
         config: Native analysis options.
         run_id: Identifier attached to the result and candidate rows.
 
     Returns:
-        A flat result dictionary containing status, timing, counts, candidates,
-        and the input metadata.
+        The canonical result dictionary consumed by every sink. It contains ``run_id``, ``matrix_id``, ``status``, candidate and ESS
+        counts and support-size structures, native ``elapsed_ns``, ``safe_fallback``, ``error_message``, optional representative
+        ``candidates``, and the original ``metadata``.
+
+    Raises:
+        TypeError: If ``method`` or values-only dimension metadata has the wrong type.
+        ValueError: If ``method`` is unknown or values-only matrix text has no dimension metadata.
+        ModuleNotFoundError: If the native ``fracessa_core`` extension cannot be imported.
     """
 
     _validate_search_method(method)

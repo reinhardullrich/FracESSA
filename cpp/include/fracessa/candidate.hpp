@@ -25,36 +25,46 @@ template<class SupportMask>
 class basic_candidate
 {
     public:
+        /// Construct an empty candidate for the one-word support representation.
         basic_candidate() = default;
+        /// Construct an empty candidate whose support masks have the requested runtime dimension.
         explicit basic_candidate(size_t dimension)
             : support(make_empty_support(dimension)), extended_support(make_empty_support(dimension))
         {}
 
-        // IDs count stored representatives in deterministic search order, not
-        // every support that was attempted or represented circular variant.
+        /// One-based stored-representative ID in deterministic search order; attempted and represented orbit members are not IDs.
         size_t candidate_id = 0;
 
-        // Full n-dimensional mixed strategy. Entries outside I(x) are zero.
+        /// Full n-dimensional exact mixed strategy. Entries outside I(x) are zero.
         linalg::matrix_frc vector;
+        /// I(x), the strategies used with positive probability.
         SupportMask support;
+        /// Number of strategies in I(x).
         size_t support_size = 0;
+        /// J(x), all pure strategies that are best replies to x.
         SupportMask extended_support;
+        /// Number of strategies in J(x).
         size_t extended_support_size = 0;
 
-        // Number of distinct rotations/reflections represented by this row.
-        // Ordinary, non-circular candidates have no multiplier.
+        /// Number of distinct rotations/reflections represented by this row; ordinary candidates have no multiplier.
         std::optional<size_t> multiplier;
 
+        /// Whether exact stability checking accepted this candidate as an ESS.
         bool is_ess = false;
+        /// Machine-readable reason code produced by exact stability checking.
         std::string stability;
+        /// Exact equilibrium payoff x^T A x.
         fraction payoff;
 
-        // Lossy copy used only in output; all mathematical decisions use payoff.
+        /// Lossy output-only approximation of `payoff`; no mathematical decision uses it.
         double payoff_dbl = 0.0;
 
+        /// Return `support` as an arbitrary-width decimal integer bit mask.
         std::string support_string() const { return mask_to_string(support); }
+        /// Return `extended_support` as an arbitrary-width decimal integer bit mask.
         std::string extended_support_string() const { return mask_to_string(extended_support); }
 
+        /// Serialize this candidate as one semicolon-separated CLI row.
         std::string to_string() const
         {
             std::ostringstream oss;
@@ -78,6 +88,7 @@ class basic_candidate
             return oss.str();
         }
 
+        /// Return the semicolon-separated column names produced by `to_string()`.
         static std::string header()
         {
             return "candidate_id;vector;support;support_size;extended_support;extended_support_size;multiplier;is_ess;stability;payoff;payoff_dbl";

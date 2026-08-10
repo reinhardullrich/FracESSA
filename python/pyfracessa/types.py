@@ -20,7 +20,14 @@ def _validate_search_method(method: str) -> None:
 
 
 class StatusCode(IntEnum):
-    """Status values returned by native matrix computation."""
+    """Status values returned in every result dictionary.
+
+    Attributes:
+        OK: Analysis completed successfully.
+        PARSE_ERROR: The native parser rejected the matrix text.
+        EXEC_ERROR: Analysis failed after parsing.
+        INTERNAL_ERROR: The Python worker or native boundary caught an unexpected failure.
+    """
 
     OK = 0
     PARSE_ERROR = 1
@@ -34,8 +41,12 @@ class Matrix:
 
     Attributes:
         matrix_id: Signed 64-bit identifier preserved in every output row.
-        matrix: Native matrix text, normally in ``dimension#values`` format.
-        metadata: Optional user data copied to the result and metadata sidecar.
+        matrix: Exact rational matrix text in ``dimension#values`` form. Values-only text is also accepted when ``metadata``
+            contains an integer ``dimension``.
+        metadata: Optional user dictionary copied unchanged to the result and, when used, the sink's metadata output.
+
+    ``matrix`` accepts the full upper triangle of a symmetric matrix or the compact circular-symmetric layout described in
+    :doc:`getting-started`. Entries must be integers or integer fractions; decimal notation is not accepted.
     """
 
     matrix_id: int
@@ -60,9 +71,12 @@ class RunConfig:
     """Configure native analysis for sequential or multiprocessing execution.
 
     Attributes:
-        full_support: Request full-support analysis from the native engine.
-        include_candidates: Include candidate dictionaries in each result.
-        enable_logging: Enable native logging for sequential execution only.
+        full_support: Check the full support first. If the selected candidate route finds it and exact stability accepts it as an
+            ESS, stop; otherwise continue the ordinary search without checking that support twice.
+        include_candidates: Include individual representative dictionaries in ``result["candidates"]``. Counts and support-size
+            structures for the selected method are returned regardless of this setting.
+        enable_logging: Write the native diagnostic trace for sequential execution. Multiprocessing rejects this option because
+            workers cannot safely share the rotating log file.
     """
 
     full_support: bool = False
@@ -74,10 +88,12 @@ class MPConfig:
     """Configure process scheduling for :func:`run_multiprocessing`.
 
     Attributes:
-        workers: Number of worker processes; defaults to available CPUs.
-        prefetch_per_worker: Maximum queued work window per worker.
-        queue_maxsize: Maximum number of serialized results in the result queue.
-        start_method: Python multiprocessing start method.
+        workers: Number of worker processes. The default is the CPUs available to the Python process; each worker analyzes one
+            matrix at a time.
+        prefetch_per_worker: Pending-matrix allowance per worker. Together with ``queue_maxsize``, this bounds submitted work.
+        queue_maxsize: Maximum serialized-result queue size and upper bound on the pending-matrix window.
+        start_method: Python multiprocessing start method. The portable default, ``"spawn"``, requires the calling script to use
+            an ``if __name__ == "__main__":`` guard.
     """
 
     workers: int = max(1, getattr(os, "process_cpu_count", os.cpu_count)() or 1)

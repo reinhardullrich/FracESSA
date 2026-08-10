@@ -30,12 +30,13 @@ def run(
 ) -> dict | Iterator[dict] | int:
     """Run matrix analysis sequentially.
 
-    A single :class:`Matrix` returns one result dictionary immediately. An
-    iterable returns a lazy iterator unless ``sink`` is provided; with a sink,
-    all results are written eagerly and the number written is returned.
+    A single :class:`Matrix` returns one result dictionary immediately. An iterable returns a lazy iterator unless ``sink`` is
+    provided; with a sink, all results are written eagerly and the number written is returned. Every matrix uses the same run ID and
+    is completed before the next matrix begins. FracESSA imposes no per-matrix computation timeout.
 
     Args:
-        method: Required candidate-search method: ``"fast"``, ``"safe"``, or experimental ``"test"``.
+        method: Required candidate-search method. ``"safe"`` is complete and exact; ``"fast"`` can miss candidates during its
+            binary64 prefilter; ``"test"`` is the experimental fast-route copy.
         matrices: One matrix or an iterable of matrices.
         config: Analysis options; defaults to :class:`RunConfig`.
         run_id: Output identifier; a timestamp-based ID is generated when omitted.
@@ -44,6 +45,10 @@ def run(
 
     Returns:
         One result dictionary, a lazy result iterator, or a written-result count.
+
+    Raises:
+        TypeError: If ``method`` is not a string.
+        ValueError: If ``method`` is unknown.
     """
 
     _validate_search_method(method)

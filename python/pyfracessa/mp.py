@@ -241,13 +241,18 @@ def run_multiprocessing(
 ) -> dict | Iterator[dict] | int:
     """Run matrix analysis across worker processes.
 
-    A single :class:`Matrix` blocks and returns one result dictionary. An
-    iterable returns a lazy completion-order iterator unless ``sink`` is
-    provided; with a sink, all results are written eagerly and the number
-    written is returned.
+    A single :class:`Matrix` blocks and returns one result dictionary. An iterable returns a lazy completion-order iterator unless
+    ``sink`` is provided; with a sink, all results are written eagerly and the number written is returned. Each worker analyzes one
+    matrix at a time, so parallelism is across matrices rather than within one matrix. FracESSA imposes no per-matrix computation
+    timeout.
+
+    Submission is bounded by ``min(queue_maxsize, workers * prefetch_per_worker)``. Closing the iterator before completion terminates
+    its workers. An unexpected exception inside a worker becomes an ``INTERNAL_ERROR`` result so one bad matrix cannot break the
+    queue protocol. Scripts using the default ``"spawn"`` start method require an ``if __name__ == "__main__":`` guard.
 
     Args:
-        method: Required candidate-search method: ``"fast"``, ``"safe"``, or experimental ``"test"``.
+        method: Required candidate-search method. ``"safe"`` is complete and exact; ``"fast"`` can miss candidates during its
+            binary64 prefilter; ``"test"`` is the experimental fast-route copy.
         matrices: One matrix or an iterable of matrices.
         config: Analysis options; defaults to :class:`RunConfig`.
         run_id: Output identifier; a timestamp-based ID is generated when omitted.
@@ -260,6 +265,7 @@ def run_multiprocessing(
 
     Raises:
         ValueError: If ``config.enable_logging`` is true.
+        RuntimeError: If workers exit before returning every submitted result.
     """
 
     _validate_search_method(method)

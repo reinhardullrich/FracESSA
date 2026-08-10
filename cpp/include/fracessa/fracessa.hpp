@@ -19,12 +19,18 @@
 
 /** Candidate-search method selected by the CLI or native caller. */
 enum class search_method {
-    fast,
-    safe,
-    test,
+    fast, ///< Potentially incomplete binary64 candidate filter followed by exact candidate verification and stability.
+    safe, ///< Complete exact candidate search and exact stability.
+    test, ///< Independent experimental copy of the fast route.
 };
 
-/** Convert `fast`, `safe`, or `test` to the corresponding search method. */
+/**
+ * Convert `fast`, `safe`, or `test` to the corresponding search method.
+ *
+ * @param name Exact lowercase method name.
+ * @return Parsed search method.
+ * @throws std::invalid_argument if `name` is not one of the three public names.
+ */
 search_method parse_search_method(std::string_view name);
 
 namespace spdlog {
@@ -32,7 +38,7 @@ class logger;
 }
 
 /**
- * Runs the complete ESS search for one payoff matrix.
+ * Runs the configured ESS search for one payoff matrix.
  *
  * For each support S, the analyzer performs up to three stages:
  * 1) the fast or experimental test filter may heuristically reject an invalid support;
@@ -44,6 +50,11 @@ class logger;
  * exact integer precision span, equilibrates the complete binary64 game, and solves each reduced symmetric candidate system with
  * Bunch-Kaufman LDL^T. A large span or inconclusive pivot falls back to exact arithmetic. Test search is an independent copy for
  * experiments.
+ *
+ * Construction runs the configured analysis synchronously. The public count and structure fields are always populated. Individual
+ * candidate rows are retained only when `with_candidates` is true.
+ *
+ * @tparam SupportMask `bitset64` through dimension 64 or `bitset_multiword` for larger dimensions.
  */
 template<class SupportMask>
 class basic_fracessa
@@ -53,6 +64,18 @@ public:
     using structure_type = std::conditional_t<std::is_same_v<SupportMask, bitset64>,
                                               std::array<size_t, bs64::kMaxBitsetDimension + 1>, std::vector<size_t>>;
 
+    /**
+     * Analyze one already parsed symmetric payoff matrix.
+     *
+     * @param method Candidate-search route.
+     * @param matrix Exact rational square payoff matrix. The analyzer retains its own copy.
+     * @param is_cs Whether the matrix came from compact circular input and may use circular support reduction.
+     * @param with_candidates Retain representative candidate rows in `candidates_`; counts are unaffected by this setting.
+     * @param full_support Check the full support first. Stop if the selected route finds it and exact stability accepts it as an ESS;
+     *        otherwise continue without checking it twice.
+     * @param with_log Write a diagnostic trace to `log/fracessa.log`.
+     * @param matrix_id Signed identifier written to the diagnostic log.
+     */
     basic_fracessa(search_method method, const linalg::matrix_frc& matrix, bool is_cs, bool with_candidates = false,
                    bool full_support = false, bool with_log = false, std::int64_t matrix_id = -1);
     basic_fracessa(const basic_fracessa&) = delete;
@@ -60,12 +83,17 @@ public:
     basic_fracessa(basic_fracessa&&) = delete;
     basic_fracessa& operator=(basic_fracessa&&) = delete;
 
+    /// Candidate count found by the selected method, including circular multipliers.
     size_t candidate_count_ = 0;
+    /// ESS count found by the selected method, including circular multipliers.
     size_t ess_count_ = 0;
+    /// Candidate counts indexed by support size; index zero is unused.
     structure_type candidate_structure_;
+    /// ESS counts indexed by support size; index zero is unused.
     structure_type ess_structure_;
+    /// Whole-matrix fast/test-to-safe fallback reason; per-support exact retries do not set it.
     candidate_search::safe_fallback safe_fallback_ = candidate_search::safe_fallback::none;
-    // Populated only when with_candidates is true.
+    /// Representative candidate rows. Populated only when `with_candidates` is true.
     std::vector<candidate_type> candidates_;
 
 private:
