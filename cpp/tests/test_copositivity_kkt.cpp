@@ -67,6 +67,27 @@ TEST(CopositivityKktTest, PreservesArbitraryPrecisionScaling)
     EXPECT_FALSE(is_strictly_copositive_kkt(matrix));
 }
 
+TEST(CopositivityKktTest, RejectsLowDimensionalPrincipalWitnessesBeforeKktSearch)
+{
+    matrix_int singleton;
+    singleton.set_identity(4);
+    singleton(3, 3) = integer(0);
+    EXPECT_FALSE(is_strictly_copositive_kkt(singleton));
+
+    matrix_int pair;
+    pair.set_identity(4);
+    pair(2, 3) = integer(-2);
+    pair(3, 2) = integer(-2);
+    EXPECT_FALSE(is_strictly_copositive_kkt(pair));
+
+    matrix_int triple(4, 4);
+    for (size_t row = 0; row < 4; ++row) {
+        for (size_t column = 0; column < 4; ++column)
+            triple(row, column) = integer(row == column ? 5 : (row > 0 && column > 0 ? -3 : 0));
+    }
+    EXPECT_FALSE(is_strictly_copositive_kkt(triple));
+}
+
 TEST(CopositivityKktTest, UsesTheExistingMultiwordSupportHarness)
 {
     matrix_int strictly_copositive(65, 65);

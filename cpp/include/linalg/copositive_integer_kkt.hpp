@@ -35,23 +35,28 @@ inline bool contains(const bitset_multiword& support, size_t position) noexcept
     return support.is_set_at_pos(position);
 }
 
-template<class Index>
-bool small_principal_matrix_is_strictly_copositive(const matrix_int& matrix, const Index* indices, size_t support_size)
+inline bool all_small_principal_matrices_are_strictly_copositive(const matrix_int& matrix)
 {
-    switch (support_size) {
-    case 1:
-        return is_strictly_copositive_1x1(matrix(indices[0], indices[0]));
-    case 2:
-        return is_strictly_copositive_2x2(
-            matrix(indices[0], indices[0]), matrix(indices[0], indices[1]), matrix(indices[1], indices[1]));
-    case 3:
-        return is_strictly_copositive_3x3(
-            matrix(indices[0], indices[0]), matrix(indices[0], indices[1]), matrix(indices[0], indices[2]),
-            matrix(indices[1], indices[1]), matrix(indices[1], indices[2]), matrix(indices[2], indices[2]));
-    default:
-        assert(false && "small principal-matrix check requires support size one through three");
-        return false;
+    const size_t dimension = matrix.rows();
+
+    for (size_t i = 0; i < dimension; ++i) {
+        if (!is_strictly_copositive_1x1(matrix(i, i))) return false;
     }
+    for (size_t i = 0; i < dimension; ++i) {
+        for (size_t j = i + 1; j < dimension; ++j) {
+            if (!is_strictly_copositive_2x2(matrix(i, i), matrix(i, j), matrix(j, j))) return false;
+        }
+    }
+    for (size_t i = 0; i < dimension; ++i) {
+        for (size_t j = i + 1; j < dimension; ++j) {
+            for (size_t k = j + 1; k < dimension; ++k) {
+                if (!is_strictly_copositive_3x3(
+                        matrix(i, i), matrix(i, j), matrix(i, k), matrix(j, j), matrix(j, k), matrix(k, k)))
+                    return false;
+            }
+        }
+    }
+    return true;
 }
 
 /*
@@ -60,8 +65,7 @@ bool small_principal_matrix_is_strictly_copositive(const matrix_int& matrix, con
  */
 class candidate_search {
 public:
-    explicit candidate_search(const matrix_int& matrix)
-        : input_(matrix), game_(matrix), factorization_(matrix.rows())
+    explicit candidate_search(const matrix_int& matrix) : game_(matrix), factorization_(matrix.rows())
     {
         game_.negate();
         support_indices_large_.reserve(matrix.rows());
@@ -105,9 +109,6 @@ private:
     template<class Support, class Index>
     bool check_support(const Support& support, const Index* support_indices, size_t support_size)
     {
-        if (support_size <= 3 && !small_principal_matrix_is_strictly_copositive(input_, support_indices, support_size))
-            throw not_strictly_copositive{};
-
         if (!find_candidate(support, support_indices, support_size)) return false;
 
         candidate_found_ = true;
@@ -173,7 +174,6 @@ private:
         return true;
     }
 
-    const matrix_int& input_;
     matrix_int game_;
     fraction_free_ldlt_factorization factorization_;
     matrix_int reduced_system_;
@@ -207,6 +207,9 @@ inline bool is_strictly_copositive_kkt(const matrix_int& matrix)
     if (dimension == 3)
         return is_strictly_copositive_3x3(
             matrix(0, 0), matrix(0, 1), matrix(0, 2), matrix(1, 1), matrix(1, 2), matrix(2, 2));
+
+    // Reject every low-dimensional witness before the KKT search performs any exact solve.
+    if (!copositive_integer_kkt_detail::all_small_principal_matrices_are_strictly_copositive(matrix)) return false;
 
     return copositive_integer_kkt_detail::candidate_search(matrix).solve();
 }

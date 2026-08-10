@@ -12,7 +12,7 @@
 #include <limits>
 #include <type_traits>
 
-/*
+/**
  * Result of the exact equilibrium test for one support.
  *
  * A candidate is already a symmetric Nash equilibrium, but it is not

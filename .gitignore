@@ -74,3 +74,4 @@ Thumbs.db
 # Release build caches and artifacts
 /.vcpkg-cache/
 /dist/
+/site/docs/

@@ -10,9 +10,8 @@ Last verified: 2026-08-08
 - Python package: `python/pyfracessa/`
 - Python tests: `python/tests/`
 - Canonical test data: `testdata/fracessa_testdata.sqlite3`
-- Copositivity corpus: `testdata/Copos_testdata.sqlite3`
 - Agent documentation: `aidocs/`
-- Public project page: `README.md` and `site/`
+- Public project page: `README.md` and `site/`; Sphinx sources for the combined Python/C++ API site are under `docs/`.
 - Preserved predecessor source: `zzz_legacy/`; it is historical, not active source.
 - Local-only material: `research/`, `experiments/`, and database-maintenance `scripts/` are ignored by Git.
 - Generated/local paths include `cpp/build*/`, `.local/`, and `.local-tmp/`.
@@ -90,9 +89,8 @@ only when CMake confirms support. The optimized local FLINT 3.6 installation is 
 The maintained automated checks are the C++/CLI CTest suite and the Python unittest suite. Matrix correctness is not currently
 registered as one CTest per database row.
 
-`testdata/fracessa_testdata.sqlite3` is the canonical game, result, and timing store. `testdata/Copos_testdata.sqlite3` is the
-separate exact copositivity corpus. Their schemas, provenance, inventories, calibration rules, and maintenance commands are in
-`testdata/README.md`.
+`testdata/fracessa_testdata.sqlite3` is the canonical game, result, and timing store. Its schema, provenance, inventory, calibration
+rules, and maintenance commands are in `testdata/README.md`.
 
 Canonical performance comparisons use CPU 2, one persistent Pybind process, stored per-matrix calibrations, a 0.5-second default
 target, and median native nanoseconds. CLI process timing and persistent-Pybind timing are not comparable.
@@ -110,6 +108,11 @@ objects. The current Parquet candidate schema remains `uint64` and rejects a can
 
 The public API, result schema, multiprocessing details, timing contract, examples, and generated-documentation commands are in
 `aidocs/pyfracessa/README.md`.
+
+## Public Documentation
+
+GitHub Pages serves the landing page from `site/` and builds the combined API documentation into `site/docs/`. Sphinx reads Python
+docstrings directly and Breathe renders Doxygen XML generated from `cpp/include/`; generated HTML and XML are not committed.
 
 ## Release
 

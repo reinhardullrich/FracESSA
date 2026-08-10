@@ -292,6 +292,7 @@ every result field.
 
 ## Further documentation
 
+- [Public API documentation](https://reinhardullrich.github.io/fracessa/docs/)
 - [Python API](aidocs/pyfracessa/README.md)
 - [Test-matrix database](testdata/README.md)
 - [Release procedure](aidocs/RELEASING.md)

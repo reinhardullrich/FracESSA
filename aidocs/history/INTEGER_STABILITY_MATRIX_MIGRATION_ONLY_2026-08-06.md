@@ -39,7 +39,6 @@ In particular, do not:
 
 - replace the complete inverse by one solve with the right-hand side `-1`;
 - replace the singular adjugate by a nullspace calculation;
-- introduce Danninger's recursive algorithm;
 - introduce connected-component or row-removal reductions;
 - change Hadeler's principal-subset enumeration;
 - change cardinality order or Gosper generation;

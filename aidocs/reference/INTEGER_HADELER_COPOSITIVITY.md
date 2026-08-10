@@ -415,8 +415,8 @@ The suite also retains the one-, two-, and three-dimensional, sign-scan, and ear
 The original one-solve/nullspace change used this acceptance procedure:
 
 1. Build the current commit in a separate ignored Release directory and preserve it as the before-change checker.
-2. Run the before and after checkers over every row of `testdata/Copos_testdata.sqlite3`. All 1,069 permutation-inequivalent matrices
-   must retain their stored strict-copositivity result: 41 positive and 1,028 negative.
+2. Run the before and after checkers over the then-retained 1,069-row copositivity corpus. All permutation-inequivalent matrices had
+   to retain their stored strict-copositivity result: 41 positive and 1,028 negative.
 3. Compare complete safe candidate output before and after for source matrix IDs 4, 7, 19, 20, 29, 53, and 54. Exclude only timing;
    all candidate fields and order must match exactly.
 4. Run the complete CTest and Python test suites against project-local FLINT 3.6.
@@ -425,8 +425,8 @@ The original one-solve/nullspace change used this acceptance procedure:
 
 Any mismatch blocks the change. No tolerance comparison is relevant because every operation and expected result is exact.
 
-The corpus is deliberately not wired into production or CTest. Use one temporary ignored C++ driver for Step 2 and the corpus
-benchmark, then remove it after verification; do not add a permanent framework for this one implementation comparison.
+The corpus was deliberately not wired into production or CTest. One temporary ignored C++ driver performed Step 2 and the corpus
+benchmark and was then removed; no permanent framework was added for this one implementation comparison.
 
 ### 5.10 Historical performance procedure
 

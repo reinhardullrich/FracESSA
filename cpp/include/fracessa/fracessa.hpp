@@ -17,19 +17,21 @@
 #include <fracessa/fast_candidate_filter.hpp>
 #include <fracessa/test_candidate_filter.hpp>
 
+/** Candidate-search method selected by the CLI or native caller. */
 enum class search_method {
     fast,
     safe,
     test,
 };
 
+/** Convert `fast`, `safe`, or `test` to the corresponding search method. */
 search_method parse_search_method(std::string_view name);
 
 namespace spdlog {
 class logger;
 }
 
-/*
+/**
  * Runs the complete ESS search for one payoff matrix.
  *
  * For each support S, the analyzer performs up to three stages:
