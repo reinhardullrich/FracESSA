@@ -10,7 +10,7 @@ author = "Reinhard Ullrich"
 extensions = ["sphinx.ext.autodoc", "sphinx.ext.napoleon", "breathe"]
 autodoc_typehints = "description"
 napoleon_google_docstring = True
-breathe_projects = {"FracESSA": str(ROOT / ".local-tmp" / "doxygen" / "xml")}
+breathe_projects = {"FracESSA": str(ROOT / "docs" / "_build" / "xml")}
 breathe_default_project = "FracESSA"
 
 html_theme = "alabaster"

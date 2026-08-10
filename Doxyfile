@@ -1,6 +1,6 @@
 PROJECT_NAME           = FracESSA
 PROJECT_BRIEF          = "C++ API reference"
-OUTPUT_DIRECTORY       = .local-tmp/doxygen
+OUTPUT_DIRECTORY       = docs/_build
 INPUT                  = cpp/include
 FILE_PATTERNS          = *.hpp
 RECURSIVE              = YES
