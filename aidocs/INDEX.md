@@ -23,8 +23,10 @@ the file describes current behavior, open research, or history.
 
 ## Open Research
 
-- `plans/MAJOR_SINGLE_CORE_PERFORMANCE_OPPORTUNITIES.md`: the only active plan; unimplemented hypotheses for material single-core
-  speedups, with completed foundations clearly separated.
+- `plans/COPOSIT_INTEGRATION_AND_TYPE_OWNERSHIP.md`: proposed Coposit/FracESSA ownership boundary, parsed integer-matrix representation,
+  removal of `matrix_frc`, minimal rational output type, build integration, and measured migration order.
+- `plans/MAJOR_SINGLE_CORE_PERFORMANCE_OPPORTUNITIES.md`: active plan of unimplemented hypotheses for material single-core speedups,
+  with completed foundations clearly separated.
 
 ## Historical Decisions And Implementation Records
 
