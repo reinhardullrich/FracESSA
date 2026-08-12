@@ -29,7 +29,7 @@ parsed matrix dimension before construction, as the CLI and Pybind adapter do.
 The public count and structure fields are always populated and include circular multipliers. They contain every candidate found by
 the selected method; only ``safe`` guarantees a complete search. The ``candidates_`` vector is populated only when
 ``with_candidates`` was true, and omitting rows does not change the counts. A non-``none`` ``safe_fallback_`` records only a
-whole-matrix switch from ``fast`` or ``test`` to exact candidate search.
+whole-matrix switch from ``fast`` to exact candidate search.
 
 .. doxygenfunction:: parse_search_method
    :project: FracESSA

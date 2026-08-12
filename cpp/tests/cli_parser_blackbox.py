@@ -148,7 +148,7 @@ def assert_multiword_cli_output(fracessa_exe: Path) -> None:
     for dimension in (65, 128, 129):
         matrix = f"{dimension}#" + ",".join(["1"] * (dimension // 2))
         expected_support = str((1 << dimension) - 1)
-        methods = ("safe", "fast", "test") if dimension == 65 else ("safe",)
+        methods = ("safe", "fast") if dimension == 65 else ("safe",)
 
         for method in methods:
             case_name = f"multiword_{dimension}_{method}"
@@ -301,9 +301,7 @@ def main() -> int:
     )
     if "warning" in safe_result.stderr.lower():
         raise AssertionError("safe search unexpectedly printed a warning")
-    assert_success_with_ess_output(fracessa_exe, ["test", "2#0,1,0"], "test_success")
-
-    for removed_or_unknown_method in ("verified", "exact", "unsafe", "unknown", 'bad"method'):
+    for removed_or_unknown_method in ("test", "verified", "exact", "unsafe", "unknown", 'bad"method'):
         assert_failure_with_stderr(
             fracessa_exe,
             [removed_or_unknown_method, "2#0,1,0"],
@@ -366,10 +364,9 @@ def main() -> int:
         if parse_summary(safe_result.stdout, case_name)["ess_count"] != int(expected_ess_count):
             raise AssertionError(f"{case_name}: safe search returned the wrong ESS count")
 
-        for method in ("fast", "test"):
-            result = assert_success_with_ess_output(fracessa_exe, [*options, method, matrix], f"{case_name}_{method}")
-            if comparable_output(result, case_name) != comparable_output(safe_result, case_name):
-                raise AssertionError(f"{case_name}: {method} search differs from safe search")
+        result = assert_success_with_ess_output(fracessa_exe, [*options, "fast", matrix], f"{case_name}_fast")
+        if comparable_output(result, case_name) != comparable_output(safe_result, case_name):
+            raise AssertionError(f"{case_name}: fast search differs from safe search")
 
     # Other success paths
     assert_success_with_ess_output(fracessa_exe, ["safe", "5#1,3"], "circular_success")

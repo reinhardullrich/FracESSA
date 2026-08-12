@@ -4,7 +4,10 @@ Status: implemented in production. Non-circular generation uses DFS; circular ge
 recursion. The former V1 FKM generator remains as a test-only reference. Compact bit-parallel V2 was slower than V1 and V3, never
 entered production, and has been removed from source while its design and measurements remain documented here.
 
-Document role: current implemented design plus retained proofs, rejected alternatives, and benchmark evidence.
+Document role: current implemented architecture plus retained proofs, rejected alternatives, and benchmark evidence.
+
+Additional exact affine symmetry reduction for circular games is documented in
+[`CYCLIC_AFFINE_SYMMETRY.md`](CYCLIC_AFFINE_SYMMETRY.md).
 
 ## Purpose
 
@@ -473,7 +476,7 @@ forbidden masks therefore remains necessary even though output is compressed.
 ## Experimental Evidence Already Available
 
 The full experiment report and raw results are retained in
-`aidocs/experiments/SUPPORT_FRONTIER_2026-07-29.md` and the corresponding
+`../experiments/SUPPORT_FRONTIER_2026-07-29.md` and the corresponding
 top-level `experiments/` directories.
 
 ### Streaming Gosper
@@ -625,5 +628,5 @@ The following sources support the general recursive-generation approach:
 These papers do not directly solve FracESSA's dynamic condition: forbidden
 supports are discovered during computation, the condition is subset
 containment rather than a fixed forbidden substring, and circular candidates
-must be considered under rotations and reflections. The proposed integration
-and its proof therefore remain project-specific and must be tested as such.
+must be considered under rotations and reflections. The implemented integration
+and its proof are therefore project-specific and require the retained tests.

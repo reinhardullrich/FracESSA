@@ -128,7 +128,7 @@ def compute_matrix(method: SearchMethod, matrix: Matrix, config: RunConfig, run_
 
     Args:
         method: Required candidate-search method. ``"safe"`` is complete and exact; ``"fast"`` uses a potentially incomplete
-            binary64 candidate filter before exact verification; ``"test"`` is the experimental fast-route copy.
+            binary64 candidate filter before exact verification.
         matrix: Validated matrix input.
         config: Native analysis options.
         run_id: Identifier attached to the result and candidate rows.

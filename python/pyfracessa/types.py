@@ -7,7 +7,7 @@ from enum import IntEnum
 import os
 from typing import Any, Literal
 
-SearchMethod = Literal["fast", "safe", "test"]
+SearchMethod = Literal["fast", "safe"]
 
 
 def _validate_search_method(method: str) -> None:
@@ -15,8 +15,8 @@ def _validate_search_method(method: str) -> None:
 
     if not isinstance(method, str):
         raise TypeError("method must be a str")
-    if method not in {"fast", "safe", "test"}:
-        raise ValueError("method must be fast, safe, or test")
+    if method not in {"fast", "safe"}:
+        raise ValueError("method must be fast or safe")
 
 
 class StatusCode(IntEnum):

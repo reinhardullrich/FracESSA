@@ -7,7 +7,7 @@ ordinary Python dictionary; no conversion from a result class is required.
 Execution contract
 ******************
 
-Every execution function requires ``"safe"``, ``"fast"``, or experimental ``"test"``. ``safe`` is the complete exact route.
+Every execution function requires ``"safe"`` or ``"fast"``. ``safe`` is the complete exact route.
 ``fast`` can miss candidates during its binary64 prefilter, although every surviving candidate and final stability decision is
 exact. See :doc:`getting-started` for method selection and matrix text formats.
 
@@ -49,7 +49,7 @@ Every result contains the following fields:
      - Integer :class:`~pyfracessa.StatusCode`: ``0`` success, ``1`` parse error, ``4`` execution error, or ``255`` internal error.
    * - ``candidate_count``
      - Number of exact equilibrium candidates found by the selected method, including circular multipliers. The count is complete
-       with ``safe``; ``fast`` and ``test`` can miss candidates.
+       with ``safe``; ``fast`` can miss candidates.
    * - ``ess_count``
      - Number of ESS found by the selected method, including circular multipliers. The count is complete with ``safe``.
    * - ``candidate_structure``
@@ -59,7 +59,7 @@ Every result contains the following fields:
    * - ``elapsed_ns``
      - Native analyzer duration in nanoseconds, measured with a monotonic clock; Python scheduling and file output are excluded.
    * - ``safe_fallback``
-     - Whole-matrix ``fast``/``test`` fallback reason, or ``None``. A local exact retry for one support does not set this field.
+     - Whole-matrix ``fast`` fallback reason, or ``None``. A local exact retry for one support does not set this field.
    * - ``error_message``
      - Empty on success; otherwise the parser, execution, or worker diagnostic.
    * - ``candidates``

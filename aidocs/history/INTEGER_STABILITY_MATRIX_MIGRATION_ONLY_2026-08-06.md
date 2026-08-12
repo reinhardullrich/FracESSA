@@ -4,6 +4,10 @@ Status: implemented and verified on 2026-08-06.
 
 Date: 2026-08-06.
 
+This is a historical migration record. Old class names, filenames, exclusions, and statements about what remained for later work
+describe the 2026-08-06 transition, not the current tree. See `../reference/INTEGER_HADELER_COPOSITIVITY.md` and `../PROJECT.md` for
+the current exact stability architecture.
+
 ## 1. Exact scope
 
 Change only the final exact stability matrix from denominator-one rational storage (`fmpq`) to integer storage (`fmpz`). Keep the

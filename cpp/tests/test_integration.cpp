@@ -143,28 +143,25 @@ TEST(IntegrationTest, ExactMultiwordNonCircularSearchReachesReducedBStability) {
     EXPECT_EQ(analyzer.ess_structure_[1], 0u);
 }
 
-TEST(IntegrationTest, MultiwordFastAndTestMatchSafeFullSupport) {
+TEST(IntegrationTest, MultiwordFastMatchesSafeFullSupport) {
     constexpr size_t dimension = 65;
     matrix_frc B(dimension, dimension);
     for (size_t strategy = 0; strategy < dimension; ++strategy) B(strategy, strategy) = fraction(-1);
 
     multiword_fracessa safe(search_method::safe, B, false, true, true, false);
     multiword_fracessa fast(search_method::fast, B, false, true, true, false);
-    multiword_fracessa test(search_method::test, B, false, true, true, false);
 
-    for (const auto* analyzer : {&fast, &test}) {
-        EXPECT_EQ(analyzer->safe_fallback_, candidate_search::safe_fallback::none);
-        EXPECT_EQ(analyzer->candidate_count_, safe.candidate_count_);
-        EXPECT_EQ(analyzer->ess_count_, safe.ess_count_);
-        EXPECT_EQ(analyzer->candidate_structure_, safe.candidate_structure_);
-        EXPECT_EQ(analyzer->ess_structure_, safe.ess_structure_);
-        ASSERT_EQ(analyzer->candidates_.size(), 1u);
-        EXPECT_EQ(analyzer->candidates_[0].support, safe.candidates_[0].support);
-        EXPECT_TRUE(analyzer->candidates_[0].support.is_set_at_pos(64));
-    }
+    EXPECT_EQ(fast.safe_fallback_, candidate_search::safe_fallback::none);
+    EXPECT_EQ(fast.candidate_count_, safe.candidate_count_);
+    EXPECT_EQ(fast.ess_count_, safe.ess_count_);
+    EXPECT_EQ(fast.candidate_structure_, safe.candidate_structure_);
+    EXPECT_EQ(fast.ess_structure_, safe.ess_structure_);
+    ASSERT_EQ(fast.candidates_.size(), 1u);
+    EXPECT_EQ(fast.candidates_[0].support, safe.candidates_[0].support);
+    EXPECT_TRUE(fast.candidates_[0].support.is_set_at_pos(64));
 }
 
-TEST(IntegrationTest, MultiwordFastAndTestRetainWholeMatrixFallback)
+TEST(IntegrationTest, MultiwordFastRetainsWholeMatrixFallback)
 {
     constexpr size_t dimension = 65;
     matrix_frc B(dimension, dimension);
@@ -173,15 +170,12 @@ TEST(IntegrationTest, MultiwordFastAndTestRetainWholeMatrixFallback)
 
     multiword_fracessa safe(search_method::safe, B, false, false, false, false);
     multiword_fracessa fast(search_method::fast, B, false, false, false, false);
-    multiword_fracessa test(search_method::test, B, false, false, false, false);
 
-    for (const auto* analyzer : {&fast, &test}) {
-        EXPECT_EQ(analyzer->safe_fallback_, candidate_search::safe_fallback::precision_span);
-        EXPECT_EQ(analyzer->candidate_count_, safe.candidate_count_);
-        EXPECT_EQ(analyzer->ess_count_, safe.ess_count_);
-        EXPECT_EQ(analyzer->candidate_structure_, safe.candidate_structure_);
-        EXPECT_EQ(analyzer->ess_structure_, safe.ess_structure_);
-    }
+    EXPECT_EQ(fast.safe_fallback_, candidate_search::safe_fallback::precision_span);
+    EXPECT_EQ(fast.candidate_count_, safe.candidate_count_);
+    EXPECT_EQ(fast.ess_count_, safe.ess_count_);
+    EXPECT_EQ(fast.candidate_structure_, safe.candidate_structure_);
+    EXPECT_EQ(fast.ess_structure_, safe.ess_structure_);
 }
 
 TEST(IntegrationTest, MultiwordStabilityUsesLargeSignScan) {

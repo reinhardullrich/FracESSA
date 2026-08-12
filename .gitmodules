@@ -1,0 +1,4 @@
+[submodule "external/coposit"]
+	path = external/coposit
+	url = https://github.com/reinhardullrich/coposit.git
+	shallow = true

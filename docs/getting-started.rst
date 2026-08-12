@@ -48,11 +48,8 @@ Every call requires an explicit method; there is no default.
      - Faster analysis when completeness is not required
      - Uses a binary64 candidate filter. Every surviving candidate and every final stability decision is checked exactly, but an
        early floating-point rejection can miss a valid candidate.
-   * - ``test``
-     - Development experiments only
-     - An independent experimental copy of ``fast``; do not use it as a separate guarantee.
 
-``fast`` and ``test`` switch the complete matrix to exact candidate search when preparation detects a dangerous numerical case.
+``fast`` switches the complete matrix to exact candidate search when preparation detects a dangerous numerical case.
 The result then records the reason in ``safe_fallback``. An inconclusive solve for only one support is also retried exactly, but that
 local retry does not set ``safe_fallback``.
 
@@ -124,7 +121,7 @@ Run one matrix from Python
 
 The result is a plain dictionary. ``candidate_count`` and ``ess_count`` are the totals found by the selected method, and
 ``candidate_structure`` and ``ess_structure`` divide those totals by support size. These four fields are always returned. The totals
-are complete with ``safe``; ``fast`` and ``test`` can miss candidates. ``include_candidates=True`` also returns each stored candidate
+are complete with ``safe``; ``fast`` can miss candidates. ``include_candidates=True`` also returns each stored candidate
 representative; it does not change the counts or the analysis.
 
 Check ``status`` before consuming a result. ``0`` means success, ``1`` means invalid matrix input, ``4`` means an execution error,

@@ -1,6 +1,6 @@
 # FracESSA Project Overview
 
-Last verified: 2026-08-08
+Last verified: 2026-08-10
 
 ## Repository Map
 
@@ -33,9 +33,8 @@ Every entry surface requires an explicit method; there is no default:
 - `safe`: exact candidate and stability decisions.
 - `fast`: binary64 candidate search with exact matrix-wide and per-support fallbacks; remaining probability and outside-payoff
   rejections are heuristic, so fast is not a correctness certificate.
-- `test`: an independent experimental copy of fast, currently behaviorally identical but intentionally separable.
 
-`safe_fallback` is null when fast/test used the double search. A non-null preparation reason means the whole matrix switched to safe
+`safe_fallback` is null when fast used the double search. A non-null preparation reason means the whole matrix switched to safe
 search. A per-support exact retry does not set it. All final stability decisions use exact arithmetic.
 
 Compact circular input automatically uses exact cyclic symmetry reduction. Output retains one dihedral representative and a
@@ -47,7 +46,7 @@ Compact circular input automatically uses exact cyclic symmetry reduction. Outpu
 CLI or Pybind input
   -> validating matrix parser
   -> support generation and exact-equilibrium superset pruning
-  -> fast/test candidate attempt when selected
+  -> fast candidate attempt when selected
   -> exact candidate solver when selected or required as fallback
   -> exact stability check
   -> candidate and ESS output
@@ -57,9 +56,10 @@ Core implementation facts:
 
 - Supports through dimension 64 are raw `uint64_t` masks; larger supports use fixed-width word vectors selected once before search.
   Production generates one support at a time and never materializes the complete support frontier.
-- Non-circular supports use fixed-cardinality binary DFS. Circular supports use direct fixed-density bracelet generation.
+- Non-circular supports use fixed-cardinality binary DFS. Circular supports use direct fixed-density bracelet generation, followed
+  by exact affine-multiplier reduction when the payoff pattern has additional cyclic-index symmetries.
 - Every exact equilibrium support forbids later strict supersets; ESS status is irrelevant to that pruning rule.
-- Fast/test convert and equilibrate the complete matrix once, solve reduced symmetric systems in binary64, and fall back to exact
+- Fast converts and equilibrates the complete matrix once, solves reduced symmetric systems in binary64, and falls back to exact
   checking when preparation or a support solve is inconclusive.
 - Safe clears denominators once, solves the border-eliminated symmetric candidate system with fraction-free exact integer arithmetic,
   and constructs rational probabilities and payoff only for successful public output.
@@ -97,8 +97,8 @@ target, and median native nanoseconds. CLI process timing and persistent-Pybind 
 
 ## Python API
 
-`python/pyfracessa/` is the maintained API. Public execution uses `run()` or `run_multiprocessing()` with an explicit `fast`, `safe`,
-or `test` method. `compute_matrix()` is the public low-level native adapter. One matrix is always computed by one worker process;
+`python/pyfracessa/` is the maintained API. Public execution uses `run()` or `run_multiprocessing()` with an explicit `fast` or
+`safe` method. `compute_matrix()` is the public low-level native adapter. One matrix is always computed by one worker process;
 multiprocessing is across matrices.
 
 No production CLI, native, or Python workflow imposes a per-matrix computation timeout. A valid matrix may run for hours.
@@ -106,8 +106,8 @@ No production CLI, native, or Python workflow imposes a per-matrix computation t
 CLI, JSON, and CSV expose support masks as arbitrary-width decimal integers. Python returns ordinary arbitrary-precision `int`
 objects. The current Parquet candidate schema remains `uint64` and rejects a candidate support above that range explicitly.
 
-The public API, result schema, multiprocessing details, timing contract, examples, and generated-documentation commands are in
-`aidocs/pyfracessa/README.md`.
+The public API, result schema, multiprocessing details, and examples are in `docs/getting-started.rst` and `docs/python-api.rst`.
+The internal benchmark command and reporting contract are in `aidocs/pyfracessa/README.md`.
 
 ## Public Documentation
 

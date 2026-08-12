@@ -1,7 +1,7 @@
 # Logging And Matrix Formatting
 
-Status: implemented on 2026-08-09. Verified with the Release build, all 10 C++/CLI tests, all 68 Python tests, and a manual exact
-reduced-B logging run.
+Status: historical implementation record from 2026-08-09. The output contract remains current, while filenames, test counts, and
+verification details below describe that implementation snapshot rather than the latest repository inventory.
 
 ## Goal
 

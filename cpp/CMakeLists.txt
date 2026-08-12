@@ -169,10 +169,8 @@ endif()
 
 add_library(fracessa_lib
     src/fracessa.cpp
-    src/matrix_parser.cpp
     src/fast_candidate_filter.cpp
     src/exact_candidate_solver.cpp
-    src/test_candidate_filter.cpp
     src/check_stability.cpp
 )
 set_target_properties(fracessa_lib PROPERTIES POSITION_INDEPENDENT_CODE ON)

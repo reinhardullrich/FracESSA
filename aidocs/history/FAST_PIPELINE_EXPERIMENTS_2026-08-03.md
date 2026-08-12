@@ -132,8 +132,9 @@ dimension-63 boundary. Complete quick-set candidate output matched in both fast 
 tests passing.
 
 On the 31 circular quick matrices of dimension at least 3, V3 improved the median by 23.68% when V1 ran first and 19.90% in reverse
-order. The conservative reverse order had 30 wins and one tie; dimensions 19 and above improved 34.70% at the median. Full evidence
-is in [`PRODUCTION_V3_COMPARISON_2026-08-03.md`](../../experiments/direct_bracelet_generation_2026-07-29/PRODUCTION_V3_COMPARISON_2026-08-03.md).
+order. The conservative reverse order had 30 wins and one tie; dimensions 19 and above improved 34.70% at the median. The retained
+tracked summary is in [`SUPPORT_GENERATORS.md`](../architecture/SUPPORT_GENERATORS.md); the full raw report remains local under
+`experiments/direct_bracelet_generation_2026-07-29/PRODUCTION_V3_COMPARISON_2026-08-03.md`.
 
 #### FP-E01: Reuse the inverse 2-by-2 pivot-block scale — rejected
 

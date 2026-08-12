@@ -80,11 +80,12 @@ class NativeIntegrationTests(unittest.TestCase):
                 result = native.compute_matrix("fast", matrix)
                 self.assertEqual(result["safe_fallback"], expected)
 
-    def test_unknown_native_method_is_rejected(self):
+    def test_removed_or_unknown_native_method_is_rejected(self):
         native = load_native_module()
-        result = native.compute_matrix("unknown", "2#0,1,0")
-
-        self.assertEqual(result["status"], 4)
+        for method in ("test", "unknown"):
+            with self.subTest(method=method):
+                result = native.compute_matrix(method, "2#0,1,0")
+                self.assertEqual(result["status"], 4)
 
     def test_removed_native_mode_keyword_is_rejected(self):
         native = load_native_module()
@@ -155,7 +156,7 @@ class NativeIntegrationTests(unittest.TestCase):
         matrix = f"{dimension}#" + ",".join(["1"] * (dimension // 2))
         expected_support = (1 << dimension) - 1
 
-        for method in ("safe", "fast", "test"):
+        for method in ("safe", "fast"):
             with self.subTest(method=method):
                 result = run(
                     method,

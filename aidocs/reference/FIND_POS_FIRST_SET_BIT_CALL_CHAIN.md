@@ -17,7 +17,6 @@ Status: current production reference. Last verified: 2026-08-09. Tests are exclu
 |---|---|---|
 | `cpp/src/fracessa.cpp` | `basic_fracessa::log_candidate` | Find the deterministic reference strategy for optional diagnostic logging. |
 | `cpp/src/fast_candidate_filter.cpp` | `fast_candidate_filter::passes_from_indices` | Visit outside-support strategies in the one-word binary64 payoff check. |
-| `cpp/src/test_candidate_filter.cpp` | `test_candidate_filter::passes_from_indices` | Visit outside-support strategies in the one-word experimental payoff check. |
 | `cpp/include/linalg/copositive_integer.hpp` | `CopositivityChecker::is_strictly_copositive_hadeler` | Read the only index of a one-coordinate principal subset. |
 | `cpp/include/linalg/copositive_integer.hpp` | `CopositivityChecker::are_negative_components_strictly_copositive` | Visit vertices while constructing negative-entry graph components. |
 | `cpp/include/fracessa/support_generator_non_circular.hpp` | `NonCircularSupportGenerator<bitset_multiword>::activate_pending` | Bucket a newly forbidden multiword support by its lowest strategy. |
@@ -40,7 +39,7 @@ basic_fracessa::run
                  -> bs64::find_pos_first_set_bit (one-coordinate one-word subset only)
 
 basic_fracessa::analyze_support
-  -> fast_candidate_filter::passes / test_candidate_filter::passes
+  -> fast_candidate_filter::passes
      -> bs64::find_pos_first_set_bit (one-word outside-strategy iteration)
 
 multiword support generator::generate
@@ -57,7 +56,7 @@ Production uses index extraction in:
 
 - `cpp/include/linalg/copositive_integer.hpp` for Hadeler subsets and disconnected components;
 - `cpp/src/exact_candidate_solver.cpp` for candidate systems, scaled reduced $B$, and outside-payoff checks;
-- `cpp/src/fast_candidate_filter.cpp` and `cpp/src/test_candidate_filter.cpp` for binary64 candidate systems; and
+- `cpp/src/fast_candidate_filter.cpp` for binary64 candidate systems; and
 - `cpp/include/fracessa/circular_affine_symmetry.hpp` for multiword support permutations.
 
 Regenerate the occurrence list with:

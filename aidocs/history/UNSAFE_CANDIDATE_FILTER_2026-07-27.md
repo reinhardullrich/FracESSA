@@ -1,4 +1,4 @@
-# Temporary Unsafe-Default Candidate Filter
+# Retired Unsafe-Default Candidate Filter
 
 Status: historical; local correctness and performance verification is recorded below.
 

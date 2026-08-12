@@ -259,7 +259,7 @@ PYBIND11_MODULE(fracessa_core, m)
         R"doc(
 Compute one matrix with native C++ core and return structured results.
 
-method: fast, safe, or test; required before matrix.
+method: fast or safe; required before matrix.
 
 Returns a dict with keys:
 - status, error_message

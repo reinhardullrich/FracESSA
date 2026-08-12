@@ -60,7 +60,7 @@ The following proposals from the original review are now production behavior:
 - The fraction-free $LDL^T$ factorization returns the exact solution and inertia. Stability reuses that factorization and constructs
   only the smaller scaled reduced $B$ matrix through a Schur complement when outside best replies leave the result unresolved.
 
-The implementation details belong in `aidocs/PROJECT.md` and `aidocs/plans/EXACT_STABILITY_SCHUR_COMPLEMENT.md`; they are not repeated
+The implementation details belong in `../PROJECT.md` and `../reference/EXACT_STABILITY_SCHUR_COMPLEMENT.md`; they are not repeated
 as open proposals here.
 
 ## Open Heavy Hitters

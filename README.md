@@ -61,8 +61,6 @@ Candidates returned by `fast` are checked exactly, but its early floating-point 
 When `fast` detects certain dangerous whole-matrix conditions, it automatically falls back to `safe`. Python returns the reason in
 `safe_fallback`; the CLI includes the same field in every JSON summary.
 
-The CLI and Python API also expose `test`, an experimental copy of `fast` used for development. It is not intended for normal use.
-
 ## Install
 
 The GitHub [Releases](https://github.com/reinhardullrich/fracessa/releases) page provides self-contained command-line binaries for
@@ -287,13 +285,13 @@ processes; `prefetch_per_worker` and `queue_maxsize` bound queued work and resul
 The `if __name__ == "__main__":` guard is required with `spawn`. Native logging is sequential-only and cannot be enabled in a
 multiprocessing run.
 
-The [Python API guide](aidocs/pyfracessa/README.md) documents sequential execution, JSON input, CSV/JSON/Parquet output, sinks, and
-every result field.
+The [Python API guide](https://reinhardullrich.github.io/fracessa/docs/python-api.html) documents sequential execution, JSON input,
+CSV/JSON/Parquet output, sinks, and every result field.
 
 ## Further documentation
 
 - [Public API documentation](https://reinhardullrich.github.io/fracessa/docs/)
-- [Python API](aidocs/pyfracessa/README.md)
+- [Python API](https://reinhardullrich.github.io/fracessa/docs/python-api.html)
 - [Test-matrix database](testdata/README.md)
 - [Release procedure](aidocs/RELEASING.md)
 - [Technical documentation index](aidocs/INDEX.md)

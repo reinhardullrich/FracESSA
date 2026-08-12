@@ -1,7 +1,6 @@
 #include <gtest/gtest.h>
 #include <fracessa/fast_candidate_filter.hpp>
 #include <fracessa/exact_candidate_solver.hpp>
-#include <fracessa/test_candidate_filter.hpp>
 #include <linalg/integer.hpp>
 #include <linalg/matrix_fraction.hpp>
 #include <linalg/matrix_double.hpp>
@@ -86,36 +85,14 @@ TEST(FastCandidateFilterTest, UsesExactPrecisionSpanCutoff) {
               safe_fallback::precision_span);
 }
 
-TEST(TestCandidateFilterTest, UsesIntegerPrecisionSpanAfterRemovingCommonScale) {
-    const auto fallback = [](const fraction& diagonal_0, const fraction& off_diagonal, const fraction& diagonal_1) {
-        matrix_frc A(2, 2);
-        A(0, 0) = diagonal_0;   A(0, 1) = off_diagonal;
-        A(1, 0) = off_diagonal; A(1, 1) = diagonal_1;
-        exact_candidate_solver safe(A);
-        test_candidate_filter test(A);
-        test.convert_game_matrix(safe);
-        return test.safe_fallback_reason();
-    };
-
-    EXPECT_EQ(fallback(fraction::zero(), fraction(999'999'999), fraction::zero()), safe_fallback::none);
-    EXPECT_EQ(fallback(fraction::zero(), fraction(1'000'000'000), fraction::zero()), safe_fallback::none);
-    EXPECT_EQ(fallback(fraction::zero(), fraction("1/1000000000"), fraction::zero()), safe_fallback::none);
-    EXPECT_EQ(fallback(fraction::one(), fraction(1'000'000'000), fraction::one()), safe_fallback::precision_span);
-    EXPECT_EQ(fallback(fraction(1'000'000'000), fraction(1'000'000'001), fraction(1'000'000'000)),
-              safe_fallback::precision_span);
-}
-
-TEST(CandidateFiltersTest, IgnoreOnlyExactZeroRowsDuringEquilibration) {
+TEST(FastCandidateFilterTest, IgnoreOnlyExactZeroRowsDuringEquilibration) {
     matrix_frc harmless_zero_row(3, 3);
     harmless_zero_row(1, 2) = harmless_zero_row(2, 1) = fraction::one();
     exact_candidate_solver harmless_safe(harmless_zero_row);
     fast_candidate_filter harmless_fast(harmless_zero_row);
-    test_candidate_filter harmless_test(harmless_zero_row);
     harmless_fast.convert_game_matrix(harmless_safe);
-    harmless_test.convert_game_matrix(harmless_safe);
 
     EXPECT_EQ(harmless_fast.safe_fallback_reason(), safe_fallback::none);
-    EXPECT_EQ(harmless_test.safe_fallback_reason(), safe_fallback::none);
 
     // Coordinate zero is harmlessly empty, while the remaining K_1,15 adjacency block makes BIN equilibration produce an invalid
     // scale. The zero row must not hide that independent failure.
@@ -125,12 +102,9 @@ TEST(CandidateFiltersTest, IgnoreOnlyExactZeroRowsDuringEquilibration) {
     }
     exact_candidate_solver bad_safe(zero_row_with_bad_active_block);
     fast_candidate_filter bad_fast(zero_row_with_bad_active_block);
-    test_candidate_filter bad_test(zero_row_with_bad_active_block);
     bad_fast.convert_game_matrix(bad_safe);
-    bad_test.convert_game_matrix(bad_safe);
 
     EXPECT_EQ(bad_fast.safe_fallback_reason(), safe_fallback::equilibration_invalid);
-    EXPECT_EQ(bad_test.safe_fallback_reason(), safe_fallback::equilibration_invalid);
 
     // The Fork Graph remains finite but does not satisfy the BIN convergence test within 100 iterations.
     matrix_frc nonconvergent_game(5, 5);
@@ -140,15 +114,12 @@ TEST(CandidateFiltersTest, IgnoreOnlyExactZeroRowsDuringEquilibration) {
     nonconvergent_game(3, 4) = nonconvergent_game(4, 3) = fraction::one();
     exact_candidate_solver nonconvergent_safe(nonconvergent_game);
     fast_candidate_filter nonconvergent_fast(nonconvergent_game);
-    test_candidate_filter nonconvergent_test(nonconvergent_game);
     nonconvergent_fast.convert_game_matrix(nonconvergent_safe);
-    nonconvergent_test.convert_game_matrix(nonconvergent_safe);
 
     EXPECT_EQ(nonconvergent_fast.safe_fallback_reason(), safe_fallback::equilibration_non_convergence);
-    EXPECT_EQ(nonconvergent_test.safe_fallback_reason(), safe_fallback::equilibration_non_convergence);
 }
 
-TEST(CandidateFiltersTest, SendSmallPivotToExactArithmetic) {
+TEST(FastCandidateFilterTest, SendSmallPivotToExactArithmetic) {
     matrix_frc A(3, 3);
     A(0, 0) = fraction(-3);
     A(0, 1) = A(1, 0) = fraction(1);
@@ -159,17 +130,13 @@ TEST(CandidateFiltersTest, SendSmallPivotToExactArithmetic) {
 
     fast_candidate_filter fast(A);
     exact_candidate_solver safe(A);
-    test_candidate_filter test(A);
     fast.convert_game_matrix(safe);
-    test.convert_game_matrix(safe);
 
     EXPECT_EQ(fast.safe_fallback_reason(), safe_fallback::none);
-    EXPECT_EQ(test.safe_fallback_reason(), safe_fallback::none);
     EXPECT_TRUE(fast.passes(bitset64{7}, 3));
-    EXPECT_TRUE(test.passes(bitset64{7}, 3));
 }
 
-TEST(CandidateFiltersTest, SolveNonsingularZeroDiagonalTwoByTwoPivot) {
+TEST(FastCandidateFilterTest, SolveNonsingularZeroDiagonalTwoByTwoPivot) {
     /*
      * With strategy 0 as reference, the full-support reduced system is
      *
@@ -185,24 +152,20 @@ TEST(CandidateFiltersTest, SolveNonsingularZeroDiagonalTwoByTwoPivot) {
 
     exact_candidate_solver safe(game);
     fast_candidate_filter fast(game);
-    test_candidate_filter test(game);
     fast.convert_game_matrix(safe);
-    test.convert_game_matrix(safe);
 
     ASSERT_EQ(fast.safe_fallback_reason(), safe_fallback::none);
-    ASSERT_EQ(test.safe_fallback_reason(), safe_fallback::none);
     EXPECT_FALSE(fast.passes(bitset64{7}, 3));
-    EXPECT_FALSE(test.passes(bitset64{7}, 3));
 }
 
-TEST(CandidateFiltersTest, RemoveCommonDenominatorAndNormalizeGameOnce) {
+TEST(FastCandidateFilterTest, RemoveCommonDenominatorAndNormalizeGameOnce) {
     /*
      * Before the final common scale, support {0,1,2}, with strategy 0 as reference, has
      *
      *     H = diag(10^-8, 1),     y = (1/4, 1/4).
      *
-     * Multiplying the complete game by 10^-50 must not make every reduced pivot fall below the absolute cutoff. Fast and test
-     * search remove that common denominator and normalize the integer game once, then the outside payoff still rejects the support.
+     * Multiplying the complete game by 10^-50 must not make every reduced pivot fall below the absolute cutoff. Fast search removes
+     * that common denominator and normalizes the integer game once, then the outside payoff still rejects the support.
      */
     const fraction common_scale("1/100000000000000000000000000000000000000000000000000");
     const auto scaled = [&](const char* value) { return fraction(value) * common_scale; };
@@ -220,17 +183,13 @@ TEST(CandidateFiltersTest, RemoveCommonDenominatorAndNormalizeGameOnce) {
 
     exact_candidate_solver safe(game);
     fast_candidate_filter fast(game);
-    test_candidate_filter test(game);
     fast.convert_game_matrix(safe);
-    test.convert_game_matrix(safe);
 
     ASSERT_EQ(fast.safe_fallback_reason(), safe_fallback::none);
-    ASSERT_EQ(test.safe_fallback_reason(), safe_fallback::none);
     EXPECT_FALSE(fast.passes(bitset64{7}, 3));
-    EXPECT_FALSE(test.passes(bitset64{7}, 3));
 }
 
-TEST(CandidateFiltersTest, MultiwordOutsideTraversalCrossesBit63And64)
+TEST(FastCandidateFilterTest, MultiwordOutsideTraversalCrossesBit63And64)
 {
     constexpr size_t dimension = 65;
     matrix_frc game(dimension, dimension);
@@ -239,15 +198,11 @@ TEST(CandidateFiltersTest, MultiwordOutsideTraversalCrossesBit63And64)
 
     exact_candidate_solver safe(game);
     fast_candidate_filter fast(game);
-    test_candidate_filter test(game);
     fast.convert_game_matrix(safe);
-    test.convert_game_matrix(safe);
 
     ASSERT_EQ(fast.safe_fallback_reason(), safe_fallback::none);
-    ASSERT_EQ(test.safe_fallback_reason(), safe_fallback::none);
 
     bitset_multiword support(dimension);
     support.set_bit_at_pos(0);
     EXPECT_FALSE(fast.passes(support, 1));
-    EXPECT_FALSE(test.passes(support, 1));
 }

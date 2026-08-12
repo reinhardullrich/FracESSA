@@ -15,21 +15,19 @@
 #include <fracessa/bitset64.hpp>
 #include <fracessa/exact_candidate_solver.hpp>
 #include <fracessa/fast_candidate_filter.hpp>
-#include <fracessa/test_candidate_filter.hpp>
 
 /** Candidate-search method selected by the CLI or native caller. */
 enum class search_method {
     fast, ///< Potentially incomplete binary64 candidate filter followed by exact candidate verification and stability.
     safe, ///< Complete exact candidate search and exact stability.
-    test, ///< Independent experimental copy of the fast route.
 };
 
 /**
- * Convert `fast`, `safe`, or `test` to the corresponding search method.
+ * Convert `fast` or `safe` to the corresponding search method.
  *
  * @param name Exact lowercase method name.
  * @return Parsed search method.
- * @throws std::invalid_argument if `name` is not one of the three public names.
+ * @throws std::invalid_argument if `name` is not one of the two public names.
  */
 search_method parse_search_method(std::string_view name);
 
@@ -41,15 +39,14 @@ class logger;
  * Runs the configured ESS search for one payoff matrix.
  *
  * For each support S, the analyzer performs up to three stages:
- * 1) the fast or experimental test filter may heuristically reject an invalid support;
+ * 1) the fast filter may heuristically reject an invalid support;
  * 2) exact integer arithmetic constructs and verifies a symmetric Nash candidate on S, including its extended support; only a
  *    successful candidate's probabilities and payoff are materialized as exact rationals for output;
  * 3) exact reduced-Hessian inertia and copositivity tests decide ESS stability.
  *
  * Safe search starts directly with the exact candidate solver. The fast filter removes the game's common denominator, checks its
  * exact integer precision span, equilibrates the complete binary64 game, and solves each reduced symmetric candidate system with
- * Bunch-Kaufman LDL^T. A large span or inconclusive pivot falls back to exact arithmetic. Test search is an independent copy for
- * experiments.
+ * Bunch-Kaufman LDL^T. A large span or inconclusive pivot falls back to exact arithmetic.
  *
  * Construction runs the configured analysis synchronously. The public count and structure fields are always populated. Individual
  * candidate rows are retained only when `with_candidates` is true.
@@ -91,18 +88,17 @@ public:
     structure_type candidate_structure_;
     /// ESS counts indexed by support size; index zero is unused.
     structure_type ess_structure_;
-    /// Whole-matrix fast/test-to-safe fallback reason; per-support exact retries do not set it.
+    /// Whole-matrix fast-to-safe fallback reason; per-support exact retries do not set it.
     candidate_search::safe_fallback safe_fallback_ = candidate_search::safe_fallback::none;
     /// Representative candidate rows. Populated only when `with_candidates` is true.
     std::vector<candidate_type> candidates_;
 
 private:
     // Keep the parsed rational game for logging and detection of extra circular symmetries. The exact solver owns the denominator-cleared
-    // integer copy used by candidate and stability work; the fast and test filters own converted double copies.
+    // integer copy used by candidate and stability work; the fast filter owns its converted double copy.
     linalg::matrix_frc game_matrix_;
     candidate_search::fast_candidate_filter fast_candidate_filter_;
     candidate_search::exact_candidate_solver exact_candidate_solver_;
-    candidate_search::test_candidate_filter test_candidate_filter_;
     linalg::matrix_int scaled_reduced_b_;
 
     size_t dimension_;

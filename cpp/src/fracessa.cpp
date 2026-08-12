@@ -29,8 +29,7 @@ search_method parse_search_method(std::string_view name)
 {
     if (name == "fast") return search_method::fast;
     if (name == "safe") return search_method::safe;
-    if (name == "test") return search_method::test;
-    throw std::invalid_argument("Unknown search method '" + std::string(name) + "'; expected fast, safe, or test");
+    throw std::invalid_argument("Unknown search method '" + std::string(name) + "'; expected fast or safe");
 }
 
 namespace {
@@ -40,7 +39,6 @@ constexpr const char* search_method_name(search_method method) noexcept
     switch (method) {
         case search_method::fast: return "fast";
         case search_method::safe: return "safe";
-        case search_method::test: return "test";
     }
     return "unknown";
 }
@@ -99,7 +97,6 @@ basic_fracessa<SupportMask>::basic_fracessa(search_method method, const linalg::
     , game_matrix_(matrix)
     , fast_candidate_filter_(game_matrix_)
     , exact_candidate_solver_(game_matrix_)
-    , test_candidate_filter_(game_matrix_)
     , dimension_(matrix.rows())
     , conf_with_candidates_(with_candidates)
     , method_(method)
@@ -116,10 +113,6 @@ basic_fracessa<SupportMask>::basic_fracessa(search_method method, const linalg::
     if (method_ == search_method::fast) {
         fast_candidate_filter_.convert_game_matrix(exact_candidate_solver_);
         safe_fallback_ = fast_candidate_filter_.safe_fallback_reason();
-        if (safe_fallback_ != candidate_search::safe_fallback::none) method_ = search_method::safe;
-    } else if (method_ == search_method::test) {
-        test_candidate_filter_.convert_game_matrix(exact_candidate_solver_);
-        safe_fallback_ = test_candidate_filter_.safe_fallback_reason();
         if (safe_fallback_ != candidate_search::safe_fallback::none) method_ = search_method::safe;
     }
 
@@ -346,7 +339,6 @@ void basic_fracessa<SupportMask>::finish_log()
 template<class SupportMask>
 bool basic_fracessa<SupportMask>::analyze_support(const SupportMask& support, size_t support_size) {
     if (method_ == search_method::fast && !fast_candidate_filter_.passes(support, support_size)) return false;
-    if (method_ == search_method::test && !test_candidate_filter_.passes(support, support_size)) return false;
     if (!exact_candidate_solver_.find(support, support_size, candidate_, conf_with_candidates_))
         return false;
 

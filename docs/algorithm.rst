@@ -35,7 +35,7 @@ For ``n`` pure strategies there are ``2^n - 1`` nonempty supports in the worst c
 It generates one support at a time, in increasing support size, and performs the following work:
 
 1. **Prepare the matrix.** The parser preserves exact rational values. The exact solver clears common denominators once and works
-   with integers. ``fast`` and ``test`` additionally prepare an equilibrated binary64 copy or switch the matrix to ``safe`` when
+   with integers. ``fast`` additionally prepares an equilibrated binary64 copy or switches the matrix to ``safe`` when
    that preparation is not trustworthy.
 2. **Generate a support.** Non-circular and circular matrices use different generators, described below.
 3. **Find an equilibrium candidate.** The selected candidate route solves the equilibrium equations on the support and verifies the
@@ -56,9 +56,6 @@ symmetric support system is solved with a pivoted symmetric factorization. A mat
 support solve falls back to exact arithmetic. The remaining floating-point probability and outside-payoff rejections are heuristic,
 so ``fast`` can miss a valid candidate and is not a completeness certificate. Candidates that survive the filter are rechecked
 exactly, and all final stability decisions are exact.
-
-``test`` is an independent experimental copy of ``fast``. It exists so numerical experiments do not modify the maintained fast
-route in place.
 
 Exact stability
 ***************

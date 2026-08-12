@@ -1,55 +1,48 @@
 # Agent Documentation Index
 
-This file routes to every other Markdown document under `aidocs/`. Each entry states the document's role and status without
-duplicating its contents.
+Use this file only to locate the document that owns a topic. It lists every other Markdown file under `aidocs/` and labels whether
+the file describes current behavior, open research, or history.
 
 ## Current Overview And Operations
 
-- `PROJECT.md`: current FracESSA structure, product behavior, architecture, dependencies, test-data roles, Python boundary, and
-  release model.
-- `RELEASING.md`: current calendar-version release procedure, supported artifacts, and manual GitHub Actions workflow.
-- `pyfracessa/README.md`: current public PyFracESSA API, multiprocessing behavior, result schema, sinks, timing tool, and examples.
+- `PROJECT.md`: concise current project structure, product contract, architecture, dependencies, interfaces, and verification model.
+- `RELEASING.md`: current release procedure, artifact set, and manual GitHub Actions workflow.
+- `pyfracessa/README.md`: current internal persistent-Pybind timing command, calibration rules, provenance, and report contract.
 
-## Current Design And Technical Reference
+## Current Architecture And Mathematics
 
-- `architecture/SUPPORT_GENERATOR_HANDOVER.md`: implemented generator API, callback rationale, candidate lifecycle, circular
-  multiplier contract, and retained design decisions.
-- `plans/SUPPORT_GENERATORS.md`: implemented DFS and direct-bracelet algorithms, correctness arguments, rejected alternatives,
-  measurements, and future benchmark gates.
-- `plans/CHEAP_CYCLIC_SYMMETRY_FILTER.md`: implemented affine cyclic-symmetry reduction, verification, and promotion evidence.
-- `plans/EXACT_STABILITY_SCHUR_COMPLEMENT.md`: implemented exact Schur-complement stability reduction and verification plan.
-- `plans/MULTIWORD_BIT_ARRAY.md`: implemented dimension-64 and multiword support architecture, staged verification, and performance
-  evidence for preserving the one-word path.
-- `plans/LOGGING_AND_MATRIX_FORMATTING.md`: implemented design and verification record for the human-only native diagnostic log,
-  semantic logging helpers, readable exact matrices, and unchanged machine-result destinations.
-- `correctness/FAST_CANDIDATE_FALSE_REJECTION.md`: exact ESS counterexamples for former fast rejection rules and current mitigations.
+- `architecture/SUPPORT_GENERATORS.md`: implemented non-circular DFS and circular bracelet generators, pruning proof, callback
+  interface, rejected alternatives, and retained performance evidence.
+- `architecture/CYCLIC_AFFINE_SYMMETRY.md`: implemented exact affine symmetry detection and reduction for circular games.
+- `architecture/MULTIWORD_SUPPORT_MASKS.md`: implemented one-word/multiword boundary, representation, dispatch, and verification.
+- `correctness/FAST_CANDIDATE_FALSE_REJECTION.md`: exact counterexamples and the non-certifying correctness boundary of `fast`.
 - `reference/ELIMINATING_THE_BORDERED_CANDIDATE_SYSTEM.md`: mathematical derivation of the reduced symmetric candidate system.
-- `reference/FIND_POS_FIRST_SET_BIT_CALL_CHAIN.md`: current production-only bit-scanning call chain.
-- `reference/INTEGER_HADELER_COPOSITIVITY.md`: current proof, exact algorithm, branch tests, and benchmark evidence for the optimized
-  integer Hadeler checker.
+- `reference/EXACT_STABILITY_SCHUR_COMPLEMENT.md`: exact Schur-complement derivation and implemented reduced-B stability path.
+- `reference/FIND_POS_FIRST_SET_BIT_CALL_CHAIN.md`: compact current production call chain for the intentionally unchecked bit scan.
+- `reference/INTEGER_HADELER_COPOSITIVITY.md`: proof, implementation, branch tests, and evidence for the exact integer Hadeler checker.
 
-## Research And Open Options
+## Open Research
 
-- `plans/MAJOR_SINGLE_CORE_PERFORMANCE_OPPORTUNITIES.md`: current research backlog for material single-core speedups, with completed
-  exact-kernel foundations separated from the remaining unimplemented ideas.
+- `plans/MAJOR_SINGLE_CORE_PERFORMANCE_OPPORTUNITIES.md`: the only active plan; unimplemented hypotheses for material single-core
+  speedups, with completed foundations clearly separated.
 
-## Historical Decisions And Audits
+## Historical Decisions And Implementation Records
 
-- `CHANGES.md`: append-only searchable history of meaningful decisions, results, and evidence.
-- `architecture/UNSAFE_CANDIDATE_FILTER.md`: failed temporary normalized-filter design and retained measurements.
-- `history/CPP_PERFORMANCE_EXPERIMENTS_2026-08-03.md`: completed C++ allocation and performance experiments, especially rejected
-  changes.
-- `history/FAST_PIPELINE_EXPERIMENTS_2026-08-03.md`: completed and rejected binary64 candidate-path experiments.
-- `history/INTEGER_STABILITY_MATRIX_MIGRATION_ONLY_2026-08-06.md`: completed integer-storage migration plan.
-- `correctness/DOUBLE_PD_FALSE_POSITIVES.md`: historical exact analysis of the removed binary64 positive-definiteness certificate bug.
-- `reference/MATRIX_GENERATOR_CATALOGUE_AUDIT.md`: immutable matrix-generator catalogue import audit; its counts are not live database
-  counts.
+- `CHANGES.md`: append-only searchable history of decisions, results, and evidence not obvious from Git.
+- `correctness/DOUBLE_PD_FALSE_POSITIVES.md`: proof and counterexamples for the removed binary64 positive-definiteness certificate.
+- `history/CPP_PERFORMANCE_EXPERIMENTS_2026-08-03.md`: measured allocation/performance experiments, especially rejected changes.
+- `history/FAST_PIPELINE_EXPERIMENTS_2026-08-03.md`: promoted and rejected binary64 candidate-path experiments.
+- `history/INTEGER_STABILITY_MATRIX_MIGRATION_ONLY_2026-08-06.md`: dated rational-to-integer stability migration record.
+- `history/LOGGING_AND_MATRIX_FORMATTING_2026-08-09.md`: dated diagnostic-log redesign and verification record.
+- `history/UNSAFE_CANDIDATE_FILTER_2026-07-27.md`: retired normalized unsafe-filter design, measurements, and failure outcome.
+- `reference/MATRIX_GENERATOR_CATALOGUE_AUDIT.md`: immutable provenance and sampling audit for the matrix-generator import; its counts
+  are not live database counts.
 
-## Frozen Experiments
+## Frozen Benchmark Reports
 
-- `experiments/HISTORICAL_DEFAULT_VERY_UNSAFE_COMPARISON_2026-07-31.md`: historical default, very-unsafe, unsafe, verified, and exact
-  timing comparison.
-- `experiments/SUPPORT_FRONTIER_2026-07-29.md`: support-generation and pruning alternatives, measurements, and conclusions.
+- `experiments/HISTORICAL_DEFAULT_VERY_UNSAFE_COMPARISON_2026-07-31.md`: historical unsafe/default/verified/exact timing and
+  correctness comparison.
+- `experiments/SUPPORT_FRONTIER_2026-07-29.md`: support-frontier, Gosper, DFS, streaming, pruning, timing, and memory experiments.
 - `experiments/speed_comparison_2026-07-26/COMPUTER_TIMING_COMPARISON.md`: frozen cross-computer timing comparison.
 - `experiments/speed_comparison_2026-07-26/EXACT_PD_ONLY_COMPARISON.md`: frozen exact-positive-definiteness experiment.
 - `experiments/speed_comparison_2026-07-26/EXACT_VS_DEFAULT_COMPARISON.md`: frozen exact-versus-default benchmark.

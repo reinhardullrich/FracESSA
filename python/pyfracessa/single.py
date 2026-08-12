@@ -36,7 +36,7 @@ def run(
 
     Args:
         method: Required candidate-search method. ``"safe"`` is complete and exact; ``"fast"`` can miss candidates during its
-            binary64 prefilter; ``"test"`` is the experimental fast-route copy.
+            binary64 prefilter.
         matrices: One matrix or an iterable of matrices.
         config: Analysis options; defaults to :class:`RunConfig`.
         run_id: Output identifier; a timestamp-based ID is generated when omitted.

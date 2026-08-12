@@ -1,7 +1,7 @@
 # Historical Fast Candidate False Rejections
 
-Status: current correctness reference for historical failures and the present non-certifying mitigations. Fast remains heuristic;
-safe is the exact method.
+Status: correctness reference for historical failures and the non-certifying boundary that still applies: fast remains heuristic;
+safe is the exact method. Reproduction results below are a dated snapshot, not current benchmark data.
 
 Last verified: 2026-08-01 against historical fast revision `8697ebaf` and the current working tree
 
@@ -14,10 +14,9 @@ fallback. One counterexample exists for each of its three per-support rejection 
 2. a strictly positive exact probability can be computed as negative; and
 3. an exact outside payoff below the equilibrium payoff can be computed above the permitted margin.
 
-All three matrices are exact, pass those six matrix-wide input checks, and lose a real ESS in historical fast. Current fast adopts
-the experimental test method described below: it sends small pivots to exact checking and selects matrix-wide safe search for
-$P\geq10^9$. It therefore recovers all three stored regressions. Its remaining double inequality rejections are still heuristic,
-so this is not a general correctness proof.
+All three matrices are exact, pass those six matrix-wide input checks, and lose a real ESS in historical fast. Current fast sends
+small pivots to exact checking and selects matrix-wide safe search for $P\geq10^9$. It therefore recovers all three stored
+regressions. Its remaining double inequality rejections are still heuristic, so this is not a general correctness proof.
 
 ## Counterexample 1: Pivot Cutoff
 
@@ -329,14 +328,13 @@ These counterexamples are stored in the canonical SQLite matrix set as IDs 2207,
 
 ## Precision-Span and Small-Pivot Mitigation
 
-Current `fast` and the independent experimental `test` method both make two changes relative to historical fast revision
-`8697ebaf`:
+Current `fast` makes two changes relative to historical fast revision `8697ebaf`:
 
 1. a pivot below $10^{-12}$ returns candidate-possible so exact arithmetic decides that support; and
 2. one exact integer precision-span check replaces the six conversion checks, and the whole matrix uses safe search when
    $P\geq10^9$.
 
-For the precision span, let $d$ be the least common positive denominator and let $Z=dA$ be the integer game. Both methods use
+For the precision span, let $d$ be the least common positive denominator and let $Z=dA$ be the integer game. Fast uses
 
 $$
 M=\max\left(d,\max_{i,j}|Z_{ij}|\right),
@@ -352,7 +350,6 @@ $$
 P=\frac{M}{m}.
 $$
 
-The three counterexamples above now give ESS counts fast/test/safe of $1/1/1$, $1/1/1$, and $2/2/2$. The pivot example is
-recovered by the per-support pivot fallback. The probability and outside-payoff examples exceed the precision-span cutoff and
-therefore use matrix-wide safe search. This remains a heuristic: it is not a proof that every matrix with $P<10^9$ is safe for
-double rejection.
+The three counterexamples above now give fast/safe ESS counts of $1/1$, $1/1$, and $2/2$. The pivot example is recovered by the
+per-support pivot fallback. The probability and outside-payoff examples exceed the precision-span cutoff and therefore use
+matrix-wide safe search. This remains a heuristic: it is not a proof that every matrix with $P<10^9$ is safe for double rejection.

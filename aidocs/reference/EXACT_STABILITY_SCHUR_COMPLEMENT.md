@@ -3,7 +3,7 @@
 Status: current mathematical design and implementation record. Implemented and verified on 2026-08-05; later exact-copositivity
 shortcuts changed only the decisions made after this reduction.
 
-## 1. Goal
+## 1. Implemented result
 
 When an exact candidate has outside best replies, reuse the exact fraction-free factorization of its reduced Hessian instead of:
 
@@ -104,16 +104,16 @@ $$
 Since $B^{(r)}=2C$ and strict copositivity is unchanged by multiplication by a positive scalar, testing $C$ is equivalent and avoids
 one unnecessary multiplication of every entry.
 
-No inverse will be constructed. We solve
+No inverse is constructed. Production solves
 
 $$
 HX=G
 $$
 
-with the retained factorization and then form
+with the retained factorization and then forms
 
 $$
-S=-2(Q-G^TX).
+C=-(Q-G^TX).
 $$
 
 ## 4. Keep the construction integral

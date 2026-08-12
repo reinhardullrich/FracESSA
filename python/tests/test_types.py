@@ -13,12 +13,12 @@ class TypesTests(unittest.TestCase):
         self.assertFalse(hasattr(cfg, "cyclic_symmetry_filter"))
 
     def test_search_method_is_required_and_validated(self):
-        for method in ("fast", "safe", "test"):
+        for method in ("fast", "safe"):
             _validate_search_method(method)
         with self.assertRaisesRegex(TypeError, "method must be a str"):
             _validate_search_method(1)
-        for method in ("verified", "exact", "unsafe", "unknown"):
-            with self.subTest(method=method), self.assertRaisesRegex(ValueError, "fast, safe, or test"):
+        for method in ("test", "verified", "exact", "unsafe", "unknown"):
+            with self.subTest(method=method), self.assertRaisesRegex(ValueError, "fast or safe"):
                 _validate_search_method(method)
 
     def test_status_codes(self):
