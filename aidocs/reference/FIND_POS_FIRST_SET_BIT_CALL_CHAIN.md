@@ -1,7 +1,7 @@
 # `find_pos_first_set_bit` Production Call Chain
 
-Status: historical production snapshot from 2026-08-09. Tests were excluded. The 2026-08-12 Coposit integration removed the
-FracESSA-owned Hadeler and connected-component callers described below; current Coposit internals live in `external/coposit/`.
+Status: historical production snapshot from 2026-08-09. Tests were excluded. The 2026-08-12 coposit integration removed the
+FracESSA-owned Hadeler and connected-component callers described below; current coposit internals live in `external/coposit/`.
 
 ## Contract
 

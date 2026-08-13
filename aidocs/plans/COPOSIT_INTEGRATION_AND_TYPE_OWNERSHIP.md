@@ -1,6 +1,6 @@
-# Coposit Integration And Exact-Type Ownership
+# coposit Integration And Exact-Type Ownership
 
-Status: implemented and verified locally. The Coposit foundation, FracESSA representation migration, strict-copositivity backend,
+Status: implemented and verified locally. The coposit foundation, FracESSA representation migration, strict-copositivity backend,
 candidate-vector and scalar-output cleanup, obsolete exact-code deletion, and release packaging are complete.
 
 ## Decision
@@ -15,31 +15,31 @@ The general direction is correct, with two important qualifications:
 The intended dependency direction is:
 
 ```text
-FracESSA -> Coposit
+FracESSA -> coposit
 ```
 
-Coposit must never depend on FracESSA. A third common repository is unnecessary.
+coposit must never depend on FracESSA. A third common repository is unnecessary.
 
 ## Current Checkpoint Evidence
 
-FracESSA now uses Coposit's parser and exact integer types, owns one parsed integer game plus its denominator, and keeps fast-mode
+FracESSA now uses coposit's parser and exact integer types, owns one parsed integer game plus its denominator, and keeps fast-mode
 preparation outside the exact solver. Candidate probabilities use `std::vector<fraction>`; the duplicate parser and `matrix_frc`
 storage have been deleted. The final strict-copositivity decision is one call to `coposit::safe`.
 
 Verification on 2026-08-12 passed all 8 retained C++/CLI tests and all 70 Python tests after the obsolete backend tests were deleted.
 The paired persistent-Pybind quick-suite representation benchmark on CPU 2 matched all 81 saved ESS results in both `fast` and `safe`.
 Excluding dimension 2, the per-matrix median time
-changed by `-0.929%` for `fast` and `-0.716%` for `safe`. The separately measured Coposit backend changed the median by `-0.125%`
+changed by `-0.929%` for `fast` and `-0.716%` for `safe`. The separately measured coposit backend changed the median by `-0.125%`
 for `fast` and `+0.149%` for `safe`; among baseline runs of at least 1 ms, both mean and median changes stayed within `0.4%`.
 Conditioning rational payoff and probability construction on requested candidate output then changed the median by `-0.888%` for
 `fast` and `-0.719%` for `safe`. Among baseline runs of at least 1 ms, the corresponding medians were `-0.574%` and `-0.256%`.
 Every benchmark row retained the expected ESS count; no stored baseline was rerun.
 Slimming the remaining rational type to its output-value contract was neutral against that checkpoint: excluding dimension 2, the
 median changes were `-0.002%` for `fast` and `-0.218%` for `safe`; among baseline runs of at least 1 ms, they were `-0.006%` and
-`-0.196%`. All 162 matched rows retained their expected ESS count. Coposit's complete 65-test suite passes independently at pinned
+`-0.196%`. All 162 matched rows retained their expected ESS count. coposit's complete 65-test suite passes independently at pinned
 commit `901cdfc1bb550588977d8255a4483ebe72e3b979`.
 
-Release jobs now check out the pinned submodule, the PyPI sdist contains only the Coposit files required to build FracESSA, and the
+Release jobs now check out the pinned submodule, the PyPI sdist contains only the coposit files required to build FracESSA, and the
 GitHub release attaches a complete source archive rather than mislabeling GitHub's submodule-less automatic archive. The final
 131,613-byte sdist was extracted without Git metadata, rebuilt into a CPython 3.14 ARM64 wheel, installed in a clean environment,
 and passed a native safe-mode ESS smoke test with exact candidate output.
@@ -52,12 +52,12 @@ The separate complete source archive contains both repositories.
 | `matrix_dbl` | Keep unchanged | FracESSA |
 | `matrix_frc` | Remove | None |
 | `fraction` | Keep as a small output-only rational value | FracESSA |
-| `integer` | Use Coposit's implementation | Coposit |
-| `matrix_int` | Alias Coposit's `matrix_integer` | Coposit |
-| Generic fraction-free LDLT | Use Coposit's implementation | Coposit |
+| `integer` | Use coposit's implementation | coposit |
+| `matrix_int` | Alias coposit's `matrix_integer` | coposit |
+| Generic fraction-free LDLT | Use coposit's implementation | coposit |
 | Candidate-specific fraction-free KKT LDLT | Keep | FracESSA |
-| Exact matrix parsers | Use Coposit's parsers | Coposit |
-| Strict-copositivity implementation | Call one public Coposit function | Coposit |
+| Exact matrix parsers | Use coposit's parsers | coposit |
+| Strict-copositivity implementation | Call one public coposit function | coposit |
 
 ## Keep `matrix_dbl`
 
@@ -70,7 +70,7 @@ The separate complete source archive contains both repositories.
 Replacing it with `std::vector<double>` would not eliminate meaningful code. It would merely distribute expressions such as
 `row * dimension + column` throughout the numerical solver.
 
-Coposit does not need a corresponding dense double factorization matrix. A shared or templated matrix class would therefore add an
+coposit does not need a corresponding dense double factorization matrix. A shared or templated matrix class would therefore add an
 abstraction without removing duplication.
 
 The fast-filter constructor now receives only the dimension and prepares its double matrix directly from the shared integer matrix.
@@ -81,8 +81,8 @@ Before removal, `matrix_frc` combined four unrelated responsibilities:
 
 | Former responsibility | Replacement |
 |---|---|
-| Parsed game storage | Coposit `parsed_matrix` |
-| Compact circular-matrix expansion | Coposit parser |
+| Parsed game storage | coposit `parsed_matrix` |
+| Compact circular-matrix expansion | coposit parser |
 | Matrix retained for logging and symmetry detection | Shared integer matrix plus denominator |
 | Candidate probability vector | `std::vector<fraction>` |
 
@@ -101,7 +101,7 @@ The implemented path is:
 
 ```text
 text
-  -> Coposit parser
+  -> coposit parser
   -> integer matrix Z and common denominator d
   -> move into FracESSA
 ```
@@ -120,7 +120,7 @@ This removes:
 ### Logging
 
 Logging does not require a rational matrix object. A small FracESSA formatting function can display each entry as `Z_ij / d`.
-Pretty diagnostic output is a FracESSA responsibility and must not become a method of Coposit's generic integer matrix.
+Pretty diagnostic output is a FracESSA responsibility and must not become a method of coposit's generic integer matrix.
 
 ### Circular symmetry
 
@@ -134,7 +134,7 @@ The affine-symmetry detector therefore receives the integer matrix. No rational 
 
 ## Represent The Parsed Input Explicitly
 
-Coposit returns one small aggregate:
+coposit returns one small aggregate:
 
 ```cpp
 struct parsed_matrix {
@@ -152,7 +152,7 @@ matrix operations ambiguous and could allow a derived matrix to retain a meaning
 
 The denominator is metadata for the parsed input as a whole. Keeping it in `parsed_matrix` makes that invariant explicit.
 
-Coposit uses `parsed.matrix` and ignores the denominator because copositivity is invariant under multiplication by a positive
+coposit uses `parsed.matrix` and ignores the denominator because copositivity is invariant under multiplication by a positive
 scalar. FracESSA uses:
 
 - `matrix` for exact candidate and stability calculations;
@@ -215,7 +215,7 @@ std::vector<fracessa::numeric::fraction> vector;
 
 That reflects their actual meaning as an `n`-element vector rather than an `n x 1` matrix.
 
-Coposit should not acquire this rational output class. Its maintained numerical core remains integer-only.
+coposit should not acquire this rational output class. Its maintained numerical core remains integer-only.
 
 ## Materialize Rational Output Only When Requested — Implemented
 
@@ -233,12 +233,12 @@ The former `materialize_vector` argument is now `materialize_output`.
 
 The measured result is recorded in Current Checkpoint Evidence above.
 
-## Use Coposit's Integer Types Through Aliases
+## Use coposit's Integer Types Through Aliases
 
-The former FracESSA and Coposit integer wrappers were nearly identical. The generic string operations now live in Coposit's
+The former FracESSA and coposit integer wrappers were nearly identical. The generic string operations now live in coposit's
 `integer`.
 
-FracESSA's `fracessa/types.hpp` keeps the small FracESSA-owned double matrix beside zero-cost aliases for Coposit's exact types:
+FracESSA's `fracessa/types.hpp` keeps the small FracESSA-owned double matrix beside zero-cost aliases for coposit's exact types:
 
 ```cpp
 namespace fracessa::numeric {
@@ -254,8 +254,8 @@ correctness benefit.
 
 ## Share The Generic LDLT, Not The Candidate-Specific LDLT
 
-FracESSA's generic `fraction_free_ldlt.hpp` was removed in favor of Coposit's generic implementation. Generic rank, inertia, solve,
-and nullspace operations belong in Coposit.
+FracESSA's generic `fraction_free_ldlt.hpp` was removed in favor of coposit's generic implementation. Generic rank, inertia, solve,
+and nullspace operations belong in coposit.
 
 FracESSA's `fraction_free_ldlt_kkt.hpp` must remain. It is specialized for the hot candidate path:
 
@@ -265,24 +265,24 @@ FracESSA's `fraction_free_ldlt_kkt.hpp` must remain. It is specialized for the h
 - exact reduced-Hessian inertia;
 - stability reuse.
 
-Moving that solver into Coposit would place ESS-specific candidate-solving behavior in a generic copositivity library and reverse the
+Moving that solver into coposit would place ESS-specific candidate-solving behavior in a generic copositivity library and reverse the
 intended conceptual dependency.
 
-## Provide An Embeddable Coposit Target
+## Provide An Embeddable coposit Target
 
-Coposit's standalone build includes command-line programs, analysis companions, Python modules, and tests. Its embedded build does
+coposit's standalone build includes command-line programs, analysis companions, Python modules, and tests. Its embedded build does
 not trigger those products.
 
-Coposit provides:
+coposit provides:
 
 ```text
-Coposit::core
+coposit::core
     integer and matrix types
     parsers
     generic LDLT
     model-independent preprocessing headers
 
-Coposit::safe
+coposit::safe
     selected exact strict-copositivity implementation
 ```
 
@@ -292,10 +292,10 @@ It also exposes one small public function equivalent to:
 bool coposit::safe::is_strictly_copositive(const matrix_integer& matrix);
 ```
 
-This function owns the selected preprocessing and Dickinson Final implementation. FracESSA must not know which Coposit model source
+This function owns the selected preprocessing and Dickinson Final implementation. FracESSA must not know which coposit model source
 file supplies the decision.
 
-Embedding options disable unrelated products when Coposit is a subproject:
+Embedding options disable unrelated products when coposit is a subproject:
 
 ```text
 COPOSIT_BUILD_APPS=OFF
@@ -303,11 +303,11 @@ COPOSIT_BUILD_PYTHON=OFF
 COPOSIT_BUILD_TESTS=OFF
 ```
 
-Those options default to enabled when Coposit is the top-level project and disabled when another project embeds it.
+Those options default to enabled when coposit is the top-level project and disabled when another project embeds it.
 
 ## Parser Behavior
 
-Coposit's parser already supports:
+coposit's parser already supports:
 
 - integers;
 - exact fractions;
@@ -322,7 +322,7 @@ It retains the common positive denominator in `parsed_matrix`.
 FracESSA uses this broader exact syntax. Decimal and scientific input become exact rational values; no floating-point parsing is
 involved.
 
-For the CLI, the simplest shared rule is the existing Coposit behavior:
+For the CLI, the simplest shared rule is the existing coposit behavior:
 
 - an argument beginning like `dimension#...` is inline matrix input;
 - another argument is treated as a file path;
@@ -363,31 +363,31 @@ migration and touch a proven hot path without an immediate need.
 
 The release infrastructure now complements the Git submodule by:
 
-- checking out submodules in every CLI, wheel, source-distribution, and documentation build that needs Coposit;
-- including the required Coposit source in the PyPI source distribution;
-- ensuring standalone source packages contain the pinned Coposit source;
+- checking out submodules in every CLI, wheel, source-distribution, and documentation build that needs coposit;
+- including the required coposit source in the PyPI source distribution;
+- ensuring standalone source packages contain the pinned coposit source;
 - no longer describing GitHub's automatically generated FracESSA tag archive as complete corresponding source, because an ordinary
   GitHub archive does not contain submodule contents; and
-- publishing a complete source archive containing the exact Coposit revision.
+- publishing a complete source archive containing the exact coposit revision.
 
 This is required for reproducible builds and clean GPL source distribution.
 
 ## Checkpoint Order And Status
 
-### 1. Coposit foundation
+### 1. coposit foundation
 
 - [x] Return `parsed_matrix` from both compact and Matrix Market parsers.
 - [x] Preserve the common denominator and compact-circular flag.
 - [x] Add generic integer string conversion.
-- [x] Add `Coposit::core` and `Coposit::safe`.
-- [x] Make Coposit embeddable without building all applications, Python modules, and tests.
+- [x] Add `coposit::core` and `coposit::safe`.
+- [x] Make coposit embeddable without building all applications, Python modules, and tests.
 - [x] Add focused parser and embedded-library checks.
-- [x] Commit Coposit first.
+- [x] Commit coposit first.
 
 ### 2. FracESSA representation migration
 
-- [x] Update the Coposit submodule pointer.
-- [x] Use Coposit's parser and exact-type aliases.
+- [x] Update the coposit submodule pointer.
+- [x] Use coposit's parser and exact-type aliases.
 - [x] Store one integer game plus its denominator.
 - [x] Pass references to the exact solver and convert the fast matrix directly from the shared integer game.
 - [x] Change candidate vectors to `std::vector<fraction>`.
@@ -399,8 +399,8 @@ This is required for reproducible builds and clean GPL source distribution.
 
 ### 3. Copositivity integration
 
-- [x] Replace FracESSA's complete copositivity preprocessing and final decision with one `Coposit::safe` call, rather than putting
-  Coposit behind FracESSA's former preliminary paths.
+- [x] Replace FracESSA's complete copositivity preprocessing and final decision with one `coposit::safe` call, rather than putting
+  coposit behind FracESSA's former preliminary paths.
 - [x] Verify the complete correctness corpus and documented difficult matrices.
 - [x] Benchmark this algorithm change separately.
 - [x] Delete FracESSA's obsolete copositivity preprocessing, Hadeler implementation, and generic LDLT code only after verification.
@@ -411,5 +411,5 @@ much easier to diagnose.
 ## Final Recommendation
 
 Eliminate `matrix_frc`, retain `matrix_dbl`, keep a minimal output-only `fraction`, and move generic exact-integer infrastructure to
-Coposit. Represent parsed input explicitly as `{integer matrix, positive denominator, compact-circular flag}`. Do not hide the
-denominator inside the integer or matrix class, and do not move FracESSA's specialized candidate LDLT into Coposit.
+coposit. Represent parsed input explicitly as `{integer matrix, positive denominator, compact-circular flag}`. Do not hide the
+denominator inside the integer or matrix class, and do not move FracESSA's specialized candidate LDLT into coposit.

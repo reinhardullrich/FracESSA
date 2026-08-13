@@ -297,7 +297,7 @@ The early decisions remain unchanged:
 1. reject when the retained reduced Hessian is not negative definite;
 2. accept when the extended support equals the support.
 
-The remaining path builds `scaled_reduced_b_` once and passes it to `coposit::safe`. Coposit owns the exact prechecks,
+The remaining path builds `scaled_reduced_b_` once and passes it to `coposit::safe`. coposit owns the exact prechecks,
 negative-entry connected-component reduction, and finite Dickinson certificate traversal. FracESSA neither duplicates those
 decisions nor exposes their internal route in its stability label.
 
@@ -349,7 +349,7 @@ The maintained tests preserve examples that reach the relevant final states:
 - pure-strategy acceptance (`T_pure_ess`);
 - reduced-Hessian negative-definite acceptance (`T_reduced_hessian_nd`);
 - rejection before Schur construction because $H$ is not negative definite (`F_reduced_hessian_not_nd`);
-- final Coposit acceptance and rejection (`T_copos` and `F_not_copos`).
+- final coposit acceptance and rejection (`T_copos` and `F_not_copos`).
 
 Candidate count, ESS count, support structure, extended supports, exact vectors, exact payoffs, and stability labels must match the
 current baseline. Candidate IDs are not a mathematical requirement, but this change does not alter support enumeration, so they

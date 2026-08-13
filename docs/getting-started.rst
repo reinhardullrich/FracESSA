@@ -22,6 +22,10 @@ Parquet output is optional:
 Standalone command-line binaries for Linux, macOS, and Windows are available on the
 `release page <https://github.com/reinhardullrich/fracessa/releases>`_. To build the CLI and Python extension from source instead:
 
+* install a C++17 compiler, CMake 3.18 or newer, Python 3.11 or newer with development headers, GMP, MPFR, and FLINT;
+* use Git with submodules enabled; and
+* allow the first CMake configure to download ``argparse``, ``pybind11``, ``spdlog``, and GoogleTest.
+
 .. code-block:: console
 
    git clone --recurse-submodules https://github.com/reinhardullrich/fracessa.git
@@ -53,7 +57,8 @@ Every call requires an explicit method; there is no default.
 
 ``fast`` switches the complete matrix to exact candidate search when preparation detects a dangerous numerical case.
 The result then records the reason in ``safe_fallback``. An inconclusive solve for only one support is also retried exactly, but that
-local retry does not set ``safe_fallback``.
+local retry does not set ``safe_fallback``. A candidate returned by ``fast`` is therefore a genuine, exactly verified candidate; the
+risk is an incomplete result because the floating-point filter can reject a valid support too early.
 
 Encode a matrix
 ***************
@@ -92,21 +97,58 @@ Exactly ``n(n+1)/2`` values are required.
 Compact circular-symmetric matrix
 ---------------------------------
 
-A circular-symmetric matrix is unchanged when all row and column indices are shifted cyclically by the same amount. A compact input
-also has a zero diagonal and supplies one payoff for each circular distance:
+A circular-symmetric matrix is unchanged when all row and column indices are shifted cyclically by the same amount. Because the
+matrix is also symmetric, an entry depends only on the circular distance
+
+.. math::
+
+   \operatorname{dist}(i,j)=\min\left(|i-j|,\,n-|i-j|\right).
+
+For dimensions two and larger, compact input supplies one payoff for each nonzero circular distance:
 
 .. code-block:: text
 
    n#c1,c2,...,c_floor(n/2)
 
-Exactly ``floor(n/2)`` values are required. For example, ``5#1,3`` expands to a 5-by-5 matrix whose first row is ``0,1,3,3,1``.
-FracESSA recognizes this shorter layout automatically and applies its circular-symmetry reductions.
+Exactly ``floor(n/2)`` values are required. The diagonal is omitted because one common diagonal value can always be normalized to
+zero without changing the problem. If the original diagonal value is :math:`d`, replace the complete matrix by
+
+.. math::
+
+   \widetilde A=A-d\mathbf 1\mathbf 1^\mathsf{T}.
+
+For every :math:`x` in the simplex,
+
+.. math::
+
+   \widetilde A x=Ax-d\mathbf 1,
+   \qquad
+   x^\mathsf{T}\widetilde A x=x^\mathsf{T}Ax-d.
+
+Thus every pure-strategy payoff and every objective value is shifted by the same constant. Best replies, candidates, local
+maximizers, and ESS are unchanged. In practical terms, subtract :math:`d` from **every** original matrix entry before writing the
+compact values; do not merely replace the diagonal by zero.
+
+For example, a circular matrix with diagonal ``2`` and successive distance payoffs ``3`` and ``5`` is normalized to ``5#1,3``. That
+compact input expands to a 5-by-5 matrix whose first row is ``0,1,3,3,1``. FracESSA recognizes the shorter value count automatically
+and applies its circular-symmetry reductions. Dimension one and circular matrices that should not be normalized must use the full
+upper-triangular layout.
 
 Matrix files
 ------------
 
-The CLI accepts a file path in place of inline input. The file can contain either ``dimension#values`` or a symmetric Matrix Market
-matrix. Python accepts the same two text formats in ``Matrix.matrix``; use ``Path.read_text()`` to load a file when needed.
+The CLI accepts a file path in place of inline input. The file can contain either ``dimension#values`` or a Matrix Market ``array``
+or ``coordinate`` matrix declared ``symmetric``. Matrix Market integer, real, pattern, and complex fields are accepted; complex
+entries must have zero imaginary part. Decimal and scientific values remain exact. Slash fractions are available only in
+``dimension#values`` input.
+
+Python accepts the same two **contents** in ``Matrix.matrix``; it does not interpret that string as a file path. Use
+``Path.read_text()`` to load a file. Python also accepts a values-only string when the matrix metadata contains an integer
+``dimension``:
+
+.. code-block:: python
+
+   Matrix(7, "-1,0,0,-2,0,-3", metadata={"dimension": 3})
 
 Run one matrix from Python
 **************************
@@ -129,13 +171,15 @@ Run one matrix from Python
    print(result["candidates"])
 
 The result is a plain dictionary. ``candidate_count`` and ``ess_count`` are the totals found by the selected method, and
-``candidate_structure`` and ``ess_structure`` divide those totals by support size. These four fields are always returned. The totals
-are complete with ``safe``; ``fast`` can miss candidates. ``include_candidates=True`` also returns each stored candidate
+``candidate_structure`` and ``ess_structure`` divide those totals by support size. These four fields are always returned. The ESS
+total is complete with ``safe``; candidate totals follow FracESSA's ESS-search semantics and are not a census of every degenerate or
+pruned-superset equilibrium. ``fast`` can miss valid supports. ``include_candidates=True`` also returns each stored candidate
 representative; it does not change the counts or the analysis.
 
 Check ``status`` before consuming a result. ``0`` means success, ``1`` means invalid matrix input, ``4`` means an execution error,
 and ``255`` means an unexpected internal error. A nonzero status is accompanied by ``error_message``. ``elapsed_ns`` measures only
-the native analyzer with a monotonic clock. FracESSA deliberately imposes no per-matrix timeout.
+the native analyzer with a monotonic clock; Python scheduling and output writing are excluded. FracESSA deliberately imposes no
+per-matrix timeout.
 
 Run one matrix from the command line
 ************************************
@@ -166,9 +210,13 @@ The CLI always writes one JSON summary line. ``--candidates`` appends semicolon-
      - Check the full support first. If the selected candidate route finds it and exact stability accepts it as an ESS, stop;
        otherwise continue the normal search without checking it twice.
    * - ``--log``
-     - Write a detailed diagnostic trace to ``log/fracessa.log``.
+     - Write a rotating diagnostic trace to ``log/fracessa.log`` relative to the current working directory.
    * - ``--matrixid ID``
      - Attach a signed 64-bit matrix identifier to the summary and log.
+
+The decimal ``support`` masks in candidate rows use the least significant bit for the first matrix strategy. For example, support
+``7`` has its first three bits set. On failure the CLI still writes a JSON summary to standard output, writes a diagnostic to
+standard error, and exits unsuccessfully.
 
 Run several matrices
 ********************

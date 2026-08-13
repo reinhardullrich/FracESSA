@@ -24,7 +24,7 @@ FracESSA is a C++17 analyzer for evolutionarily stable strategies in symmetric p
 - CLI: `cpp/src/main.cpp`, normally built as `cpp/build/fracessa`.
 - PyFracESSA: `python/pyfracessa/`, backed by the native `fracessa_core` module in `cpp/src/pybind_module.cpp`.
 
-Input uses inline `dimension#values` text or a file containing that syntax or a symmetric Matrix Market matrix. The embedded Coposit
+Input uses inline `dimension#values` text or a file containing that syntax or a symmetric Matrix Market matrix. The embedded coposit
 parser accepts every positive dimension whose dense matrix size is representable and exact integers, fractions, finite decimals,
 and scientific numbers.
 Dimensions 1 through 64 use one `uint64_t`; dimensions 65 and above use fixed-width multiword support masks. Runtime remains
@@ -46,7 +46,7 @@ Compact circular input automatically uses exact cyclic symmetry reduction. Outpu
 
 ```text
 CLI or Pybind input
-  -> Coposit validating parser producing one integer matrix plus a common positive denominator
+  -> coposit validating parser producing one integer matrix plus a common positive denominator
   -> support generation and exact-equilibrium superset pruning
   -> fast candidate attempt when selected
   -> exact candidate solver when selected or required as fallback
@@ -67,17 +67,17 @@ Core implementation facts:
   arithmetic. Exact integer quantities drive every decision; rational candidate vectors are constructed only when output requests them.
 - Stability reuses exact reduced-Hessian inertia. The rare case with unresolved outside best replies constructs an integer-scaled
   reduced Bomze matrix through an exact Schur complement and decides strict copositivity exactly.
-- The final strict-copositivity path calls `coposit::safe`. Coposit applies exact shared prechecks, splits the negative-entry graph
+- The final strict-copositivity path calls `coposit::safe`. coposit applies exact shared prechecks, splits the negative-entry graph
   into connected components, and sends unresolved components to its finite Dickinson certificate traversal.
 - Dickinson visits principal supports by increasing cardinality. Each uncovered principal matrix uses one exact fraction-free solve
   when nonsingular or one exact null vector when singular. A binary64 value is never accepted as a stability certificate.
 - FracESSA owns one parser-produced integer game and its common denominator. Exact candidate and stability kernels use zero-cost
-  aliases to Coposit's integer and matrix types; rational values remain only at the public-output boundary.
+  aliases to coposit's integer and matrix types; rational values remain only at the public-output boundary.
 
 ## Build And Dependencies
 
 Required dependencies are a C++17 compiler, CMake 3.18 or newer, Python with development headers when building Pybind, GMP, MPFR,
-and FLINT. The pinned Coposit submodule supplies shared exact types and parsers. CMake FetchContent obtains `spdlog`, `argparse`,
+and FLINT. The pinned coposit submodule supplies shared exact types and parsers. CMake FetchContent obtains `spdlog`, `argparse`,
 `pybind11`, and, when `BUILD_TESTING=ON`, GoogleTest. A clean checkout and configure therefore need the submodule and network access
 unless all sources are cached.
 

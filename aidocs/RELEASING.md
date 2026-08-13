@@ -13,7 +13,7 @@ The workflow refuses to run from another branch or to reuse an existing version 
 - the compact C++ and CLI test suite on each standalone-binary runner;
 - `pyfracessa` wheels for CPython 3.11, 3.12, 3.13, and 3.14 on those five platforms;
 - one Python source distribution;
-- one complete FracESSA source archive containing the pinned Coposit submodule source.
+- one complete FracESSA source archive containing the pinned coposit submodule source.
 
 Only after every build succeeds does the workflow create the matching tag and GitHub release. It attaches five direct CLI binaries
 and the complete source archive, then publishes the wheels and Python source distribution to PyPI through the `pypi` GitHub
@@ -34,4 +34,4 @@ Release jobs run from `main`, so their vcpkg binary caches are shared by later r
 
 FracESSA and the complete statically linked release are distributed under GPL-3.0-or-later. The release page links the license,
 attached corresponding source, and THIRD_PARTY_NOTICES.md next to the direct binaries. Python wheels retain their packaged license
-files, and the Python source distribution includes the Coposit subset required for a clean build.
+files, and the Python source distribution includes the coposit subset required for a clean build.

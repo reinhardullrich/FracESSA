@@ -163,7 +163,7 @@ else()
     endif()
 endif()
 
-# Reuse Coposit's exact integer types and parser without building its applications, Python modules, or tests.
+# Reuse coposit's exact integer types and parser without building its applications, Python modules, or tests.
 set(FLINT_LIBRARY "${FLINT_LIB}")
 set(MPFR_LIBRARY "${MPFR_LIB}")
 set(GMP_LIBRARY "${GMP_LIB}")
@@ -197,7 +197,7 @@ target_include_directories(fracessa_lib PUBLIC
 
 # Link all math libraries. Order matters for static linking: FLINT -> MPFR -> GMP
 target_link_libraries(fracessa_lib PUBLIC
-    Coposit::safe
+    coposit::safe
     spdlog::spdlog
     ${FLINT_LIBRARIES}
     ${MPFR_LIB}

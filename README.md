@@ -45,7 +45,7 @@ FracESSA always requires an explicit method; there is no default.
 
 | Method | Use it when | Guarantee |
 |---|---|---|
-| `safe` | The result must be complete and mathematically reliable | Uses exact arithmetic for every candidate decision |
+| `safe` | The ESS result must be complete and mathematically reliable | Uses exact arithmetic for every candidate and stability decision |
 | `fast` | Speed matters more than a completeness guarantee | Uses floating-point filtering before exact checks and can miss candidates |
 
 Candidates returned by `fast` are checked exactly, but its early floating-point filtering can make the returned set incomplete.
@@ -116,7 +116,8 @@ candidate_id;vector;support;support_size;extended_support;extended_support_size;
 Every run writes one JSON summary containing the status, candidate and ESS counts, their support-size structures, runtime, any
 automatic safe fallback, and any error. `--candidates` appends the candidate CSV shown above. Its `vector` and `payoff` columns are
 exact; `payoff_dbl` is only an approximation. For circular input, `multiplier` records how many rotations and reflections the
-representative covers. The displayed runtime is only an example and varies between runs.
+representative covers. Candidate totals follow the ESS search and are not a census of every degenerate or pruned-superset Nash
+equilibrium. The displayed runtime is only an example and varies between runs.
 
 Useful options:
 
@@ -170,8 +171,13 @@ $\left\lfloor \frac{n}{2} \right\rfloor$ values. Entry $c_k$ is the payoff at ci
 n#c1,c2,...,c_floor(n/2)
 ```
 
-For example, `5#1,3` expands to a 5-by-5 matrix with first row `0,1,3,3,1`. FracESSA recognizes this encoding from the shorter
-value count and automatically applies its circular-symmetry reductions.
+The diagonal is omitted because a common diagonal value $d$ can be normalized to zero by replacing $A$ with
+$A-d\mathbf 1\mathbf 1^\mathsf{T}$. On the simplex this subtracts the same constant from every payoff and objective value, so it
+does not change best replies, candidates, local maximizers, or ESS. Subtract $d$ from every matrix entry, not only the diagonal.
+
+For example, a circular matrix with diagonal `2` and successive distance payoffs `3` and `5` becomes `5#1,3`, which expands to a
+5-by-5 matrix with first row `0,1,3,3,1`. FracESSA recognizes this encoding from the shorter value count and automatically applies
+its circular-symmetry reductions.
 
 ### Matrix files
 

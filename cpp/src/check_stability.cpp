@@ -72,7 +72,7 @@ void basic_analyzer<SupportMask>::check_stability()
 
     log_reduced_b(outside_best_replies);
 
-    // Coposit owns the complete strict-copositivity decision, including its exact prechecks, component reduction, and final solver.
+    // coposit owns the complete strict-copositivity decision, including its exact prechecks, component reduction, and final solver.
     const bool is_ess = coposit::safe::is_strictly_copositive(scaled_reduced_b_);
     set_stability_result(is_ess, is_ess ? "T_copos" : "F_not_copos");
 }

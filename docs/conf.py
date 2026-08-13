@@ -21,9 +21,12 @@ html_baseurl = "https://reinhardullrich.github.io/fracessa/"
 html_static_path = ["_static"]
 html_css_files = ["fracessa.css"]
 html_show_sphinx = False
+html_sidebars = {"**": ["about.html", "searchfield.html", "navigation.html"]}
 html_theme_options = {
     "description": "Exact ESS analysis for symmetric rational games",
+    "fixed_sidebar": True,
     "github_user": "reinhardullrich",
     "github_repo": "fracessa",
-    "github_button": True,
+    "github_button": False,
+    "sidebar_collapse": False,
 }

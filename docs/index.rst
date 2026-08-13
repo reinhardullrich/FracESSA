@@ -48,8 +48,9 @@ exact. FracESSA offers two explicitly selected search methods:
        certificate.
 
 The nonempty support space can contain ``2^n - 1`` supports. FracESSA generates supports one at a time, prunes strict supersets of
-exact equilibria, and exploits circular symmetry when present. One matrix uses one CPU core; Python can analyze independent matrices
-in parallel.
+exact equilibria, and exploits circular symmetry when present. Candidate output is therefore an intermediate record of the ESS
+search, not a census of every algebraic Nash equilibrium. One matrix uses one CPU core; Python can analyze independent matrices in
+parallel.
 
 Quick start
 ***********
@@ -82,7 +83,7 @@ Documentation
 *************
 
 .. toctree::
-   :maxdepth: 2
+   :maxdepth: 1
    :caption: Documentation
 
    getting-started

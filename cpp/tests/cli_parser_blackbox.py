@@ -1,6 +1,6 @@
 #!/usr/bin/env python3
 """
-Black-box parser checks against the built `fracessa` executable and Coposit parser.
+Black-box parser checks against the built `fracessa` executable and coposit parser.
 """
 
 from __future__ import annotations

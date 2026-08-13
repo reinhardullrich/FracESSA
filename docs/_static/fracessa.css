@@ -6,6 +6,10 @@
   --fracessa-rule: #d8dce1;
 }
 
+html {
+  scrollbar-gutter: stable;
+}
+
 body {
   color: var(--fracessa-ink);
   background: var(--fracessa-paper);
@@ -69,13 +73,13 @@ div.sphinxsidebarwrapper {
 }
 
 div.sphinxsidebar {
-  position: sticky;
   top: 1rem;
   max-height: calc(100vh - 2rem);
   overflow-y: auto;
+  scrollbar-gutter: stable;
 }
 
-@media (max-width: 875px) {
+@media (max-width: 940px) {
   div.document {
     width: auto;
   }
@@ -88,5 +92,13 @@ div.sphinxsidebar {
     position: static;
     max-height: none;
     overflow-y: visible;
+  }
+
+  div.body table.docutils,
+  div.body dt.sig,
+  div.body mjx-container[display="true"] {
+    display: block;
+    max-width: 100%;
+    overflow-x: auto;
   }
 }

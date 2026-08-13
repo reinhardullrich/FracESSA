@@ -320,7 +320,7 @@ jobs:
 
             **License:** [GPL-3.0-or-later](https://github.com/${{ github.repository }}/blob/${{ needs.validate-version.outputs.tag }}/LICENSE)
 
-            **Source:** Clone the tagged repository and its Coposit submodule with `git clone --recurse-submodules --branch ${{ needs.validate-version.outputs.tag }} https://github.com/${{ github.repository }}.git`.
+            **Source:** Clone the tagged repository and its coposit submodule with `git clone --recurse-submodules --branch ${{ needs.validate-version.outputs.tag }} https://github.com/${{ github.repository }}.git`.
 
             **Third-party licenses and sources:** [THIRD_PARTY_NOTICES.md](https://github.com/${{ github.repository }}/blob/${{ needs.validate-version.outputs.tag }}/THIRD_PARTY_NOTICES.md)
           files: dist/fracessa-*

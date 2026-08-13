@@ -8,7 +8,7 @@
 
 namespace fracessa::numeric {
 
-// Zero-cost FracESSA names for the exact types owned by Coposit.
+// Zero-cost FracESSA names for the exact types owned by coposit.
 using integer = coposit::integer;
 using matrix_int = coposit::matrix_integer;
 

@@ -264,7 +264,7 @@ iterating its set positions and setting their mapped destination bits in a pre-s
 | `cpp/include/fracessa/candidate.hpp` | Make the working candidate depend on `SupportMask`; keep support and extended support in the same fixed-width representation. |
 | `cpp/include/fracessa/fracessa.hpp`, `cpp/src/fracessa.cpp`, `cpp/src/check_stability.cpp` | Template the search engine over the mask type, keep one static dispatch before the search, and replace result-structure arrays with dimension-sized vectors. |
 | `cpp/include/fracessa/*candidate*.hpp`, `cpp/src/*candidate*.cpp` | Template only support-dependent methods. Give the large instantiation reusable `size_t` index and numerical scratch vectors; retain all one-word stack arrays. |
-| `external/coposit/cpp/include/coposit/safe.hpp`, `external/coposit/models/dickinson_final/solver.cpp` | Keep strict copositivity independent of FracESSA's support representation; Coposit owns arbitrary-width component masks and exact principal-support traversal. |
+| `external/coposit/cpp/include/coposit/safe.hpp`, `external/coposit/models/dickinson_final/solver.cpp` | Keep strict copositivity independent of FracESSA's support representation; coposit owns arbitrary-width component masks and exact principal-support traversal. |
 | `cpp/src/main.cpp`, `cpp/src/pybind_module.cpp` | Dispatch once, serialize arbitrary-width masks, and use dimension-sized result structures. |
 | `external/coposit/cpp/include/coposit/parsers/matrix_parser.hpp` | Parse arbitrary representable dimensions with checked dense and triangular-size arithmetic before FracESSA dispatches by support representation. |
 | `python/pyfracessa/sinks_parquet.py` | Reject an out-of-range support explicitly until a separately approved schema replaces `uint64`; CSV and JSON need no schema change. |
@@ -312,8 +312,8 @@ connected yet.
 
 ### Historical Stage 2: Extend the former FracESSA-owned Hadeler checker
 
-This stage records the implementation that existed before Coposit integration. FracESSA later removed its own Hadeler checker and
-now delegates the final exact strict-copositivity decision to the pinned `Coposit::safe` library.
+This stage records the implementation that existed before coposit integration. FracESSA later removed its own Hadeler checker and
+now delegates the final exact strict-copositivity decision to the pinned `coposit::safe` library.
 
 Hadeler enumeration and the fixed 64-row sign-scan storage now have a separate large-dimension path:
 
@@ -328,7 +328,7 @@ Focused tests cover a bad pair across positions 63/64, a cardinality-three rejec
 principal subsets pass, a disconnected component spanning three words, and a connected 65-vertex negative graph. Every case decides
 before exponential enumeration becomes impractical. Release, ASan/UBSan, Python, and database-integrity checks pass.
 
-At this stage the checker remained in FracESSA because the separate Coposit repository had not yet been integrated.
+At this stage the checker remained in FracESSA because the separate coposit repository had not yet been integrated.
 
 ### Completed Stage 3: Template the exact candidate and stability core
 

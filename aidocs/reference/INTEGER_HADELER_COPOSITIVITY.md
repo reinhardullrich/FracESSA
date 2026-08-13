@@ -1,7 +1,7 @@
 # Integer Hadeler Stability And Copositivity
 
 Status: historical implementation and mathematical reference. Initially implemented and verified on 2026-08-06, restored as the
-production exact fallback on 2026-08-08, and removed from FracESSA when Coposit became the complete strict-copositivity backend on
+production exact fallback on 2026-08-08, and removed from FracESSA when coposit became the complete strict-copositivity backend on
 2026-08-12. The mathematics and measurements below document that retired implementation; they do not describe current source paths.
 
 Initial implementation and verification: 2026-08-06. Production restoration: 2026-08-08.
@@ -464,7 +464,7 @@ The original one-solve/nullspace patch intentionally excluded:
 - changes to the KKT candidate factorization.
 
 Those were independent decisions. The negative-entry connected-component decomposition was implemented and verified later, before
-the complete checker moved to Coposit. The mathematical job described here remains unchanged: replace explicit adjugate construction
+the complete checker moved to coposit. The mathematical job described here remains unchanged: replace explicit adjugate construction
 with one retained solve or one exact nullspace while preserving Hadeler's exact decision.
 
 ### 5.12 References
