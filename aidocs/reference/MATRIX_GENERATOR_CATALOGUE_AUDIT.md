@@ -2,6 +2,10 @@
 
 ## Purpose
 
+Current-format note (2026-08-13): this document records the historical import policy. Compact circular input now begins with an
+explicit common diagonal. Existing imported `A - dJ` games remain unchanged and received a leading zero token; future compact imports
+preserve every source entry.
+
 This audit treats Anymatrix, TypedMatrices.jl, and Matrix Depot as one overlapping matrix-generator family. It imports a broad,
 deterministic sample of matrices useful for FracESSA while enforcing the project contract:
 

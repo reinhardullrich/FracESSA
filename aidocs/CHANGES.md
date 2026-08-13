@@ -1379,3 +1379,9 @@ C++/CLI tests, all 70 Python tests, and all 65 independent coposit tests pass. R
 complete corresponding source. The final 131,613-byte PyPI sdist was extracted without Git metadata, independently rebuilt into a
 CPython 3.14 ARM64 wheel, installed in a clean environment, and passed a native safe-mode smoke with exact vector `1/2,0,1/2` and
 payoff `1`.
+
+383. Made the common diagonal explicit in compact circular input:
+coposit now requires `floor(n/2)+1` values, beginning with the common diagonal, and FracESSA no longer requires callers to normalize
+a circular matrix before parsing it. Migrated all 377 maintained compact database rows by prefixing zero, which preserved every
+expanded matrix, summary, candidate row, and timing row. Full upper-triangular input remains unchanged, former short strings fail
+the value-count check, and dimension one remains full because its compact and full token counts coincide.

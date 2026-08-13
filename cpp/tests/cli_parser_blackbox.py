@@ -141,9 +141,9 @@ def assert_candidate_header_matches_rows(fracessa_exe: Path) -> None:
 
 
 def assert_multiword_cli_output(fracessa_exe: Path) -> None:
-    dimension_65_matrix = "65#" + ",".join(["1"] * 32)
+    dimension_65_matrix = "65#0," + ",".join(["1"] * 32)
     for dimension in (65, 128, 129):
-        matrix = f"{dimension}#" + ",".join(["1"] * (dimension // 2))
+        matrix = f"{dimension}#0," + ",".join(["1"] * (dimension // 2))
         expected_support = str((1 << dimension) - 1)
         methods = ("safe", "fast") if dimension == 65 else ("safe",)
 
@@ -180,7 +180,7 @@ def assert_multiword_cli_output(fracessa_exe: Path) -> None:
 
 
 def assert_candidate_ids_are_sorted(fracessa_exe: Path) -> None:
-    matrix = "13#7,18,18,10,7,10"
+    matrix = "13#0,7,18,18,10,7,10"
     result = run_case(fracessa_exe, ["--candidates", "safe", matrix])
     if result.returncode != 0:
         raise AssertionError(
@@ -246,7 +246,7 @@ def assert_human_readable_log(fracessa_exe: Path) -> None:
 
     with tempfile.TemporaryDirectory() as directory:
         result = subprocess.run(
-            [str(fracessa_exe.resolve()), "--log", "safe", "13#7,18,18,10,7,10"],
+            [str(fracessa_exe.resolve()), "--log", "safe", "13#0,7,18,18,10,7,10"],
             capture_output=True,
             text=True,
             timeout=30.0,
@@ -366,7 +366,7 @@ def main() -> int:
             raise AssertionError(f"{case_name}: fast search differs from safe search")
 
     # Other success paths
-    assert_success_with_ess_output(fracessa_exe, ["safe", "5#1,3"], "circular_success")
+    assert_success_with_ess_output(fracessa_exe, ["safe", "5#0,1,3"], "circular_success")
     exact_fraction = assert_success_with_ess_output(fracessa_exe, ["safe", "2#1/2,0,1/2"], "fraction_success")
     exact_decimal = assert_success_with_ess_output(fracessa_exe, ["safe", "2#.5,0,5e-1"], "decimal_success")
     if comparable_output(exact_decimal, "decimal_success") != comparable_output(exact_fraction, "fraction_success"):
@@ -374,9 +374,9 @@ def main() -> int:
 
     with tempfile.TemporaryDirectory() as directory:
         compact_file = Path(directory) / "compact.txt"
-        compact_file.write_text("5#1,3\n", encoding="utf-8")
+        compact_file.write_text("5#0,1,3\n", encoding="utf-8")
         compact_result = assert_success_with_ess_output(fracessa_exe, ["safe", str(compact_file)], "compact_file_success")
-        inline_result = assert_success_with_ess_output(fracessa_exe, ["safe", "5#1,3"], "compact_inline_comparison")
+        inline_result = assert_success_with_ess_output(fracessa_exe, ["safe", "5#0,1,3"], "compact_inline_comparison")
         if comparable_output(compact_result, "compact_file_success") != comparable_output(inline_result, "compact_inline_comparison"):
             raise AssertionError("compact_file_success: file and inline inputs differ")
 
@@ -395,7 +395,7 @@ def main() -> int:
     assert_human_readable_log(fracessa_exe)
     assert_failure_with_stderr(
         fracessa_exe,
-        ["--cyclic-symmetry-filter", "safe", "5#1,3"],
+        ["--cyclic-symmetry-filter", "safe", "5#0,1,3"],
         "Unknown argument: --cyclic-symmetry-filter",
         "cyclic_filter_flag_removed",
     )
@@ -418,7 +418,7 @@ def main() -> int:
     )
     assert_failure_with_stderr(
         fracessa_exe,
-        ["safe", "2#0#1"],
+        ["safe", "2#0#1,0"],
         "matrix values must be exact",
         "multiple_hash_rejected",
     )

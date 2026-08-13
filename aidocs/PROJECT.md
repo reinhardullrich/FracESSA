@@ -1,6 +1,6 @@
 # FracESSA Project Overview
 
-Last verified: 2026-08-12
+Last verified: 2026-08-13
 
 ## Repository Map
 
@@ -39,8 +39,9 @@ Every entry surface requires an explicit method; there is no default:
 `safe_fallback` is null when fast used the double search. A non-null preparation reason means the whole matrix switched to safe
 search. A per-support exact retry does not set it. All final stability decisions use exact arithmetic.
 
-Compact circular input automatically uses exact cyclic symmetry reduction. Output retains one dihedral representative and a
-`multiplier`; weighted candidate and ESS counts include that multiplier.
+Compact circular input begins with the common diagonal, followed by one value for each positive circular distance, and automatically
+uses exact cyclic symmetry reduction. Output retains one dihedral representative and a `multiplier`; weighted candidate and ESS
+counts include that multiplier.
 
 ## Computation Flow
 

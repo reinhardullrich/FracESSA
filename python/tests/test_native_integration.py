@@ -154,7 +154,7 @@ class NativeIntegrationTests(unittest.TestCase):
     def test_circular_native_returns_one_weighted_representative(self):
         result = run(
             "safe",
-            Matrix(matrix_id=2, matrix="5#1,3"),
+            Matrix(matrix_id=2, matrix="5#0,1,3"),
             RunConfig(include_candidates=True),
             run_id="native_circular",
         )
@@ -166,7 +166,7 @@ class NativeIntegrationTests(unittest.TestCase):
         self.assertEqual(len(result["candidates"]), 1)
         self.assertEqual(result["candidates"][0]["multiplier"], 5)
 
-        without_rows = run("safe", Matrix(matrix_id=2, matrix="5#1,3"), RunConfig(include_candidates=False))
+        without_rows = run("safe", Matrix(matrix_id=2, matrix="5#0,1,3"), RunConfig(include_candidates=False))
         self.assertEqual(without_rows["candidate_count"], 5)
         self.assertEqual(without_rows["candidate_structure"], {3: 5})
         self.assertEqual(without_rows["ess_structure"], {3: 5})
@@ -174,7 +174,7 @@ class NativeIntegrationTests(unittest.TestCase):
 
     def test_multiword_native_returns_python_integers(self):
         dimension = 65
-        matrix = f"{dimension}#" + ",".join(["1"] * (dimension // 2))
+        matrix = f"{dimension}#0," + ",".join(["1"] * (dimension // 2))
         expected_support = (1 << dimension) - 1
 
         for method in ("safe", "fast"):
@@ -194,8 +194,8 @@ class NativeIntegrationTests(unittest.TestCase):
 
     def test_invalid_matrix_strings_return_parser_error(self):
         invalid_matrices = {
-            "2##0": "matrix values must be exact integers, fractions, decimals, or scientific numbers",
-            "2#0,1": "wrong number of FracESSA matrix values",
+            "2##0,0": "matrix values must be exact integers, fractions, decimals, or scientific numbers",
+            "2#0": "wrong number of FracESSA matrix values",
             "2#0,1/0,0": "matrix values must be exact integers, fractions, decimals, or scientific numbers",
         }
 

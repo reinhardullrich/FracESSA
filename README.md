@@ -164,20 +164,17 @@ Exactly $\frac{n(n+1)}{2}$ values are required.
 
 ### Circular-symmetric matrices
 
-For dimensions 2 and larger, a circular-symmetric matrix with zero diagonal can use a compact list of
-$\left\lfloor \frac{n}{2} \right\rfloor$ values. Entry $c_k$ is the payoff at circular distance $k$:
+For dimensions 2 and larger, a circular-symmetric matrix can use a compact list of
+$\left\lfloor \frac{n}{2} \right\rfloor+1$ values. Entry $c_0$ is the common diagonal, and $c_k$ is the payoff at circular distance
+$k$:
 
 ```text
-n#c1,c2,...,c_floor(n/2)
+n#c0,c1,c2,...,c_floor(n/2)
 ```
 
-The diagonal is omitted because a common diagonal value $d$ can be normalized to zero by replacing $A$ with
-$A-d\mathbf 1\mathbf 1^\mathsf{T}$. On the simplex this subtracts the same constant from every payoff and objective value, so it
-does not change best replies, candidates, local maximizers, or ESS. Subtract $d$ from every matrix entry, not only the diagonal.
-
-For example, a circular matrix with diagonal `2` and successive distance payoffs `3` and `5` becomes `5#1,3`, which expands to a
-5-by-5 matrix with first row `0,1,3,3,1`. FracESSA recognizes this encoding from the shorter value count and automatically applies
-its circular-symmetry reductions.
+For example, `5#2,3,5` expands to a 5-by-5 matrix with first row `2,3,5,5,3`. FracESSA preserves every supplied value, including the
+diagonal, so reported payoffs belong to the matrix that was actually entered. The shorter value count selects the circular-symmetry
+reductions automatically.
 
 ### Matrix files
 

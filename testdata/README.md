@@ -104,25 +104,28 @@ remaining work used performance CPUs 3 through 9. Twenty-one matrices completed,
 candidates and 236 ESS; two results used exact fallback and 19 remain unverified fast results. The other 298 matrices timed out:
 41 were classified for exact fallback and 257 remained on the fast path.
 
-## Circular Storage Normalization
+## Circular Storage And Historical Normalization
 
-`testdata/scripts/normalize_circular_matrices.py` audits every matrix with exact `Fraction` arithmetic. For an eligible circulant
-matrix with common diagonal value `d`, it stores the strategically equivalent zero-diagonal matrix `A - dJ`, where `J` is the
-all-ones matrix, in compact circular form. Subtracting `d` from every entry preserves all best-response comparisons, candidates,
-and ESS; only every payoff changes by `-d`. Subtracting `d` only from the diagonal would not be equivalent.
+Compact circular rows store `floor(n/2)+1` exact values: the common diagonal first, followed by one value for each positive circular
+distance. `testdata/scripts/normalize_circular_matrices.py` audits every matrix with exact `Fraction` arithmetic and converts an exact
+circulant matrix to this representation without changing any entry. Dimension one remains full because its compact and full forms
+would both contain one value and cannot be distinguished.
 
-The retained converted rows and exact recorded constants are ID 1: `0` and ID 2203: `1`. Each matrix description
-records its own constant and states that the preceding provenance describes the unnormalized source matrix. Normalized IDs 39 and
-41 duplicated older ID 1, so the newer rows were removed. The generator-catalogue import normalized 53 additional rows by the same
-rule; normalized ID 2215 exactly duplicated later-removed ID 44. Positive-scale deduplication then removed IDs 38 and 44 in favor
-of ID 1. Zero-game consolidation removed ID 43 in favor of the retained dimension-50 ID 2203. ID 314 is the sole dimension-one
-exception: it is mathematically circulant, but compact storage would contain zero values while the parser requires one value, so it
-remains full and is documented as non-circular storage.
+On 2026-08-13, all 377 existing compact rows received a leading zero token because the former format supplied only positive
+distances and implied a zero diagonal. This serialization-only migration preserved every expanded matrix, matrix summary, candidate
+row, and timing row. New compact rows retain their actual common diagonal.
 
-Normalization invalidated and recomputed the affected baselines and calibrations. Eighteen `classic`/Werner timing rows for the
-old stored matrices were removed; after both cleanups the replacement current-build panel contains fast and safe measurements for
-IDs 1 and 2203. Its dimension-two rows are retained only as normalization checks and remain excluded from aggregate benchmark
-comparisons.
+Earlier import passes deliberately stored some source matrices as the strategically equivalent zero-diagonal game `A - dJ`, where
+`J` is the all-ones matrix. Their descriptions record the exact removed constant and distinguish the source matrix from the stored
+game. Those historical transformations were not reversed during the format migration because doing so would change stored payoffs
+and invalidate existing results. Historical duplicate removal and recalibration evidence below therefore remains valid.
+
+The retained historically converted rows and exact recorded constants are ID 1: `0` and ID 2203: `1`. Normalized IDs 39 and 41
+duplicated older ID 1, so the newer rows were removed. The generator-catalogue import normalized 53 additional rows by the same rule;
+normalized ID 2215 exactly duplicated later-removed ID 44. Positive-scale deduplication then removed IDs 38 and 44 in favor of ID 1.
+Zero-game consolidation removed ID 43 in favor of the retained dimension-50 ID 2203. Normalization invalidated and recomputed the
+affected baselines and calibrations; 18 `classic`/Werner timing rows for old stored matrices were removed. Dimension-two rows remain
+excluded from aggregate benchmark comparisons.
 
 ## SuiteSparse Imports
 
@@ -134,9 +137,9 @@ The SuiteSparse Matrix Collection import uses the following reproducible rule:
   Every finite decimal or scientific-notation `real` token is converted to its
   exact reduced fraction; this preserves the downloaded file exactly but does
   not claim that an underlying physical model was symbolically rational.
-- The dense exact matrix is stored in FracESSA upper-triangle format. An exact circulant matrix of dimension at least two is first
-  normalized by subtracting its common diagonal value from every entry, then stored in compact zero-diagonal circular format; the
-  source value and transformation remain in its description.
+- The dense exact matrix is stored in FracESSA upper-triangle format. An exact circulant matrix of dimension at least two is stored
+  directly in compact circular format, beginning with its common diagonal. No matrix entry is changed. Rows imported under the
+  earlier normalization policy retain their documented stored game.
 - Exact dense rational duplicates are not imported. SuiteSparse ID 2758,
   `Mycielski/mycielskian2`, was skipped because it equals existing matrix ID 1.
 - Dimensions 26-63 use `size_class = "super_large"`.
@@ -387,8 +390,9 @@ infeasible-primal, three quadratic-assignment, one theta, and three truss proble
 2177-2179 and truss IDs 2204-2206. The retained 24 rows comprise one control, 15 H-infinity, two infeasible-dual, two
 infeasible-primal, three quadratic-assignment, and one theta matrix. Exact parsing converts finite decimal
 and scientific-notation tokens to reduced fractions. The source matrices are pairwise distinct and duplicate no earlier source
-matrix. `theta1` is circulant with source diagonal `1`; ID 2203 stores the strategically
-equivalent compact matrix obtained by subtracting `1` from every entry, and its description records the transformation. Each row
+matrix. `theta1` is circulant with source diagonal `1`; ID 2203 stores the historically normalized, strategically equivalent compact
+matrix obtained by subtracting `1` from every entry. Its current compact text begins with the resulting explicit zero diagonal, and
+its description records the transformation. Each row
 links to its exact source file. The
 current GitHub mirror declares GPL-3.0; this catalog makes no broader licensing claim.
 
@@ -402,7 +406,7 @@ families. Deterministic SHA-256 ranking with seed `20260802` retains up to three
 property-by-dimension-band stratum, then ensures that every eligible family has at least one representative.
 
 The resulting 484 selected matrices populate 166 property-band strata. Six matched existing IDs 48, 49, 314, 1995, 2001, and
-2155 exactly. The raw IDs 2210-2687 held the other 478. Normalization changed 53 full circulant rows to compact `A - dJ` storage
+2155 exactly. The raw IDs 2210-2687 held the other 478. The historical import normalized 53 full circulant rows to compact `A - dJ` storage
 and exposed exact duplicate ID 2215; the later positive-scale audit removed another five source rows in favor of older rows, and
 dimension-one consolidation removed IDs 2210-2211. Diagonal sampling then removed all 20 Strakos rows. The retained 450 new rows
 therefore comprise 78 compact circular matrices and no dimension-one or Strakos row. Retained-row counts by selection band are
@@ -424,8 +428,9 @@ Each row stores one exact matrix input and its summary:
 - `matrix_id`: stable FracESSA verification ID.
 - `dimension`: positive number of strategies; the database imposes no upper bound.
 - `size_class`: `small` for dimensions 1-8, `medium` for 9-16, `large` for 17-25, and `super_large` for 26 and above.
-- `is_cs`: 1 for compact circular-symmetric input, otherwise 0.
-- `matrix`: the exact comma-separated input values, without the `n#` prefix.
+- `is_cs`: 1 for compact circular-symmetric input, otherwise 0. Compact rows begin with the common diagonal and continue with one
+  value for each positive circular distance.
+- `matrix`: the exact comma-separated input values, without the `n#` dimension prefix.
 - `candidate_count` and `ess_count`: complete weighted baseline counts, or null
   together when the matrix is cataloged but not analyzed.
 - `candidate_structure`: JSON object mapping support size to weighted candidate
@@ -472,8 +477,8 @@ placeholder; for example, `2014-01-01` means only "legacy matrix known from
 2014." Its purpose is to distinguish long-standing matrices from cases added to
 the current suite in 2026, not to assert an exact historical day.
 
-The database enforces uniqueness on `(dimension, matrix)`. `matrix` alone cannot be unique because compact input omits its
-dimension, so identical token strings can legitimately describe different-sized matrices. Import audits also compare exact stored
+The database enforces uniqueness on `(dimension, matrix)`. `matrix` alone cannot be unique because the column omits its dimension,
+so identical token strings can legitimately describe different-sized matrices. Import audits also compare exact stored
 value vectors within the same dimension and `is_cs` class. If two differ only by a positive nonzero rational multiplier, the lower
 matrix ID is retained. Negative multipliers are not duplicates because they reverse payoff comparisons.
 

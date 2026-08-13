@@ -43,13 +43,14 @@ Input and output
 ****************
 
 coposit's ``coposit::parsers::matrix_parser`` accepts exact integers, fractions, finite decimals, and scientific notation in either
-the full upper-triangular layout or the compact zero-diagonal circular layout. A fraction has an optional sign before its numerator
+the full upper-triangular layout or the compact circular layout. The latter begins with the common diagonal and continues with one
+value per positive circular distance. A fraction has an optional sign before its numerator
 and a positive integer denominator, so ``-1/2`` is valid and ``1/-2`` is not. The parser also accepts symmetric Matrix Market input
 and returns ``coposit::parsers::parsed_matrix``: one integer matrix, its common positive denominator, and the compact-circular marker
 consumed by ``fracessa::basic_analyzer``.
 
 ``matrix_parser::parse()`` reads matrix **contents**. Use ``matrix_parser::parse_file()`` when a direct C++ caller has a path. The
-compact circular layout and its zero-diagonal normalization are explained in :doc:`getting-started`.
+compact circular layout is explained in :doc:`getting-started`.
 
 Minimal native example
 **********************

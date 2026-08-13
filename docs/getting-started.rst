@@ -104,35 +104,18 @@ matrix is also symmetric, an entry depends only on the circular distance
 
    \operatorname{dist}(i,j)=\min\left(|i-j|,\,n-|i-j|\right).
 
-For dimensions two and larger, compact input supplies one payoff for each nonzero circular distance:
+For dimensions two and larger, compact input supplies the common diagonal and one payoff for each positive circular distance:
 
 .. code-block:: text
 
-   n#c1,c2,...,c_floor(n/2)
+   n#c0,c1,c2,...,c_floor(n/2)
 
-Exactly ``floor(n/2)`` values are required. The diagonal is omitted because one common diagonal value can always be normalized to
-zero without changing the problem. If the original diagonal value is :math:`d`, replace the complete matrix by
+Exactly ``floor(n/2)+1`` values are required. The first value :math:`c_0` fills every diagonal entry; :math:`c_k` fills entries at
+circular distance :math:`k`. FracESSA does not normalize or otherwise modify these values.
 
-.. math::
-
-   \widetilde A=A-d\mathbf 1\mathbf 1^\mathsf{T}.
-
-For every :math:`x` in the simplex,
-
-.. math::
-
-   \widetilde A x=Ax-d\mathbf 1,
-   \qquad
-   x^\mathsf{T}\widetilde A x=x^\mathsf{T}Ax-d.
-
-Thus every pure-strategy payoff and every objective value is shifted by the same constant. Best replies, candidates, local
-maximizers, and ESS are unchanged. In practical terms, subtract :math:`d` from **every** original matrix entry before writing the
-compact values; do not merely replace the diagonal by zero.
-
-For example, a circular matrix with diagonal ``2`` and successive distance payoffs ``3`` and ``5`` is normalized to ``5#1,3``. That
-compact input expands to a 5-by-5 matrix whose first row is ``0,1,3,3,1``. FracESSA recognizes the shorter value count automatically
-and applies its circular-symmetry reductions. Dimension one and circular matrices that should not be normalized must use the full
-upper-triangular layout.
+For example, ``5#2,3,5`` expands to a 5-by-5 matrix whose first row is ``2,3,5,5,3``. FracESSA recognizes the shorter value count
+automatically and applies its circular-symmetry reductions. Dimension one uses the full upper-triangular layout because its compact
+and full forms would both contain one value and therefore cannot be distinguished.
 
 Matrix files
 ------------

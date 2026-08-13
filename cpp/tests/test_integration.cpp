@@ -265,7 +265,7 @@ TEST(IntegrationTest, CircularSearchHandlesDimension64) {
 }
 
 TEST(IntegrationTest, CircularFullSupportHasMultiplierOne) {
-    auto B = coposit::parsers::matrix_parser::parse("2#1");
+    auto B = coposit::parsers::matrix_parser::parse("2#0,1");
 
     fracessa::analyzer analyzer(search_method::safe, B, true, true, false);
 
@@ -315,7 +315,7 @@ TEST(IntegrationTest, EarlyCopositivityDecisionsNameTheirCertificate) {
 }
 
 TEST(IntegrationTest, CircularSymmetricStoresOneRepresentative) {
-    auto B = coposit::parsers::matrix_parser::parse("5#1,3");
+    auto B = coposit::parsers::matrix_parser::parse("5#0,1,3");
 
     fracessa::analyzer analyzer(search_method::safe, B, true, false, false);
 
@@ -334,7 +334,7 @@ TEST(IntegrationTest, CircularSymmetricStoresOneRepresentative) {
 }
 
 TEST(IntegrationTest, AutomaticCyclicSymmetryPreservesRepresentedResults) {
-    auto matrix = coposit::parsers::matrix_parser::parse("8#1,-3,1,-3");
+    auto matrix = coposit::parsers::matrix_parser::parse("8#0,1,-3,1,-3");
     auto exhaustive_matrix = matrix;
     exhaustive_matrix.compact_circular = false;
 
