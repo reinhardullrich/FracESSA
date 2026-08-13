@@ -5,10 +5,11 @@
 #include <iostream>
 #include <string>
 #include <string_view>
+#include <utility>
 
 #include <argparse/argparse.hpp>
+#include <coposit/parsers/matrix_parser.hpp>
 #include <fracessa/fracessa.hpp>
-#include <fracessa/matrix_parser.hpp>
 
 namespace {
 
@@ -101,11 +102,11 @@ void write_error(std::int64_t matrix_id, int status, std::string_view message)
 }
 
 template<class Analyzer>
-void run_analysis(search_method method, const linalg::matrix_frc& matrix, bool is_circular_symmetric,
-                  bool include_candidates, bool full_support, bool enable_logging, std::int64_t matrix_id)
+void run_analysis(search_method method, coposit::parsers::parsed_matrix matrix, bool include_candidates,
+                  bool full_support, bool enable_logging, std::int64_t matrix_id)
 {
     const auto start_time = std::chrono::steady_clock::now();
-    Analyzer analyzer(method, matrix, is_circular_symmetric, include_candidates, full_support, enable_logging, matrix_id);
+    Analyzer analyzer(method, std::move(matrix), include_candidates, full_support, enable_logging, matrix_id);
     const auto end_time = std::chrono::steady_clock::now();
     const auto elapsed_ns = std::chrono::duration_cast<std::chrono::nanoseconds>(end_time - start_time).count();
 
@@ -117,6 +118,16 @@ void run_analysis(search_method method, const linalg::matrix_frc& matrix, bool i
         std::cout << candidate_type::header() << std::endl;
         for (const auto& row : analyzer.candidates_) std::cout << row.to_string() << std::endl;
     }
+}
+
+bool is_inline_matrix(std::string_view argument) noexcept
+{
+    const size_t separator = argument.find('#');
+    if (separator == 0 || separator == std::string_view::npos) return false;
+    for (size_t position = 0; position < separator; ++position) {
+        if (argument[position] < '0' || argument[position] > '9') return false;
+    }
+    return true;
 }
 
 } // namespace
@@ -135,7 +146,7 @@ int main(int argc, char *argv[])
     program.add_argument("-f", "--fullsupport").help("search full support directly").implicit_value(true).default_value(false);
     program.add_argument("-m", "--matrixid").help("optional matrix ID").scan<'i', std::int64_t>().default_value(std::int64_t{-1});
     program.add_argument("method").help("candidate search method: fast or safe");
-    program.add_argument("matrix").help("the matrix to compute");
+    program.add_argument("matrix").help("inline dimension#values matrix or matrix file");
 
     try {
         program.parse_args(argc, argv);
@@ -146,7 +157,7 @@ int main(int argc, char *argv[])
     }
 
     const auto& method_name = program.get<std::string>("method");
-    const auto& matrix_string = program.get<std::string>("matrix");
+    const auto& matrix_argument = program.get<std::string>("matrix");
     const bool include_candidates = program.get<bool>("--candidates");
     const bool enable_logging = program.get<bool>("--log");
     const bool full_support = program.get<bool>("--fullsupport");
@@ -161,10 +172,10 @@ int main(int argc, char *argv[])
         return EXIT_FAILURE;
     }
 
-    bool is_circular_symmetric = false;
-    linalg::matrix_frc matrix;
+    coposit::parsers::parsed_matrix matrix;
     try {
-        matrix_parser::parse_matrix_string(matrix_string, matrix, is_circular_symmetric);
+        matrix = is_inline_matrix(matrix_argument) ? coposit::parsers::matrix_parser::parse(matrix_argument)
+                                                   : coposit::parsers::matrix_parser::parse_file(matrix_argument);
     } catch (const std::invalid_argument& error) {
         write_error(matrix_id, kStatusParseError, error.what());
         std::cerr << "Error: " << error.what() << std::endl;
@@ -176,11 +187,10 @@ int main(int argc, char *argv[])
     }
 
     try {
-        if (matrix.rows() <= bs64::kMaxBitsetDimension)
-            run_analysis<::fracessa>(method, matrix, is_circular_symmetric, include_candidates, full_support, enable_logging, matrix_id);
+        if (matrix.matrix.rows() <= bs64::kMaxBitsetDimension)
+            run_analysis<::fracessa>(method, std::move(matrix), include_candidates, full_support, enable_logging, matrix_id);
         else
-            run_analysis<::multiword_fracessa>(method, matrix, is_circular_symmetric, include_candidates, full_support,
-                                               enable_logging, matrix_id);
+            run_analysis<::multiword_fracessa>(method, std::move(matrix), include_candidates, full_support, enable_logging, matrix_id);
     } catch (const std::exception& error) {
         write_error(matrix_id, kStatusExecError, error.what());
         std::cerr << "Error: " << error.what() << std::endl;

@@ -1,9 +1,6 @@
 #!/usr/bin/env python3
 """
-Black-box parser checks against the built `fracessa` executable.
-
-These tests validate CLI parser behavior through the real binary, complementing
-unit tests on matrix_parser internals.
+Black-box parser checks against the built `fracessa` executable and Coposit parser.
 """
 
 from __future__ import annotations
@@ -370,6 +367,30 @@ def main() -> int:
 
     # Other success paths
     assert_success_with_ess_output(fracessa_exe, ["safe", "5#1,3"], "circular_success")
+    exact_fraction = assert_success_with_ess_output(fracessa_exe, ["safe", "2#1/2,0,1/2"], "fraction_success")
+    exact_decimal = assert_success_with_ess_output(fracessa_exe, ["safe", "2#.5,0,5e-1"], "decimal_success")
+    if comparable_output(exact_decimal, "decimal_success") != comparable_output(exact_fraction, "fraction_success"):
+        raise AssertionError("decimal_success: exact decimal/scientific parsing differs from the equivalent fractions")
+
+    with tempfile.TemporaryDirectory() as directory:
+        compact_file = Path(directory) / "compact.txt"
+        compact_file.write_text("5#1,3\n", encoding="utf-8")
+        compact_result = assert_success_with_ess_output(fracessa_exe, ["safe", str(compact_file)], "compact_file_success")
+        inline_result = assert_success_with_ess_output(fracessa_exe, ["safe", "5#1,3"], "compact_inline_comparison")
+        if comparable_output(compact_result, "compact_file_success") != comparable_output(inline_result, "compact_inline_comparison"):
+            raise AssertionError("compact_file_success: file and inline inputs differ")
+
+        matrix_market_file = Path(directory) / "identity.mtx"
+        matrix_market_file.write_text(
+            "%%MatrixMarket matrix array real symmetric\n2 2\n.5\n0\n5e-1\n",
+            encoding="utf-8",
+        )
+        matrix_market_result = assert_success_with_ess_output(
+            fracessa_exe, ["safe", str(matrix_market_file)], "matrix_market_file_success"
+        )
+        if comparable_output(matrix_market_result, "matrix_market_file_success") != comparable_output(exact_fraction, "fraction_success"):
+            raise AssertionError("matrix_market_file_success: Matrix Market and equivalent inline inputs differ")
+
     assert_candidate_ids_are_sorted(fracessa_exe)
     assert_human_readable_log(fracessa_exe)
     assert_failure_with_stderr(
@@ -392,19 +413,19 @@ def main() -> int:
     assert_failure_with_stderr(
         fracessa_exe,
         ["safe", "2,0,1,0"],
-        "does not include '#'",
-        "missing_hash_rejected",
+        "cannot open matrix file",
+        "non_inline_argument_is_a_file",
     )
     assert_failure_with_stderr(
         fracessa_exe,
         ["safe", "2#0#1"],
-        "Multiple '#'",
+        "matrix values must be exact",
         "multiple_hash_rejected",
     )
     assert_failure_with_stderr(
         fracessa_exe,
         ["safe", "2#1/0,0,1"],
-        "denominator cannot be zero",
+        "matrix values must be exact",
         "zero_denominator_rejected",
     )
 

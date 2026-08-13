@@ -1361,3 +1361,21 @@ submatrix names state their strict-copositivity role, and replaced `T_pd_frc` wi
 actual proof: the reduced Hessian is negative definite and no outside best reply remains. Migrated all 51,655 matching candidate rows
 in `fracessa_testdata.sqlite3`; comparisons with older builds must map `T_pd_frc` to `T_reduced_hessian_nd` before comparing reason
 strings. Release passed all 10 C++/CLI tests and all 68 Python tests; SQLite integrity and foreign-key checks pass.
+
+382. Integrated pinned Coposit commit `901cdfc1bb550588977d8255a4483ebe72e3b979` as FracESSA's exact-integer, parser, and final
+strict-copositivity foundation. FracESSA now owns one parser-produced integer game plus its positive denominator, aliases Coposit's
+integer and matrix types, converts the fast matrix directly from that representation, stores candidate probabilities as a vector,
+and calls `coposit::safe` for the complete final strict-copositivity decision. The duplicate rational matrix, parser, Hadeler/KKT
+copositivity backends, generic fraction-free LDLT, and their obsolete tests were deleted; the ESS-specific fraction-free KKT solver
+remains. Both methods reproduced all 81 quick-suite candidate and ESS results. Excluding dimension 2, the representation checkpoint
+changed median CPU-2 persistent-Pybind time by `-0.929%` for fast and `-0.716%` for safe; the separately measured Coposit backend
+changed it by `-0.125%` and `+0.149%`, respectively. Constructing rational candidate fields only when output is requested then
+changed the medians by `-0.888%` and `-0.719%`; for baseline runs of at least 1 ms, those medians were `-0.574%` and `-0.256%`.
+The remaining rational class is now an output-only value: unused parsing, raw-FLINT access, arithmetic, predicates, and constants
+were deleted while exact construction, copying, comparison, conversion, and serialization remain. That final cleanup was neutral
+against the preceding checkpoint: excluding dimension 2, the medians changed by `-0.002%` in fast and `-0.218%` in safe; baseline
+runs of at least 1 ms changed by `-0.006%` and `-0.196%`. All 162 matched rows retained their expected ESS count. All 8 retained
+C++/CLI tests, all 70 Python tests, and all 65 independent Coposit tests pass. Release jobs now fetch the submodule and publish
+complete corresponding source. The final 131,613-byte PyPI sdist was extracted without Git metadata, independently rebuilt into a
+CPython 3.14 ARM64 wheel, installed in a clean environment, and passed a native safe-mode smoke with exact vector `1/2,0,1/2` and
+payoff `1`.

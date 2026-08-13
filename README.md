@@ -31,11 +31,12 @@ FracESSA is optimized for repeated operations on many small support systems.
 
 ## Capabilities and limitations
 
-FracESSA accepts symmetric payoff matrices whose entries are integers or exact fractions. It parses every input entry as an exact
-rational number, and every reported `vector` and `payoff` is exact as well. Each rational is a numerator divided by a denominator,
-both backed by arbitrary-precision integers, so there is no fixed limit on the number of digits; the practical limits are available
-memory and computation time. The separate `payoff_dbl` field is only a convenient binary64 approximation of the exact `payoff`.
-This exact representation is independent of the selected search method.
+FracESSA accepts symmetric payoff matrices with rational entries. Integers, fractions, finite decimals, and scientific notation are
+parsed exactly: for example, `0.125`, `1/8`, and `1.25e-1` are the same rational value, with no floating-point conversion. Every
+reported `vector` and `payoff` is exact as well. Each rational is a numerator divided by a denominator, both backed by
+arbitrary-precision integers, so there is no fixed limit on the number of digits; the practical limits are available memory and
+computation time. The separate `payoff_dbl` field is only a convenient binary64 approximation of the exact `payoff`. This exact
+representation is independent of the selected search method.
 
 The main limitations are:
 
@@ -99,7 +100,7 @@ Required system dependencies:
 Build the command-line program and Python extension from the repository root:
 
 ```bash
-git clone https://github.com/reinhardullrich/fracessa.git
+git clone --recurse-submodules https://github.com/reinhardullrich/fracessa.git
 cd fracessa
 cmake -S cpp -B cpp/build -DCMAKE_BUILD_TYPE=Release
 cmake --build cpp/build --parallel
@@ -119,11 +120,13 @@ PYTHONPATH=python python3 -m unittest discover -s python/tests -p 'test_*.py'
 
 ## Command-line use
 
-The general form is:
+The general form for inline input is:
 
 ```bash
 ./cpp/build/fracessa [OPTIONS] METHOD "DIMENSION#VALUES"
 ```
+
+The final argument can instead be the path to a file containing the same compact syntax or a Matrix Market matrix.
 
 For example, the symmetric matrix
 
@@ -173,14 +176,15 @@ Run `./cpp/build/fracessa --help` for the current command-line reference.
 
 ## Matrix input
 
-Every input begins with the dimension, followed by `#` and a comma-separated value list:
+Inline input begins with the dimension, followed by `#` and a comma-separated value list:
 
 ```text
 dimension#values
 ```
 
-Values must be integers or exact integer fractions such as `-3/5`. Decimal notation is not accepted; write `1/2` instead of
-`0.5`.
+Values can be integers, fractions, finite decimals, or scientific numbers, such as `-3/5`, `-0.6`, or `-6e-1`. All forms are parsed
+as exact rational numbers. A fraction's denominator must be a positive integer; put an optional sign before the numerator, writing
+`-1/2` rather than `1/-2`.
 
 ### General symmetric matrices
 
@@ -213,6 +217,11 @@ n#c1,c2,...,c_floor(n/2)
 
 For example, `5#1,3` expands to a 5-by-5 matrix with first row `0,1,3,3,1`. FracESSA recognizes this encoding from the shorter
 value count and automatically applies its circular-symmetry reductions.
+
+### Matrix files
+
+The CLI also accepts a file path in place of inline input. The file can contain either `dimension#values` or a symmetric Matrix
+Market matrix. Python accepts the same two text formats through `Matrix.matrix`; read a file with `Path.read_text()` when needed.
 
 ## Python use
 

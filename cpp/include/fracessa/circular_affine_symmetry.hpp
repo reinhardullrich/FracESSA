@@ -7,7 +7,7 @@
 
 #include <fracessa/bitset64.hpp>
 #include <fracessa/bitset_multiword.hpp>
-#include <linalg/matrix_fraction.hpp>
+#include <linalg/matrix_integer.hpp>
 
 /*
  * Exact extra symmetries of a symmetric circulant game.
@@ -62,14 +62,14 @@ private:
     }
 
 public:
-    explicit CircularAffineSymmetry(const linalg::matrix_frc& matrix) : dimension_(matrix.rows()) {
+    explicit CircularAffineSymmetry(const linalg::matrix_int& matrix) : dimension_(matrix.rows()) {
         add_multiplier(1);
         for (size_t multiplier = 2; multiplier <= dimension_ / 2; ++multiplier) {
             if (std::gcd(multiplier, dimension_) != 1) continue;
 
             bool preserves_matrix = true;
             for (size_t offset = 0; offset < dimension_; ++offset) {
-                if (!(matrix(0, offset) == matrix(0, (multiplier * offset) % dimension_))) {
+                if (matrix(0, offset).compare(matrix(0, (multiplier * offset) % dimension_)) != 0) {
                     preserves_matrix = false;
                     break;
                 }
@@ -202,7 +202,7 @@ private:
     }
 
 public:
-    explicit CircularAffineSymmetryMultiword(const linalg::matrix_frc& matrix)
+    explicit CircularAffineSymmetryMultiword(const linalg::matrix_int& matrix)
         : dimension_(matrix.rows()), transformed_(dimension_), canonical_(dimension_)
     {
         destination_positions_.reserve((dimension_ + 1) / 2);
@@ -214,7 +214,7 @@ public:
 
             bool preserves_matrix = true;
             for (size_t offset = 0; offset < dimension_; ++offset) {
-                if (!(matrix(0, offset) == matrix(0, (multiplier * offset) % dimension_))) {
+                if (matrix(0, offset).compare(matrix(0, (multiplier * offset) % dimension_)) != 0) {
                     preserves_matrix = false;
                     break;
                 }

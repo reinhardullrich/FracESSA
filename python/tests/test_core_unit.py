@@ -73,6 +73,15 @@ class CoreUnitTests(unittest.TestCase):
         self.assertEqual(fake.last_kwargs["matrix"], "2#0,1,0")
         self.assertEqual(result["candidate_count"], 2)
 
+    def test_compute_matrix_passes_matrix_market_text_unchanged(self):
+        fake = _FakeNative()
+        matrix_market = "%%MatrixMarket matrix array real symmetric\n2 2\n.5\n0\n5e-1"
+
+        with mock.patch("pyfracessa.core.load_native_module", return_value=fake):
+            core.compute_matrix("safe", Matrix(matrix_id=13, matrix=matrix_market), RunConfig(), "unit")
+
+        self.assertEqual(fake.last_kwargs["matrix"], matrix_market)
+
     def test_compute_matrix_values_only_without_dimension_fails(self):
         fake = _FakeNative()
         matrix = Matrix(matrix_id=14, matrix="0,1,0")

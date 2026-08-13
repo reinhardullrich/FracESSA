@@ -68,6 +68,8 @@ jobs:
             container: ""
     steps:
       - uses: actions/checkout@v6
+        with:
+          submodules: recursive
       - name: Restore vcpkg binary cache
         uses: actions/cache@v5
         with:
@@ -110,6 +112,8 @@ jobs:
     runs-on: windows-latest
     steps:
       - uses: actions/checkout@v6
+        with:
+          submodules: recursive
       - name: Restore vcpkg binary cache
         uses: actions/cache@v5
         with:
@@ -146,6 +150,8 @@ jobs:
             triplet: arm64-linux-release
     steps:
       - uses: actions/checkout@v6
+        with:
+          submodules: recursive
       - name: Restore vcpkg binary cache
         uses: actions/cache@v5
         with:
@@ -185,6 +191,8 @@ jobs:
             triplet: arm64-osx-release
     steps:
       - uses: actions/checkout@v6
+        with:
+          submodules: recursive
       - name: Restore vcpkg binary cache
         uses: actions/cache@v5
         with:
@@ -215,6 +223,8 @@ jobs:
     runs-on: windows-latest
     steps:
       - uses: actions/checkout@v6
+        with:
+          submodules: recursive
       - name: Restore vcpkg binary cache
         uses: actions/cache@v5
         with:
@@ -247,6 +257,8 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v6
+        with:
+          submodules: recursive
       - uses: actions/setup-python@v6
         with:
           python-version: "3.14"
@@ -254,11 +266,28 @@ jobs:
         run: |
           python -m pip install --upgrade build
           python -m build --sdist --outdir dist
+      - name: Build complete source archive
+        env:
+          VERSION: ${{ needs.validate-version.outputs.version }}
+        run: |
+          source_dir="$RUNNER_TEMP/fracessa-$VERSION"
+          mkdir -p "$source_dir/external/coposit"
+          git archive HEAD | tar -xf - -C "$source_dir"
+          git -C external/coposit archive HEAD | tar -xf - -C "$source_dir/external/coposit"
+          tar -czf "dist/fracessa-$VERSION-source.tar.gz" -C "$RUNNER_TEMP" "fracessa-$VERSION"
       - name: Upload source distribution
         uses: actions/upload-artifact@v7
         with:
           name: python-sdist
-          path: dist/*.tar.gz
+          path: |
+            dist/*.tar.gz
+            !dist/*-source.tar.gz
+          if-no-files-found: error
+      - name: Upload complete source archive
+        uses: actions/upload-artifact@v7
+        with:
+          name: complete-source
+          path: dist/*-source.tar.gz
           if-no-files-found: error
 
   publish-pypi:
@@ -291,6 +320,11 @@ jobs:
           pattern: cli-*
           path: dist
           merge-multiple: true
+      - name: Download complete source archive
+        uses: actions/download-artifact@v8
+        with:
+          name: complete-source
+          path: dist
       - name: Create GitHub release
         uses: softprops/action-gh-release@v3
         with:
@@ -307,7 +341,7 @@ jobs:
 
             **License:** [GPL-3.0-or-later](https://github.com/${{ github.repository }}/blob/${{ needs.validate-version.outputs.tag }}/LICENSE)
 
-            **Corresponding source:** [tagged source archive](https://github.com/${{ github.repository }}/archive/refs/tags/${{ needs.validate-version.outputs.tag }}.tar.gz)
+            **Corresponding source:** [complete source archive](https://github.com/${{ github.repository }}/releases/download/${{ needs.validate-version.outputs.tag }}/fracessa-${{ needs.validate-version.outputs.version }}-source.tar.gz)
 
             **Third-party licenses and sources:** [THIRD_PARTY_NOTICES.md](https://github.com/${{ github.repository }}/blob/${{ needs.validate-version.outputs.tag }}/THIRD_PARTY_NOTICES.md)
           files: dist/fracessa-*

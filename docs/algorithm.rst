@@ -34,9 +34,9 @@ Search pipeline
 For ``n`` pure strategies there are ``2^n - 1`` nonempty supports in the worst case. FracESSA never stores this complete frontier.
 It generates one support at a time, in increasing support size, and performs the following work:
 
-1. **Prepare the matrix.** The parser preserves exact rational values. The exact solver clears common denominators once and works
-   with integers. ``fast`` additionally prepares an equilibrated binary64 copy or switches the matrix to ``safe`` when
-   that preparation is not trustworthy.
+1. **Prepare the matrix.** The Coposit parser clears common denominators once and returns one exact integer matrix plus its common
+   positive denominator. ``fast`` additionally prepares an equilibrated binary64 copy or switches the matrix to ``safe`` when that
+   preparation is not trustworthy.
 2. **Generate a support.** Non-circular and circular matrices use different generators, described below.
 3. **Find an equilibrium candidate.** The selected candidate route solves the equilibrium equations on the support and verifies the
    probability and outside-payoff conditions. A candidate returned publicly is always verified with exact arithmetic.
@@ -48,8 +48,8 @@ It generates one support at a time, in increasing support size, and performs the
 Candidate methods
 *****************
 
-``safe`` directly solves and verifies every support with fraction-free exact integer arithmetic. Exact rational probabilities and
-payoff are constructed only for successful candidates that must be exposed as output.
+``safe`` directly solves and verifies every support with fraction-free exact integer arithmetic. Public candidate probabilities and
+payoffs are exact rational values; floating-point conversions never participate in those decisions.
 
 ``fast`` first applies a binary64 candidate filter. The complete matrix is converted and equilibrated once, and each reduced
 symmetric support system is solved with a pivoted symmetric factorization. A matrix-wide preparation failure or an inconclusive
@@ -68,11 +68,10 @@ When ``J(x) = I(x)``, negative definiteness completes the ESS decision. Otherwis
 form an integer-scaled reduced Bomze matrix by a Schur complement. The candidate is an ESS exactly when the required strict
 copositivity condition for this smaller matrix holds.
 
-The strict-copositivity path is also exact. It first applies low-dimensional and sign-based decisions, splits the graph of negative
-off-diagonal entries into independent connected components, and sends only unresolved components to Hadeler enumeration. Hadeler
-checks principal submatrices in increasing cardinality. Each unresolved matrix uses an exact fraction-free determinant, one retained
-solve in the nonsingular case, or an exact nullspace in the singular case. Floating-point arithmetic is never accepted as a
-stability certificate.
+The strict-copositivity path delegates to the embedded ``coposit::safe`` API. Coposit applies exact shared prechecks, splits the graph
+of negative off-diagonal entries into independent connected components, and sends only unresolved components to a finite Dickinson
+certificate traversal. Each uncovered principal matrix uses one exact fraction-free solve in the nonsingular case or one exact null
+vector in the singular case. Floating-point arithmetic is never accepted as a stability certificate.
 
 Support generation and pruning
 ******************************

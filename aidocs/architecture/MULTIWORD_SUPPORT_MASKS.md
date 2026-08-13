@@ -261,9 +261,9 @@ iterating its set positions and setting their mapped destination bits in a pre-s
 | `cpp/include/fracessa/candidate.hpp` | Make the working candidate depend on `SupportMask`; keep support and extended support in the same fixed-width representation. |
 | `cpp/include/fracessa/fracessa.hpp`, `cpp/src/fracessa.cpp`, `cpp/src/check_stability.cpp` | Template the search engine over the mask type, keep one static dispatch before the search, and replace result-structure arrays with dimension-sized vectors. |
 | `cpp/include/fracessa/*candidate*.hpp`, `cpp/src/*candidate*.cpp` | Template only support-dependent methods. Give the large instantiation reusable `size_t` index and numerical scratch vectors; retain all one-word stack arrays. |
-| `cpp/include/linalg/copositive_integer.hpp` | Add recursive large-dimension Hadeler enumeration and multiword negative-neighbor components; retain the one-word Hadeler implementation unchanged. |
+| `external/coposit/cpp/include/coposit/safe.hpp`, `external/coposit/models/dickinson_final/solver.cpp` | Keep strict copositivity independent of FracESSA's support representation; Coposit owns arbitrary-width component masks and exact principal-support traversal. |
 | `cpp/src/main.cpp`, `cpp/src/pybind_module.cpp` | Dispatch once, serialize arbitrary-width masks, and use dimension-sized result structures. |
-| `cpp/include/fracessa/matrix_parser.hpp` | Remove the bitmask-derived maximum only after all paths are connected; add checked triangular-size arithmetic. |
+| `external/coposit/cpp/include/coposit/parsers/matrix_parser.hpp` | Parse arbitrary representable dimensions with checked dense and triangular-size arithmetic before FracESSA dispatches by support representation. |
 | `python/pyfracessa/sinks_parquet.py` | Reject an out-of-range support explicitly until a separately approved schema replaces `uint64`; CSV and JSON need no schema change. |
 
 The large candidate solvers must not allocate index or numerical scratch storage for every support. Resize their vectors once from the

@@ -2,13 +2,15 @@
 
 FracESSA is licensed under GPL-3.0-or-later. Prebuilt releases statically link third-party software.
 
-For a FracESSA binary reporting version V, its complete project source, build scripts, and release configuration are in the
-matching vV tag at <https://github.com/reinhardullrich/fracessa/tags>. GitHub also provides source archives beside every release.
+For a FracESSA binary reporting version V, the matching GitHub release attaches `fracessa-V-source.tar.gz`. That archive contains
+the tagged FracESSA source, build scripts, release configuration, and pinned Coposit source. GitHub's automatically generated tag
+archives omit submodule contents and are therefore not the complete source package.
 
 The exact dependency sources used by the release are available without charge here:
 
 | Component | Version | License | Exact source |
 |---|---:|---|---|
+| Coposit | 901cdfc1bb550588977d8255a4483ebe72e3b979 | GPL-3.0-or-later | <https://github.com/reinhardullrich/coposit/archive/901cdfc1bb550588977d8255a4483ebe72e3b979.tar.gz> |
 | FLINT | 3.6.0 | LGPL-3.0-or-later | <https://github.com/flintlib/flint/archive/refs/tags/v3.6.0.tar.gz> |
 | GMP | 6.3.0 | LGPL-3.0-only OR GPL-2.0-only | <https://ftp.gnu.org/gnu/gmp/gmp-6.3.0.tar.xz> |
 | MPFR | 4.2.2 | LGPL-3.0-or-later | <https://www.mpfr.org/mpfr-4.2.2/mpfr-4.2.2.tar.xz> |

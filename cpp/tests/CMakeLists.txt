@@ -1,11 +1,8 @@
 # Test executables
 set(TEST_LIST
     test_matrix
-    test_matrix_parser
     test_supports
     test_linear_solver
-    test_copositivity
-    test_copositivity_kkt
     test_bitset64
     test_bitset_multiword
     test_integration
@@ -26,11 +23,8 @@ endforeach()
 
 # Register tests with CTest
 add_test(NAME MatrixTests COMMAND test_matrix)
-add_test(NAME MatrixParserTests COMMAND test_matrix_parser)
 add_test(NAME SupportsTests COMMAND test_supports)
 add_test(NAME LinearSolverTests COMMAND test_linear_solver)
-add_test(NAME CopositivityTests COMMAND test_copositivity)
-add_test(NAME CopositivityKktTests COMMAND test_copositivity_kkt)
 add_test(NAME Bitset64Tests COMMAND test_bitset64)
 add_test(NAME BitsetMultiwordTests COMMAND test_bitset_multiword)
 add_test(NAME IntegrationTests COMMAND test_integration)

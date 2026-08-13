@@ -41,12 +41,13 @@ class Matrix:
 
     Attributes:
         matrix_id: Signed 64-bit identifier preserved in every output row.
-        matrix: Exact rational matrix text in ``dimension#values`` form. Values-only text is also accepted when ``metadata``
-            contains an integer ``dimension``.
+        matrix: Exact matrix text in ``dimension#values`` or Matrix Market form. Values-only text is also accepted when
+            ``metadata`` contains an integer ``dimension``.
         metadata: Optional user dictionary copied unchanged to the result and, when used, the sink's metadata output.
 
-    ``matrix`` accepts the full upper triangle of a symmetric matrix or the compact circular-symmetric layout described in
-    :doc:`getting-started`. Entries must be integers or integer fractions; decimal notation is not accepted.
+    ``matrix`` accepts the full upper triangle of a symmetric matrix, the compact circular-symmetric layout described in
+    :doc:`getting-started`, or a complete Matrix Market document. Entries may be integers, fractions, exact decimals, or exact
+    scientific notation.
     """
 
     matrix_id: int

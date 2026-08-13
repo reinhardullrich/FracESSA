@@ -2,27 +2,46 @@
 
 #include <array>
 #include <cstddef>
+#include <cstdint>
+#include <string_view>
 #include <vector>
 
 #include <fracessa/bitset64.hpp>
 #include <fracessa/bitset_multiword.hpp>
-#include <fracessa/exact_candidate_solver.hpp>
 #include <linalg/matrix_double.hpp>
-#include <linalg/matrix_fraction.hpp>
+#include <linalg/matrix_integer.hpp>
 
 namespace candidate_search {
+
+enum class safe_fallback : std::uint8_t {
+    none,
+    precision_span,
+    equilibration_invalid,
+    equilibration_non_convergence,
+};
+
+constexpr std::string_view safe_fallback_name(safe_fallback fallback) noexcept
+{
+    switch (fallback) {
+    case safe_fallback::none: return "";
+    case safe_fallback::precision_span: return "precision_span";
+    case safe_fallback::equilibration_invalid: return "equilibration_invalid";
+    case safe_fallback::equilibration_non_convergence: return "equilibration_non_convergence";
+    }
+    return "";
+}
 
 // Production floating-point candidate prefilter. Every surviving support is verified by exact arithmetic.
 class fast_candidate_filter {
 public:
-    explicit fast_candidate_filter(const linalg::matrix_frc& game_matrix);
+    explicit fast_candidate_filter(size_t dimension);
     fast_candidate_filter(const fast_candidate_filter&) = delete;
     fast_candidate_filter& operator=(const fast_candidate_filter&) = delete;
     fast_candidate_filter(fast_candidate_filter&&) = delete;
     fast_candidate_filter& operator=(fast_candidate_filter&&) = delete;
 
-    // Reuse the exact solver's denominator-cleared integer game, normalize it once, and convert it to binary64.
-    void convert_game_matrix(const exact_candidate_solver& exact_solver);
+    // Normalize the parser's denominator-cleared integer game once and convert it to binary64.
+    void convert_game_matrix(const linalg::matrix_int& integer_game);
     safe_fallback safe_fallback_reason() const noexcept { return safe_fallback_; }
 
     // False means heuristic rejection. True means exact arithmetic must decide.

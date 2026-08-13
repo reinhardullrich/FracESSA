@@ -1,7 +1,7 @@
 #ifndef CANDIDATE_H
 #define CANDIDATE_H
 
-#include <linalg/matrix_fraction.hpp>
+#include <linalg/fraction.hpp>
 #include <linalg/integer.hpp>
 #include <fracessa/bitset64.hpp>
 #include <fracessa/bitset_multiword.hpp>
@@ -11,6 +11,7 @@
 #include <iomanip>
 #include <limits>
 #include <type_traits>
+#include <vector>
 
 /**
  * Result of the exact equilibrium test for one support.
@@ -36,7 +37,7 @@ class basic_candidate
         size_t candidate_id = 0;
 
         /// Full n-dimensional exact mixed strategy. Entries outside I(x) are zero.
-        linalg::matrix_frc vector;
+        std::vector<linalg::fraction> vector;
         /// I(x), the strategies used with positive probability.
         SupportMask support;
         /// Number of strategies in I(x).
@@ -69,9 +70,9 @@ class basic_candidate
         {
             std::ostringstream oss;
             oss << candidate_id << ";";
-            for (size_t i = 0; i < vector.rows(); i++) {
-                oss << vector(i, 0);
-                if (i < vector.rows() - 1) {
+            for (size_t i = 0; i < vector.size(); i++) {
+                oss << vector[i];
+                if (i < vector.size() - 1) {
                     oss << ",";
                 }
             }

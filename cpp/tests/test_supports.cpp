@@ -1,5 +1,6 @@
 #include <gtest/gtest.h>
 
+#include <algorithm>
 #include <array>
 #include <numeric>
 #include <string>
@@ -30,6 +31,19 @@ bitset_multiword make_multiword_support(size_t dimension, bitset64 support)
     while (support != 0) {
         result.set_bit_at_pos(ctz64(support));
         support &= support - 1;
+    }
+    return result;
+}
+
+linalg::matrix_int make_circular_integer_matrix(size_t dimension, const std::vector<slong>& half_row)
+{
+    linalg::matrix_int result(dimension, dimension);
+    for (size_t row = 0; row < dimension; ++row) {
+        for (size_t column = 0; column < dimension; ++column) {
+            const size_t forward = (column + dimension - row) % dimension;
+            const size_t distance = std::min(forward, dimension - forward);
+            if (distance != 0) result(row, column) = linalg::integer(half_row[distance - 1]);
+        }
     }
     return result;
 }
@@ -340,8 +354,7 @@ TEST(SupportGeneratorTest, MultiwordCircularPrunesAcrossWordBoundaries)
 }
 
 TEST(CircularAffineSymmetryTest, DetectsAndFiltersExactMultiplierSymmetry) {
-    const linalg::matrix_frc matrix = linalg::create_circular_symmetric(
-        8, {linalg::fraction(7), linalg::fraction(11), linalg::fraction(7), linalg::fraction(13)});
+    const linalg::matrix_int matrix = make_circular_integer_matrix(8, {7, 11, 7, 13});
     CircularAffineSymmetry symmetry(matrix);
 
     ASSERT_EQ(symmetry.multiplier_class_count(), 2u);
@@ -357,8 +370,7 @@ TEST(CircularAffineSymmetryTest, DetectsAndFiltersExactMultiplierSymmetry) {
 }
 
 TEST(CircularAffineSymmetryTest, RepeatedValuesAloneDoNotCreateASymmetry) {
-    const linalg::matrix_frc matrix = linalg::create_circular_symmetric(
-        8, {linalg::fraction(7), linalg::fraction(7), linalg::fraction(11), linalg::fraction(13)});
+    const linalg::matrix_int matrix = make_circular_integer_matrix(8, {7, 7, 11, 13});
     CircularAffineSymmetry symmetry(matrix);
 
     EXPECT_EQ(symmetry.multiplier_class_count(), 1u);
@@ -366,8 +378,7 @@ TEST(CircularAffineSymmetryTest, RepeatedValuesAloneDoNotCreateASymmetry) {
 }
 
 TEST(CircularAffineSymmetryTest, EnlargedOrbitReusesExistingDihedralExpansion) {
-    const linalg::matrix_frc matrix = linalg::create_circular_symmetric(
-        8, {linalg::fraction(7), linalg::fraction(11), linalg::fraction(7), linalg::fraction(13)});
+    const linalg::matrix_int matrix = make_circular_integer_matrix(8, {7, 11, 7, 13});
     CircularAffineSymmetry symmetry(matrix);
     CircularSupportGenerator generator(8);
 
@@ -387,8 +398,7 @@ TEST(CircularAffineSymmetryTest, EnlargedOrbitReusesExistingDihedralExpansion) {
 }
 
 TEST(CircularAffineSymmetryTest, DetectsPublishedDimension24MultiplierClasses) {
-    const linalg::matrix_frc matrix = linalg::create_circular_symmetric(
-        24, {15, 15, 7, 15, 15, 7, 15, 7, 7, 15, 15, 7});
+    const linalg::matrix_int matrix = make_circular_integer_matrix(24, {15, 15, 7, 15, 15, 7, 15, 7, 7, 15, 15, 7});
     CircularAffineSymmetry symmetry(matrix);
 
     EXPECT_EQ(symmetry.multiplier_class_count(), 4u);
@@ -397,8 +407,7 @@ TEST(CircularAffineSymmetryTest, DetectsPublishedDimension24MultiplierClasses) {
 TEST(CircularAffineSymmetryTest, MultiwordMatchesOneWordImages)
 {
     constexpr size_t dimension = 8;
-    const linalg::matrix_frc matrix = linalg::create_circular_symmetric(
-        dimension, {linalg::fraction(7), linalg::fraction(11), linalg::fraction(7), linalg::fraction(13)});
+    const linalg::matrix_int matrix = make_circular_integer_matrix(dimension, {7, 11, 7, 13});
     CircularAffineSymmetry one_word(matrix);
     CircularAffineSymmetryMultiword multiword(matrix);
 
@@ -431,8 +440,7 @@ TEST(CircularAffineSymmetryTest, MultiwordMatchesOneWordImages)
 TEST(CircularAffineSymmetryTest, MultiwordImagesCrossWordBoundaries)
 {
     for (const size_t dimension : {65u, 129u}) {
-        const linalg::matrix_frc matrix = linalg::create_circular_symmetric(
-            dimension, std::vector<linalg::fraction>(dimension / 2, linalg::fraction::one()));
+        const linalg::matrix_int matrix = make_circular_integer_matrix(dimension, std::vector<slong>(dimension / 2, 1));
         CircularAffineSymmetryMultiword symmetry(matrix);
         bitset_multiword support(dimension);
         for (const size_t position : {0u, 1u, 63u, 64u, 128u})

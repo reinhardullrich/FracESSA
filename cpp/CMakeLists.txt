@@ -163,6 +163,16 @@ else()
     endif()
 endif()
 
+# Reuse Coposit's exact integer types and parser without building its applications, Python modules, or tests.
+set(FLINT_LIBRARY "${FLINT_LIB}")
+set(MPFR_LIBRARY "${MPFR_LIB}")
+set(GMP_LIBRARY "${GMP_LIB}")
+add_subdirectory(
+    "${CMAKE_CURRENT_SOURCE_DIR}/../external/coposit/cpp"
+    "${CMAKE_CURRENT_BINARY_DIR}/external/coposit"
+    EXCLUDE_FROM_ALL
+)
+
 # ==============================================================================
 # 4. Build Targets
 # ==============================================================================
@@ -186,6 +196,7 @@ target_include_directories(fracessa_lib PUBLIC
 
 # Link all math libraries. Order matters for static linking: FLINT -> MPFR -> GMP
 target_link_libraries(fracessa_lib PUBLIC
+    Coposit::safe
     spdlog::spdlog
     ${FLINT_LIBRARIES}
     ${MPFR_LIB}

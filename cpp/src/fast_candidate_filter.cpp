@@ -1,5 +1,5 @@
 #include <fracessa/fast_candidate_filter.hpp>
-#include <fracessa/exact_candidate_solver.hpp>
+#include <linalg/integer.hpp>
 
 #include <algorithm>
 #include <cassert>
@@ -18,6 +18,74 @@ constexpr unsigned long kPrecisionSpanCutoff = 1'000'000'000UL;
 constexpr double kProbabilityTolerance = -1e-10;
 constexpr double kBunchKaufmanAlpha = 0.6403882032022076; // (1 + sqrt(17)) / 8
 constexpr size_t kEquilibrationIterations = 100;
+
+/*
+ * Let Z=d*A be the parser's integer-scaled game. The common positive denominator d changes every payoff by the same factor and is
+ * irrelevant to the double candidate filter. The exact span of the remaining integer entries is
+ *
+ *     P = M/m,
+ *     M = max |Z_ij|,
+ *     m = min(nonzero |Z_ij|, nonzero |Z_ij-Z_kl|).
+ *
+ * Sorting the symmetric upper triangle makes the smallest nonzero pairwise difference adjacent. If P is acceptable, one common
+ * power-of-two scale converts Z to binary64 without changing the game; equilibration follows separately below.
+ */
+safe_fallback prepare_normalized_double_game(const linalg::matrix_int& integer_game, unsigned long precision_span_limit,
+                                             linalg::matrix_dbl& result)
+{
+    const size_t dimension = integer_game.rows();
+    std::vector<linalg::integer::const_reference> entries;
+    entries.reserve(dimension * (dimension + 1) / 2);
+    for (size_t row = 0; row < dimension; ++row) {
+        for (size_t column = row; column < dimension; ++column) entries.push_back(integer_game(row, column));
+    }
+    std::sort(entries.begin(), entries.end(), [](auto left, auto right) { return left.compare(right) < 0; });
+
+    linalg::integer minimum;
+    linalg::integer maximum;
+    bool found_nonzero = false;
+    for (const auto entry : entries) {
+        if (entry.is_zero()) continue;
+        if (!found_nonzero) {
+            minimum.set_abs(entry);
+            maximum = minimum;
+            found_nonzero = true;
+        } else {
+            if (entry.compare_abs(minimum) < 0) minimum.set_abs(entry);
+            if (entry.compare_abs(maximum) > 0) maximum.set_abs(entry);
+        }
+    }
+
+    result = linalg::matrix_dbl(dimension, dimension);
+    if (!found_nonzero) return safe_fallback::none;
+
+    linalg::integer difference;
+    for (size_t index = 1; index < entries.size(); ++index) {
+        if (entries[index - 1].compare(entries[index]) == 0) continue;
+        difference.set_difference(entries[index], entries[index - 1]);
+        if (difference.compare(minimum) < 0) minimum = difference;
+    }
+
+    linalg::integer scaled_minimum(minimum);
+    scaled_minimum.multiply(precision_span_limit);
+    if (maximum.compare(scaled_minimum) >= 0) return safe_fallback::precision_span;
+
+    slong maximum_exponent = 0;
+    static_cast<void>(maximum.to_dbl_2exp(maximum_exponent));
+    for (size_t row = 0; row < dimension; ++row) {
+        for (size_t column = 0; column <= row; ++column) {
+            const auto entry = integer_game(row, column);
+            if (entry.is_zero()) continue;
+
+            slong entry_exponent = 0;
+            const double mantissa = entry.to_dbl_2exp(entry_exponent);
+            const double value = std::scalbn(mantissa, static_cast<int>(entry_exponent - maximum_exponent));
+            result(row, column) = value;
+            result(column, row) = value;
+        }
+    }
+    return safe_fallback::none;
+}
 
 /*
  * The symmetric equilibration, indefinite factorization, and solve below adapt the lower-triangle paths of LAPACK 3.12.1
@@ -351,8 +419,8 @@ bool solve_bunch_kaufman_backward(const linalg::matrix_dbl& system, size_t dimen
 
 } // namespace
 
-fast_candidate_filter::fast_candidate_filter(const linalg::matrix_frc& game_matrix)
-    : dimension_(game_matrix.rows())
+fast_candidate_filter::fast_candidate_filter(size_t dimension)
+    : dimension_(dimension)
     , game_scales_large_(dimension_ > bs64::kMaxBitsetDimension ? dimension_ : 0)
     , solution_large_(dimension_ > bs64::kMaxBitsetDimension ? dimension_ : 0)
     , scale_ratios_large_(dimension_ > bs64::kMaxBitsetDimension ? dimension_ : 0)
@@ -362,11 +430,11 @@ fast_candidate_filter::fast_candidate_filter(const linalg::matrix_frc& game_matr
     if (dimension_ > bs64::kMaxBitsetDimension) support_indices_large_.reserve(dimension_);
 }
 
-void fast_candidate_filter::convert_game_matrix(const exact_candidate_solver& exact_solver)
+void fast_candidate_filter::convert_game_matrix(const linalg::matrix_int& integer_game)
 {
-    // The exact solver has already cleared one common denominator from the complete game. Normalize that integer matrix, then
-    // equilibrate it to D*A*D once; every support reuses a principal submatrix and the matching entries of D.
-    safe_fallback_ = exact_solver.prepare_normalized_double_game(kPrecisionSpanCutoff, game_dbl_);
+    // Normalize the parser's denominator-cleared integer game, then equilibrate it to D*A*D once; every support reuses a principal
+    // submatrix and the matching entries of D.
+    safe_fallback_ = prepare_normalized_double_game(integer_game, kPrecisionSpanCutoff, game_dbl_);
     if (safe_fallback_ != safe_fallback::none) return;
 
     if (dimension_ <= bs64::kMaxBitsetDimension) {

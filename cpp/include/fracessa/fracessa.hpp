@@ -8,8 +8,9 @@
 #include <optional>
 #include <string_view>
 #include <type_traits>
+#include <utility>
 
-#include <linalg/matrix_fraction.hpp>
+#include <coposit/parsers/parsed_matrix.hpp>
 #include <linalg/matrix_integer.hpp>
 #include <fracessa/candidate.hpp>
 #include <fracessa/bitset64.hpp>
@@ -65,15 +66,15 @@ public:
      * Analyze one already parsed symmetric payoff matrix.
      *
      * @param method Candidate-search route.
-     * @param matrix Exact rational square payoff matrix. The analyzer retains its own copy.
-     * @param is_cs Whether the matrix came from compact circular input and may use circular support reduction.
+     * @param game Exact integer-scaled square payoff matrix, retained positive denominator, and compact-circular marker. The analyzer
+     *        takes ownership without rebuilding the exact representation.
      * @param with_candidates Retain representative candidate rows in `candidates_`; counts are unaffected by this setting.
      * @param full_support Check the full support first. Stop if the selected route finds it and exact stability accepts it as an ESS;
      *        otherwise continue without checking it twice.
      * @param with_log Write a diagnostic trace to `log/fracessa.log`.
      * @param matrix_id Signed identifier written to the diagnostic log.
      */
-    basic_fracessa(search_method method, const linalg::matrix_frc& matrix, bool is_cs, bool with_candidates = false,
+    basic_fracessa(search_method method, coposit::parsers::parsed_matrix game, bool with_candidates = false,
                    bool full_support = false, bool with_log = false, std::int64_t matrix_id = -1);
     basic_fracessa(const basic_fracessa&) = delete;
     basic_fracessa& operator=(const basic_fracessa&) = delete;
@@ -94,9 +95,9 @@ public:
     std::vector<candidate_type> candidates_;
 
 private:
-    // Keep the parsed rational game for logging and detection of extra circular symmetries. The exact solver owns the denominator-cleared
-    // integer copy used by candidate and stability work; the fast filter owns its converted double copy.
-    linalg::matrix_frc game_matrix_;
+    // Own one parser-produced integer game and denominator. Exact work and symmetry detection reference it directly; the fast filter
+    // owns only its converted double copy.
+    coposit::parsers::parsed_matrix game_;
     candidate_search::fast_candidate_filter fast_candidate_filter_;
     candidate_search::exact_candidate_solver exact_candidate_solver_;
     linalg::matrix_int scaled_reduced_b_;

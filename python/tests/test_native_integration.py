@@ -41,6 +41,27 @@ class NativeIntegrationTests(unittest.TestCase):
         self.assertEqual(result["candidates"][0]["matrix_id"], matrix_id)
         self.assertIsNone(result["candidates"][0]["multiplier"])
 
+    def test_exact_decimal_and_matrix_market_inputs_match_fractions(self):
+        inputs = (
+            "2#1/2,0,1/2",
+            "2#.5,0,5e-1",
+            "%%MatrixMarket matrix array real symmetric\n2 2\n.5\n0\n5e-1\n",
+        )
+        results = [run("safe", Matrix(matrix_id=index, matrix=matrix), RunConfig(include_candidates=True))
+                   for index, matrix in enumerate(inputs)]
+
+        expected = results[0]
+        for actual in results[1:]:
+            self.assertEqual(actual["status"], 0)
+            self.assertEqual(actual["candidate_count"], expected["candidate_count"])
+            self.assertEqual(actual["ess_count"], expected["ess_count"])
+            self.assertEqual(actual["candidate_structure"], expected["candidate_structure"])
+            self.assertEqual(actual["ess_structure"], expected["ess_structure"])
+            self.assertEqual([row["vector"] for row in actual["candidates"]],
+                             [row["vector"] for row in expected["candidates"]])
+            self.assertEqual([row["payoff"] for row in actual["candidates"]],
+                             [row["payoff"] for row in expected["candidates"]])
+
     def test_fast_and_safe_route_native(self):
         database = Path(__file__).resolve().parents[2] / "testdata/fracessa_testdata.sqlite3"
         with closing(sqlite3.connect(database)) as connection:
@@ -173,9 +194,9 @@ class NativeIntegrationTests(unittest.TestCase):
 
     def test_invalid_matrix_strings_return_parser_error(self):
         invalid_matrices = {
-            "2##0": "Multiple '#' characters found in matrix string",
-            "2#0,1": "Expected 1 (CS) or 3 (Sym) values, got 2",
-            "2#0,1/0,0": "Rational denominator cannot be zero: 1/0",
+            "2##0": "matrix values must be exact integers, fractions, decimals, or scientific numbers",
+            "2#0,1": "wrong number of FracESSA matrix values",
+            "2#0,1/0,0": "matrix values must be exact integers, fractions, decimals, or scientific numbers",
         }
 
         for matrix, error_message in invalid_matrices.items():

@@ -1,13 +1,14 @@
 # Integer Hadeler Stability And Copositivity
 
-Status: current implementation and mathematical reference. Initially implemented and verified on 2026-08-06, then restored as the
-production exact fallback on 2026-08-08.
+Status: historical implementation and mathematical reference. Initially implemented and verified on 2026-08-06, restored as the
+production exact fallback on 2026-08-08, and removed from FracESSA when Coposit became the complete strict-copositivity backend on
+2026-08-12. The mathematics and measurements below document that retired implementation; they do not describe current source paths.
 
 Initial implementation and verification: 2026-08-06. Production restoration: 2026-08-08.
 
-## Implemented boundary
+## Historical Implemented Boundary
 
-The scaled reduced B matrix and every stability decision already use exact integer arithmetic. The current Hadeler checker also
+At this checkpoint, the scaled reduced B matrix and every stability decision already used exact integer arithmetic. The Hadeler checker also
 enumerates principal subsets in the required cardinality order and obtains each exact determinant from the retained general
 fraction-free $LDL^T$ factorization.
 
@@ -16,7 +17,7 @@ The formerly inefficient work after a nonpositive determinant was:
 - a negative determinant constructs the complete adjugate by solving for every identity column;
 - a zero determinant constructs the complete adjugate from all signed cofactors.
 
-The implementation below replaced both branches without changing the surrounding checker.
+The implementation below replaced both branches without changing the surrounding checker at that checkpoint.
 
 ## 5. Integer Hadeler decision
 
@@ -61,7 +62,7 @@ $$
 \det(C)>0,
 $$
 
-Hadeler's third condition is false, so $C$ passes. The current code already does this and must remain unchanged.
+Hadeler's third condition is false, so $C$ passes. The code at this checkpoint already did this and remained unchanged.
 
 #### Negative determinant: one retained solve
 
@@ -325,9 +326,9 @@ Likewise, the nullity-at-least-two pass is not a new copositivity theorem. It is
 classification: every singular failure has rank \(n-1\), so a matrix of nullity at least two cannot be such a failure once all
 proper principal submatrices have passed.
 
-### 5.6 Current core implementation
+### 5.6 Historical core implementation
 
-The current `is_strictly_copositive_hadeler()` generic branch:
+The then-current `is_strictly_copositive_hadeler()` generic branch:
 
 1. extracts `subset_indices` into the fixed stack buffer;
 2. copies the current principal matrix into `principal_submatrix`;
@@ -462,9 +463,9 @@ The original one-solve/nullspace patch intentionally excluded:
 - a generic linear-algebra or copositivity interface;
 - changes to the KKT candidate factorization.
 
-Those were independent decisions. The negative-entry connected-component decomposition was implemented and verified later and is
-now part of the current production path. The mathematical job described here remains unchanged: replace explicit adjugate
-construction with one retained solve or one exact nullspace while preserving Hadeler's exact decision.
+Those were independent decisions. The negative-entry connected-component decomposition was implemented and verified later, before
+the complete checker moved to Coposit. The mathematical job described here remains unchanged: replace explicit adjugate construction
+with one retained solve or one exact nullspace while preserving Hadeler's exact decision.
 
 ### 5.12 References
 

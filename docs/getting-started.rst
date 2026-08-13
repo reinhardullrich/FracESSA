@@ -62,8 +62,9 @@ Every input has the form:
 
    dimension#comma-separated-values
 
-Values must be integers or exact integer fractions such as ``-3/5``. Decimal notation is rejected; write ``1/2`` rather than
-``0.5``. There are two accepted value layouts.
+Values can be integers, fractions, finite decimals, or scientific numbers, such as ``-3/5``, ``-0.6``, or ``-6e-1``. Every form is
+parsed as an exact rational number. A fraction's denominator must be a positive integer; put an optional sign before the numerator,
+writing ``-1/2`` rather than ``1/-2``. There are two accepted value layouts.
 
 General symmetric matrix
 ------------------------
@@ -99,6 +100,12 @@ also has a zero diagonal and supplies one payoff for each circular distance:
 Exactly ``floor(n/2)`` values are required. For example, ``5#1,3`` expands to a 5-by-5 matrix whose first row is ``0,1,3,3,1``.
 FracESSA recognizes this shorter layout automatically and applies its circular-symmetry reductions.
 
+Matrix files
+------------
+
+The CLI accepts a file path in place of inline input. The file can contain either ``dimension#values`` or a symmetric Matrix Market
+matrix. Python accepts the same two text formats in ``Matrix.matrix``; use ``Path.read_text()`` to load a file when needed.
+
 Run one matrix from Python
 **************************
 
@@ -131,7 +138,7 @@ the native analyzer with a monotonic clock. FracESSA deliberately imposes no per
 Run one matrix from the command line
 ************************************
 
-The general form is:
+The general form for inline input is:
 
 .. code-block:: console
 

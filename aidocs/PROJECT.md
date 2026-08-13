@@ -1,6 +1,6 @@
 # FracESSA Project Overview
 
-Last verified: 2026-08-10
+Last verified: 2026-08-12
 
 ## Repository Map
 
@@ -13,6 +13,7 @@ Last verified: 2026-08-10
 - Agent documentation: `aidocs/`
 - Public project page: `README.md` and `site/`; Sphinx sources for the combined Python/C++ API site are under `docs/`.
 - Preserved predecessor source: `zzz_legacy/`; it is historical, not active source.
+- Shared exact integer types and parsing: pinned `external/coposit/` Git submodule.
 - Local-only material: `research/`, `experiments/`, and database-maintenance `scripts/` are ignored by Git.
 - Generated/local paths include `cpp/build*/`, `.local/`, and `.local-tmp/`.
 
@@ -23,8 +24,9 @@ FracESSA is a C++17 analyzer for evolutionarily stable strategies in symmetric p
 - CLI: `cpp/src/main.cpp`, normally built as `cpp/build/fracessa`.
 - PyFracESSA: `python/pyfracessa/`, backed by the native `fracessa_core` module in `cpp/src/pybind_module.cpp`.
 
-Input uses `dimension#values`. Values are either the upper triangle of a symmetric matrix or the compact circular-symmetric form.
-The validating parser accepts every positive dimension whose dense matrix size is representable and exact integer or rational values.
+Input uses inline `dimension#values` text or a file containing that syntax or a symmetric Matrix Market matrix. The embedded Coposit
+parser accepts every positive dimension whose dense matrix size is representable and exact integers, fractions, finite decimals,
+and scientific numbers.
 Dimensions 1 through 64 use one `uint64_t`; dimensions 65 and above use fixed-width multiword support masks. Runtime remains
 exponential even when a dimension is representable, so the practical limit is normally much smaller than the storage limit.
 
@@ -44,7 +46,7 @@ Compact circular input automatically uses exact cyclic symmetry reduction. Outpu
 
 ```text
 CLI or Pybind input
-  -> validating matrix parser
+  -> Coposit validating parser producing one integer matrix plus a common positive denominator
   -> support generation and exact-equilibrium superset pruning
   -> fast candidate attempt when selected
   -> exact candidate solver when selected or required as fallback
@@ -61,23 +63,23 @@ Core implementation facts:
 - Every exact equilibrium support forbids later strict supersets; ESS status is irrelevant to that pruning rule.
 - Fast converts and equilibrates the complete matrix once, solves reduced symmetric systems in binary64, and falls back to exact
   checking when preparation or a support solve is inconclusive.
-- Safe clears denominators once, solves the border-eliminated symmetric candidate system with fraction-free exact integer arithmetic,
-  and constructs rational probabilities and payoff only for successful public output.
+- Parsing clears denominators once. Safe solves the border-eliminated symmetric candidate system with fraction-free exact integer
+  arithmetic. Exact integer quantities drive every decision; rational candidate vectors are constructed only when output requests them.
 - Stability reuses exact reduced-Hessian inertia. The rare case with unresolved outside best replies constructs an integer-scaled
   reduced Bomze matrix through an exact Schur complement and decides strict copositivity exactly.
-- The final strict-copositivity path applies low-dimensional and sign checks, splits the negative-entry graph into connected
-  components, and sends unresolved components to exact Hadeler enumeration.
-- Hadeler checks principal submatrices by increasing cardinality. Each unresolved submatrix uses an exact fraction-free determinant,
-  one retained solve when nonsingular, or one exact nullspace when singular. A binary64 value is never accepted as a stability
-  certificate.
-- Rational matrices remain at parsed-input and public-output boundaries. Exact candidate and stability kernels use
-  `linalg::integer` and `linalg::matrix_int`.
+- The final strict-copositivity path calls `coposit::safe`. Coposit applies exact shared prechecks, splits the negative-entry graph
+  into connected components, and sends unresolved components to its finite Dickinson certificate traversal.
+- Dickinson visits principal supports by increasing cardinality. Each uncovered principal matrix uses one exact fraction-free solve
+  when nonsingular or one exact null vector when singular. A binary64 value is never accepted as a stability certificate.
+- FracESSA owns one parser-produced integer game and its common denominator. Exact candidate and stability kernels use zero-cost
+  aliases to Coposit's integer and matrix types; rational values remain only at the public-output boundary.
 
 ## Build And Dependencies
 
 Required dependencies are a C++17 compiler, CMake 3.18 or newer, Python with development headers when building Pybind, GMP, MPFR,
-and FLINT. CMake FetchContent obtains `spdlog`, `argparse`, `pybind11`, and, when `BUILD_TESTING=ON`, GoogleTest. A clean configure
-therefore needs network access unless those sources are cached.
+and FLINT. The pinned Coposit submodule supplies shared exact types and parsers. CMake FetchContent obtains `spdlog`, `argparse`,
+`pybind11`, and, when `BUILD_TESTING=ON`, GoogleTest. A clean checkout and configure therefore need the submodule and network access
+unless all sources are cached.
 
 Local non-MSVC Release builds default to `FRACESSA_NATIVE_ARCH=ON`; release CI disables native-CPU code generation. IPO/LTO is used
 only when CMake confirms support. The optimized local FLINT 3.6 installation is `.local/flint-3.6.0`.

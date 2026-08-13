@@ -2,25 +2,22 @@
 
 #include <flint/flint.h>
 #include <flint/fmpq.h>
-#include <stdexcept>
-#include <string>
 #include <ostream>
+#include <string>
 
 #include <linalg/integer.hpp>
 
 namespace linalg {
 
 /*
- * Owning C++ value wrapper around FLINT's fmpq_t rational type.
+ * Owning exact rational value used only at FracESSA's public output boundary.
  *
- * Every object initializes and clears one FLINT rational. FLINT keeps values
- * canonical, so arithmetic and comparisons are exact and need no epsilon.
- * Returning operators keep formulas readable; compound assignment avoids
- * wrapper temporaries when an existing value can be updated in place.
+ * Every object initializes and clears one FLINT rational. Candidate search and
+ * stability remain in integer arithmetic; this type materializes accepted
+ * probabilities and payoffs for comparison and serialization.
  *
- * Value constructors assume every denominator is nonzero. The matrix parser
- * validates external text before construction; internal callers deliberately
- * retain this precondition to avoid repeated checks.
+ * Numeric constructors exist for concise exact-output tests. They and
+ * set_ratio() require a nonzero denominator.
  */
 class fraction {
 private:
@@ -45,17 +42,7 @@ public:
         set_signed_ratio(data_, static_cast<slong>(num), static_cast<slong>(den));
     }
 
-    // From FLINT-compatible base-10 rational text (`num` or `num/den`).
-    explicit fraction(const std::string& value) {
-        fmpq_init(data_);
-        if (fmpq_set_str(data_, value.c_str(), 10) != 0) {
-            fmpq_clear(data_);
-            throw std::invalid_argument("Invalid rational value: " + value);
-        }
-        fmpq_canonicalise(data_);
-    }
-    
-    // Implicit int construction keeps exact expressions with 0 and 1 concise.
+    // Implicit int construction keeps exact expected values concise in C++ tests.
     fraction(int num, int den = 1) noexcept {
         fmpq_init(data_);
         set_signed_ratio(data_, static_cast<slong>(num), static_cast<slong>(den));
@@ -91,31 +78,13 @@ public:
         return *this;
     }
     
-    // Escape hatch for FLINT kernels; callers must preserve valid fmpq state.
-    fmpq_t& data() noexcept { return data_; }
-    const fmpq* data() const noexcept { return data_; }
+    void set_zero() noexcept {
+        fmpq_zero(data_);
+    }
 
-    // Construct an exact rational from C++ integer wrappers without exposing FLINT at the algorithm call site.
+    // Materialize an exact rational from C++ integer wrappers without exposing FLINT at the algorithm call site.
     void set_ratio(integer::const_reference numerator, integer::const_reference denominator) noexcept {
         fmpq_set_fmpz_frac(data_, numerator.native_handle(), denominator.native_handle());
-    }
-    
-    // Returning operators favor readable formulas.
-    fraction operator*(const fraction& other) const {
-        fraction result;
-        fmpq_mul(result.data_, data_, other.data_);
-        return result;
-    }
-    
-    // Compound assignment writes into existing FLINT storage without a temporary.
-    fraction& operator+=(const fraction& other) noexcept {
-        fmpq_add(data_, data_, other.data_);
-        return *this;
-    }
-
-    fraction& operator-=(const fraction& other) noexcept {
-        fmpq_sub(data_, data_, other.data_);
-        return *this;
     }
     
     // Exact comparisons on canonicalized rationals.
@@ -123,11 +92,7 @@ public:
         return fmpq_equal(data_, other.data_);
     }
     
-    bool is_zero() const noexcept {
-        return fmpq_is_zero(data_);
-    }
-
-    // Lossy conversion for reporting and fast candidate search, never an exact certificate.
+    // Lossy conversion for reporting only, never a mathematical decision.
     double to_dbl() const noexcept {
         return fmpq_get_d(data_);
     }
@@ -152,26 +117,6 @@ public:
             flint_free(str);
         }
         return os;
-    }
-    // Shared immutable constants avoid repeated tiny object construction.
-    static const fraction& zero() noexcept {
-        static const fraction z(0);
-        return z;
-    }
-    
-    static const fraction& one() noexcept {
-        static const fraction o(1);
-        return o;
-    }
-    
-    static const fraction& neg_one() noexcept {
-        static const fraction n(-1);
-        return n;
-    }
-    
-    static const fraction& two() noexcept {
-        static const fraction t(2);
-        return t;
     }
 };
 

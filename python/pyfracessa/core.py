@@ -88,11 +88,11 @@ def load_native_module():
         )
 
 
-def _matrix_cli_string(matrix: Matrix) -> str:
-    """Return ``matrix`` in the native ``dimension#values`` text format.
+def _matrix_input(matrix: Matrix) -> str:
+    """Return matrix text accepted by the native parser.
 
-    A matrix that already contains ``#`` is returned after trimming surrounding
-    whitespace. Otherwise its dimension is read from ``matrix.metadata``.
+    Inline ``dimension#values`` and Matrix Market text pass through after trimming surrounding whitespace. Otherwise the dimension
+    is read from ``matrix.metadata`` and prefixed to values-only text.
 
     Raises:
         ValueError: If a values-only matrix has no dimension metadata.
@@ -100,7 +100,7 @@ def _matrix_cli_string(matrix: Matrix) -> str:
     """
 
     text = matrix.matrix.strip()
-    if "#" in text:
+    if "#" in text or text.startswith("%%MatrixMarket"):
         return text
 
     if not matrix.metadata:
@@ -146,12 +146,12 @@ def compute_matrix(method: SearchMethod, matrix: Matrix, config: RunConfig, run_
 
     _validate_search_method(method)
     native = load_native_module()
-    matrix_cli = _matrix_cli_string(matrix)
+    matrix_input = _matrix_input(matrix)
     matrix_id = matrix.matrix_id
 
     native_out = native.compute_matrix(
         method=method,
-        matrix=matrix_cli,
+        matrix=matrix_input,
         include_candidates=config.include_candidates,
         full_support=config.full_support,
         enable_logging=config.enable_logging,

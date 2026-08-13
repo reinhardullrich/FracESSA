@@ -1,9 +1,10 @@
 C++ API
 #######
 
-The public native interface consists of the synchronous analyzer, its candidate records, and the validating exact matrix parser.
-The CLI and Python binding use these same interfaces. Direct C++ callers receive exceptions from invalid method names, malformed
-input, allocation failures, or arithmetic failures; the CLI and Python binding translate them into their public status formats.
+The public native interface consists of the synchronous analyzer and its candidate records. The CLI and Python binding parse input
+with the embedded Coposit parser and pass its exact integer-scaled result directly to the analyzer. Direct C++ callers receive
+exceptions from invalid method names, malformed input, allocation failures, or arithmetic failures; the CLI and Python binding
+translate them into their public status formats.
 
 Core types
 **********
@@ -41,9 +42,8 @@ whole-matrix switch from ``fast`` to exact candidate search.
 Input and output
 ****************
 
-The parser accepts exact integers and integer fractions in either the full upper-triangular layout or the compact zero-diagonal
-circular layout. It replaces both output arguments only after interpreting the payload and reports malformed input with
-``std::invalid_argument``.
-
-.. doxygenfunction:: matrix_parser::parse_matrix_string
-   :project: FracESSA
+Coposit's ``coposit::parsers::matrix_parser`` accepts exact integers, fractions, finite decimals, and scientific notation in either
+the full upper-triangular layout or the compact zero-diagonal circular layout. A fraction has an optional sign before its numerator
+and a positive integer denominator, so ``-1/2`` is valid and ``1/-2`` is not. The parser also accepts symmetric Matrix Market input
+and returns ``coposit::parsers::parsed_matrix``: one integer matrix, its common positive denominator, and the compact-circular marker
+consumed by ``basic_fracessa``.

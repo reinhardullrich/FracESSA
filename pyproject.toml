@@ -46,6 +46,13 @@ sdist.include = [
     "cpp/CMakeLists.txt",
     "cpp/include/**",
     "cpp/src/**",
+    "external/coposit/LICENSE",
+    "external/coposit/README.md",
+    "external/coposit/THIRD_PARTY_NOTICES.md",
+    "external/coposit/cpp/CMakeLists.txt",
+    "external/coposit/cpp/include/**",
+    "external/coposit/models/dickinson_final/solver.cpp",
+    "external/coposit/models/dickinson_final/source_trace.hpp",
     "python/pyfracessa/*.py",
 ]
 

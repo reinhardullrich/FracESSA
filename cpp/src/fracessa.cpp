@@ -3,7 +3,7 @@
 #include <fracessa/circular_affine_symmetry.hpp>
 #include <fracessa/support_generator_circular.hpp>
 #include <fracessa/support_generator_non_circular.hpp>
-#include <linalg/matrix_fraction.hpp>
+#include <linalg/fraction.hpp>
 
 #include <spdlog/sinks/rotating_file_sink.h>
 #include <spdlog/spdlog.h>
@@ -87,21 +87,38 @@ void add_checked(size_t& destination, size_t value, const char* field)
     destination += value;
 }
 
+std::string rational_matrix_to_pretty_string(const linalg::matrix_int& matrix, linalg::integer::const_reference denominator)
+{
+    std::ostringstream stream;
+    fraction value;
+    for (size_t row = 0; row < matrix.rows(); ++row) {
+        stream << "  " << row << ": [";
+        for (size_t column = 0; column < matrix.cols(); ++column) {
+            if (column != 0) stream << ", ";
+            value.set_ratio(matrix(row, column), denominator);
+            stream << value;
+        }
+        stream << ']';
+        if (row + 1 != matrix.rows()) stream << '\n';
+    }
+    return stream.str();
+}
+
 } // namespace
 
 template<class SupportMask>
-basic_fracessa<SupportMask>::basic_fracessa(search_method method, const linalg::matrix_frc& matrix, bool is_cs,
+basic_fracessa<SupportMask>::basic_fracessa(search_method method, coposit::parsers::parsed_matrix game,
                                             bool with_candidates, bool full_support, bool with_log, std::int64_t matrix_id)
-    : candidate_structure_(make_structure(matrix.rows()))
-    , ess_structure_(make_structure(matrix.rows()))
-    , game_matrix_(matrix)
-    , fast_candidate_filter_(game_matrix_)
-    , exact_candidate_solver_(game_matrix_)
-    , dimension_(matrix.rows())
+    : candidate_structure_(make_structure(game.matrix.rows()))
+    , ess_structure_(make_structure(game.matrix.rows()))
+    , game_(std::move(game))
+    , fast_candidate_filter_(game_.matrix.rows())
+    , exact_candidate_solver_(game_.matrix, game_.denominator)
+    , dimension_(game_.matrix.rows())
     , conf_with_candidates_(with_candidates)
     , method_(method)
     , conf_full_support_(full_support)
-    , candidate_(make_candidate(matrix.rows()))
+    , candidate_(make_candidate(dimension_))
     , logger_()
 {
     if constexpr (std::is_same_v<SupportMask, bitset64>) {
@@ -111,12 +128,12 @@ basic_fracessa<SupportMask>::basic_fracessa(search_method method, const linalg::
     }
 
     if (method_ == search_method::fast) {
-        fast_candidate_filter_.convert_game_matrix(exact_candidate_solver_);
+        fast_candidate_filter_.convert_game_matrix(game_.matrix);
         safe_fallback_ = fast_candidate_filter_.safe_fallback_reason();
         if (safe_fallback_ != candidate_search::safe_fallback::none) method_ = search_method::safe;
     }
 
-    if (with_log) start_log(method, is_cs, matrix_id);
+    if (with_log) start_log(method, game_.compact_circular, matrix_id);
 
     if (conf_full_support_) {
         SupportMask full_support_mask = [&]() {
@@ -129,7 +146,7 @@ basic_fracessa<SupportMask>::basic_fracessa(search_method method, const linalg::
         }();
         log_support_size(dimension_);
         if (analyze_support(full_support_mask, dimension_))
-            finalize_candidate(is_cs ? std::optional<size_t>{1} : std::nullopt);
+            finalize_candidate(game_.compact_circular ? std::optional<size_t>{1} : std::nullopt);
         if (ess_count_ > 0) {
             finish_log();
             return;
@@ -137,9 +154,9 @@ basic_fracessa<SupportMask>::basic_fracessa(search_method method, const linalg::
     }
 
     if constexpr (std::is_same_v<SupportMask, bitset64>) {
-        if (is_cs) {
+        if (game_.compact_circular) {
             CircularSupportGenerator generator(dimension_);
-            std::optional<CircularAffineSymmetry> symmetry(std::in_place, game_matrix_);
+            std::optional<CircularAffineSymmetry> symmetry(std::in_place, game_.matrix);
             if (symmetry->multiplier_class_count() == 1) symmetry.reset();
             // This lambda is the callback. The generator calls it once for each circular representative and supplies both the
             // mask and its size.
@@ -167,7 +184,7 @@ basic_fracessa<SupportMask>::basic_fracessa(search_method method, const linalg::
                                 for (size_t position = 0; position < dimension_; ++position) {
                                     const size_t image_position = symmetry->image_position(
                                         position, multiplier_class, reflected, right_shifts);
-                                    candidate_.vector(image_position, 0) = solved_candidate->vector(position, 0);
+                                    candidate_.vector[image_position] = solved_candidate->vector[position];
                                 }
                             }
                             finalize_candidate(multiplier);
@@ -199,9 +216,9 @@ basic_fracessa<SupportMask>::basic_fracessa(search_method method, const linalg::
             });
         }
     } else {
-        if (is_cs) {
+        if (game_.compact_circular) {
             CircularSupportGeneratorMultiword generator(dimension_);
-            std::optional<CircularAffineSymmetryMultiword> symmetry(std::in_place, game_matrix_);
+            std::optional<CircularAffineSymmetryMultiword> symmetry(std::in_place, game_.matrix);
             if (symmetry->multiplier_class_count() == 1) symmetry.reset();
             generator.generate([&](const bitset_multiword& support, size_t support_size) {
                 if (conf_full_support_ && support_size == dimension_) return;
@@ -226,7 +243,7 @@ basic_fracessa<SupportMask>::basic_fracessa(search_method method, const linalg::
                                 for (size_t position = 0; position < dimension_; ++position) {
                                     const size_t image_position = symmetry->image_position(
                                         position, multiplier_class, reflected, right_shifts);
-                                    candidate_.vector(image_position, 0) = solved_candidate->vector(position, 0);
+                                    candidate_.vector[image_position] = solved_candidate->vector[position];
                                 }
                             }
                             finalize_candidate(multiplier);
@@ -277,7 +294,8 @@ void basic_fracessa<SupportMask>::start_log(search_method requested_method, bool
                   matrix_label, search_method_name(requested_method), search_method_name(method_), dimension_, is_cs,
                   fallback.empty() ? std::string_view{"none"} : fallback);
     logger_->info("{}", separator);
-    logger_->info("game matrix ({} x {}):\n{}", game_matrix_.rows(), game_matrix_.cols(), game_matrix_.to_pretty_string());
+    logger_->info("game matrix ({} x {}):\n{}", game_.matrix.rows(), game_.matrix.cols(),
+                  rational_matrix_to_pretty_string(game_.matrix, game_.denominator));
 }
 
 template<class SupportMask>
@@ -317,7 +335,7 @@ void basic_fracessa<SupportMask>::log_reduced_b(const SupportMask& outside_best_
 {
     if (!logger_) return;
     logger_->info("scaled reduced B for outside best replies {} ({} x {}):\n{}", support_index_set(outside_best_replies),
-                  scaled_reduced_b_.rows(), scaled_reduced_b_.cols(), scaled_reduced_b_.to_pretty_string());
+                  scaled_reduced_b_.rows(), scaled_reduced_b_.cols(), linalg::to_pretty_string(scaled_reduced_b_));
 }
 
 template<class SupportMask>
@@ -366,9 +384,10 @@ void basic_fracessa<SupportMask>::finalize_candidate(std::optional<size_t> multi
     if (conf_with_candidates_) candidates_.push_back(candidate_);
 }
 
-template basic_fracessa<bitset64>::basic_fracessa(search_method, const linalg::matrix_frc&, bool, bool, bool, bool, std::int64_t);
+template basic_fracessa<bitset64>::basic_fracessa(
+    search_method, coposit::parsers::parsed_matrix, bool, bool, bool, std::int64_t);
 template basic_fracessa<bitset_multiword>::basic_fracessa(
-    search_method, const linalg::matrix_frc&, bool, bool, bool, bool, std::int64_t);
+    search_method, coposit::parsers::parsed_matrix, bool, bool, bool, std::int64_t);
 template bool basic_fracessa<bitset64>::analyze_support(const bitset64&, size_t);
 template bool basic_fracessa<bitset_multiword>::analyze_support(const bitset_multiword&, size_t);
 template void basic_fracessa<bitset64>::finalize_candidate(std::optional<size_t>);

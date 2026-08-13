@@ -1,13 +1,10 @@
 #include <fracessa/exact_candidate_solver.hpp>
 
-#include <algorithm>
 #include <cassert>
-#include <cmath>
 #include <cstdint>
 #include <limits>
 #include <stdexcept>
 #include <type_traits>
-#include <vector>
 
 namespace candidate_search {
 
@@ -29,123 +26,25 @@ size_t checked_reduced_entry_cache_size(size_t dimension)
 /*
  * Exact candidate solver for a symmetric payoff matrix.
  *
- * The constructor clears the rational denominators once for the whole game:
+ * The parser has already cleared the rational denominators once for the whole game:
  *
  *     integer_game = game_denominator * game.
  *
  * The denominator is positive, so this scaling preserves every equality, inequality, and inertia sign used by candidate search and stability.
  * Each support can therefore stay in integer arithmetic until a successful candidate is written to the public rational result.
  */
-exact_candidate_solver::exact_candidate_solver(const linalg::matrix_frc& game_matrix)
-    : dimension_(game_matrix.rows())
+exact_candidate_solver::exact_candidate_solver(const linalg::matrix_int& integer_game, const linalg::integer& game_denominator)
+    : dimension_(integer_game.rows())
     , reduced_entry_cache_(checked_reduced_entry_cache_size(dimension_))
     , reduced_entry_cache_ready_(checked_reduced_entry_cache_size(dimension_), 0)
     , ffldlt_workspace_(dimension_)
+    , integer_game_(integer_game)
+    , game_denominator_(game_denominator)
 {
-    integer_game_.set_from_fraction_matrix(game_matrix, game_denominator_);
     if (dimension_ > bs64::kMaxBitsetDimension) {
         support_indices_large_.reserve(dimension_);
         non_support_indices_large_.reserve(dimension_);
     }
-}
-
-/*
- * Let d be the least common positive denominator of the game and Z=d*A its integer matrix. The exact precision span is
- *
- *     P = M/m,
- *     M = max(d, max |Z_ij|),
- *     m = min(d, nonzero |Z_ij|, nonzero |Z_ij-Z_kl|).
- *
- * The scale d represents the 1 and -1 entries in the bordered double system. After sorting the symmetric upper triangle, only
- * adjacent distinct integers need to be compared to find the smallest nonzero pairwise difference.
- */
-bool exact_candidate_solver::precision_span_at_least(unsigned long limit) const
-{
-    linalg::integer maximum;
-    return precision_span_at_least(limit, true, maximum);
-}
-
-bool exact_candidate_solver::precision_span_at_least(unsigned long limit, bool include_game_denominator,
-                                                  linalg::integer& maximum) const
-{
-    const size_t entry_count = dimension_ * (dimension_ + 1) / 2;
-    std::vector<linalg::integer::const_reference> entries;
-    entries.reserve(entry_count);
-
-    for (size_t row = 0; row < dimension_; ++row) {
-        for (size_t column = row; column < dimension_; ++column) {
-            entries.push_back(integer_game_(row, column));
-        }
-    }
-    std::sort(entries.begin(), entries.end(), [](auto left, auto right) { return left.compare(right) < 0; });
-
-    linalg::integer minimum;
-    linalg::integer difference;
-    linalg::integer scaled_minimum;
-    bool found_nonzero_scale = false;
-
-    if (include_game_denominator) {
-        maximum = game_denominator_;
-        minimum = game_denominator_;
-        found_nonzero_scale = true;
-    } else {
-        maximum.set_zero();
-    }
-
-    for (const auto entry : entries) {
-        if (entry.is_zero()) continue;
-        if (!found_nonzero_scale) {
-            maximum.set_abs(entry);
-            minimum.set_abs(entry);
-            found_nonzero_scale = true;
-        } else {
-            if (entry.compare_abs(maximum) > 0) maximum.set_abs(entry);
-            if (entry.compare_abs(minimum) < 0) minimum.set_abs(entry);
-        }
-    }
-    if (!found_nonzero_scale) return false;
-
-    for (size_t index = 1; index < entries.size(); ++index) {
-        if (entries[index - 1].compare(entries[index]) == 0) continue;
-        difference.set_difference(entries[index], entries[index - 1]);
-        if (difference.compare(minimum) < 0) minimum = difference;
-    }
-
-    scaled_minimum = minimum;
-    scaled_minimum.multiply(limit);
-    return maximum.compare(scaled_minimum) >= 0;
-}
-
-safe_fallback exact_candidate_solver::prepare_normalized_double_game(unsigned long precision_span_limit, linalg::matrix_dbl& result) const
-{
-    /*
-     * integer_game = game_denominator * game. The common positive denominator changes every payoff by the same factor and can
-     * therefore be omitted by the double candidate prefilter. One further common power-of-two scale keeps the largest integer
-     * entry near one without introducing another rounding operation. Unlike row/column equilibration, this cannot change the game.
-     */
-    linalg::integer maximum;
-    if (precision_span_at_least(precision_span_limit, false, maximum)) return safe_fallback::precision_span;
-
-    result = linalg::matrix_dbl(dimension_, dimension_);
-    if (maximum.is_zero()) return safe_fallback::none;
-
-    slong maximum_exponent = 0;
-    static_cast<void>(maximum.to_dbl_2exp(maximum_exponent));
-    for (size_t row = 0; row < dimension_; ++row) {
-        for (size_t column = 0; column <= row; ++column) {
-            const auto entry = integer_game_(row, column);
-            if (entry.is_zero()) continue;
-
-            slong entry_exponent = 0;
-            const double mantissa = entry.to_dbl_2exp(entry_exponent);
-            const slong exponent_difference = entry_exponent - maximum_exponent;
-            // The preceding precision-span check bounds every nonzero entry to less than 10^9 below the maximum, so this scale cannot underflow or overflow.
-            const double value = std::scalbn(mantissa, static_cast<int>(exponent_difference));
-            result(row, column) = value;
-            result(column, row) = value;
-        }
-    }
-    return safe_fallback::none;
 }
 
 void exact_candidate_solver::resize_reduced_system(size_t reduced_dimension)
@@ -324,7 +223,7 @@ void exact_candidate_solver::calculate_integer_payoff(linalg::integer& value, si
 template<class SupportMask>
 void exact_candidate_solver::ensure_candidate_vector(basic_candidate<SupportMask>& result) const
 {
-    if (result.vector.rows() != dimension_ || result.vector.cols() != 1) result.vector = linalg::matrix_frc(dimension_, 1);
+    if (result.vector.size() != dimension_) result.vector.resize(dimension_);
 }
 
 /*
@@ -338,31 +237,31 @@ void exact_candidate_solver::ensure_candidate_vector(basic_candidate<SupportMask
  * The fraction-free LDL^T solve proves nonsingularity, returns all probabilities with one common denominator, and records the exact inertia of H.
  * A failed test returns immediately; rational candidate fields are materialized only after every exact candidate condition succeeds.
  */
-bool exact_candidate_solver::find(const bitset64& support, size_t support_size, candidate& result, bool materialize_vector)
+bool exact_candidate_solver::find(const bitset64& support, size_t support_size, candidate& result, bool materialize_output)
 {
     uint8_t support_indices[bs64::kMaxBitsetDimension];
     uint8_t non_support_indices[bs64::kMaxBitsetDimension];
     const size_t support_count = bs64::extract_set_indices(support, dimension_, support_indices);
     const bitset64 complement = bs64::set_all_n_bits(dimension_) & ~support;
     const size_t non_support_count = bs64::extract_set_indices(complement, dimension_, non_support_indices);
-    return find_from_indices(support, support_size, result, materialize_vector, support_indices, support_count,
+    return find_from_indices(support, support_size, result, materialize_output, support_indices, support_count,
                              non_support_indices, non_support_count);
 }
 
 bool exact_candidate_solver::find(const bitset_multiword& support, size_t support_size, multiword_candidate& result,
-                               bool materialize_vector)
+                               bool materialize_output)
 {
     assert(support.dimension() == dimension_);
     support.extract_set_indices(support_indices_large_);
     support.extract_unset_indices(non_support_indices_large_);
 
-    return find_from_indices(support, support_size, result, materialize_vector, support_indices_large_.data(),
+    return find_from_indices(support, support_size, result, materialize_output, support_indices_large_.data(),
                              support_indices_large_.size(), non_support_indices_large_.data(), non_support_indices_large_.size());
 }
 
 template<class SupportMask, class Index>
 bool exact_candidate_solver::find_from_indices(const SupportMask& support, size_t support_size,
-                                            basic_candidate<SupportMask>& result, bool materialize_vector,
+                                            basic_candidate<SupportMask>& result, bool materialize_output,
                                             const Index* support_indices, size_t support_count,
                                             const Index* non_support_indices, size_t non_support_count)
 {
@@ -414,21 +313,22 @@ bool exact_candidate_solver::find_from_indices(const SupportMask& support, size_
         }
     }
 
-    payoff_denominator_.set_product(game_denominator_, solution_denominator_);
-    result.payoff.set_ratio(payoff_numerator_, payoff_denominator_);
-    result.payoff_dbl = result.payoff.to_dbl();
     if constexpr (std::is_same_v<SupportMask, bitset64>)
         result.extended_support_size = bs64::count_set_bits(result.extended_support);
     else
         result.extended_support_size = result.extended_support.count_set_bits();
 
-    // Stability and logging do not consume the dense probability vector. Build it only when candidate output requests it.
-    if (materialize_vector) {
+    // Stability, pruning, counting, and logging consume only exact integers and masks. Construct public rational output only when requested.
+    if (materialize_output) {
+        payoff_denominator_.set_product(game_denominator_, solution_denominator_);
+        result.payoff.set_ratio(payoff_numerator_, payoff_denominator_);
+        result.payoff_dbl = result.payoff.to_dbl();
+
         ensure_candidate_vector(result);
-        for (size_t position = 0; position < non_support_count; ++position) result.vector(non_support_indices[position], 0) = fraction::zero();
-        result.vector(reference, 0).set_ratio(reference_numerator_, solution_denominator_);
+        for (size_t position = 0; position < non_support_count; ++position) result.vector[non_support_indices[position]].set_zero();
+        result.vector[reference].set_ratio(reference_numerator_, solution_denominator_);
         for (size_t position = 0; position < reduced_dimension; ++position) {
-            result.vector(support_indices[position + 1], 0).set_ratio(solution_numerators_(position, 0), solution_denominator_);
+            result.vector[support_indices[position + 1]].set_ratio(solution_numerators_(position, 0), solution_denominator_);
         }
     }
 

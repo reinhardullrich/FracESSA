@@ -7,10 +7,11 @@
 #include <sstream>
 #include <stdexcept>
 #include <string>
+#include <utility>
 #include <vector>
 
+#include <coposit/parsers/matrix_parser.hpp>
 #include <fracessa/fracessa.hpp>
-#include <fracessa/matrix_parser.hpp>
 
 namespace py = pybind11;
 
@@ -52,13 +53,13 @@ struct NativeResult {
     std::vector<NativeCandidate> candidates;
 };
 
-std::string strategy_vector_to_string(const linalg::matrix_frc& vec)
+std::string strategy_vector_to_string(const std::vector<linalg::fraction>& vec)
 {
     // Keep exact rational probabilities as text instead of rounding to double.
     std::ostringstream out;
-    const size_t n = vec.rows();
+    const size_t n = vec.size();
     for (size_t i = 0; i < n; ++i) {
-        out << vec(i, 0).to_string();
+        out << vec[i].to_string();
         if (i + 1 < n) {
             out << ",";
         }
@@ -67,11 +68,11 @@ std::string strategy_vector_to_string(const linalg::matrix_frc& vec)
 }
 
 template<class Analyzer>
-void run_analyzer(search_method method, const linalg::matrix_frc& matrix, bool is_cs, bool include_candidates,
+void run_analyzer(search_method method, coposit::parsers::parsed_matrix matrix, bool include_candidates,
                   bool full_support, bool enable_logging, std::int64_t matrix_id, NativeResult& result)
 {
     const auto start = std::chrono::steady_clock::now();
-    Analyzer analyzer(method, matrix, is_cs, include_candidates, full_support, enable_logging, matrix_id);
+    Analyzer analyzer(method, std::move(matrix), include_candidates, full_support, enable_logging, matrix_id);
     const auto end = std::chrono::steady_clock::now();
 
     result.elapsed_ns = std::chrono::duration_cast<std::chrono::nanoseconds>(end - start).count();
@@ -114,11 +115,10 @@ NativeResult compute_matrix_impl(
     try {
         const search_method method = parse_search_method(method_name);
 
-        linalg::matrix_frc parsed_matrix;
-        bool is_cs = false;
+        coposit::parsers::parsed_matrix parsed_matrix;
 
         try {
-            matrix_parser::parse_matrix_string(matrix, parsed_matrix, is_cs);
+            parsed_matrix = coposit::parsers::matrix_parser::parse(matrix);
         } catch (const std::invalid_argument& e) {
             result.status = kStatusParseError;
             result.error_message = e.what();
@@ -130,10 +130,10 @@ NativeResult compute_matrix_impl(
             logging_lock.lock();
         }
 
-        if (parsed_matrix.rows() <= bs64::kMaxBitsetDimension)
-            run_analyzer<::fracessa>(method, parsed_matrix, is_cs, include_candidates, full_support, enable_logging, matrix_id, result);
+        if (parsed_matrix.matrix.rows() <= bs64::kMaxBitsetDimension)
+            run_analyzer<::fracessa>(method, std::move(parsed_matrix), include_candidates, full_support, enable_logging, matrix_id, result);
         else
-            run_analyzer<::multiword_fracessa>(method, parsed_matrix, is_cs, include_candidates, full_support, enable_logging,
+            run_analyzer<::multiword_fracessa>(method, std::move(parsed_matrix), include_candidates, full_support, enable_logging,
                                                matrix_id, result);
         result.status = kStatusOk;
 
@@ -212,12 +212,9 @@ py::dict compute_matrix(
 
 candidate_search::safe_fallback classify_safe_fallback_impl(const std::string& matrix)
 {
-    linalg::matrix_frc parsed_matrix;
-    [[maybe_unused]] bool is_cs = false;
-    matrix_parser::parse_matrix_string(matrix, parsed_matrix, is_cs);
-    candidate_search::exact_candidate_solver exact_solver(parsed_matrix);
-    candidate_search::fast_candidate_filter fast_filter(parsed_matrix);
-    fast_filter.convert_game_matrix(exact_solver);
+    const auto parsed_matrix = coposit::parsers::matrix_parser::parse(matrix);
+    candidate_search::fast_candidate_filter fast_filter(parsed_matrix.matrix.rows());
+    fast_filter.convert_game_matrix(parsed_matrix.matrix);
     return fast_filter.safe_fallback_reason();
 }
 

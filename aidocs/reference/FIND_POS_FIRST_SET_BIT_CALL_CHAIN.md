@@ -1,6 +1,7 @@
 # `find_pos_first_set_bit` Production Call Chain
 
-Status: current production reference. Last verified: 2026-08-09. Tests are excluded.
+Status: historical production snapshot from 2026-08-09. Tests were excluded. The 2026-08-12 Coposit integration removed the
+FracESSA-owned Hadeler and connected-component callers described below; current Coposit internals live in `external/coposit/`.
 
 ## Contract
 
@@ -11,7 +12,7 @@ Status: current production reference. Last verified: 2026-08-09. Tests are exclu
 - `bs64::lowest_set_bit_as_bit()` is separate: it isolates the lowest bit directly and is defined for zero.
 - The former `find_pos_next_set_bit()` helper no longer exists. Iteration clears the current lowest bit or extracts all indices once.
 
-## Direct Production Calls
+## Direct Production Calls At The Snapshot
 
 | Location | Caller | Purpose |
 |---|---|---|
@@ -24,7 +25,7 @@ Status: current production reference. Last verified: 2026-08-09. Tests are exclu
 
 Every caller establishes nonemptiness through its loop, candidate, principal-subset, component, or forbidden-support invariant.
 
-## Call Graph
+## Historical Call Graph
 
 ```text
 basic_fracessa::run
@@ -47,19 +48,19 @@ multiword support generator::generate
      -> bitset_multiword::find_pos_first_set_bit
 ```
 
-## Separate Index-Extraction Path
+## Separate Index-Extraction Path At The Snapshot
 
 Neither `extract_set_indices()` implementation calls `find_pos_first_set_bit()`. Both repeatedly apply `ctz64()` and clear the bit
 with `word &= word - 1`; the multiword version repeats that operation for every word.
 
-Production uses index extraction in:
+Production used index extraction in:
 
 - `cpp/include/linalg/copositive_integer.hpp` for Hadeler subsets and disconnected components;
 - `cpp/src/exact_candidate_solver.cpp` for candidate systems, scaled reduced $B$, and outside-payoff checks;
 - `cpp/src/fast_candidate_filter.cpp` for binary64 candidate systems; and
 - `cpp/include/fracessa/circular_affine_symmetry.hpp` for multiword support permutations.
 
-Regenerate the occurrence list with:
+Regenerate the current occurrence list with:
 
 ```bash
 rg -n 'find_pos_first_set_bit|find_pos_next_set_bit|lowest_set_bit_as_bit|extract_set_indices' \
