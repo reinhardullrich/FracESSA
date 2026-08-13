@@ -1,9 +1,9 @@
 #include <fracessa/fracessa.hpp>
-#include <fracessa/bitset64.hpp>
+#include <fracessa/bitset.hpp>
 #include <fracessa/circular_affine_symmetry.hpp>
 #include <fracessa/support_generator_circular.hpp>
 #include <fracessa/support_generator_non_circular.hpp>
-#include <linalg/fraction.hpp>
+#include <fracessa/fraction.hpp>
 
 #include <spdlog/sinks/rotating_file_sink.h>
 #include <spdlog/spdlog.h>
@@ -25,6 +25,8 @@
  * pruning; stability determines only whether that candidate is an ESS.
  */
 
+namespace fracessa {
+
 search_method parse_search_method(std::string_view name)
 {
     if (name == "fast") return search_method::fast;
@@ -43,14 +45,14 @@ constexpr const char* search_method_name(search_method method) noexcept
     return "unknown";
 }
 
-std::string support_index_set(bitset64 support)
+std::string support_index_set(support::bitset support)
 {
     std::ostringstream result;
     result << '{';
     bool first = true;
     while (support != 0) {
         if (!first) result << ", ";
-        result << ctz64(support);
+        result << support::ctz64(support);
         first = false;
         support &= support - 1;
     }
@@ -58,7 +60,7 @@ std::string support_index_set(bitset64 support)
     return result.str();
 }
 
-std::string support_index_set(const bitset_multiword& support)
+std::string support_index_set(const support::bitset_multiword& support)
 {
     std::ostringstream result;
     result << '{';
@@ -87,10 +89,10 @@ void add_checked(size_t& destination, size_t value, const char* field)
     destination += value;
 }
 
-std::string rational_matrix_to_pretty_string(const linalg::matrix_int& matrix, linalg::integer::const_reference denominator)
+std::string rational_matrix_to_pretty_string(const numeric::matrix_int& matrix, numeric::integer::const_reference denominator)
 {
     std::ostringstream stream;
-    fraction value;
+    numeric::fraction value;
     for (size_t row = 0; row < matrix.rows(); ++row) {
         stream << "  " << row << ": [";
         for (size_t column = 0; column < matrix.cols(); ++column) {
@@ -107,7 +109,7 @@ std::string rational_matrix_to_pretty_string(const linalg::matrix_int& matrix, l
 } // namespace
 
 template<class SupportMask>
-basic_fracessa<SupportMask>::basic_fracessa(search_method method, coposit::parsers::parsed_matrix game,
+basic_analyzer<SupportMask>::basic_analyzer(search_method method, coposit::parsers::parsed_matrix game,
                                             bool with_candidates, bool full_support, bool with_log, std::int64_t matrix_id)
     : candidate_structure_(make_structure(game.matrix.rows()))
     , ess_structure_(make_structure(game.matrix.rows()))
@@ -121,7 +123,7 @@ basic_fracessa<SupportMask>::basic_fracessa(search_method method, coposit::parse
     , candidate_(make_candidate(dimension_))
     , logger_()
 {
-    if constexpr (std::is_same_v<SupportMask, bitset64>) {
+    if constexpr (std::is_same_v<SupportMask, support::bitset>) {
         if (conf_with_candidates_) candidates_.reserve(250 * dimension_);
     } else {
         if (conf_with_candidates_) candidates_.reserve(checked_product(250, dimension_, "Candidate reserve"));
@@ -130,14 +132,14 @@ basic_fracessa<SupportMask>::basic_fracessa(search_method method, coposit::parse
     if (method_ == search_method::fast) {
         fast_candidate_filter_.convert_game_matrix(game_.matrix);
         safe_fallback_ = fast_candidate_filter_.safe_fallback_reason();
-        if (safe_fallback_ != candidate_search::safe_fallback::none) method_ = search_method::safe;
+        if (safe_fallback_ != search::safe_fallback::none) method_ = search_method::safe;
     }
 
     if (with_log) start_log(method, game_.compact_circular, matrix_id);
 
     if (conf_full_support_) {
         SupportMask full_support_mask = [&]() {
-            if constexpr (std::is_same_v<SupportMask, bitset64>) return bs64::set_all_n_bits(dimension_);
+            if constexpr (std::is_same_v<SupportMask, support::bitset>) return support::set_all_n_bits(dimension_);
             else {
                 SupportMask result(dimension_);
                 result.set_all();
@@ -153,14 +155,14 @@ basic_fracessa<SupportMask>::basic_fracessa(search_method method, coposit::parse
         }
     }
 
-    if constexpr (std::is_same_v<SupportMask, bitset64>) {
+    if constexpr (std::is_same_v<SupportMask, support::bitset>) {
         if (game_.compact_circular) {
-            CircularSupportGenerator generator(dimension_);
-            std::optional<CircularAffineSymmetry> symmetry(std::in_place, game_.matrix);
+            support::CircularSupportGenerator generator(dimension_);
+            std::optional<support::CircularAffineSymmetry> symmetry(std::in_place, game_.matrix);
             if (symmetry->multiplier_class_count() == 1) symmetry.reset();
             // This lambda is the callback. The generator calls it once for each circular representative and supplies both the
             // mask and its size.
-            generator.generate([&](bitset64 support, size_t support_size) {
+            generator.generate([&](support::bitset support, size_t support_size) {
                 if (conf_full_support_ && support_size == dimension_)
                     return;
                 if (symmetry && !symmetry->is_representative(support))
@@ -172,7 +174,7 @@ basic_fracessa<SupportMask>::basic_fracessa(search_method method, coposit::parse
                         if (conf_with_candidates_) solved_candidate = candidate_;
 
                         symmetry->for_each_distinct_bracelet_image(candidate_.support,
-                                [&](bitset64 image, size_t multiplier_class, bool reflected, size_t right_shifts) {
+                                [&](support::bitset image, size_t multiplier_class, bool reflected, size_t right_shifts) {
                             const size_t multiplier = generator.add_forbidden_orbit(image);
                             if (solved_candidate) {
                                 const size_t previous_candidate_id = candidate_.candidate_id;
@@ -203,9 +205,9 @@ basic_fracessa<SupportMask>::basic_fracessa(search_method method, coposit::parse
                 for (size_t index = 0; index < candidates_.size(); ++index) candidates_[index].candidate_id = index + 1;
             }
         } else {
-            NonCircularSupportGenerator generator(dimension_);
+            support::NonCircularSupportGenerator generator(dimension_);
             // This lambda is the callback. The generator calls it once for each support and supplies both the mask and its size.
-            generator.generate([&](bitset64 support, size_t support_size) {
+            generator.generate([&](support::bitset support, size_t support_size) {
                 if (conf_full_support_ && support_size == dimension_)
                     return;
                 log_support_size(support_size);
@@ -217,10 +219,10 @@ basic_fracessa<SupportMask>::basic_fracessa(search_method method, coposit::parse
         }
     } else {
         if (game_.compact_circular) {
-            CircularSupportGeneratorMultiword generator(dimension_);
-            std::optional<CircularAffineSymmetryMultiword> symmetry(std::in_place, game_.matrix);
+            support::CircularSupportGeneratorMultiword generator(dimension_);
+            std::optional<support::CircularAffineSymmetryMultiword> symmetry(std::in_place, game_.matrix);
             if (symmetry->multiplier_class_count() == 1) symmetry.reset();
-            generator.generate([&](const bitset_multiword& support, size_t support_size) {
+            generator.generate([&](const support::bitset_multiword& support, size_t support_size) {
                 if (conf_full_support_ && support_size == dimension_) return;
                 if (symmetry && !symmetry->is_representative(support)) return;
                 log_support_size(support_size);
@@ -230,7 +232,7 @@ basic_fracessa<SupportMask>::basic_fracessa(search_method method, coposit::parse
                         if (conf_with_candidates_) solved_candidate = candidate_;
 
                         symmetry->for_each_distinct_bracelet_image(candidate_.support,
-                                [&](const bitset_multiword& image, size_t multiplier_class,
+                                [&](const support::bitset_multiword& image, size_t multiplier_class,
                                     bool reflected, size_t right_shifts) {
                             const size_t multiplier = generator.add_forbidden_orbit(image);
                             if (solved_candidate) {
@@ -262,8 +264,8 @@ basic_fracessa<SupportMask>::basic_fracessa(search_method method, coposit::parse
                 for (size_t index = 0; index < candidates_.size(); ++index) candidates_[index].candidate_id = index + 1;
             }
         } else {
-            NonCircularSupportGeneratorMultiword generator(dimension_);
-            generator.generate([&](const bitset_multiword& support, size_t support_size) {
+            support::NonCircularSupportGeneratorMultiword generator(dimension_);
+            generator.generate([&](const support::bitset_multiword& support, size_t support_size) {
                 if (conf_full_support_ && support_size == dimension_) return;
                 log_support_size(support_size);
                 if (analyze_support(support, support_size)) {
@@ -278,7 +280,7 @@ basic_fracessa<SupportMask>::basic_fracessa(search_method method, coposit::parse
 }
 
 template<class SupportMask>
-void basic_fracessa<SupportMask>::start_log(search_method requested_method, bool is_cs, std::int64_t matrix_id)
+void basic_analyzer<SupportMask>::start_log(search_method requested_method, bool is_cs, std::int64_t matrix_id)
 {
     auto rotating_sink = std::make_shared<spdlog::sinks::rotating_file_sink_mt>("log/fracessa.log", 20 * 1024 * 1024, 5);
     logger_ = std::make_shared<spdlog::logger>("fracessa", rotating_sink);
@@ -286,7 +288,7 @@ void basic_fracessa<SupportMask>::start_log(search_method requested_method, bool
     logger_->set_level(spdlog::level::info);
 
     const std::string matrix_label = matrix_id >= 0 ? std::to_string(matrix_id) : "none";
-    const std::string_view fallback = candidate_search::safe_fallback_name(safe_fallback_);
+    const std::string_view fallback = search::safe_fallback_name(safe_fallback_);
     constexpr std::string_view separator = "==============================================================================";
     logger_->info("");
     logger_->info("{}", separator);
@@ -299,7 +301,7 @@ void basic_fracessa<SupportMask>::start_log(search_method requested_method, bool
 }
 
 template<class SupportMask>
-void basic_fracessa<SupportMask>::log_support_size(size_t support_size)
+void basic_analyzer<SupportMask>::log_support_size(size_t support_size)
 {
     if (!logger_ || support_size == last_logged_support_size_) return;
     logger_->info("searching support size: {}", support_size);
@@ -307,15 +309,15 @@ void basic_fracessa<SupportMask>::log_support_size(size_t support_size)
 }
 
 template<class SupportMask>
-void basic_fracessa<SupportMask>::log_candidate()
+void basic_analyzer<SupportMask>::log_candidate()
 {
     if (!logger_) return;
 
     SupportMask outside_best_replies = candidate_.extended_support;
     size_t reference;
-    if constexpr (std::is_same_v<SupportMask, bitset64>) {
-        outside_best_replies = bs64::subtract(outside_best_replies, candidate_.support);
-        reference = bs64::find_pos_first_set_bit(candidate_.support);
+    if constexpr (std::is_same_v<SupportMask, support::bitset>) {
+        outside_best_replies = support::subtract(outside_best_replies, candidate_.support);
+        reference = support::find_pos_first_set_bit(candidate_.support);
     } else {
         outside_best_replies.subtract(candidate_.support);
         reference = candidate_.support.find_pos_first_set_bit();
@@ -331,15 +333,15 @@ void basic_fracessa<SupportMask>::log_candidate()
 }
 
 template<class SupportMask>
-void basic_fracessa<SupportMask>::log_reduced_b(const SupportMask& outside_best_replies)
+void basic_analyzer<SupportMask>::log_reduced_b(const SupportMask& outside_best_replies)
 {
     if (!logger_) return;
     logger_->info("scaled reduced B for outside best replies {} ({} x {}):\n{}", support_index_set(outside_best_replies),
-                  scaled_reduced_b_.rows(), scaled_reduced_b_.cols(), linalg::to_pretty_string(scaled_reduced_b_));
+                  scaled_reduced_b_.rows(), scaled_reduced_b_.cols(), scaled_reduced_b_.to_pretty_string());
 }
 
 template<class SupportMask>
-void basic_fracessa<SupportMask>::set_stability_result(bool is_ess, std::string_view reason)
+void basic_analyzer<SupportMask>::set_stability_result(bool is_ess, std::string_view reason)
 {
     candidate_.is_ess = is_ess;
     candidate_.stability.assign(reason.data(), reason.size());
@@ -347,7 +349,7 @@ void basic_fracessa<SupportMask>::set_stability_result(bool is_ess, std::string_
 }
 
 template<class SupportMask>
-void basic_fracessa<SupportMask>::finish_log()
+void basic_analyzer<SupportMask>::finish_log()
 {
     if (!logger_) return;
     logger_->info("run finished: weighted candidates={} weighted ESS={}", candidate_count_, ess_count_);
@@ -355,7 +357,7 @@ void basic_fracessa<SupportMask>::finish_log()
 }
 
 template<class SupportMask>
-bool basic_fracessa<SupportMask>::analyze_support(const SupportMask& support, size_t support_size) {
+bool basic_analyzer<SupportMask>::analyze_support(const SupportMask& support, size_t support_size) {
     if (method_ == search_method::fast && !fast_candidate_filter_.passes(support, support_size)) return false;
     if (!exact_candidate_solver_.find(support, support_size, candidate_, conf_with_candidates_))
         return false;
@@ -369,7 +371,7 @@ bool basic_fracessa<SupportMask>::analyze_support(const SupportMask& support, si
 }
 
 template<class SupportMask>
-void basic_fracessa<SupportMask>::finalize_candidate(std::optional<size_t> multiplier) {
+void basic_analyzer<SupportMask>::finalize_candidate(std::optional<size_t> multiplier) {
     candidate_.multiplier = multiplier;
     add_checked(candidate_.candidate_id, 1, "Candidate ID");
 
@@ -384,15 +386,17 @@ void basic_fracessa<SupportMask>::finalize_candidate(std::optional<size_t> multi
     if (conf_with_candidates_) candidates_.push_back(candidate_);
 }
 
-template basic_fracessa<bitset64>::basic_fracessa(
+template basic_analyzer<support::bitset>::basic_analyzer(
     search_method, coposit::parsers::parsed_matrix, bool, bool, bool, std::int64_t);
-template basic_fracessa<bitset_multiword>::basic_fracessa(
+template basic_analyzer<support::bitset_multiword>::basic_analyzer(
     search_method, coposit::parsers::parsed_matrix, bool, bool, bool, std::int64_t);
-template bool basic_fracessa<bitset64>::analyze_support(const bitset64&, size_t);
-template bool basic_fracessa<bitset_multiword>::analyze_support(const bitset_multiword&, size_t);
-template void basic_fracessa<bitset64>::finalize_candidate(std::optional<size_t>);
-template void basic_fracessa<bitset_multiword>::finalize_candidate(std::optional<size_t>);
-template void basic_fracessa<bitset64>::log_reduced_b(const bitset64&);
-template void basic_fracessa<bitset_multiword>::log_reduced_b(const bitset_multiword&);
-template void basic_fracessa<bitset64>::set_stability_result(bool, std::string_view);
-template void basic_fracessa<bitset_multiword>::set_stability_result(bool, std::string_view);
+template bool basic_analyzer<support::bitset>::analyze_support(const support::bitset&, size_t);
+template bool basic_analyzer<support::bitset_multiword>::analyze_support(const support::bitset_multiword&, size_t);
+template void basic_analyzer<support::bitset>::finalize_candidate(std::optional<size_t>);
+template void basic_analyzer<support::bitset_multiword>::finalize_candidate(std::optional<size_t>);
+template void basic_analyzer<support::bitset>::log_reduced_b(const support::bitset&);
+template void basic_analyzer<support::bitset_multiword>::log_reduced_b(const support::bitset_multiword&);
+template void basic_analyzer<support::bitset>::set_stability_result(bool, std::string_view);
+template void basic_analyzer<support::bitset_multiword>::set_stability_result(bool, std::string_view);
+
+} // namespace fracessa

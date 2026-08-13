@@ -16,9 +16,9 @@
 #include <cstddef>
 #include <vector>
 
-#include <linalg/matrix_integer.hpp>
+#include <fracessa/types.hpp>
 
-namespace linalg {
+namespace fracessa::numeric {
 
 struct fraction_free_ldlt_inertia {
     slong positive = 0;
@@ -421,4 +421,4 @@ inline int solve_fraction_free_ldlt(matrix_int& solution, integer& denominator, 
     return workspace.solve_inplace(solution, denominator, system_copy, right_hand_side_copy, inertia);
 }
 
-} // namespace linalg
+} // namespace fracessa::numeric

@@ -7,6 +7,8 @@
 #include <string>
 #include <vector>
 
+using namespace fracessa::support;
+
 namespace {
 
 std::vector<bool> make_reference(size_t dimension, std::initializer_list<size_t> positions)

@@ -1,4 +1,4 @@
-// bitset64.hpp
+// bitset.hpp
 #pragma once
 
 #include <cstdint>
@@ -19,6 +19,8 @@
 #ifdef _MSC_VER
   #include <intrin.h>
 #endif
+
+namespace fracessa::support {
 
 // Portable popcount wrapper
 inline size_t popcount64(uint64_t x) noexcept {
@@ -42,32 +44,29 @@ inline size_t ctz64(uint64_t x) noexcept {
 
 // One word stores every support for dimensions 1 through 64; dimension 64 uses all bits. Larger dimensions use bitset_multiword,
 // while this type remains the allocation-free hot path for small games.
-typedef uint64_t bitset64;
-
-// Namespace for bitset64 operations
-namespace bs64 {
+using bitset = uint64_t;
 
 constexpr size_t kMaxBitsetDimension = 64;
 
-inline bitset64 set_bit_at_pos(bitset64 bits, size_t pos) noexcept {
+inline bitset set_bit_at_pos(bitset bits, size_t pos) noexcept {
   return bits | (1ULL << pos);
 }
 
-inline bitset64 set_all_n_bits(size_t n) noexcept {
-  return n == 64 ? ~bitset64{0} : (bitset64{1} << n) - 1;
+inline bitset set_all_n_bits(size_t n) noexcept {
+  return n == 64 ? ~bitset{0} : (bitset{1} << n) - 1;
 }
 
 // Shift every strategy index down by one modulo n. Circular-symmetric games
 // use this to obtain the other supports in the same rotational orbit.
-inline bitset64 rot_one_right(bitset64 bits, size_t n) noexcept {
-  bitset64 mask = set_all_n_bits(n);
-  bitset64 low = bits & mask;
-  bitset64 lo = low << (n - 1);
-  bitset64 hi = low >> 1;
+inline bitset rot_one_right(bitset bits, size_t n) noexcept {
+  bitset mask = set_all_n_bits(n);
+  bitset low = bits & mask;
+  bitset lo = low << (n - 1);
+  bitset hi = low >> 1;
   return (hi | lo) & mask;
 }
 
-inline bitset64 reverse_bits(bitset64 bits) noexcept {
+inline bitset reverse_bits(bitset bits) noexcept {
 #if defined(__aarch64__) && (defined(__GNUC__) || defined(__clang__))
   // GCC does not recognize the portable mask sequence as ARM64's single rbit instruction.
   __asm__("rbit %0, %1" : "=r"(bits) : "r"(bits));
@@ -84,55 +83,55 @@ inline bitset64 reverse_bits(bitset64 bits) noexcept {
 
 // Mirror strategy i to n-1-i. Rotations of this result cover every reflection
 // axis of a circular support.
-inline bitset64 reflect(bitset64 bits, size_t n) noexcept {
+inline bitset reflect(bitset bits, size_t n) noexcept {
   if (n == 0) return 0;
   return reverse_bits(bits) >> (64 - n);
 }
 
-inline bool is_set_at_pos(bitset64 bits, size_t pos) noexcept {
+inline bool is_set_at_pos(bitset bits, size_t pos) noexcept {
   return (bits >> pos) & 1ULL;
 }
 
-inline size_t count_set_bits(bitset64 bits) noexcept {
+inline size_t count_set_bits(bitset bits) noexcept {
   return popcount64(bits);
 }
 
-inline size_t find_pos_first_set_bit(bitset64 bits) noexcept {
+inline size_t find_pos_first_set_bit(bitset bits) noexcept {
   return ctz64(bits);
 }
 
 // Set inclusion: bits is a subset of o exactly when it has no bit outside o.
-inline bool is_subset_of(bitset64 bits, bitset64 o) noexcept {
+inline bool is_subset_of(bitset bits, bitset o) noexcept {
   return (bits & ~o) == 0ULL;
 }
 
 // Return this \ o (set difference)
-inline bitset64 subtract(bitset64 bits, bitset64 o) noexcept {
+inline bitset subtract(bitset bits, bitset o) noexcept {
   return bits & ~o;
 }
 
-// Get a single-bit bitset64 with only the bit at position pos set
-inline bitset64 single_bit_at_pos(size_t pos) noexcept {
+// Get a single-bit bitset with only the bit at position pos set
+inline bitset single_bit_at_pos(size_t pos) noexcept {
   return 1ULL << pos;
 }
 
-inline bitset64 lowest_set_bit_as_bit(bitset64 bits) noexcept {
+inline bitset lowest_set_bit_as_bit(bitset bits) noexcept {
   // Unsigned subtraction wraps: x & -x isolates the lowest 1 bit and maps 0 to 0.
   return bits & (0ULL - bits);
 }
 
 // Gosper's algorithm: return the next larger bit pattern with the same number
 // of set bits. Caller guarantees bits != 0 and that another pattern remains in the active width.
-inline bitset64 next_same_cardinality(bitset64 bits) noexcept {
-  const bitset64 lowest = lowest_set_bit_as_bit(bits);
-  const bitset64 ripple = bits + lowest;
+inline bitset next_same_cardinality(bitset bits) noexcept {
+  const bitset lowest = lowest_set_bit_as_bit(bits);
+  const bitset ripple = bits + lowest;
   return ripple | (((ripple ^ bits) >> 2) / lowest);
 }
 
 // Convert to bitstring representation (MSB first, like std::bitset::to_string())
 // Only outputs bits 0 to dimension-1 (rightmost dimension bits)
 // Example: dimension=5, bits 0,3,4 set -> "11001"
-inline std::string to_bitstring(bitset64 bits, size_t dimension) {
+inline std::string to_bitstring(bitset bits, size_t dimension) {
   if (dimension == 0) return "";
   
   std::string result;
@@ -147,14 +146,14 @@ inline std::string to_bitstring(bitset64 bits, size_t dimension) {
 }
 
 // Convert to string representation (decimal representation of uint64)
-inline std::string to_string(bitset64 bits) {
+inline std::string to_string(bitset bits) {
   return std::to_string(bits);
 }
 
 // Write the set positions in increasing order to caller-owned stack storage.
 // ctz finds the current lowest bit; bits &= bits - 1 removes that bit without
 // scanning the other 64 positions. The returned count is the support size.
-inline size_t extract_set_indices(bitset64 bits, size_t dimension, uint8_t (&indices)[kMaxBitsetDimension]) noexcept
+inline size_t extract_set_indices(bitset bits, size_t dimension, uint8_t (&indices)[kMaxBitsetDimension]) noexcept
 {
   if (dimension < kMaxBitsetDimension) {
     bits &= (1ULL << dimension) - 1ULL;
@@ -169,4 +168,4 @@ inline size_t extract_set_indices(bitset64 bits, size_t dimension, uint8_t (&ind
   return count;
 }
 
-} // namespace bs64
+} // namespace fracessa::support

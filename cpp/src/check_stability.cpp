@@ -1,12 +1,17 @@
 #include <coposit/safe.hpp>
 #include <fracessa/fracessa.hpp>
-#include <fracessa/bitset64.hpp>
+#include <fracessa/bitset.hpp>
+
+namespace fracessa {
 
 namespace {
 
-inline bitset64 support_difference(bitset64 left, bitset64 right) noexcept { return bs64::subtract(left, right); }
+inline support::bitset support_difference(support::bitset left, support::bitset right) noexcept
+{
+    return support::subtract(left, right);
+}
 
-inline bitset_multiword support_difference(bitset_multiword left, const bitset_multiword& right) noexcept
+inline support::bitset_multiword support_difference(support::bitset_multiword left, const support::bitset_multiword& right) noexcept
 {
     left.subtract(right);
     return left;
@@ -27,7 +32,7 @@ inline bitset_multiword support_difference(bitset_multiword left, const bitset_m
  */
 
 template<class SupportMask>
-void basic_fracessa<SupportMask>::check_stability()
+void basic_analyzer<SupportMask>::check_stability()
 {
     // Path 1, early acceptance: J contains only the pure support strategy.
     // No other strategy ties its payoff, so this is a strict ESS.
@@ -62,5 +67,7 @@ void basic_fracessa<SupportMask>::check_stability()
     set_stability_result(is_ess, is_ess ? "T_copos" : "F_not_copos");
 }
 
-template void basic_fracessa<bitset64>::check_stability();
-template void basic_fracessa<bitset_multiword>::check_stability();
+template void basic_analyzer<support::bitset>::check_stability();
+template void basic_analyzer<support::bitset_multiword>::check_stability();
+
+} // namespace fracessa

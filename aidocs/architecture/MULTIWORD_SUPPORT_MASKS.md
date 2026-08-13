@@ -29,7 +29,7 @@ enumerates supports that way:
 
 - non-circular supports use binary depth-first generation;
 - circular supports use direct fixed-density bracelet generation;
-- `bs64::two_to_the_power_of()` has no production caller.
+- `fracessa::support::two_to_the_power_of()` has no production caller.
 
 Dimension 64 therefore needs only correct boundary handling:
 
@@ -66,7 +66,7 @@ explicit condition directly; no cached-mask member was added.
 
 ### Delete before generalizing
 
-The following `bitset64.hpp` helpers have no production caller. Their remaining callers are tests that test only the dead helper:
+The following `bitset.hpp` helpers have no production caller. Their remaining callers are tests that test only the dead helper:
 
 - `two_to_the_power_of()`;
 - `find_pos_next_set_bit()`;
@@ -101,8 +101,10 @@ minimal required implementation.
 Keep two concrete types:
 
 ```cpp
-using bitset64 = uint64_t;       // production path for n <= 64
-class bitset_multiword;         // production path for n >= 65
+namespace fracessa::support {
+using bitset = uint64_t;       // production path for n <= 64
+class bitset_multiword;          // production path for n >= 65
+}
 ```
 
 `bitset_multiword` owns `std::vector<uint64_t> words_`. Bit `i` is stored in:
@@ -162,24 +164,25 @@ The dimension cannot be a template parameter because it comes from the input at 
 instantiate one analyzer for every possible dimension. Templates select only the storage representation:
 
 ```cpp
+namespace fracessa {
 template<class SupportMask>
-class basic_fracessa;
+class basic_analyzer;
 
 template<class SupportMask>
 struct basic_candidate;
 
-using fracessa = basic_fracessa<bitset64>;
-using multiword_fracessa = basic_fracessa<bitset_multiword>;
+using analyzer = basic_analyzer<support::bitset>;
+using analyzer_multiword = basic_analyzer<support::bitset_multiword>;
+}
 ```
 
-The existing `fracessa` alias preserves the current one-word C++ tests and generated code. CLI and Pybind dispatch once after parsing
-the dimension:
+The `fracessa::analyzer` alias selects the one-word native path. CLI and Pybind dispatch once after parsing the dimension:
 
 ```cpp
 if (dimension <= 64)
-    run_typed<bitset64>(...);
+    run_typed<fracessa::support::bitset>(...);
 else
-    run_typed<bitset_multiword>(...);
+    run_typed<fracessa::support::bitset_multiword>(...);
 ```
 
 `fast_candidate_filter` and `exact_candidate_solver` keep owning their numerical matrices and workspaces.
@@ -207,7 +210,7 @@ Do not force the generators behind one identical implementation. Their storage e
 
 ## Static Dispatch, Not A Runtime Variant
 
-Do not replace every `bitset64` with one class containing
+Do not replace every `bitset` with one class containing
 `std::variant<uint64_t, std::vector<uint64_t>>`. That design makes every small operation branch and makes every small support object
 large enough to contain a vector.
 
@@ -281,7 +284,7 @@ Dimension 64 works with raw `uint64_t`, including bit 63, rotation, reflection, 
 structures through support size 64, parser and CLI/Pybind boundaries, and the copositivity component mask. Focused generator tests
 prune after the singleton layer and never attempt to enumerate `2^64` supports. The remaining stages do not reimplement that case.
 
-Remove the dead `bitset64.hpp` helpers listed in the Ponytail audit in a separately approved cleanup before templating or duplicating
+Remove the dead `bitset.hpp` helpers listed in the Ponytail audit in a separately approved cleanup before templating or duplicating
 their callers. V2 has already been removed.
 
 The canonical SQLite database now accepts every positive dimension. Candidate masks use canonical decimal `TEXT`, avoiding
@@ -326,7 +329,7 @@ The checker remains in FracESSA because no separate Coposit repository currently
 
 ### Completed Stage 3: Template the exact candidate and stability core
 
-`basic_candidate<SupportMask>` and `basic_fracessa<SupportMask>` now share the candidate and stability algorithm between the raw
+`fracessa::basic_candidate<SupportMask>` and `fracessa::basic_analyzer<SupportMask>` now share the candidate and stability algorithm between the raw
 `uint64_t` and multiword representations. The exact candidate finder shares its numerical implementation through index-type
 templates while retaining the one-word path's fixed `uint8_t[64]` stack arrays. The large exact path extracts indices into two
 dimension-reserved `size_t` vectors and reuses them. Candidate and ESS structures are fixed arrays for one-word analysis and
@@ -408,8 +411,8 @@ Both supported FLINT Release suites, all 66 Python tests, focused ASan/UBSan tes
 
 ### Completed Stage 6: Expose the large path and update output contracts
 
-CLI and Pybind now dispatch once after parsing: dimensions through 64 instantiate `fracessa`, and larger dimensions instantiate
-`multiword_fracessa`. The parser no longer has a bitmask-derived maximum. It checks triangular counts and dense dimensions before
+CLI and Pybind now dispatch once after parsing: dimensions through 64 instantiate `fracessa::analyzer`, and larger dimensions
+instantiate `fracessa::analyzer_multiword`. The parser no longer has a bitmask-derived maximum. It checks triangular counts and dense dimensions before
 allocation, and compact input no longer reserves the full triangular token count. Allocation errors are reported as execution
 errors rather than falling back to truncated storage.
 

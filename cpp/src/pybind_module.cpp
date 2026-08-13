@@ -49,11 +49,11 @@ struct NativeResult {
     std::vector<size_t> candidate_structure;
     std::vector<size_t> ess_structure;
     long long elapsed_ns = 0;
-    candidate_search::safe_fallback safe_fallback = candidate_search::safe_fallback::none;
+    fracessa::search::safe_fallback safe_fallback = fracessa::search::safe_fallback::none;
     std::vector<NativeCandidate> candidates;
 };
 
-std::string strategy_vector_to_string(const std::vector<linalg::fraction>& vec)
+std::string strategy_vector_to_string(const std::vector<fracessa::numeric::fraction>& vec)
 {
     // Keep exact rational probabilities as text instead of rounding to double.
     std::ostringstream out;
@@ -68,7 +68,7 @@ std::string strategy_vector_to_string(const std::vector<linalg::fraction>& vec)
 }
 
 template<class Analyzer>
-void run_analyzer(search_method method, coposit::parsers::parsed_matrix matrix, bool include_candidates,
+void run_analyzer(fracessa::search_method method, coposit::parsers::parsed_matrix matrix, bool include_candidates,
                   bool full_support, bool enable_logging, std::int64_t matrix_id, NativeResult& result)
 {
     const auto start = std::chrono::steady_clock::now();
@@ -113,7 +113,7 @@ NativeResult compute_matrix_impl(
     NativeResult result;
 
     try {
-        const search_method method = parse_search_method(method_name);
+        const fracessa::search_method method = fracessa::parse_search_method(method_name);
 
         coposit::parsers::parsed_matrix parsed_matrix;
 
@@ -130,11 +130,12 @@ NativeResult compute_matrix_impl(
             logging_lock.lock();
         }
 
-        if (parsed_matrix.matrix.rows() <= bs64::kMaxBitsetDimension)
-            run_analyzer<::fracessa>(method, std::move(parsed_matrix), include_candidates, full_support, enable_logging, matrix_id, result);
+        if (parsed_matrix.matrix.rows() <= fracessa::support::kMaxBitsetDimension)
+            run_analyzer<fracessa::analyzer>(method, std::move(parsed_matrix), include_candidates, full_support, enable_logging,
+                                             matrix_id, result);
         else
-            run_analyzer<::multiword_fracessa>(method, std::move(parsed_matrix), include_candidates, full_support, enable_logging,
-                                               matrix_id, result);
+            run_analyzer<fracessa::analyzer_multiword>(method, std::move(parsed_matrix), include_candidates, full_support,
+                                                       enable_logging, matrix_id, result);
         result.status = kStatusOk;
 
         return result;
@@ -181,7 +182,7 @@ py::dict compute_matrix(
     out["candidate_structure"] = std::move(candidate_structure);
     out["ess_structure"] = std::move(ess_structure);
     out["elapsed_ns"] = native.elapsed_ns;
-    const auto fallback = candidate_search::safe_fallback_name(native.safe_fallback);
+    const auto fallback = fracessa::search::safe_fallback_name(native.safe_fallback);
     if (fallback.empty())
         out["safe_fallback"] = py::none();
     else
@@ -210,22 +211,22 @@ py::dict compute_matrix(
     return out;
 }
 
-candidate_search::safe_fallback classify_safe_fallback_impl(const std::string& matrix)
+fracessa::search::safe_fallback classify_safe_fallback_impl(const std::string& matrix)
 {
     const auto parsed_matrix = coposit::parsers::matrix_parser::parse(matrix);
-    candidate_search::fast_candidate_filter fast_filter(parsed_matrix.matrix.rows());
+    fracessa::search::fast_candidate_filter fast_filter(parsed_matrix.matrix.rows());
     fast_filter.convert_game_matrix(parsed_matrix.matrix);
     return fast_filter.safe_fallback_reason();
 }
 
 py::object classify_safe_fallback(const std::string& matrix)
 {
-    candidate_search::safe_fallback fallback;
+    fracessa::search::safe_fallback fallback;
     {
         py::gil_scoped_release release;
         fallback = classify_safe_fallback_impl(matrix);
     }
-    const auto name = candidate_search::safe_fallback_name(fallback);
+    const auto name = fracessa::search::safe_fallback_name(fallback);
     if (name.empty()) return py::none();
     return py::str(name);
 }

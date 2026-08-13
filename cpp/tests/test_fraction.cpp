@@ -1,11 +1,11 @@
 #include <gtest/gtest.h>
 
-#include <linalg/fraction.hpp>
+#include <fracessa/fraction.hpp>
 
 #include <sstream>
 #include <utility>
 
-using namespace linalg;
+using namespace fracessa::numeric;
 
 /* Exact public-output value semantics around FLINT-backed storage. */
 

@@ -1,6 +1,6 @@
 #pragma once
 
-#include <fracessa/bitset64.hpp>
+#include <fracessa/bitset.hpp>
 
 #include <algorithm>
 #include <cassert>
@@ -9,6 +9,8 @@
 #include <stdexcept>
 #include <string>
 #include <vector>
+
+namespace fracessa::support {
 
 // Runtime-sized support storage. Production uses this type only above dimension 64;
 // lower dimensions remain raw uint64_t so their hot path is unchanged.
@@ -125,7 +127,7 @@ public:
         }
     }
 
-    // Move strategy i to i-1 modulo dimension, matching bs64::rot_one_right().
+    // Move strategy i to i-1 modulo dimension, matching rot_one_right().
     void rotate_one_right() noexcept
     {
         const bool wrap = (words_[0] & uint64_t{1}) != 0;
@@ -141,11 +143,11 @@ public:
         size_t left = 0;
         size_t right = words_.size() - 1;
         while (left < right) {
-            const uint64_t low = bs64::reverse_bits(words_[left]);
-            words_[left++] = bs64::reverse_bits(words_[right]);
+            const uint64_t low = reverse_bits(words_[left]);
+            words_[left++] = reverse_bits(words_[right]);
             words_[right--] = low;
         }
-        if (left == right) words_[left] = bs64::reverse_bits(words_[left]);
+        if (left == right) words_[left] = reverse_bits(words_[left]);
 
         const size_t used_bits = dimension_ % 64;
         if (used_bits == 0) return;
@@ -199,3 +201,5 @@ private:
     std::vector<uint64_t> words_;
     uint64_t last_word_mask_;
 };
+
+} // namespace fracessa::support

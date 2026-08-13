@@ -5,9 +5,9 @@
 #include <ostream>
 #include <string>
 
-#include <linalg/integer.hpp>
+#include <fracessa/types.hpp>
 
-namespace linalg {
+namespace fracessa::numeric {
 
 /*
  * Owning exact rational value used only at FracESSA's public output boundary.
@@ -120,6 +120,4 @@ public:
     }
 };
 
-} // namespace linalg
-
-typedef linalg::fraction fraction;
+} // namespace fracessa::numeric

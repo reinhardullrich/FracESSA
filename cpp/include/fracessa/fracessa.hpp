@@ -11,11 +11,17 @@
 #include <utility>
 
 #include <coposit/parsers/parsed_matrix.hpp>
-#include <linalg/matrix_integer.hpp>
+#include <fracessa/types.hpp>
 #include <fracessa/candidate.hpp>
-#include <fracessa/bitset64.hpp>
+#include <fracessa/bitset.hpp>
 #include <fracessa/exact_candidate_solver.hpp>
 #include <fracessa/fast_candidate_filter.hpp>
+
+namespace spdlog {
+class logger;
+}
+
+namespace fracessa {
 
 /** Candidate-search method selected by the CLI or native caller. */
 enum class search_method {
@@ -31,10 +37,6 @@ enum class search_method {
  * @throws std::invalid_argument if `name` is not one of the two public names.
  */
 search_method parse_search_method(std::string_view name);
-
-namespace spdlog {
-class logger;
-}
 
 /**
  * Runs the configured ESS search for one payoff matrix.
@@ -52,15 +54,15 @@ class logger;
  * Construction runs the configured analysis synchronously. The public count and structure fields are always populated. Individual
  * candidate rows are retained only when `with_candidates` is true.
  *
- * @tparam SupportMask `bitset64` through dimension 64 or `bitset_multiword` for larger dimensions.
+ * @tparam SupportMask `bitset` through dimension 64 or `bitset_multiword` for larger dimensions.
  */
 template<class SupportMask>
-class basic_fracessa
+class basic_analyzer
 {
 public:
     using candidate_type = basic_candidate<SupportMask>;
-    using structure_type = std::conditional_t<std::is_same_v<SupportMask, bitset64>,
-                                              std::array<size_t, bs64::kMaxBitsetDimension + 1>, std::vector<size_t>>;
+    using structure_type = std::conditional_t<std::is_same_v<SupportMask, support::bitset>,
+                                              std::array<size_t, support::kMaxBitsetDimension + 1>, std::vector<size_t>>;
 
     /**
      * Analyze one already parsed symmetric payoff matrix.
@@ -74,12 +76,12 @@ public:
      * @param with_log Write a diagnostic trace to `log/fracessa.log`.
      * @param matrix_id Signed identifier written to the diagnostic log.
      */
-    basic_fracessa(search_method method, coposit::parsers::parsed_matrix game, bool with_candidates = false,
+    basic_analyzer(search_method method, coposit::parsers::parsed_matrix game, bool with_candidates = false,
                    bool full_support = false, bool with_log = false, std::int64_t matrix_id = -1);
-    basic_fracessa(const basic_fracessa&) = delete;
-    basic_fracessa& operator=(const basic_fracessa&) = delete;
-    basic_fracessa(basic_fracessa&&) = delete;
-    basic_fracessa& operator=(basic_fracessa&&) = delete;
+    basic_analyzer(const basic_analyzer&) = delete;
+    basic_analyzer& operator=(const basic_analyzer&) = delete;
+    basic_analyzer(basic_analyzer&&) = delete;
+    basic_analyzer& operator=(basic_analyzer&&) = delete;
 
     /// Candidate count found by the selected method, including circular multipliers.
     size_t candidate_count_ = 0;
@@ -90,7 +92,7 @@ public:
     /// ESS counts indexed by support size; index zero is unused.
     structure_type ess_structure_;
     /// Whole-matrix fast-to-safe fallback reason; per-support exact retries do not set it.
-    candidate_search::safe_fallback safe_fallback_ = candidate_search::safe_fallback::none;
+    search::safe_fallback safe_fallback_ = search::safe_fallback::none;
     /// Representative candidate rows. Populated only when `with_candidates` is true.
     std::vector<candidate_type> candidates_;
 
@@ -98,9 +100,9 @@ private:
     // Own one parser-produced integer game and denominator. Exact work and symmetry detection reference it directly; the fast filter
     // owns only its converted double copy.
     coposit::parsers::parsed_matrix game_;
-    candidate_search::fast_candidate_filter fast_candidate_filter_;
-    candidate_search::exact_candidate_solver exact_candidate_solver_;
-    linalg::matrix_int scaled_reduced_b_;
+    search::fast_candidate_filter fast_candidate_filter_;
+    search::exact_candidate_solver exact_candidate_solver_;
+    numeric::matrix_int scaled_reduced_b_;
 
     size_t dimension_;
 
@@ -133,18 +135,20 @@ private:
 
     static structure_type make_structure(size_t dimension)
     {
-        if constexpr (std::is_same_v<SupportMask, bitset64>) return {};
+        if constexpr (std::is_same_v<SupportMask, support::bitset>) return {};
         else return structure_type(dimension + 1, 0);
     }
 
     static candidate_type make_candidate(size_t dimension)
     {
-        if constexpr (std::is_same_v<SupportMask, bitset64>) return {};
+        if constexpr (std::is_same_v<SupportMask, support::bitset>) return {};
         else return candidate_type(dimension);
     }
 };
 
-using fracessa = basic_fracessa<bitset64>;
-using multiword_fracessa = basic_fracessa<bitset_multiword>;
+using analyzer = basic_analyzer<support::bitset>;
+using analyzer_multiword = basic_analyzer<support::bitset_multiword>;
+
+} // namespace fracessa
 
 #endif // FRACESSA_HPP

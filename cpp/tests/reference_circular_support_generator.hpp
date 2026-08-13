@@ -6,7 +6,9 @@
 #include <cstdint>
 #include <vector>
 
-#include <fracessa/bitset64.hpp>
+#include <fracessa/bitset.hpp>
+
+namespace fracessa::support {
 
 /*
  * Independent test oracle for circular support generation. The FKM recursion creates one mask for all rotations; the reflection
@@ -25,47 +27,47 @@ private:
     size_t dimension_;
     size_t target_cardinality_ = 0;
     // The FKM recursion uses this one-indexed array as its working binary word.
-    std::array<uint8_t, bs64::kMaxBitsetDimension + 1> word_{};
+    std::array<uint8_t, kMaxBitsetDimension + 1> word_{};
     // A rule is checked when its lowest set bit is added, because that is the first moment the partial support can
     // contain the complete rule.
-    std::array<std::vector<bitset64>, bs64::kMaxBitsetDimension> forbidden_by_lowest_;
+    std::array<std::vector<bitset>, kMaxBitsetDimension> forbidden_by_lowest_;
     // Rules found by the callback stay pending until the next support size.
-    std::vector<bitset64> pending_forbidden_;
+    std::vector<bitset> pending_forbidden_;
     bool emitted_ = false;
 
     inline void activate_pending() {
-        for (const bitset64 support : pending_forbidden_)
+        for (const bitset support : pending_forbidden_)
             forbidden_by_lowest_[ctz64(support)].push_back(support);
         pending_forbidden_.clear();
     }
 
-    inline bool completes_forbidden(bitset64 partial, size_t new_lowest_bit) const noexcept {
-        for (const bitset64 forbidden : forbidden_by_lowest_[new_lowest_bit]) {
-            if (bs64::is_subset_of(forbidden, partial))
+    inline bool completes_forbidden(bitset partial, size_t new_lowest_bit) const noexcept {
+        for (const bitset forbidden : forbidden_by_lowest_[new_lowest_bit]) {
+            if (is_subset_of(forbidden, partial))
                 return true;
         }
         return false;
     }
 
-    inline bitset64 smallest_rotation(bitset64 support) const noexcept {
-        bitset64 smallest = support;
+    inline bitset smallest_rotation(bitset support) const noexcept {
+        bitset smallest = support;
         for (size_t i = 1; i < dimension_; ++i) {
-            support = bs64::rot_one_right(support, dimension_);
+            support = rot_one_right(support, dimension_);
             smallest = std::min(smallest, support);
         }
         return smallest;
     }
 
     template<class Callback>
-    inline void emit_necklace(bitset64 support, Callback& callback) {
-        if (support <= smallest_rotation(bs64::reflect(support, dimension_))) {
+    inline void emit_necklace(bitset support, Callback& callback) {
+        if (support <= smallest_rotation(reflect(support, dimension_))) {
             emitted_ = true;
             callback(support, target_cardinality_);
         }
     }
 
     template<class Callback>
-    inline void generate_necklaces(size_t position, size_t period, size_t ones, bitset64 partial, Callback& callback) {
+    inline void generate_necklaces(size_t position, size_t period, size_t ones, bitset partial, Callback& callback) {
         if (position > dimension_) {
             if (dimension_ % period == 0 && ones == target_cardinality_)
                 emit_necklace(partial, callback);
@@ -79,7 +81,7 @@ private:
         if (word_[position] == 0) {
             generate_necklaces(position + 1, period, ones, partial, callback);
         } else {
-            const bitset64 with_bit = bs64::set_bit_at_pos(partial, bit);
+            const bitset with_bit = set_bit_at_pos(partial, bit);
             if (!completes_forbidden(with_bit, bit)) {
                 generate_necklaces(position + 1, period, ones + 1, with_bit, callback);
             }
@@ -87,7 +89,7 @@ private:
 
         if (word_[position - period] == 0) {
             word_[position] = 1;
-            const bitset64 with_bit = bs64::set_bit_at_pos(partial, bit);
+            const bitset with_bit = set_bit_at_pos(partial, bit);
             if (!completes_forbidden(with_bit, bit)) {
                 generate_necklaces(position + 1, position, ones + 1, with_bit, callback);
             }
@@ -97,7 +99,7 @@ private:
 public:
     explicit ReferenceCircularSupportGenerator(size_t dimension) noexcept : dimension_(dimension) {}
 
-    // Callback signature: void(bitset64 support, size_t support_size).
+    // Callback signature: void(bitset support, size_t support_size).
     // It is called synchronously once for each generated representative.
     template<class Callback>
     inline void generate(Callback&& callback) {
@@ -113,16 +115,16 @@ public:
         }
     }
 
-    inline size_t add_forbidden_orbit(bitset64 support) {
-        const bitset64 reflected = bs64::reflect(support, dimension_);
+    inline size_t add_forbidden_orbit(bitset support) {
+        const bitset reflected = reflect(support, dimension_);
         bool reflection_is_rotation = false;
         size_t multiplier = 0;
-        bitset64 current = support;
+        bitset current = support;
         do {
             reflection_is_rotation = reflection_is_rotation || current == reflected;
             pending_forbidden_.push_back(current);
             ++multiplier;
-            current = bs64::rot_one_right(current, dimension_);
+            current = rot_one_right(current, dimension_);
         } while (current != support);
 
         if (!reflection_is_rotation) {
@@ -130,9 +132,11 @@ public:
             do {
                 pending_forbidden_.push_back(current);
                 ++multiplier;
-                current = bs64::rot_one_right(current, dimension_);
+                current = rot_one_right(current, dimension_);
             } while (current != reflected);
         }
         return multiplier;
     }
 };
+
+} // namespace fracessa::support

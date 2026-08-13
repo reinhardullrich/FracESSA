@@ -176,7 +176,7 @@ The original patch changed only these source files:
 
 | File | Minimal change |
 |---|---|
-| `cpp/include/linalg/fraction_free_ldlt_kkt.hpp` | Added one multi-column solve that reuses an unmodified negative-definite factorization. |
+| `cpp/include/fracessa/fraction_free_ldlt_kkt.hpp` | Added one multi-column solve that reuses an unmodified negative-definite factorization. |
 | `cpp/include/fracessa/exact_candidate_solver.hpp` | Declared the reduced-$B$ builder and one reusable integer matrix for $N$. |
 | `cpp/src/exact_candidate_solver.cpp` | Builds $\widehat G$ and $\widehat Q$ from the integer game/cache, reuses the factorization, and writes $\widehat C$. |
 | `cpp/include/fracessa/fracessa.hpp` | Renamed `bee_matrix_` to the accurate `scaled_reduced_b_`. |
@@ -253,11 +253,14 @@ The exact candidate object owns the builder because it already owns the integer 
 reduced-entry cache. One-word and multiword overloads extract indices and call the same internal implementation:
 
 ```cpp
-size_t build_scaled_reduced_b(bitset64 support, bitset64 outside_best_replies, linalg::matrix_int& result);
 size_t build_scaled_reduced_b(
-    const bitset_multiword& support,
-    const bitset_multiword& outside_best_replies,
-    linalg::matrix_int& result);
+    fracessa::support::bitset support,
+    fracessa::support::bitset outside_best_replies,
+    fracessa::numeric::matrix_int& result);
+size_t build_scaled_reduced_b(
+    const fracessa::support::bitset_multiword& support,
+    const fracessa::support::bitset_multiword& outside_best_replies,
+    fracessa::numeric::matrix_int& result);
 ```
 
 The shared builder fills $\widehat G$, replays the retained factorization to obtain $N$, and writes only one triangle of

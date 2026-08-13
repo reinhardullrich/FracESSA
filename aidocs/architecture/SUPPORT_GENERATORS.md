@@ -56,7 +56,8 @@ C++17.
 ### Support mask
 
 Bit `i` means strategy `i` is present. Dimensions 1 through 64 use one raw `uint64_t`; dimensions 65 and above use a fixed-width
-`bitset_multiword`. The representation is selected once before support generation, so the one-word path keeps its direct operations.
+`fracessa::support::bitset_multiword`. The representation is selected once before support generation, so the one-word path keeps its
+direct operations.
 
 ### Exact candidate and forbidden support
 
@@ -530,10 +531,10 @@ template<class Consumer>
 void generate(Consumer&& consume); // consume(support, support_size)
 
 // NonCircularSupportGenerator
-void add_forbidden(bitset64 support);
+void add_forbidden(bitset support);
 
 // CircularSupportGenerator
-size_t add_forbidden_orbit(bitset64 support); // distinct-orbit multiplier
+size_t add_forbidden_orbit(bitset support); // distinct-orbit multiplier
 ```
 
 - `NonCircularSupportGenerator` uses fixed-cardinality binary DFS and preserves
@@ -541,9 +542,9 @@ size_t add_forbidden_orbit(bitset64 support); // distinct-orbit multiplier
 - `CircularSupportGenerator` uses direct fixed-density bracelet recursion, expanded dihedral forbidden masks, and
   returns their distinct orbit size as the candidate multiplier.
 - `ReferenceCircularSupportGenerator` retains V1's FKM recursion and reflection reduction for tests only.
-- `fracessa::analyze_support()` runs the optional fast heuristic, then safe
+- `fracessa::basic_analyzer::analyze_support()` runs the optional fast heuristic, then safe
   exact candidate analysis, and owns exact stability classification.
-- `fracessa::finalize_candidate()` owns representative IDs, weighted ESS counting,
+- `fracessa::basic_analyzer::finalize_candidate()` owns representative IDs, weighted ESS counting,
   and optional output of the one representative row.
 - `--fullsupport` still tests its single mask first. On fallback, the callback
   ignores that already-tested mask when the generator reaches cardinality `n`.

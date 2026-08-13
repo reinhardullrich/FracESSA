@@ -6,12 +6,11 @@
 #include <string_view>
 #include <vector>
 
-#include <fracessa/bitset64.hpp>
+#include <fracessa/bitset.hpp>
 #include <fracessa/bitset_multiword.hpp>
-#include <linalg/matrix_double.hpp>
-#include <linalg/matrix_integer.hpp>
+#include <fracessa/types.hpp>
 
-namespace candidate_search {
+namespace fracessa::search {
 
 enum class safe_fallback : std::uint8_t {
     none,
@@ -41,12 +40,12 @@ public:
     fast_candidate_filter& operator=(fast_candidate_filter&&) = delete;
 
     // Normalize the parser's denominator-cleared integer game once and convert it to binary64.
-    void convert_game_matrix(const linalg::matrix_int& integer_game);
+    void convert_game_matrix(const numeric::matrix_int& integer_game);
     safe_fallback safe_fallback_reason() const noexcept { return safe_fallback_; }
 
     // False means heuristic rejection. True means exact arithmetic must decide.
-    bool passes(const bitset64& support, size_t support_size);
-    bool passes(const bitset_multiword& support, size_t support_size);
+    bool passes(const support::bitset& support, size_t support_size);
+    bool passes(const support::bitset_multiword& support, size_t support_size);
 
 private:
     template<class SupportMask, class Index>
@@ -54,9 +53,9 @@ private:
                            double* solution, double* scale_ratios, int* pivots);
 
     size_t dimension_;
-    linalg::matrix_dbl game_dbl_;
-    linalg::matrix_dbl reduced_system_;
-    std::array<double, bs64::kMaxBitsetDimension> game_scales_small_{};
+    numeric::matrix_dbl game_dbl_;
+    numeric::matrix_dbl reduced_system_;
+    std::array<double, support::kMaxBitsetDimension> game_scales_small_{};
     std::vector<double> game_scales_large_;
     std::vector<size_t> support_indices_large_;
     std::vector<double> solution_large_;
@@ -66,4 +65,4 @@ private:
     safe_fallback safe_fallback_ = safe_fallback::none;
 };
 
-} // namespace candidate_search
+} // namespace fracessa::search

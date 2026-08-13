@@ -7,8 +7,10 @@
 #include <cstdint>
 #include <vector>
 
-#include <fracessa/bitset64.hpp>
+#include <fracessa/bitset.hpp>
 #include <fracessa/bitset_multiword.hpp>
+
+namespace fracessa::support {
 
 /*
  * Direct fixed-density bracelet generation from Karim, Alamgir, and Husnine (2014), specialized to binary supports.
@@ -21,27 +23,27 @@ class CircularSupportGenerator {
 private:
     size_t dimension_;
     size_t target_cardinality_ = 0;
-    bitset64 support_ = 0;
+    bitset support_ = 0;
     // positions_[density] is the one-indexed position of that density's 1-bit. prefix_density_ maps selected positions
     // back to their density, which makes the paper's reversal comparison constant-time between successive 1-bits.
-    std::array<size_t, bs64::kMaxBitsetDimension + 2> positions_{};
-    std::array<uint8_t, bs64::kMaxBitsetDimension + 2> prefix_density_{};
-    std::array<std::vector<bitset64>, bs64::kMaxBitsetDimension> forbidden_by_lowest_;
-    std::vector<bitset64> pending_forbidden_;
+    std::array<size_t, kMaxBitsetDimension + 2> positions_{};
+    std::array<uint8_t, kMaxBitsetDimension + 2> prefix_density_{};
+    std::array<std::vector<bitset>, kMaxBitsetDimension> forbidden_by_lowest_;
+    std::vector<bitset> pending_forbidden_;
     bool has_active_forbidden_ = false;
     bool emitted_ = false;
 
     inline void activate_pending() {
         if (!pending_forbidden_.empty())
             has_active_forbidden_ = true;
-        for (const bitset64 support : pending_forbidden_)
+        for (const bitset support : pending_forbidden_)
             forbidden_by_lowest_[ctz64(support)].push_back(support);
         pending_forbidden_.clear();
     }
 
-    inline bool completes_forbidden(bitset64 partial, size_t new_lowest_bit) const noexcept {
-        for (const bitset64 forbidden : forbidden_by_lowest_[new_lowest_bit]) {
-            if (bs64::is_subset_of(forbidden, partial))
+    inline bool completes_forbidden(bitset partial, size_t new_lowest_bit) const noexcept {
+        for (const bitset forbidden : forbidden_by_lowest_[new_lowest_bit]) {
+            if (is_subset_of(forbidden, partial))
                 return true;
         }
         return false;
@@ -165,7 +167,7 @@ private:
 public:
     explicit CircularSupportGenerator(size_t dimension) noexcept : dimension_(dimension) {}
 
-    // Callback signature: void(bitset64 support, size_t support_size).
+    // Callback signature: void(bitset support, size_t support_size).
     template<class Callback>
     inline void generate(Callback&& callback) {
         for (target_cardinality_ = 1; target_cardinality_ <= dimension_; ++target_cardinality_) {
@@ -184,7 +186,7 @@ public:
             } else if (target_cardinality_ == dimension_) {
                 // The full support contains every nonempty active forbidden support.
                 if (!has_active_forbidden_) {
-                    support_ = bs64::set_all_n_bits(dimension_);
+                    support_ = set_all_n_bits(dimension_);
                     emitted_ = true;
                     callback(support_, target_cardinality_);
                 }
@@ -215,16 +217,16 @@ public:
         }
     }
 
-    inline size_t add_forbidden_orbit(bitset64 support) {
-        const bitset64 reflected = bs64::reflect(support, dimension_);
+    inline size_t add_forbidden_orbit(bitset support) {
+        const bitset reflected = reflect(support, dimension_);
         bool reflection_is_rotation = false;
         size_t multiplier = 0;
-        bitset64 current = support;
+        bitset current = support;
         do {
             reflection_is_rotation = reflection_is_rotation || current == reflected;
             pending_forbidden_.push_back(current);
             ++multiplier;
-            current = bs64::rot_one_right(current, dimension_);
+            current = rot_one_right(current, dimension_);
         } while (current != support);
 
         if (!reflection_is_rotation) {
@@ -232,7 +234,7 @@ public:
             do {
                 pending_forbidden_.push_back(current);
                 ++multiplier;
-                current = bs64::rot_one_right(current, dimension_);
+                current = rot_one_right(current, dimension_);
             } while (current != reflected);
         }
         return multiplier;
@@ -471,3 +473,5 @@ public:
         return multiplier;
     }
 };
+
+} // namespace fracessa::support

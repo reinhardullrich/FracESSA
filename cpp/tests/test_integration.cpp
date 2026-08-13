@@ -2,7 +2,10 @@
 #include <coposit/parsers/matrix_parser.hpp>
 #include <fracessa/fracessa.hpp>
 
-using namespace linalg;
+using namespace fracessa;
+using namespace fracessa::numeric;
+using namespace fracessa::search;
+using namespace fracessa::support;
 
 namespace {
 
@@ -24,14 +27,14 @@ coposit::parsers::parsed_matrix integer_game(size_t dimension, bool compact_circ
 TEST(IntegrationTest, SimpleGame) {
     auto B = coposit::parsers::matrix_parser::parse("2#0,1,0");
     
-    fracessa analyzer(search_method::safe, B, true, false, false);
+    fracessa::analyzer analyzer(search_method::safe, B, true, false, false);
     EXPECT_EQ(analyzer.ess_count_, 1);
 }
 
 TEST(IntegrationTest, FullSupportModeReturnsStableFullSupport) {
     auto B = coposit::parsers::matrix_parser::parse("2#0,1,0");
 
-    fracessa analyzer(search_method::safe, B, true, true, false);
+    fracessa::analyzer analyzer(search_method::safe, B, true, true, false);
 
     ASSERT_EQ(analyzer.ess_count_, 1u);
     ASSERT_EQ(analyzer.candidates_.size(), 1u);
@@ -40,17 +43,17 @@ TEST(IntegrationTest, FullSupportModeReturnsStableFullSupport) {
 }
 
 TEST(IntegrationTest, FullSupportModeHandlesDimension64) {
-    constexpr size_t dimension = bs64::kMaxBitsetDimension;
+    constexpr size_t dimension = kMaxBitsetDimension;
     auto B = integer_game(dimension);
     for (size_t strategy = 0; strategy < dimension; ++strategy) B.matrix(strategy, strategy) = integer(-1);
 
-    fracessa analyzer(search_method::safe, B, true, true, false);
+    fracessa::analyzer analyzer(search_method::safe, B, true, true, false);
 
     ASSERT_EQ(analyzer.ess_count_, 1u);
     ASSERT_EQ(analyzer.candidates_.size(), 1u);
     EXPECT_EQ(analyzer.candidate_structure_[dimension], 1u);
     EXPECT_EQ(analyzer.ess_structure_[dimension], 1u);
-    EXPECT_EQ(analyzer.candidates_[0].support, ~bitset64{0});
+    EXPECT_EQ(analyzer.candidates_[0].support, ~bitset{0});
     EXPECT_EQ(analyzer.candidates_[0].support_size, dimension);
 }
 
@@ -59,7 +62,7 @@ TEST(IntegrationTest, ExactFullSupportCrossesMultiwordBoundaries) {
         auto B = integer_game(dimension);
         for (size_t strategy = 0; strategy < dimension; ++strategy) B.matrix(strategy, strategy) = integer(-1);
 
-        multiword_fracessa analyzer(search_method::safe, B, true, true, false);
+        fracessa::analyzer_multiword analyzer(search_method::safe, B, true, true, false);
 
         ASSERT_EQ(analyzer.candidate_count_, 1u) << "dimension=" << dimension;
         ASSERT_EQ(analyzer.ess_count_, 1u) << "dimension=" << dimension;
@@ -101,8 +104,8 @@ TEST(IntegrationTest, ExactMultiwordSupportBuildsExtendedSupportAndReducedB) {
     bitset_multiword support(dimension);
     for (size_t strategy = 0; strategy < support_size; ++strategy) support.set_bit_at_pos(strategy);
 
-    candidate_search::exact_candidate_solver exact_solver(B.matrix, B.denominator);
-    multiword_candidate result(dimension);
+    exact_candidate_solver exact_solver(B.matrix, B.denominator);
+    candidate_multiword result(dimension);
     ASSERT_TRUE(exact_solver.find(support, support_size, result, false));
     ASSERT_TRUE(exact_solver.reduced_hessian_is_negative_definite());
     EXPECT_EQ(result.extended_support_size, dimension);
@@ -121,7 +124,7 @@ TEST(IntegrationTest, ExactMultiwordNonCircularSearchPrunesAfterSingletonLayer) 
     auto B = integer_game(dimension);
     for (size_t strategy = 0; strategy < dimension; ++strategy) B.matrix(strategy, strategy) = integer(1);
 
-    multiword_fracessa analyzer(search_method::safe, B, true, false, false);
+    fracessa::analyzer_multiword analyzer(search_method::safe, B, true, false, false);
 
     EXPECT_EQ(analyzer.candidate_count_, dimension);
     EXPECT_EQ(analyzer.ess_count_, dimension);
@@ -131,7 +134,7 @@ TEST(IntegrationTest, ExactMultiwordNonCircularSearchPrunesAfterSingletonLayer) 
     EXPECT_TRUE(analyzer.candidates_.front().support.is_set_at_pos(0));
     EXPECT_TRUE(analyzer.candidates_.back().support.is_set_at_pos(64));
 
-    multiword_fracessa full_support_first(search_method::safe, B, false, true, false);
+    fracessa::analyzer_multiword full_support_first(search_method::safe, B, false, true, false);
     EXPECT_EQ(full_support_first.candidate_count_, dimension + 1);
     EXPECT_EQ(full_support_first.ess_count_, dimension);
     EXPECT_EQ(full_support_first.candidate_structure_[1], dimension);
@@ -143,7 +146,7 @@ TEST(IntegrationTest, ExactMultiwordNonCircularSearchReachesReducedBStability) {
     auto B = integer_game(dimension);
 
     // Every singleton is an exact equilibrium with all other strategies tied. Its zero reduced B matrix is not strictly copositive.
-    multiword_fracessa analyzer(search_method::safe, B, false, false, false);
+    fracessa::analyzer_multiword analyzer(search_method::safe, B, false, false, false);
 
     EXPECT_EQ(analyzer.candidate_count_, dimension);
     EXPECT_EQ(analyzer.ess_count_, 0u);
@@ -156,10 +159,10 @@ TEST(IntegrationTest, MultiwordFastMatchesSafeFullSupport) {
     auto B = integer_game(dimension);
     for (size_t strategy = 0; strategy < dimension; ++strategy) B.matrix(strategy, strategy) = integer(-1);
 
-    multiword_fracessa safe(search_method::safe, B, true, true, false);
-    multiword_fracessa fast(search_method::fast, B, true, true, false);
+    fracessa::analyzer_multiword safe(search_method::safe, B, true, true, false);
+    fracessa::analyzer_multiword fast(search_method::fast, B, true, true, false);
 
-    EXPECT_EQ(fast.safe_fallback_, candidate_search::safe_fallback::none);
+    EXPECT_EQ(fast.safe_fallback_, safe_fallback::none);
     EXPECT_EQ(fast.candidate_count_, safe.candidate_count_);
     EXPECT_EQ(fast.ess_count_, safe.ess_count_);
     EXPECT_EQ(fast.candidate_structure_, safe.candidate_structure_);
@@ -176,10 +179,10 @@ TEST(IntegrationTest, MultiwordFastRetainsWholeMatrixFallback)
     for (size_t strategy = 0; strategy < dimension; ++strategy) B.matrix(strategy, strategy) = integer(1);
     B.matrix(dimension - 1, dimension - 1) = integer(1'000'000'000);
 
-    multiword_fracessa safe(search_method::safe, B, false, false, false);
-    multiword_fracessa fast(search_method::fast, B, false, false, false);
+    fracessa::analyzer_multiword safe(search_method::safe, B, false, false, false);
+    fracessa::analyzer_multiword fast(search_method::fast, B, false, false, false);
 
-    EXPECT_EQ(fast.safe_fallback_, candidate_search::safe_fallback::precision_span);
+    EXPECT_EQ(fast.safe_fallback_, safe_fallback::precision_span);
     EXPECT_EQ(fast.candidate_count_, safe.candidate_count_);
     EXPECT_EQ(fast.ess_count_, safe.ess_count_);
     EXPECT_EQ(fast.candidate_structure_, safe.candidate_structure_);
@@ -193,7 +196,7 @@ TEST(IntegrationTest, MultiwordStabilityUsesLargeSignScan) {
 
     // Treating this focused matrix as circular makes the generator prune the complete singleton orbit after checking strategy zero.
     // That candidate has 65 outside best replies and therefore exercises the multiword reduced-B sign scan and component dispatch.
-    multiword_fracessa analyzer(search_method::safe, B, true, false, false);
+    fracessa::analyzer_multiword analyzer(search_method::safe, B, true, false, false);
 
     ASSERT_EQ(analyzer.candidates_.size(), 1u);
     EXPECT_EQ(analyzer.candidates_[0].extended_support_size, dimension);
@@ -206,7 +209,7 @@ TEST(IntegrationTest, MultiwordCandidateSerializationUsesDecimalMasks) {
     auto B = integer_game(dimension);
     for (size_t strategy = 0; strategy < dimension; ++strategy) B.matrix(strategy, strategy) = integer(-1);
 
-    multiword_fracessa analyzer(search_method::safe, B, true, true, false);
+    fracessa::analyzer_multiword analyzer(search_method::safe, B, true, true, false);
 
     ASSERT_EQ(analyzer.candidates_.size(), 1u);
     EXPECT_NE(analyzer.candidates_[0].to_string().find(";36893488147419103231;65;36893488147419103231;65;"), std::string::npos);
@@ -218,7 +221,7 @@ TEST(IntegrationTest, ExactMultiwordCircularSearchPrunesAfterSingletonBracelet)
         auto B = integer_game(dimension, true);
         for (size_t strategy = 0; strategy < dimension; ++strategy) B.matrix(strategy, strategy) = integer(1);
 
-        multiword_fracessa analyzer(search_method::safe, B, true, false, false);
+        fracessa::analyzer_multiword analyzer(search_method::safe, B, true, false, false);
 
         EXPECT_EQ(analyzer.candidate_count_, dimension);
         EXPECT_EQ(analyzer.ess_count_, dimension);
@@ -234,7 +237,7 @@ TEST(IntegrationTest, ExactMultiwordCircularSearchPrunesAfterSingletonBracelet)
     constexpr size_t dimension = 65;
     auto B = integer_game(dimension, true);
     for (size_t strategy = 0; strategy < dimension; ++strategy) B.matrix(strategy, strategy) = integer(1);
-    multiword_fracessa full_support_first(search_method::safe, B, false, true, false);
+    fracessa::analyzer_multiword full_support_first(search_method::safe, B, false, true, false);
     EXPECT_EQ(full_support_first.candidate_count_, dimension + 1);
     EXPECT_EQ(full_support_first.ess_count_, dimension);
     EXPECT_EQ(full_support_first.candidate_structure_[1], dimension);
@@ -242,7 +245,7 @@ TEST(IntegrationTest, ExactMultiwordCircularSearchPrunesAfterSingletonBracelet)
 }
 
 TEST(IntegrationTest, CircularSearchHandlesDimension64) {
-    constexpr size_t dimension = bs64::kMaxBitsetDimension;
+    constexpr size_t dimension = kMaxBitsetDimension;
     auto B = integer_game(dimension, true);
     for (size_t row = 0; row < dimension; ++row) {
         for (size_t column = 0; column < dimension; ++column) {
@@ -250,7 +253,7 @@ TEST(IntegrationTest, CircularSearchHandlesDimension64) {
         }
     }
 
-    fracessa analyzer(search_method::safe, B, true, false, false);
+    fracessa::analyzer analyzer(search_method::safe, B, true, false, false);
 
     EXPECT_EQ(analyzer.candidate_count_, dimension);
     EXPECT_EQ(analyzer.ess_count_, dimension);
@@ -264,7 +267,7 @@ TEST(IntegrationTest, CircularSearchHandlesDimension64) {
 TEST(IntegrationTest, CircularFullSupportHasMultiplierOne) {
     auto B = coposit::parsers::matrix_parser::parse("2#1");
 
-    fracessa analyzer(search_method::safe, B, true, true, false);
+    fracessa::analyzer analyzer(search_method::safe, B, true, true, false);
 
     ASSERT_EQ(analyzer.ess_count_, 1u);
     ASSERT_EQ(analyzer.candidates_.size(), 1u);
@@ -275,7 +278,7 @@ TEST(IntegrationTest, CircularFullSupportHasMultiplierOne) {
 TEST(IntegrationTest, FullSupportModeFallsBackWhenFullSupportIsNotStable) {
     auto B = coposit::parsers::matrix_parser::parse("2#1,0,1");
 
-    fracessa analyzer(search_method::safe, B, true, true, false);
+    fracessa::analyzer analyzer(search_method::safe, B, true, true, false);
 
     ASSERT_EQ(analyzer.ess_count_, 2u);
     ASSERT_EQ(analyzer.candidates_.size(), 3u);
@@ -286,25 +289,25 @@ TEST(IntegrationTest, FullSupportModeFallsBackWhenFullSupportIsNotStable) {
 TEST(IntegrationTest, EarlyCopositivityDecisionsNameTheirCertificate) {
     auto diagonal_witness = coposit::parsers::matrix_parser::parse("2#1,1,2");
 
-    fracessa diagonal_analyzer(search_method::safe, diagonal_witness, true, false, false);
+    fracessa::analyzer diagonal_analyzer(search_method::safe, diagonal_witness, true, false, false);
     ASSERT_FALSE(diagonal_analyzer.candidates_.empty());
     EXPECT_EQ(diagonal_analyzer.candidates_[0].stability, "F_not_copos");
 
     auto all_ones_witness = coposit::parsers::matrix_parser::parse("4#0,0,0,0,-53,33/2,73/2,-85/2,26,-125/2");
 
-    fracessa all_ones_analyzer(search_method::safe, all_ones_witness, true, false, false);
+    fracessa::analyzer all_ones_analyzer(search_method::safe, all_ones_witness, true, false, false);
     ASSERT_FALSE(all_ones_analyzer.candidates_.empty());
     EXPECT_EQ(all_ones_analyzer.candidates_[0].stability, "F_not_copos");
 
     auto nonnegative_off_diagonal = coposit::parsers::matrix_parser::parse("3#1,1,1,0,0,0");
 
-    fracessa nonnegative_analyzer(search_method::safe, nonnegative_off_diagonal, true, false, false);
+    fracessa::analyzer nonnegative_analyzer(search_method::safe, nonnegative_off_diagonal, true, false, false);
     ASSERT_FALSE(nonnegative_analyzer.candidates_.empty());
     EXPECT_EQ(nonnegative_analyzer.candidates_[0].stability, "T_copos");
 
     auto copositivity_witness = coposit::parsers::matrix_parser::parse("5#0,0,0,0,0,-1,2,0,0,-1,0,0,-10,0,-10");
 
-    fracessa copositivity_analyzer(search_method::safe, copositivity_witness, true, false, false);
+    fracessa::analyzer copositivity_analyzer(search_method::safe, copositivity_witness, true, false, false);
     ASSERT_FALSE(copositivity_analyzer.candidates_.empty());
     EXPECT_EQ(copositivity_analyzer.candidates_[0].support, 1u);
     EXPECT_EQ(copositivity_analyzer.candidates_[0].extended_support_size, 5u);
@@ -314,7 +317,7 @@ TEST(IntegrationTest, EarlyCopositivityDecisionsNameTheirCertificate) {
 TEST(IntegrationTest, CircularSymmetricStoresOneRepresentative) {
     auto B = coposit::parsers::matrix_parser::parse("5#1,3");
 
-    fracessa analyzer(search_method::safe, B, true, false, false);
+    fracessa::analyzer analyzer(search_method::safe, B, true, false, false);
 
     ASSERT_EQ(analyzer.ess_count_, 5u);
     EXPECT_EQ(analyzer.candidate_count_, 5u);
@@ -335,10 +338,10 @@ TEST(IntegrationTest, AutomaticCyclicSymmetryPreservesRepresentedResults) {
     auto exhaustive_matrix = matrix;
     exhaustive_matrix.compact_circular = false;
 
-    fracessa exhaustive(search_method::safe, exhaustive_matrix, true, false, false);
-    fracessa circular(search_method::safe, matrix, true, false, false);
+    fracessa::analyzer exhaustive(search_method::safe, exhaustive_matrix, true, false, false);
+    fracessa::analyzer circular(search_method::safe, matrix, true, false, false);
 
-    auto represented_candidates = [](const fracessa& analyzer) {
+    auto represented_candidates = [](const fracessa::analyzer& analyzer) {
         size_t count = 0;
         for (const candidate& row : analyzer.candidates_)
             count += row.multiplier.value_or(1);

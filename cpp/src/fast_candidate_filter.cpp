@@ -1,5 +1,5 @@
 #include <fracessa/fast_candidate_filter.hpp>
-#include <linalg/integer.hpp>
+#include <fracessa/types.hpp>
 
 #include <algorithm>
 #include <cassert>
@@ -10,7 +10,7 @@
 #include <utility>
 #include <vector>
 
-namespace candidate_search {
+namespace fracessa::search {
 namespace {
 
 constexpr double kPivotCutoff = 1e-12;
@@ -30,19 +30,19 @@ constexpr size_t kEquilibrationIterations = 100;
  * Sorting the symmetric upper triangle makes the smallest nonzero pairwise difference adjacent. If P is acceptable, one common
  * power-of-two scale converts Z to binary64 without changing the game; equilibration follows separately below.
  */
-safe_fallback prepare_normalized_double_game(const linalg::matrix_int& integer_game, unsigned long precision_span_limit,
-                                             linalg::matrix_dbl& result)
+safe_fallback prepare_normalized_double_game(const numeric::matrix_int& integer_game, unsigned long precision_span_limit,
+                                             numeric::matrix_dbl& result)
 {
     const size_t dimension = integer_game.rows();
-    std::vector<linalg::integer::const_reference> entries;
+    std::vector<numeric::integer::const_reference> entries;
     entries.reserve(dimension * (dimension + 1) / 2);
     for (size_t row = 0; row < dimension; ++row) {
         for (size_t column = row; column < dimension; ++column) entries.push_back(integer_game(row, column));
     }
     std::sort(entries.begin(), entries.end(), [](auto left, auto right) { return left.compare(right) < 0; });
 
-    linalg::integer minimum;
-    linalg::integer maximum;
+    numeric::integer minimum;
+    numeric::integer maximum;
     bool found_nonzero = false;
     for (const auto entry : entries) {
         if (entry.is_zero()) continue;
@@ -56,17 +56,17 @@ safe_fallback prepare_normalized_double_game(const linalg::matrix_int& integer_g
         }
     }
 
-    result = linalg::matrix_dbl(dimension, dimension);
+    result = numeric::matrix_dbl(dimension, dimension);
     if (!found_nonzero) return safe_fallback::none;
 
-    linalg::integer difference;
+    numeric::integer difference;
     for (size_t index = 1; index < entries.size(); ++index) {
         if (entries[index - 1].compare(entries[index]) == 0) continue;
         difference.set_difference(entries[index], entries[index - 1]);
         if (difference.compare(minimum) < 0) minimum = difference;
     }
 
-    linalg::integer scaled_minimum(minimum);
+    numeric::integer scaled_minimum(minimum);
     scaled_minimum.multiply(precision_span_limit);
     if (maximum.compare(scaled_minimum) >= 0) return safe_fallback::precision_span;
 
@@ -125,7 +125,7 @@ safe_fallback prepare_normalized_double_game(const linalg::matrix_int& integer_g
  * border is eliminated below, so this is a change of variables rather than a change of game.
  */
 safe_fallback equilibrate_game_matrix(
-    linalg::matrix_dbl& game, size_t dimension, double* scales, double* beta, size_t* active_coordinates)
+    numeric::matrix_dbl& game, size_t dimension, double* scales, double* beta, size_t* active_coordinates)
 {
     size_t active_dimension = 0;
 
@@ -266,7 +266,7 @@ safe_fallback equilibrate_game_matrix(
     return safe_fallback::none;
 }
 
-void swap_active_coordinates(linalg::matrix_dbl& system, size_t active_start, size_t first, size_t second, size_t dimension,
+void swap_active_coordinates(numeric::matrix_dbl& system, size_t active_start, size_t first, size_t second, size_t dimension,
                              size_t pivot_size)
 {
     if (first == second) return;
@@ -286,7 +286,7 @@ void swap_active_coordinates(linalg::matrix_dbl& system, size_t active_start, si
  * side. pivots uses LAPACK's one-based sign convention: a positive entry marks a 1x1 block, while equal negative entries mark a 2x2
  * block. Returning false means the double result is inconclusive and exact arithmetic must decide the support.
  */
-bool factor_and_forward_solve_bunch_kaufman(linalg::matrix_dbl& system, size_t dimension, int* pivots, double* solution)
+bool factor_and_forward_solve_bunch_kaufman(numeric::matrix_dbl& system, size_t dimension, int* pivots, double* solution)
 {
     size_t k = 0;
     while (k < dimension) {
@@ -387,7 +387,7 @@ bool factor_and_forward_solve_bunch_kaufman(linalg::matrix_dbl& system, size_t d
 }
 
 /* Finish the single right-hand side with the backward L^T solve, then undo the stored interchanges. */
-bool solve_bunch_kaufman_backward(const linalg::matrix_dbl& system, size_t dimension, const int* pivots, double* solution)
+bool solve_bunch_kaufman_backward(const numeric::matrix_dbl& system, size_t dimension, const int* pivots, double* solution)
 {
     size_t k = dimension;
     while (k > 0) {
@@ -421,25 +421,25 @@ bool solve_bunch_kaufman_backward(const linalg::matrix_dbl& system, size_t dimen
 
 fast_candidate_filter::fast_candidate_filter(size_t dimension)
     : dimension_(dimension)
-    , game_scales_large_(dimension_ > bs64::kMaxBitsetDimension ? dimension_ : 0)
-    , solution_large_(dimension_ > bs64::kMaxBitsetDimension ? dimension_ : 0)
-    , scale_ratios_large_(dimension_ > bs64::kMaxBitsetDimension ? dimension_ : 0)
-    , pivots_large_(dimension_ > bs64::kMaxBitsetDimension ? dimension_ : 0)
-    , game_scales_(dimension_ > bs64::kMaxBitsetDimension ? game_scales_large_.data() : game_scales_small_.data())
+    , game_scales_large_(dimension_ > support::kMaxBitsetDimension ? dimension_ : 0)
+    , solution_large_(dimension_ > support::kMaxBitsetDimension ? dimension_ : 0)
+    , scale_ratios_large_(dimension_ > support::kMaxBitsetDimension ? dimension_ : 0)
+    , pivots_large_(dimension_ > support::kMaxBitsetDimension ? dimension_ : 0)
+    , game_scales_(dimension_ > support::kMaxBitsetDimension ? game_scales_large_.data() : game_scales_small_.data())
 {
-    if (dimension_ > bs64::kMaxBitsetDimension) support_indices_large_.reserve(dimension_);
+    if (dimension_ > support::kMaxBitsetDimension) support_indices_large_.reserve(dimension_);
 }
 
-void fast_candidate_filter::convert_game_matrix(const linalg::matrix_int& integer_game)
+void fast_candidate_filter::convert_game_matrix(const numeric::matrix_int& integer_game)
 {
     // Normalize the parser's denominator-cleared integer game, then equilibrate it to D*A*D once; every support reuses a principal
     // submatrix and the matching entries of D.
     safe_fallback_ = prepare_normalized_double_game(integer_game, kPrecisionSpanCutoff, game_dbl_);
     if (safe_fallback_ != safe_fallback::none) return;
 
-    if (dimension_ <= bs64::kMaxBitsetDimension) {
-        double beta[bs64::kMaxBitsetDimension];
-        size_t active_coordinates[bs64::kMaxBitsetDimension];
+    if (dimension_ <= support::kMaxBitsetDimension) {
+        double beta[support::kMaxBitsetDimension];
+        size_t active_coordinates[support::kMaxBitsetDimension];
         safe_fallback_ = equilibrate_game_matrix(game_dbl_, dimension_, game_scales_, beta, active_coordinates);
     } else {
         std::vector<double> beta(dimension_);
@@ -448,7 +448,7 @@ void fast_candidate_filter::convert_game_matrix(const linalg::matrix_int& intege
     }
 }
 
-bool fast_candidate_filter::passes(const bitset64& support, size_t support_size)
+bool fast_candidate_filter::passes(const support::bitset& support, size_t support_size)
 {
     /*
      * Eliminate the normalization/payoff border exactly as exact_candidate_solver does. With reference strategy m and columns
@@ -459,18 +459,18 @@ bool fast_candidate_filter::passes(const bitset64& support, size_t support_size)
      * H is symmetric and has dimension |S|-1 instead of the bordered system's |S|+1. This production fast path solves H with an
      * adapted LAPACK Bunch-Kaufman LDL^T factorization but deliberately does not use its inertia for stability.
      */
-    uint8_t support_indices[bs64::kMaxBitsetDimension];
-    const size_t support_count = bs64::extract_set_indices(support, dimension_, support_indices);
+    uint8_t support_indices[support::kMaxBitsetDimension];
+    const size_t support_count = support::extract_set_indices(support, dimension_, support_indices);
     assert(support_count == support_size);
     static_cast<void>(support_size);
 
-    double solution[bs64::kMaxBitsetDimension];
-    double scale_ratios[bs64::kMaxBitsetDimension];
-    int pivots[bs64::kMaxBitsetDimension];
+    double solution[support::kMaxBitsetDimension];
+    double scale_ratios[support::kMaxBitsetDimension];
+    int pivots[support::kMaxBitsetDimension];
     return passes_from_indices(support, support_indices, support_count, solution, scale_ratios, pivots);
 }
 
-bool fast_candidate_filter::passes(const bitset_multiword& support, size_t support_size)
+bool fast_candidate_filter::passes(const support::bitset_multiword& support, size_t support_size)
 {
     assert(support.dimension() == dimension_);
     support.extract_set_indices(support_indices_large_);
@@ -490,7 +490,7 @@ bool fast_candidate_filter::passes_from_indices(const SupportMask& support, cons
     const double inverse_reference_scale = 1.0 / game_scales_[reference];
 
     if (reduced_dimension > 0) {
-        if (reduced_system_.rows() != reduced_dimension) reduced_system_ = linalg::matrix_dbl(reduced_dimension, reduced_dimension);
+        if (reduced_system_.rows() != reduced_dimension) reduced_system_ = numeric::matrix_dbl(reduced_dimension, reduced_dimension);
 
         const double scaled_reference_diagonal = game_dbl_(reference, reference);
         for (size_t position = 0; position < reduced_dimension; ++position) {
@@ -551,10 +551,10 @@ bool fast_candidate_filter::passes_from_indices(const SupportMask& support, cons
         return rowsum > threshold ? 1 : 0;
     };
 
-    if constexpr (std::is_same_v<SupportMask, bitset64>) {
-        bitset64 complement = bs64::set_all_n_bits(dimension_) & ~support;
+    if constexpr (std::is_same_v<SupportMask, support::bitset>) {
+        support::bitset complement = support::set_all_n_bits(dimension_) & ~support;
         while (complement != 0) {
-            const size_t i = bs64::find_pos_first_set_bit(complement);
+            const size_t i = support::find_pos_first_set_bit(complement);
             complement &= complement - 1;
             const int decision = outside_decision(i);
             if (decision < 0) return true;
@@ -572,4 +572,4 @@ bool fast_candidate_filter::passes_from_indices(const SupportMask& support, cons
     return true;
 }
 
-} // namespace candidate_search
+} // namespace fracessa::search

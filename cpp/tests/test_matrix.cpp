@@ -1,12 +1,11 @@
 #include <gtest/gtest.h>
 #include <coposit/parsers/matrix_parser.hpp>
 #include <fracessa/fast_candidate_filter.hpp>
-#include <linalg/integer.hpp>
-#include <linalg/matrix_double.hpp>
-#include <linalg/matrix_integer.hpp>
+#include <fracessa/types.hpp>
 
-using namespace linalg;
-using namespace candidate_search;
+using namespace fracessa::numeric;
+using namespace fracessa::search;
+using namespace fracessa::support;
 
 /*
  * Matrix container and factory tests.
@@ -89,7 +88,7 @@ TEST(FastCandidateFilterTest, SendSmallPivotToExactArithmetic) {
     fast.convert_game_matrix(game.matrix);
 
     EXPECT_EQ(fast.safe_fallback_reason(), safe_fallback::none);
-    EXPECT_TRUE(fast.passes(bitset64{7}, 3));
+    EXPECT_TRUE(fast.passes(bitset{7}, 3));
 }
 
 TEST(FastCandidateFilterTest, SolveNonsingularZeroDiagonalTwoByTwoPivot) {
@@ -107,7 +106,7 @@ TEST(FastCandidateFilterTest, SolveNonsingularZeroDiagonalTwoByTwoPivot) {
     fast.convert_game_matrix(game.matrix);
 
     ASSERT_EQ(fast.safe_fallback_reason(), safe_fallback::none);
-    EXPECT_FALSE(fast.passes(bitset64{7}, 3));
+    EXPECT_FALSE(fast.passes(bitset{7}, 3));
 }
 
 TEST(FastCandidateFilterTest, RemoveCommonDenominatorAndNormalizeGameOnce) {
@@ -129,7 +128,7 @@ TEST(FastCandidateFilterTest, RemoveCommonDenominatorAndNormalizeGameOnce) {
     fast.convert_game_matrix(game.matrix);
 
     ASSERT_EQ(fast.safe_fallback_reason(), safe_fallback::none);
-    EXPECT_FALSE(fast.passes(bitset64{7}, 3));
+    EXPECT_FALSE(fast.passes(bitset{7}, 3));
 }
 
 TEST(FastCandidateFilterTest, MultiwordOutsideTraversalCrossesBit63And64)

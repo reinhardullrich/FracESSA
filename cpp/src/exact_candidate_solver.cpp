@@ -6,7 +6,7 @@
 #include <stdexcept>
 #include <type_traits>
 
-namespace candidate_search {
+namespace fracessa::search {
 
 namespace {
 
@@ -33,7 +33,7 @@ size_t checked_reduced_entry_cache_size(size_t dimension)
  * The denominator is positive, so this scaling preserves every equality, inequality, and inertia sign used by candidate search and stability.
  * Each support can therefore stay in integer arithmetic until a successful candidate is written to the public rational result.
  */
-exact_candidate_solver::exact_candidate_solver(const linalg::matrix_int& integer_game, const linalg::integer& game_denominator)
+exact_candidate_solver::exact_candidate_solver(const numeric::matrix_int& integer_game, const numeric::integer& game_denominator)
     : dimension_(integer_game.rows())
     , reduced_entry_cache_(checked_reduced_entry_cache_size(dimension_))
     , reduced_entry_cache_ready_(checked_reduced_entry_cache_size(dimension_), 0)
@@ -41,7 +41,7 @@ exact_candidate_solver::exact_candidate_solver(const linalg::matrix_int& integer
     , integer_game_(integer_game)
     , game_denominator_(game_denominator)
 {
-    if (dimension_ > bs64::kMaxBitsetDimension) {
+    if (dimension_ > support::kMaxBitsetDimension) {
         support_indices_large_.reserve(dimension_);
         non_support_indices_large_.reserve(dimension_);
     }
@@ -109,7 +109,7 @@ void exact_candidate_solver::build_reduced_system(const Index* support_indices, 
  *
  * The support Hessian H and the later G and Q blocks reuse these same entries, so calculate each triple only once.
  */
-linalg::integer::const_reference exact_candidate_solver::reduced_entry(size_t reference, size_t row, size_t column)
+numeric::integer::const_reference exact_candidate_solver::reduced_entry(size_t reference, size_t row, size_t column)
 {
     const size_t offset = reference * dimension_ * dimension_ + row * dimension_ + column;
     auto& value = reduced_entry_cache_[offset];
@@ -138,19 +138,20 @@ linalg::integer::const_reference exact_candidate_solver::reduced_entry(size_t re
  * instead of reversing every comparison for a nonstandard "co-negativity" test. Original dG entries remain in
  * reduced_entry_cache_ after the solve overwrites the work matrix with N.
  */
-size_t exact_candidate_solver::build_scaled_reduced_b(bitset64 support, bitset64 outside_best_replies, linalg::matrix_int& result)
+size_t exact_candidate_solver::build_scaled_reduced_b(support::bitset support, support::bitset outside_best_replies,
+                                                       numeric::matrix_int& result)
 {
     assert(outside_best_replies != 0);
 
-    uint8_t support_indices[bs64::kMaxBitsetDimension];
-    uint8_t outside_indices[bs64::kMaxBitsetDimension];
-    const size_t support_size = bs64::extract_set_indices(support, dimension_, support_indices);
-    const size_t outside_size = bs64::extract_set_indices(outside_best_replies, dimension_, outside_indices);
+    uint8_t support_indices[support::kMaxBitsetDimension];
+    uint8_t outside_indices[support::kMaxBitsetDimension];
+    const size_t support_size = support::extract_set_indices(support, dimension_, support_indices);
+    const size_t outside_size = support::extract_set_indices(outside_best_replies, dimension_, outside_indices);
     return build_scaled_reduced_b_from_indices(support_indices, support_size, outside_indices, outside_size, result);
 }
 
-size_t exact_candidate_solver::build_scaled_reduced_b(const bitset_multiword& support,
-                                                   const bitset_multiword& outside_best_replies, linalg::matrix_int& result)
+size_t exact_candidate_solver::build_scaled_reduced_b(const support::bitset_multiword& support,
+                                                   const support::bitset_multiword& outside_best_replies, numeric::matrix_int& result)
 {
     assert(support.dimension() == dimension_);
     assert(outside_best_replies.dimension() == dimension_);
@@ -165,7 +166,7 @@ size_t exact_candidate_solver::build_scaled_reduced_b(const bitset_multiword& su
 template<class Index>
 size_t exact_candidate_solver::build_scaled_reduced_b_from_indices(const Index* support_indices, size_t support_size,
                                                                 const Index* outside_indices, size_t outside_size,
-                                                                linalg::matrix_int& result)
+                                                                numeric::matrix_int& result)
 {
     assert(reduced_hessian_is_negative_definite_);
     assert(outside_size > 0);
@@ -190,7 +191,7 @@ size_t exact_candidate_solver::build_scaled_reduced_b_from_indices(const Index* 
 
     result.resize(outside_size, outside_size);
 
-    linalg::integer scaled_entry;
+    numeric::integer scaled_entry;
     for (size_t row = 0; row < outside_size; ++row) {
         for (size_t column = 0; column <= row; ++column) {
             scaled_entry.set_product(
@@ -211,7 +212,7 @@ size_t exact_candidate_solver::build_scaled_reduced_b_from_indices(const Index* 
 }
 
 template<class Index>
-void exact_candidate_solver::calculate_integer_payoff(linalg::integer& value, size_t strategy, size_t reference,
+void exact_candidate_solver::calculate_integer_payoff(numeric::integer& value, size_t strategy, size_t reference,
                                                    const Index* support_indices, size_t reduced_dimension)
 {
     value.set_product(integer_game_(strategy, reference), reference_numerator_);
@@ -237,18 +238,18 @@ void exact_candidate_solver::ensure_candidate_vector(basic_candidate<SupportMask
  * The fraction-free LDL^T solve proves nonsingularity, returns all probabilities with one common denominator, and records the exact inertia of H.
  * A failed test returns immediately; rational candidate fields are materialized only after every exact candidate condition succeeds.
  */
-bool exact_candidate_solver::find(const bitset64& support, size_t support_size, candidate& result, bool materialize_output)
+bool exact_candidate_solver::find(const support::bitset& support, size_t support_size, candidate& result, bool materialize_output)
 {
-    uint8_t support_indices[bs64::kMaxBitsetDimension];
-    uint8_t non_support_indices[bs64::kMaxBitsetDimension];
-    const size_t support_count = bs64::extract_set_indices(support, dimension_, support_indices);
-    const bitset64 complement = bs64::set_all_n_bits(dimension_) & ~support;
-    const size_t non_support_count = bs64::extract_set_indices(complement, dimension_, non_support_indices);
+    uint8_t support_indices[support::kMaxBitsetDimension];
+    uint8_t non_support_indices[support::kMaxBitsetDimension];
+    const size_t support_count = support::extract_set_indices(support, dimension_, support_indices);
+    const support::bitset complement = support::set_all_n_bits(dimension_) & ~support;
+    const size_t non_support_count = support::extract_set_indices(complement, dimension_, non_support_indices);
     return find_from_indices(support, support_size, result, materialize_output, support_indices, support_count,
                              non_support_indices, non_support_count);
 }
 
-bool exact_candidate_solver::find(const bitset_multiword& support, size_t support_size, multiword_candidate& result,
+bool exact_candidate_solver::find(const support::bitset_multiword& support, size_t support_size, candidate_multiword& result,
                                bool materialize_output)
 {
     assert(support.dimension() == dimension_);
@@ -282,7 +283,7 @@ bool exact_candidate_solver::find_from_indices(const SupportMask& support, size_
         resize_reduced_system(reduced_dimension);
         build_reduced_system(support_indices, reduced_dimension);
 
-        linalg::fraction_free_ldlt_inertia inertia;
+        numeric::fraction_free_ldlt_inertia inertia;
         if (!ffldlt_workspace_.solve_inplace(solution_numerators_, solution_denominator_, reduced_system_, right_hand_side_, inertia)) return false;
         reduced_hessian_is_negative_definite_ = inertia.positive == 0;
 
@@ -306,15 +307,15 @@ bool exact_candidate_solver::find_from_indices(const SupportMask& support, size_
         const int comparison = outside_payoff_numerator_.compare(payoff_numerator_);
         if (comparison > 0) return false;
         if (comparison == 0) {
-            if constexpr (std::is_same_v<SupportMask, bitset64>)
-                result.extended_support = bs64::set_bit_at_pos(result.extended_support, outside_strategy);
+            if constexpr (std::is_same_v<SupportMask, support::bitset>)
+                result.extended_support = support::set_bit_at_pos(result.extended_support, outside_strategy);
             else
                 result.extended_support.set_bit_at_pos(outside_strategy);
         }
     }
 
-    if constexpr (std::is_same_v<SupportMask, bitset64>)
-        result.extended_support_size = bs64::count_set_bits(result.extended_support);
+    if constexpr (std::is_same_v<SupportMask, support::bitset>)
+        result.extended_support_size = support::count_set_bits(result.extended_support);
     else
         result.extended_support_size = result.extended_support.count_set_bits();
 
@@ -335,4 +336,4 @@ bool exact_candidate_solver::find_from_indices(const SupportMask& support, size_
     return true;
 }
 
-} // namespace candidate_search
+} // namespace fracessa::search

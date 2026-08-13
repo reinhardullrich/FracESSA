@@ -5,9 +5,11 @@
 #include <numeric>
 #include <vector>
 
-#include <fracessa/bitset64.hpp>
+#include <fracessa/bitset.hpp>
 #include <fracessa/bitset_multiword.hpp>
-#include <linalg/matrix_integer.hpp>
+#include <fracessa/types.hpp>
+
+namespace fracessa::support {
 
 /*
  * Exact extra symmetries of a symmetric circulant game.
@@ -18,17 +20,17 @@
  */
 class CircularAffineSymmetry {
 private:
-    static constexpr size_t kMaxMultiplierClasses = (bs64::kMaxBitsetDimension + 1) / 2;
+    static constexpr size_t kMaxMultiplierClasses = (kMaxBitsetDimension + 1) / 2;
 
     struct CanonicalImage {
-        bitset64 support;
+        bitset support;
         size_t right_shifts;
         bool reflected;
     };
 
     size_t dimension_;
     size_t multiplier_class_count_ = 0;
-    std::array<std::array<bitset64, bs64::kMaxBitsetDimension>, kMaxMultiplierClasses> destination_bits_;
+    std::array<std::array<bitset, kMaxBitsetDimension>, kMaxMultiplierClasses> destination_bits_;
 
     inline void add_multiplier(size_t multiplier) noexcept {
         auto& destinations = destination_bits_[multiplier_class_count_++];
@@ -36,8 +38,8 @@ private:
             destinations[strategy] = 1ULL << ((multiplier * strategy) % dimension_);
     }
 
-    inline bitset64 transform(bitset64 support, size_t multiplier_class) const noexcept {
-        bitset64 transformed = 0;
+    inline bitset transform(bitset support, size_t multiplier_class) const noexcept {
+        bitset transformed = 0;
         while (support) {
             transformed |= destination_bits_[multiplier_class][ctz64(support)];
             support &= support - 1;
@@ -45,24 +47,24 @@ private:
         return transformed;
     }
 
-    inline CanonicalImage canonical_dihedral(bitset64 support) const noexcept {
+    inline CanonicalImage canonical_dihedral(bitset support) const noexcept {
         CanonicalImage smallest{support, 0, false};
-        bitset64 current = support;
+        bitset current = support;
         for (size_t shift = 1; shift < dimension_; ++shift) {
-            current = bs64::rot_one_right(current, dimension_);
+            current = rot_one_right(current, dimension_);
             if (current < smallest.support) smallest = {current, shift, false};
         }
 
-        current = bs64::reflect(support, dimension_);
+        current = reflect(support, dimension_);
         for (size_t shift = 0; shift < dimension_; ++shift) {
             if (current < smallest.support) smallest = {current, shift, true};
-            current = bs64::rot_one_right(current, dimension_);
+            current = rot_one_right(current, dimension_);
         }
         return smallest;
     }
 
 public:
-    explicit CircularAffineSymmetry(const linalg::matrix_int& matrix) : dimension_(matrix.rows()) {
+    explicit CircularAffineSymmetry(const numeric::matrix_int& matrix) : dimension_(matrix.rows()) {
         add_multiplier(1);
         for (size_t multiplier = 2; multiplier <= dimension_ / 2; ++multiplier) {
             if (std::gcd(multiplier, dimension_) != 1) continue;
@@ -88,29 +90,29 @@ public:
         return (image + dimension_ - right_shifts) % dimension_;
     }
 
-    inline bitset64 image_mask(bitset64 support, size_t multiplier_class, bool reflected, size_t right_shifts) const noexcept {
-        bitset64 image = transform(support, multiplier_class);
-        if (reflected) image = bs64::reflect(image, dimension_);
+    inline bitset image_mask(bitset support, size_t multiplier_class, bool reflected, size_t right_shifts) const noexcept {
+        bitset image = transform(support, multiplier_class);
+        if (reflected) image = reflect(image, dimension_);
         for (size_t shift = 0; shift < right_shifts; ++shift)
-            image = bs64::rot_one_right(image, dimension_);
+            image = rot_one_right(image, dimension_);
         return image;
     }
 
     // The bracelet generator already emitted the smallest rotation or reflection for the identity multiplier. Reject this support
     // if an additional matrix-preserving multiplier reaches a smaller concrete support.
-    inline bool is_representative(bitset64 support) const noexcept {
+    inline bool is_representative(bitset support) const noexcept {
         for (size_t multiplier_class = 1; multiplier_class < multiplier_class_count_; ++multiplier_class) {
-            const bitset64 image = transform(support, multiplier_class);
-            bitset64 transformed = image;
+            const bitset image = transform(support, multiplier_class);
+            bitset transformed = image;
             for (size_t shift = 0; shift < dimension_; ++shift) {
                 if (transformed < support) return false;
-                transformed = bs64::rot_one_right(transformed, dimension_);
+                transformed = rot_one_right(transformed, dimension_);
             }
 
-            transformed = bs64::reflect(image, dimension_);
+            transformed = reflect(image, dimension_);
             for (size_t shift = 0; shift < dimension_; ++shift) {
                 if (transformed < support) return false;
-                transformed = bs64::rot_one_right(transformed, dimension_);
+                transformed = rot_one_right(transformed, dimension_);
             }
         }
         return true;
@@ -118,8 +120,8 @@ public:
 
     // Return one representative for each distinct dihedral orbit inside the complete detected affine orbit.
     template<class Callback>
-    inline void for_each_distinct_bracelet_image(bitset64 support, Callback&& callback) const {
-        std::array<bitset64, kMaxMultiplierClasses> images{};
+    inline void for_each_distinct_bracelet_image(bitset support, Callback&& callback) const {
+        std::array<bitset, kMaxMultiplierClasses> images{};
         size_t image_count = 0;
 
         for (size_t multiplier_class = 0; multiplier_class < multiplier_class_count_; ++multiplier_class) {
@@ -202,7 +204,7 @@ private:
     }
 
 public:
-    explicit CircularAffineSymmetryMultiword(const linalg::matrix_int& matrix)
+    explicit CircularAffineSymmetryMultiword(const numeric::matrix_int& matrix)
         : dimension_(matrix.rows()), transformed_(dimension_), canonical_(dimension_)
     {
         destination_positions_.reserve((dimension_ + 1) / 2);
@@ -289,3 +291,5 @@ public:
         }
     }
 };
+
+} // namespace fracessa::support

@@ -1,9 +1,9 @@
 #ifndef CANDIDATE_H
 #define CANDIDATE_H
 
-#include <linalg/fraction.hpp>
-#include <linalg/integer.hpp>
-#include <fracessa/bitset64.hpp>
+#include <fracessa/fraction.hpp>
+#include <fracessa/types.hpp>
+#include <fracessa/bitset.hpp>
 #include <fracessa/bitset_multiword.hpp>
 #include <optional>
 #include <string>
@@ -12,6 +12,8 @@
 #include <limits>
 #include <type_traits>
 #include <vector>
+
+namespace fracessa {
 
 /**
  * Result of the exact equilibrium test for one support.
@@ -37,7 +39,7 @@ class basic_candidate
         size_t candidate_id = 0;
 
         /// Full n-dimensional exact mixed strategy. Entries outside I(x) are zero.
-        std::vector<linalg::fraction> vector;
+        std::vector<numeric::fraction> vector;
         /// I(x), the strategies used with positive probability.
         SupportMask support;
         /// Number of strategies in I(x).
@@ -55,7 +57,7 @@ class basic_candidate
         /// Machine-readable reason code produced by exact stability checking.
         std::string stability;
         /// Exact equilibrium payoff x^T A x.
-        fraction payoff;
+        numeric::fraction payoff;
 
         /// Lossy output-only approximation of `payoff`; no mathematical decision uses it.
         double payoff_dbl = 0.0;
@@ -98,10 +100,10 @@ class basic_candidate
     private:
         static std::string mask_to_string(const SupportMask& value)
         {
-            if constexpr (std::is_same_v<SupportMask, bitset64>) {
-                return bs64::to_string(value);
+            if constexpr (std::is_same_v<SupportMask, support::bitset>) {
+                return support::to_string(value);
             } else {
-                linalg::integer result;
+                numeric::integer result;
                 result.set_string(value.to_bitstring(), 2);
                 return result.to_string();
             }
@@ -109,12 +111,14 @@ class basic_candidate
 
         static SupportMask make_empty_support(size_t dimension)
         {
-            if constexpr (std::is_same_v<SupportMask, bitset64>) return 0;
+            if constexpr (std::is_same_v<SupportMask, support::bitset>) return 0;
             else return SupportMask(dimension);
         }
 };
 
-using candidate = basic_candidate<bitset64>;
-using multiword_candidate = basic_candidate<bitset_multiword>;
+using candidate = basic_candidate<support::bitset>;
+using candidate_multiword = basic_candidate<support::bitset_multiword>;
+
+} // namespace fracessa
 
 #endif // CANDIDATE_H

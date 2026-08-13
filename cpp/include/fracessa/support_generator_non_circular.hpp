@@ -6,8 +6,10 @@
 #include <utility>
 #include <vector>
 
-#include <fracessa/bitset64.hpp>
+#include <fracessa/bitset.hpp>
 #include <fracessa/bitset_multiword.hpp>
+
+namespace fracessa::support {
 
 /*
  * Generate every nonempty support, one mask at a time, without storing a list. generate() visits support sizes 1 through
@@ -28,28 +30,28 @@ private:
     size_t dimension_;
     // A rule is checked when its lowest set bit is added, because that is the first moment the partial support can
     // contain the complete rule.
-    std::array<std::vector<bitset64>, bs64::kMaxBitsetDimension> forbidden_by_lowest_;
+    std::array<std::vector<bitset>, kMaxBitsetDimension> forbidden_by_lowest_;
     // Rules found by the callback stay pending until the next support size.
-    std::vector<bitset64> pending_forbidden_;
+    std::vector<bitset> pending_forbidden_;
     size_t target_cardinality_ = 0;
     bool emitted_ = false;
 
     inline void activate_pending() {
-        for (const bitset64 support : pending_forbidden_)
+        for (const bitset support : pending_forbidden_)
             forbidden_by_lowest_[ctz64(support)].push_back(support);
         pending_forbidden_.clear();
     }
 
-    inline bool completes_forbidden(bitset64 partial, size_t new_lowest_bit) const noexcept {
-        for (const bitset64 forbidden : forbidden_by_lowest_[new_lowest_bit]) {
-            if (bs64::is_subset_of(forbidden, partial))
+    inline bool completes_forbidden(bitset partial, size_t new_lowest_bit) const noexcept {
+        for (const bitset forbidden : forbidden_by_lowest_[new_lowest_bit]) {
+            if (is_subset_of(forbidden, partial))
                 return true;
         }
         return false;
     }
 
     template<class Callback>
-    inline void generate_from(size_t bits_remaining, size_t needed, bitset64 partial, Callback& callback) {
+    inline void generate_from(size_t bits_remaining, size_t needed, bitset partial, Callback& callback) {
         if (needed == 0) {
             emitted_ = true;
             callback(partial, target_cardinality_);
@@ -62,7 +64,7 @@ private:
         if (needed < bits_remaining)
             generate_from(bit, needed, partial, callback);
 
-        const bitset64 with_bit = bs64::set_bit_at_pos(partial, bit);
+        const bitset with_bit = set_bit_at_pos(partial, bit);
         if (!completes_forbidden(with_bit, bit))
             generate_from(bit, needed - 1, with_bit, callback);
     }
@@ -70,7 +72,7 @@ private:
 public:
     explicit NonCircularSupportGenerator(size_t dimension) noexcept : dimension_(dimension) {}
 
-    // Callback signature: void(bitset64 support, size_t support_size).
+    // Callback signature: void(bitset support, size_t support_size).
     // It is called synchronously once for each generated support.
     template<class Callback>
     inline void generate(Callback&& callback) {
@@ -85,7 +87,7 @@ public:
         }
     }
 
-    inline void add_forbidden(bitset64 support) {
+    inline void add_forbidden(bitset support) {
         pending_forbidden_.push_back(support);
     }
 };
@@ -158,3 +160,5 @@ public:
         pending_forbidden_.push_back(support);
     }
 };
+
+} // namespace fracessa::support

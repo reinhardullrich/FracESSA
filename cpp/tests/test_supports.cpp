@@ -14,6 +14,8 @@
 
 #include "reference_circular_support_generator.hpp"
 
+using namespace fracessa::support;
+
 namespace {
 
 struct StopGeneration {};
@@ -25,7 +27,7 @@ bitset_multiword make_multiword_support(size_t dimension, std::initializer_list<
     return result;
 }
 
-bitset_multiword make_multiword_support(size_t dimension, bitset64 support)
+bitset_multiword make_multiword_support(size_t dimension, bitset support)
 {
     bitset_multiword result(dimension);
     while (support != 0) {
@@ -35,36 +37,36 @@ bitset_multiword make_multiword_support(size_t dimension, bitset64 support)
     return result;
 }
 
-linalg::matrix_int make_circular_integer_matrix(size_t dimension, const std::vector<slong>& half_row)
+fracessa::numeric::matrix_int make_circular_integer_matrix(size_t dimension, const std::vector<slong>& half_row)
 {
-    linalg::matrix_int result(dimension, dimension);
+    fracessa::numeric::matrix_int result(dimension, dimension);
     for (size_t row = 0; row < dimension; ++row) {
         for (size_t column = 0; column < dimension; ++column) {
             const size_t forward = (column + dimension - row) % dimension;
             const size_t distance = std::min(forward, dimension - forward);
-            if (distance != 0) result(row, column) = linalg::integer(half_row[distance - 1]);
+            if (distance != 0) result(row, column) = fracessa::numeric::integer(half_row[distance - 1]);
         }
     }
     return result;
 }
 
 template<class Generator>
-std::vector<std::pair<bitset64, size_t>> generate_circular(size_t dimension) {
+std::vector<std::pair<bitset, size_t>> generate_circular(size_t dimension) {
     Generator generator(dimension);
-    std::vector<std::pair<bitset64, size_t>> generated;
-    generator.generate([&](bitset64 support, size_t cardinality) {
+    std::vector<std::pair<bitset, size_t>> generated;
+    generator.generate([&](bitset support, size_t cardinality) {
         generated.emplace_back(support, cardinality);
     });
     return generated;
 }
 
 template<class Generator>
-std::pair<std::vector<std::pair<bitset64, size_t>>, size_t> generate_circular_with_forbidden(size_t dimension,
-                                                                                           bitset64 forbidden) {
+std::pair<std::vector<std::pair<bitset, size_t>>, size_t> generate_circular_with_forbidden(size_t dimension,
+                                                                                           bitset forbidden) {
     Generator generator(dimension);
-    std::vector<std::pair<bitset64, size_t>> generated;
+    std::vector<std::pair<bitset, size_t>> generated;
     size_t multiplier = 0;
-    generator.generate([&](bitset64 support, size_t cardinality) {
+    generator.generate([&](bitset support, size_t cardinality) {
         generated.emplace_back(support, cardinality);
         if (support == forbidden)
             multiplier = generator.add_forbidden_orbit(support);
@@ -76,16 +78,16 @@ std::pair<std::vector<std::pair<bitset64, size_t>>, size_t> generate_circular_wi
 
 TEST(SupportGeneratorTest, NonCircularMatchesNumericFixedCardinalityOrder) {
     NonCircularSupportGenerator generator(5);
-    std::vector<std::pair<bitset64, size_t>> generated;
-    std::vector<std::pair<bitset64, size_t>> expected;
+    std::vector<std::pair<bitset, size_t>> generated;
+    std::vector<std::pair<bitset, size_t>> expected;
 
-    generator.generate([&](bitset64 support, size_t cardinality) {
+    generator.generate([&](bitset support, size_t cardinality) {
         generated.emplace_back(support, cardinality);
     });
 
     for (size_t cardinality = 1; cardinality <= 5; ++cardinality) {
-        for (bitset64 support = 1; support < (1ULL << 5); ++support) {
-            if (bs64::count_set_bits(support) == cardinality)
+        for (bitset support = 1; support < (1ULL << 5); ++support) {
+            if (count_set_bits(support) == cardinality)
                 expected.emplace_back(support, cardinality);
         }
     }
@@ -94,10 +96,10 @@ TEST(SupportGeneratorTest, NonCircularMatchesNumericFixedCardinalityOrder) {
 
 TEST(SupportGeneratorTest, NonCircularPrunesForbiddenSubsetsDuringLaterLayers) {
     NonCircularSupportGenerator generator(5);
-    const bitset64 forbidden = 0b00101;
+    const bitset forbidden = 0b00101;
 
-    std::vector<bitset64> generated;
-    generator.generate([&](bitset64 support, size_t cardinality) {
+    std::vector<bitset> generated;
+    generator.generate([&](bitset support, size_t cardinality) {
         if (cardinality == 2 && support == forbidden)
             generator.add_forbidden(support);
         if (cardinality == 3)
@@ -105,24 +107,24 @@ TEST(SupportGeneratorTest, NonCircularPrunesForbiddenSubsetsDuringLaterLayers) {
     });
 
     ASSERT_FALSE(generated.empty());
-    for (const bitset64 support : generated)
-        EXPECT_FALSE(bs64::is_subset_of(forbidden, support));
+    for (const bitset support : generated)
+        EXPECT_FALSE(is_subset_of(forbidden, support));
 }
 
 TEST(SupportGeneratorTest, NonCircularHandlesDimension64) {
-    NonCircularSupportGenerator generator(bs64::kMaxBitsetDimension);
+    NonCircularSupportGenerator generator(kMaxBitsetDimension);
     size_t generated = 0;
-    bitset64 singleton_union = 0;
+    bitset singleton_union = 0;
 
-    generator.generate([&](bitset64 support, size_t cardinality) {
+    generator.generate([&](bitset support, size_t cardinality) {
         ++generated;
         EXPECT_EQ(cardinality, 1u);
         singleton_union |= support;
         generator.add_forbidden(support);
     });
 
-    EXPECT_EQ(generated, bs64::kMaxBitsetDimension);
-    EXPECT_EQ(singleton_union, ~bitset64{0});
+    EXPECT_EQ(generated, kMaxBitsetDimension);
+    EXPECT_EQ(singleton_union, ~bitset{0});
 }
 
 TEST(SupportGeneratorTest, MultiwordNonCircularMatchesOneWordOrderAndPruning)
@@ -133,8 +135,8 @@ TEST(SupportGeneratorTest, MultiwordNonCircularMatchesOneWordOrderAndPruning)
         std::vector<std::pair<std::string, size_t>> expected;
         std::vector<std::pair<std::string, size_t>> actual;
 
-        one_word.generate([&](bitset64 support, size_t cardinality) {
-            expected.emplace_back(bs64::to_bitstring(support, dimension), cardinality);
+        one_word.generate([&](bitset support, size_t cardinality) {
+            expected.emplace_back(to_bitstring(support, dimension), cardinality);
             if (dimension == 5 && support == 0b00101) one_word.add_forbidden(support);
         });
         multiword.generate([&](const bitset_multiword& support, size_t cardinality) {
@@ -198,11 +200,11 @@ TEST(SupportGeneratorTest, CircularGeneratesEveryNonemptyBraceletOnce) {
     std::array<bool, 1ULL << dimension> seen{};
     size_t representative_count = 0;
     size_t previous_cardinality = 0;
-    bitset64 previous_representative = 0;
+    bitset previous_representative = 0;
 
-    generator.generate([&](bitset64 representative, size_t cardinality) {
+    generator.generate([&](bitset representative, size_t cardinality) {
         ++representative_count;
-        EXPECT_EQ(bs64::count_set_bits(representative), cardinality);
+        EXPECT_EQ(count_set_bits(representative), cardinality);
         if (cardinality == previous_cardinality) {
             EXPECT_GT(representative, previous_representative);
         } else {
@@ -212,18 +214,18 @@ TEST(SupportGeneratorTest, CircularGeneratesEveryNonemptyBraceletOnce) {
         previous_representative = representative;
 
         std::array<bool, 1ULL << dimension> orbit{};
-        bitset64 current = representative;
+        bitset current = representative;
         for (size_t i = 0; i < dimension; ++i) {
             orbit[current] = true;
-            current = bs64::rot_one_right(current, dimension);
+            current = rot_one_right(current, dimension);
         }
-        current = bs64::reflect(representative, dimension);
+        current = reflect(representative, dimension);
         for (size_t i = 0; i < dimension; ++i) {
             orbit[current] = true;
-            current = bs64::rot_one_right(current, dimension);
+            current = rot_one_right(current, dimension);
         }
 
-        for (bitset64 support = 1; support < orbit.size(); ++support) {
+        for (bitset support = 1; support < orbit.size(); ++support) {
             if (!orbit[support])
                 continue;
             EXPECT_FALSE(seen[support]);
@@ -232,33 +234,33 @@ TEST(SupportGeneratorTest, CircularGeneratesEveryNonemptyBraceletOnce) {
     });
 
     EXPECT_EQ(representative_count, 29u);
-    for (bitset64 support = 1; support < seen.size(); ++support)
+    for (bitset support = 1; support < seen.size(); ++support)
         EXPECT_TRUE(seen[support]);
 }
 
 TEST(SupportGeneratorTest, CircularReturnsAndPrunesTheCompleteDihedralOrbit) {
     CircularSupportGenerator generator(6);
-    const bitset64 forbidden = 0b001011;
+    const bitset forbidden = 0b001011;
     const size_t multiplier = generator.add_forbidden_orbit(forbidden);
 
     EXPECT_EQ(multiplier, 12u);
 
-    std::vector<bitset64> generated;
-    generator.generate([&](bitset64 support, size_t cardinality) {
+    std::vector<bitset> generated;
+    generator.generate([&](bitset support, size_t cardinality) {
         if (cardinality == 3)
             generated.push_back(support);
     });
     ASSERT_FALSE(generated.empty());
-    for (const bitset64 support : generated) {
-        bitset64 current = forbidden;
+    for (const bitset support : generated) {
+        bitset current = forbidden;
         for (size_t i = 0; i < 6; ++i) {
-            EXPECT_FALSE(bs64::is_subset_of(current, support));
-            current = bs64::rot_one_right(current, 6);
+            EXPECT_FALSE(is_subset_of(current, support));
+            current = rot_one_right(current, 6);
         }
-        current = bs64::reflect(forbidden, 6);
+        current = reflect(forbidden, 6);
         for (size_t i = 0; i < 6; ++i) {
-            EXPECT_FALSE(bs64::is_subset_of(current, support));
-            current = bs64::rot_one_right(current, 6);
+            EXPECT_FALSE(is_subset_of(current, support));
+            current = rot_one_right(current, 6);
         }
     }
 }
@@ -277,16 +279,16 @@ TEST(SupportGeneratorTest, CircularProductionMatchesReferenceGenerationAndPrunin
                   generate_circular<ReferenceCircularSupportGenerator>(dimension));
 
     constexpr size_t dimension = 8;
-    constexpr bitset64 forbidden = 0b00000011;
+    constexpr bitset forbidden = 0b00000011;
     EXPECT_EQ(generate_circular_with_forbidden<CircularSupportGenerator>(dimension, forbidden),
               generate_circular_with_forbidden<ReferenceCircularSupportGenerator>(dimension, forbidden));
 }
 
 TEST(SupportGeneratorTest, CircularHandlesDimension64) {
-    constexpr size_t dimension = bs64::kMaxBitsetDimension;
+    constexpr size_t dimension = kMaxBitsetDimension;
     CircularSupportGenerator generator(dimension);
     size_t generated = 0;
-    generator.generate([&](bitset64 support, size_t cardinality) {
+    generator.generate([&](bitset support, size_t cardinality) {
         ++generated;
         EXPECT_EQ(cardinality, 1u);
         EXPECT_EQ(support, 1u);
@@ -303,13 +305,13 @@ TEST(SupportGeneratorTest, MultiwordCircularMatchesOneWordGenerationAndPruning)
         std::vector<std::pair<std::string, size_t>> expected;
         std::vector<std::pair<std::string, size_t>> actual;
 
-        one_word.generate([&](bitset64 support, size_t cardinality) {
-            expected.emplace_back(bs64::to_bitstring(support, dimension), cardinality);
+        one_word.generate([&](bitset support, size_t cardinality) {
+            expected.emplace_back(to_bitstring(support, dimension), cardinality);
             if (dimension == 8 && support == 0b00000011) one_word.add_forbidden_orbit(support);
         });
         multiword.generate([&](const bitset_multiword& support, size_t cardinality) {
             actual.emplace_back(support.to_bitstring(), cardinality);
-            if (dimension == 8 && support == make_multiword_support(dimension, bitset64{0b00000011}))
+            if (dimension == 8 && support == make_multiword_support(dimension, bitset{0b00000011}))
                 multiword.add_forbidden_orbit(support);
         });
 
@@ -354,7 +356,7 @@ TEST(SupportGeneratorTest, MultiwordCircularPrunesAcrossWordBoundaries)
 }
 
 TEST(CircularAffineSymmetryTest, DetectsAndFiltersExactMultiplierSymmetry) {
-    const linalg::matrix_int matrix = make_circular_integer_matrix(8, {7, 11, 7, 13});
+    const fracessa::numeric::matrix_int matrix = make_circular_integer_matrix(8, {7, 11, 7, 13});
     CircularAffineSymmetry symmetry(matrix);
 
     ASSERT_EQ(symmetry.multiplier_class_count(), 2u);
@@ -363,14 +365,14 @@ TEST(CircularAffineSymmetryTest, DetectsAndFiltersExactMultiplierSymmetry) {
 
     CircularSupportGenerator generator(8);
     size_t representative_count = 0;
-    generator.generate([&](bitset64 support, size_t) {
+    generator.generate([&](bitset support, size_t) {
         if (symmetry.is_representative(support)) ++representative_count;
     });
     EXPECT_EQ(representative_count, 23u);
 }
 
 TEST(CircularAffineSymmetryTest, RepeatedValuesAloneDoNotCreateASymmetry) {
-    const linalg::matrix_int matrix = make_circular_integer_matrix(8, {7, 7, 11, 13});
+    const fracessa::numeric::matrix_int matrix = make_circular_integer_matrix(8, {7, 7, 11, 13});
     CircularAffineSymmetry symmetry(matrix);
 
     EXPECT_EQ(symmetry.multiplier_class_count(), 1u);
@@ -378,13 +380,13 @@ TEST(CircularAffineSymmetryTest, RepeatedValuesAloneDoNotCreateASymmetry) {
 }
 
 TEST(CircularAffineSymmetryTest, EnlargedOrbitReusesExistingDihedralExpansion) {
-    const linalg::matrix_int matrix = make_circular_integer_matrix(8, {7, 11, 7, 13});
+    const fracessa::numeric::matrix_int matrix = make_circular_integer_matrix(8, {7, 11, 7, 13});
     CircularAffineSymmetry symmetry(matrix);
     CircularSupportGenerator generator(8);
 
     size_t bracelet_images = 0;
     size_t represented_supports = 0;
-    symmetry.for_each_distinct_bracelet_image(0b00000011, [&](bitset64 image, size_t multiplier_class,
+    symmetry.for_each_distinct_bracelet_image(0b00000011, [&](bitset image, size_t multiplier_class,
                                                                bool reflected, size_t right_shifts) {
         ++bracelet_images;
         EXPECT_EQ(symmetry.image_mask(0b00000011, multiplier_class, reflected, right_shifts), image);
@@ -398,7 +400,7 @@ TEST(CircularAffineSymmetryTest, EnlargedOrbitReusesExistingDihedralExpansion) {
 }
 
 TEST(CircularAffineSymmetryTest, DetectsPublishedDimension24MultiplierClasses) {
-    const linalg::matrix_int matrix = make_circular_integer_matrix(24, {15, 15, 7, 15, 15, 7, 15, 7, 7, 15, 15, 7});
+    const fracessa::numeric::matrix_int matrix = make_circular_integer_matrix(24, {15, 15, 7, 15, 15, 7, 15, 7, 7, 15, 15, 7});
     CircularAffineSymmetry symmetry(matrix);
 
     EXPECT_EQ(symmetry.multiplier_class_count(), 4u);
@@ -407,24 +409,24 @@ TEST(CircularAffineSymmetryTest, DetectsPublishedDimension24MultiplierClasses) {
 TEST(CircularAffineSymmetryTest, MultiwordMatchesOneWordImages)
 {
     constexpr size_t dimension = 8;
-    const linalg::matrix_int matrix = make_circular_integer_matrix(dimension, {7, 11, 7, 13});
+    const fracessa::numeric::matrix_int matrix = make_circular_integer_matrix(dimension, {7, 11, 7, 13});
     CircularAffineSymmetry one_word(matrix);
     CircularAffineSymmetryMultiword multiword(matrix);
 
     ASSERT_EQ(multiword.multiplier_class_count(), one_word.multiplier_class_count());
-    for (bitset64 support = 1; support < (bitset64{1} << dimension); ++support) {
+    for (bitset support = 1; support < (bitset{1} << dimension); ++support) {
         const bitset_multiword large_support = make_multiword_support(dimension, support);
         EXPECT_EQ(multiword.is_representative(large_support), one_word.is_representative(support)) << "support=" << support;
     }
 
     std::vector<std::tuple<std::string, size_t, bool, size_t>> expected;
     std::vector<std::tuple<std::string, size_t, bool, size_t>> actual;
-    constexpr bitset64 support = 0b00000011;
+    constexpr bitset support = 0b00000011;
     const bitset_multiword large_support = make_multiword_support(dimension, support);
 
     one_word.for_each_distinct_bracelet_image(support,
-        [&](bitset64 image, size_t multiplier_class, bool reflected, size_t right_shifts) {
-            expected.emplace_back(bs64::to_bitstring(image, dimension), multiplier_class, reflected, right_shifts);
+        [&](bitset image, size_t multiplier_class, bool reflected, size_t right_shifts) {
+            expected.emplace_back(to_bitstring(image, dimension), multiplier_class, reflected, right_shifts);
         });
     multiword.for_each_distinct_bracelet_image(large_support,
         [&](const bitset_multiword& image, size_t multiplier_class, bool reflected, size_t right_shifts) {
@@ -440,7 +442,7 @@ TEST(CircularAffineSymmetryTest, MultiwordMatchesOneWordImages)
 TEST(CircularAffineSymmetryTest, MultiwordImagesCrossWordBoundaries)
 {
     for (const size_t dimension : {65u, 129u}) {
-        const linalg::matrix_int matrix = make_circular_integer_matrix(dimension, std::vector<slong>(dimension / 2, 1));
+        const fracessa::numeric::matrix_int matrix = make_circular_integer_matrix(dimension, std::vector<slong>(dimension / 2, 1));
         CircularAffineSymmetryMultiword symmetry(matrix);
         bitset_multiword support(dimension);
         for (const size_t position : {0u, 1u, 63u, 64u, 128u})

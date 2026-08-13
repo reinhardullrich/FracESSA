@@ -168,7 +168,7 @@ equilibrium vector.
 The analyzer now owns the parsed integer game once:
 
 ```text
-basic_fracessa
+fracessa::basic_analyzer
   owns parsed_matrix { Z, d, compact_circular }
 
   exact_candidate_solver
@@ -210,7 +210,7 @@ Likely removable operations include:
 Candidate probabilities should become:
 
 ```cpp
-std::vector<linalg::fraction> vector;
+std::vector<fracessa::numeric::fraction> vector;
 ```
 
 That reflects their actual meaning as an `n`-element vector rather than an `n x 1` matrix.
@@ -238,18 +238,19 @@ The measured result is recorded in Current Checkpoint Evidence above.
 The former FracESSA and Coposit integer wrappers were nearly identical. The generic string operations now live in Coposit's
 `integer`.
 
-FracESSA's existing headers are zero-cost aliases:
+FracESSA's `fracessa/types.hpp` keeps the small FracESSA-owned double matrix beside zero-cost aliases for Coposit's exact types:
 
 ```cpp
-namespace linalg {
+namespace fracessa::numeric {
 using integer = coposit::integer;
 using matrix_int = coposit::matrix_integer;
+class matrix_dbl; // FracESSA's row-major binary64 scratch matrix.
 }
 ```
 
 These aliases introduce no object, copy, function call, or runtime layer. Retaining them permanently is reasonable. Replacing every
-`linalg::matrix_int` spelling with `coposit::matrix_integer` would create a large mechanical diff without a speed or correctness
-benefit.
+`fracessa::numeric::matrix_int` spelling with `coposit::matrix_integer` would create a large mechanical diff without a speed or
+correctness benefit.
 
 ## Share The Generic LDLT, Not The Candidate-Specific LDLT
 

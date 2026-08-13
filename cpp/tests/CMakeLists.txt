@@ -3,7 +3,7 @@ set(TEST_LIST
     test_matrix
     test_supports
     test_linear_solver
-    test_bitset64
+    test_bitset
     test_bitset_multiword
     test_integration
     test_fraction
@@ -25,7 +25,7 @@ endforeach()
 add_test(NAME MatrixTests COMMAND test_matrix)
 add_test(NAME SupportsTests COMMAND test_supports)
 add_test(NAME LinearSolverTests COMMAND test_linear_solver)
-add_test(NAME Bitset64Tests COMMAND test_bitset64)
+add_test(NAME BitsetTests COMMAND test_bitset)
 add_test(NAME BitsetMultiwordTests COMMAND test_bitset_multiword)
 add_test(NAME IntegrationTests COMMAND test_integration)
 add_test(NAME FractionTests COMMAND test_fraction)

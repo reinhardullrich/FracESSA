@@ -64,7 +64,7 @@ void write_summary(
     const Structure& candidate_structure,
     const Structure& ess_structure,
     long long elapsed_ns,
-    candidate_search::safe_fallback safe_fallback,
+    fracessa::search::safe_fallback safe_fallback,
     std::string_view error_message)
 {
     std::cout << R"({"run_id":null,"matrix_id":)" << matrix_id
@@ -76,7 +76,7 @@ void write_summary(
     std::cout << R"(,"ess_structure":)";
     write_structure(std::cout, ess_structure);
     std::cout << R"(,"elapsed_ns":)" << elapsed_ns << R"(,"safe_fallback":)";
-    const auto fallback_name = candidate_search::safe_fallback_name(safe_fallback);
+    const auto fallback_name = fracessa::search::safe_fallback_name(safe_fallback);
     if (fallback_name.empty())
         std::cout << "null";
     else
@@ -88,7 +88,7 @@ void write_summary(
 
 void write_error(std::int64_t matrix_id, int status, std::string_view message)
 {
-    const std::array<size_t, bs64::kMaxBitsetDimension + 1> empty_structure{};
+    const std::array<size_t, fracessa::support::kMaxBitsetDimension + 1> empty_structure{};
     write_summary(
         matrix_id,
         status,
@@ -97,12 +97,12 @@ void write_error(std::int64_t matrix_id, int status, std::string_view message)
         empty_structure,
         empty_structure,
         0,
-        candidate_search::safe_fallback::none,
+        fracessa::search::safe_fallback::none,
         message);
 }
 
 template<class Analyzer>
-void run_analysis(search_method method, coposit::parsers::parsed_matrix matrix, bool include_candidates,
+void run_analysis(fracessa::search_method method, coposit::parsers::parsed_matrix matrix, bool include_candidates,
                   bool full_support, bool enable_logging, std::int64_t matrix_id)
 {
     const auto start_time = std::chrono::steady_clock::now();
@@ -163,9 +163,9 @@ int main(int argc, char *argv[])
     const bool full_support = program.get<bool>("--fullsupport");
     const std::int64_t matrix_id = program.get<std::int64_t>("--matrixid");
 
-    search_method method;
+    fracessa::search_method method;
     try {
-        method = parse_search_method(method_name);
+        method = fracessa::parse_search_method(method_name);
     } catch (const std::invalid_argument& error) {
         write_error(matrix_id, kStatusExecError, error.what());
         std::cerr << "Error: " << error.what() << std::endl;
@@ -187,10 +187,11 @@ int main(int argc, char *argv[])
     }
 
     try {
-        if (matrix.matrix.rows() <= bs64::kMaxBitsetDimension)
-            run_analysis<::fracessa>(method, std::move(matrix), include_candidates, full_support, enable_logging, matrix_id);
+        if (matrix.matrix.rows() <= fracessa::support::kMaxBitsetDimension)
+            run_analysis<fracessa::analyzer>(method, std::move(matrix), include_candidates, full_support, enable_logging, matrix_id);
         else
-            run_analysis<::multiword_fracessa>(method, std::move(matrix), include_candidates, full_support, enable_logging, matrix_id);
+            run_analysis<fracessa::analyzer_multiword>(method, std::move(matrix), include_candidates, full_support, enable_logging,
+                                                       matrix_id);
     } catch (const std::exception& error) {
         write_error(matrix_id, kStatusExecError, error.what());
         std::cerr << "Error: " << error.what() << std::endl;
