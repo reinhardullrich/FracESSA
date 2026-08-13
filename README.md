@@ -1,5 +1,5 @@
 <p align="center">
-  <img src="https://reinhardullrich.github.io/fracessa/logo.png" width="600" alt="FracESSA logo" />
+  <img src="https://raw.githubusercontent.com/reinhardullrich/fracessa/main/logo.png" width="600" alt="FracESSA logo" />
 </p>
 
 # FracESSA
