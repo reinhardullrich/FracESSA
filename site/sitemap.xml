@@ -1,11 +1,23 @@
 <?xml version="1.0" encoding="UTF-8"?>
 <urlset xmlns="http://www.sitemaps.org/schemas/sitemap/0.9">
   <url>
-    <loc>https://reinhardullrich.github.io/fracessa/</loc>
+    <loc>https://reinhardullrich.github.io/fracessa/index.html</loc>
     <lastmod>2026-08-13</lastmod>
   </url>
   <url>
-    <loc>https://reinhardullrich.github.io/fracessa/docs/</loc>
+    <loc>https://reinhardullrich.github.io/fracessa/getting-started.html</loc>
+    <lastmod>2026-08-13</lastmod>
+  </url>
+  <url>
+    <loc>https://reinhardullrich.github.io/fracessa/algorithm.html</loc>
+    <lastmod>2026-08-13</lastmod>
+  </url>
+  <url>
+    <loc>https://reinhardullrich.github.io/fracessa/python-api.html</loc>
+    <lastmod>2026-08-13</lastmod>
+  </url>
+  <url>
+    <loc>https://reinhardullrich.github.io/fracessa/cpp-api.html</loc>
     <lastmod>2026-08-13</lastmod>
   </url>
 </urlset>

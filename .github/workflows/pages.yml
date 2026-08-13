@@ -42,7 +42,7 @@ jobs:
       - name: Build documentation
         run: |
           doxygen docs/Doxyfile
-          sphinx-build -W --keep-going -b html docs site/docs
+          sphinx-build -W --keep-going -b html docs site
       - name: Configure Pages
         uses: actions/configure-pages@v5
       - name: Upload site

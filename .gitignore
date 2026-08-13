@@ -75,4 +75,6 @@ Thumbs.db
 /.vcpkg-cache/
 /dist/
 /docs/_build/
-/site/docs/
+/site/*
+!/site/robots.txt
+!/site/sitemap.xml

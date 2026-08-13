@@ -11,7 +11,7 @@ Last verified: 2026-08-12
 - Python tests: `python/tests/`
 - Canonical test data: `testdata/fracessa_testdata.sqlite3`
 - Agent documentation: `aidocs/`
-- Public project page: `README.md` and `site/`; Sphinx sources for the combined Python/C++ API site are under `docs/`.
+- Public project page and combined Python/C++ documentation: Sphinx sources under `docs/`, built into `site/` for GitHub Pages.
 - Preserved predecessor source: `zzz_legacy/`; it is historical, not active source.
 - Shared exact integer types and parsing: pinned `external/coposit/` Git submodule.
 - Local-only material: `research/`, `experiments/`, and database-maintenance `testdata/scripts/` are ignored by Git.
@@ -113,8 +113,9 @@ The internal benchmark command and reporting contract are in `aidocs/pyfracessa/
 
 ## Public Documentation
 
-GitHub Pages serves the landing page from `site/` and builds the combined API documentation into `site/docs/`. Sphinx reads Python
-docstrings directly and Breathe renders Doxygen XML generated from `cpp/include/`; generated HTML and XML are not committed.
+GitHub Pages serves one Sphinx documentation site from its root. The Sphinx index is the restrained project landing page. Sphinx
+reads Python docstrings directly and Breathe renders Doxygen XML generated from `cpp/include/`; generated HTML and XML are not
+committed.
 
 ## Release
 

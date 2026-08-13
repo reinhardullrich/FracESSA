@@ -293,13 +293,13 @@ processes; `prefetch_per_worker` and `queue_maxsize` bound queued work and resul
 The `if __name__ == "__main__":` guard is required with `spawn`. Native logging is sequential-only and cannot be enabled in a
 multiprocessing run.
 
-The [Python API guide](https://reinhardullrich.github.io/fracessa/docs/python-api.html) documents sequential execution, JSON input,
+The [Python API guide](https://reinhardullrich.github.io/fracessa/python-api.html) documents sequential execution, JSON input,
 CSV/JSON/Parquet output, sinks, and every result field.
 
 ## Further documentation
 
-- [Public API documentation](https://reinhardullrich.github.io/fracessa/docs/)
-- [Python API](https://reinhardullrich.github.io/fracessa/docs/python-api.html)
+- [Public documentation](https://reinhardullrich.github.io/fracessa/)
+- [Python API](https://reinhardullrich.github.io/fracessa/python-api.html)
 - [Test-matrix database](testdata/README.md)
 - [Release procedure](aidocs/RELEASING.md)
 - [Technical documentation index](aidocs/INDEX.md)

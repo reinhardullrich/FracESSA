@@ -83,7 +83,7 @@ Regenerate the combined C++/Python documentation with the project environment:
 
 ```bash
 doxygen docs/Doxyfile
-python/.venv/bin/sphinx-build -W --keep-going -b html docs site/docs
+python/.venv/bin/sphinx-build -W --keep-going -b html docs site
 ```
 
 Check the main database with:
