@@ -197,7 +197,8 @@ TEST(SupportGeneratorTest, MultiwordNonCircularPrunesForbiddenPairAcrossBits63An
 TEST(SupportGeneratorTest, CircularGeneratesEveryNonemptyBraceletOnce) {
     constexpr size_t dimension = 8;
     CircularSupportGenerator generator(dimension);
-    std::array<bool, 1ULL << dimension> seen{};
+    using support_table = std::array<bool, 1ULL << dimension>;
+    support_table seen{};
     size_t representative_count = 0;
     size_t previous_cardinality = 0;
     bitset previous_representative = 0;
@@ -213,7 +214,7 @@ TEST(SupportGeneratorTest, CircularGeneratesEveryNonemptyBraceletOnce) {
         }
         previous_representative = representative;
 
-        decltype(seen) orbit{};
+        support_table orbit{};
         bitset current = representative;
         for (size_t i = 0; i < dimension; ++i) {
             orbit[current] = true;

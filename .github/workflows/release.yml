@@ -119,6 +119,7 @@ jobs:
         with:
           path: .vcpkg-cache
           key: vcpkg-2026.07.29-x64-windows-static-release-${{ hashFiles('.github/triplets/*.cmake') }}
+          save-always: true
       - name: Build Windows binary
         shell: pwsh
         run: |
