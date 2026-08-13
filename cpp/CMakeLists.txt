@@ -1,7 +1,7 @@
 cmake_minimum_required(VERSION 3.18)
 
 project(fracessa
-    VERSION 2026.8.5.1
+    VERSION 2026.8.13.1
     DESCRIPTION "FracESSA - Fractional ESS Analyzer"
     LANGUAGES CXX C
 )
