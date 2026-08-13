@@ -150,6 +150,20 @@ inline std::string to_string(bitset bits) {
   return std::to_string(bits);
 }
 
+// Format the set positions in increasing order for diagnostic output.
+inline std::string to_index_set(bitset bits) {
+  std::string result = "{";
+  bool first = true;
+  while (bits != 0) {
+    if (!first) result += ", ";
+    result += std::to_string(ctz64(bits));
+    first = false;
+    bits &= bits - 1;
+  }
+  result += '}';
+  return result;
+}
+
 // Write the set positions in increasing order to caller-owned stack storage.
 // ctz finds the current lowest bit; bits &= bits - 1 removes that bit without
 // scanning the other 64 positions. The returned count is the support size.

@@ -2,6 +2,8 @@
 #include <fracessa/fracessa.hpp>
 #include <fracessa/bitset.hpp>
 
+#include <spdlog/spdlog.h>
+
 namespace fracessa {
 
 namespace {
@@ -30,6 +32,14 @@ inline support::bitset_multiword support_difference(support::bitset_multiword le
  * H is negative definite and outside best replies remain, the retained factorization constructs Bomze's scaled reduced B^(r)
  * matrix through one Schur complement. Stability then reduces to ordinary strict copositivity of that smaller exact matrix.
  */
+
+template<class SupportMask>
+void basic_analyzer<SupportMask>::set_stability_result(bool is_ess, std::string_view reason)
+{
+    candidate_.is_ess = is_ess;
+    candidate_.stability.assign(reason.data(), reason.size());
+    if (logger_) logger_->info("stability: {} [{}]", is_ess ? "accepted" : "rejected", reason);
+}
 
 template<class SupportMask>
 void basic_analyzer<SupportMask>::check_stability()
@@ -69,5 +79,7 @@ void basic_analyzer<SupportMask>::check_stability()
 
 template void basic_analyzer<support::bitset>::check_stability();
 template void basic_analyzer<support::bitset_multiword>::check_stability();
+template void basic_analyzer<support::bitset>::set_stability_result(bool, std::string_view);
+template void basic_analyzer<support::bitset_multiword>::set_stability_result(bool, std::string_view);
 
 } // namespace fracessa

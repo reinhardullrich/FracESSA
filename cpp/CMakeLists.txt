@@ -179,6 +179,7 @@ add_subdirectory(
 
 add_library(fracessa_lib
     src/fracessa.cpp
+    src/analyzer_logging.cpp
     src/fast_candidate_filter.cpp
     src/exact_candidate_solver.cpp
     src/check_stability.cpp

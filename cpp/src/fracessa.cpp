@@ -3,15 +3,10 @@
 #include <fracessa/circular_affine_symmetry.hpp>
 #include <fracessa/support_generator_circular.hpp>
 #include <fracessa/support_generator_non_circular.hpp>
-#include <fracessa/fraction.hpp>
-
-#include <spdlog/sinks/rotating_file_sink.h>
-#include <spdlog/spdlog.h>
 
 #include <algorithm>
 #include <limits>
 #include <optional>
-#include <sstream>
 #include <stdexcept>
 #include <string>
 #include <type_traits>
@@ -36,45 +31,6 @@ search_method parse_search_method(std::string_view name)
 
 namespace {
 
-constexpr const char* search_method_name(search_method method) noexcept
-{
-    switch (method) {
-        case search_method::fast: return "fast";
-        case search_method::safe: return "safe";
-    }
-    return "unknown";
-}
-
-std::string support_index_set(support::bitset support)
-{
-    std::ostringstream result;
-    result << '{';
-    bool first = true;
-    while (support != 0) {
-        if (!first) result << ", ";
-        result << support::ctz64(support);
-        first = false;
-        support &= support - 1;
-    }
-    result << '}';
-    return result.str();
-}
-
-std::string support_index_set(const support::bitset_multiword& support)
-{
-    std::ostringstream result;
-    result << '{';
-    bool first = true;
-    for (size_t position = 0; position < support.dimension(); ++position) {
-        if (!support.is_set_at_pos(position)) continue;
-        if (!first) result << ", ";
-        result << position;
-        first = false;
-    }
-    result << '}';
-    return result.str();
-}
-
 size_t checked_product(size_t left, size_t right, const char* field)
 {
     if (left != 0 && right > std::numeric_limits<size_t>::max() / left)
@@ -87,23 +43,6 @@ void add_checked(size_t& destination, size_t value, const char* field)
     if (value > std::numeric_limits<size_t>::max() - destination)
         throw std::overflow_error(std::string(field) + " overflow");
     destination += value;
-}
-
-std::string rational_matrix_to_pretty_string(const numeric::matrix_int& matrix, numeric::integer::const_reference denominator)
-{
-    std::ostringstream stream;
-    numeric::fraction value;
-    for (size_t row = 0; row < matrix.rows(); ++row) {
-        stream << "  " << row << ": [";
-        for (size_t column = 0; column < matrix.cols(); ++column) {
-            if (column != 0) stream << ", ";
-            value.set_ratio(matrix(row, column), denominator);
-            stream << value;
-        }
-        stream << ']';
-        if (row + 1 != matrix.rows()) stream << '\n';
-    }
-    return stream.str();
 }
 
 } // namespace
@@ -280,83 +219,6 @@ basic_analyzer<SupportMask>::basic_analyzer(search_method method, coposit::parse
 }
 
 template<class SupportMask>
-void basic_analyzer<SupportMask>::start_log(search_method requested_method, bool is_cs, std::int64_t matrix_id)
-{
-    auto rotating_sink = std::make_shared<spdlog::sinks::rotating_file_sink_mt>("log/fracessa.log", 20 * 1024 * 1024, 5);
-    logger_ = std::make_shared<spdlog::logger>("fracessa", rotating_sink);
-    logger_->set_pattern("[%Y-%m-%d %H:%M:%S.%e] [%l] %v");
-    logger_->set_level(spdlog::level::info);
-
-    const std::string matrix_label = matrix_id >= 0 ? std::to_string(matrix_id) : "none";
-    const std::string_view fallback = search::safe_fallback_name(safe_fallback_);
-    constexpr std::string_view separator = "==============================================================================";
-    logger_->info("");
-    logger_->info("{}", separator);
-    logger_->info("run started: matrix_id={} requested={} effective={} dimension={} circular={} fallback={}",
-                  matrix_label, search_method_name(requested_method), search_method_name(method_), dimension_, is_cs,
-                  fallback.empty() ? std::string_view{"none"} : fallback);
-    logger_->info("{}", separator);
-    logger_->info("game matrix ({} x {}):\n{}", game_.matrix.rows(), game_.matrix.cols(),
-                  rational_matrix_to_pretty_string(game_.matrix, game_.denominator));
-}
-
-template<class SupportMask>
-void basic_analyzer<SupportMask>::log_support_size(size_t support_size)
-{
-    if (!logger_ || support_size == last_logged_support_size_) return;
-    logger_->info("searching support size: {}", support_size);
-    last_logged_support_size_ = support_size;
-}
-
-template<class SupportMask>
-void basic_analyzer<SupportMask>::log_candidate()
-{
-    if (!logger_) return;
-
-    SupportMask outside_best_replies = candidate_.extended_support;
-    size_t reference;
-    if constexpr (std::is_same_v<SupportMask, support::bitset>) {
-        outside_best_replies = support::subtract(outside_best_replies, candidate_.support);
-        reference = support::find_pos_first_set_bit(candidate_.support);
-    } else {
-        outside_best_replies.subtract(candidate_.support);
-        reference = candidate_.support.find_pos_first_set_bit();
-    }
-
-    logger_->info("solved candidate representative\n"
-                  "  support:              {}\n"
-                  "  extended:             {}\n"
-                  "  reference:            {}\n"
-                  "  outside best replies: {}",
-                  support_index_set(candidate_.support), support_index_set(candidate_.extended_support), reference,
-                  support_index_set(outside_best_replies));
-}
-
-template<class SupportMask>
-void basic_analyzer<SupportMask>::log_reduced_b(const SupportMask& outside_best_replies)
-{
-    if (!logger_) return;
-    logger_->info("scaled reduced B for outside best replies {} ({} x {}):\n{}", support_index_set(outside_best_replies),
-                  scaled_reduced_b_.rows(), scaled_reduced_b_.cols(), scaled_reduced_b_.to_pretty_string());
-}
-
-template<class SupportMask>
-void basic_analyzer<SupportMask>::set_stability_result(bool is_ess, std::string_view reason)
-{
-    candidate_.is_ess = is_ess;
-    candidate_.stability.assign(reason.data(), reason.size());
-    if (logger_) logger_->info("stability: {} [{}]", is_ess ? "accepted" : "rejected", reason);
-}
-
-template<class SupportMask>
-void basic_analyzer<SupportMask>::finish_log()
-{
-    if (!logger_) return;
-    logger_->info("run finished: weighted candidates={} weighted ESS={}", candidate_count_, ess_count_);
-    logger_->flush();
-}
-
-template<class SupportMask>
 bool basic_analyzer<SupportMask>::analyze_support(const SupportMask& support, size_t support_size) {
     if (method_ == search_method::fast && !fast_candidate_filter_.passes(support, support_size)) return false;
     if (!exact_candidate_solver_.find(support, support_size, candidate_, conf_with_candidates_))
@@ -394,9 +256,5 @@ template bool basic_analyzer<support::bitset>::analyze_support(const support::bi
 template bool basic_analyzer<support::bitset_multiword>::analyze_support(const support::bitset_multiword&, size_t);
 template void basic_analyzer<support::bitset>::finalize_candidate(std::optional<size_t>);
 template void basic_analyzer<support::bitset_multiword>::finalize_candidate(std::optional<size_t>);
-template void basic_analyzer<support::bitset>::log_reduced_b(const support::bitset&);
-template void basic_analyzer<support::bitset_multiword>::log_reduced_b(const support::bitset_multiword&);
-template void basic_analyzer<support::bitset>::set_stability_result(bool, std::string_view);
-template void basic_analyzer<support::bitset_multiword>::set_stability_result(bool, std::string_view);
 
 } // namespace fracessa

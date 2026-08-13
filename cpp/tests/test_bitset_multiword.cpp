@@ -86,6 +86,16 @@ TEST(BitsetMultiwordTest, RejectsZeroDimension)
     EXPECT_THROW(bitset_multiword(0), std::invalid_argument);
 }
 
+TEST(BitsetMultiwordTest, ToIndexSet)
+{
+    bitset_multiword bits(130);
+    EXPECT_EQ(to_index_set(bits), "{}");
+    bits.set_bit_at_pos(0);
+    bits.set_bit_at_pos(64);
+    bits.set_bit_at_pos(129);
+    EXPECT_EQ(to_index_set(bits), "{0, 64, 129}");
+}
+
 TEST(BitsetMultiwordTest, SetClearAndFillMatchReferenceAcrossWordBoundaries)
 {
     for (const size_t dimension : {65u, 70u, 128u, 129u}) {

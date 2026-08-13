@@ -202,4 +202,19 @@ private:
     uint64_t last_word_mask_;
 };
 
+// Format the set positions in increasing order for diagnostic output.
+inline std::string to_index_set(const bitset_multiword& bits)
+{
+    std::string result = "{";
+    bool first = true;
+    for (size_t position = 0; position < bits.dimension(); ++position) {
+        if (!bits.is_set_at_pos(position)) continue;
+        if (!first) result += ", ";
+        result += std::to_string(position);
+        first = false;
+    }
+    result += '}';
+    return result;
+}
+
 } // namespace fracessa::support

@@ -220,6 +220,11 @@ TEST(BitsetTest, ToString) {
     EXPECT_EQ(s, "42");
 }
 
+TEST(BitsetTest, ToIndexSet) {
+    EXPECT_EQ(to_index_set(bitset{0}), "{}");
+    EXPECT_EQ(to_index_set(bitset{1} | (bitset{1} << 2) | (bitset{1} << 63)), "{0, 2, 63}");
+}
+
 TEST(BitsetTest, ToBitstring) {
     bitset bits = 0ULL;
     bits = set_bit_at_pos(bits, 0);
