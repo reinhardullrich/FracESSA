@@ -82,4 +82,4 @@ manylinux-aarch64-image = "manylinux_2_28"
 archs = ["native"]
 
 [tool.cibuildwheel.windows]
-archs = ["AMD64"]
+archs = ["AMD64", "ARM64"]

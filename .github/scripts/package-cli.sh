@@ -27,12 +27,13 @@ cmake -B "$build_dir" -S "$repo_root/cpp" \
     -DCMAKE_TOOLCHAIN_FILE="$vcpkg_root/scripts/buildsystems/vcpkg.cmake" \
     -DVCPKG_TARGET_TRIPLET="$triplet" \
     -DVCPKG_OVERLAY_TRIPLETS="$repo_root/.github/triplets" \
-    -DBUILD_TESTING=OFF \
+    -DBUILD_TESTING=ON \
     -DFRACESSA_NATIVE_ARCH=OFF \
     -DFRACESSA_BUILD_CLI=ON \
     -DFRACESSA_BUILD_PYTHON=OFF \
     -DCMAKE_EXE_LINKER_FLAGS_RELEASE="$linker_flags"
-cmake --build "$build_dir" --config Release --target fracessa -j 4
+cmake --build "$build_dir" --config Release -j 4
+ctest --test-dir "$build_dir" --build-config Release --output-on-failure --parallel 4
 
 binary="$build_dir/fracessa"
 actual_version="$("$binary" --version)"

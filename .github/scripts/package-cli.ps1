@@ -18,14 +18,17 @@ cmake -B $buildDir -S (Join-Path $repoRoot "cpp") `
     "-DCMAKE_TOOLCHAIN_FILE=$VcpkgRoot/scripts/buildsystems/vcpkg.cmake" `
     "-DVCPKG_TARGET_TRIPLET=$Triplet" `
     "-DVCPKG_OVERLAY_TRIPLETS=$tripletsDir" `
-    -DBUILD_TESTING=OFF `
+    -DBUILD_TESTING=ON `
     -DFRACESSA_NATIVE_ARCH=OFF `
     -DFRACESSA_BUILD_CLI=ON `
     -DFRACESSA_BUILD_PYTHON=OFF
 if ($LASTEXITCODE -ne 0) { throw "CMake configure failed" }
 
-cmake --build $buildDir --config Release --target fracessa -j 4
+cmake --build $buildDir --config Release -j 4
 if ($LASTEXITCODE -ne 0) { throw "CMake build failed" }
+
+ctest --test-dir $buildDir --build-config Release --output-on-failure --parallel 4
+if ($LASTEXITCODE -ne 0) { throw "CTest failed" }
 
 $binary = Join-Path $buildDir "Release/fracessa.exe"
 $actualVersion = (& $binary --version).Trim()

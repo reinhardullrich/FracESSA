@@ -55,8 +55,8 @@ When `fast` detects certain dangerous whole-matrix conditions, it automatically 
 ## Install
 
 The GitHub [Releases](https://github.com/reinhardullrich/fracessa/releases) page provides self-contained command-line binaries for
-Linux x86-64, Linux ARM64, macOS Intel, macOS Apple Silicon, and Windows x86-64. Python, GMP, MPFR, and FLINT do not need to be
-installed separately. On Linux and macOS, make the downloaded file executable before running it:
+Linux x86-64, Linux ARM64, macOS Intel, macOS Apple Silicon, Windows x86-64, and Windows ARM64. Python, GMP, MPFR, and FLINT do not
+need to be installed separately. On Linux and macOS, make the downloaded file executable before running it:
 
 ```bash
 chmod +x fracessa-*
