@@ -120,7 +120,7 @@ def _matrix_input(matrix: Matrix) -> str:
 
 
 def compute_matrix(method: SearchMethod, matrix: Matrix, config: RunConfig, run_id: str) -> dict:
-    """Compute one matrix with the native extension and normalize its result.
+    """Compute one matrix with the native extension and return its canonical Python result.
 
     This is the low-level public adapter used by :func:`run` and :func:`run_multiprocessing`. Candidate rows are augmented with
     ``run_id`` and ``matrix_id``. Parser and analyzer failures are returned as nonzero status codes with ``error_message`` rather

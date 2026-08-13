@@ -30,7 +30,13 @@ constexpr std::string_view safe_fallback_name(safe_fallback fallback) noexcept
     return "";
 }
 
-// Production floating-point candidate prefilter. Every surviving support is verified by exact arithmetic.
+/**
+ * Potentially incomplete binary64 candidate prefilter.
+ *
+ * The complete matrix is prepared once. A whole-matrix preparation failure is exposed through `safe_fallback_reason()`. An
+ * inconclusive solve for one support returns true so the exact solver decides that support; a confident floating-point rejection
+ * returns false. Every support that passes is verified by exact arithmetic.
+ */
 class fast_candidate_filter {
 public:
     explicit fast_candidate_filter(size_t dimension);
@@ -39,11 +45,11 @@ public:
     fast_candidate_filter(fast_candidate_filter&&) = delete;
     fast_candidate_filter& operator=(fast_candidate_filter&&) = delete;
 
-    // Normalize the parser's denominator-cleared integer game once and convert it to binary64.
+    /// Apply one common power-of-two scale, convert the denominator-cleared integer game to binary64, and equilibrate it once.
     void convert_game_matrix(const numeric::matrix_int& integer_game);
     safe_fallback safe_fallback_reason() const noexcept { return safe_fallback_; }
 
-    // False means heuristic rejection. True means exact arithmetic must decide.
+    /// Return false for a heuristic rejection or true when exact arithmetic must decide the support.
     bool passes(const support::bitset& support, size_t support_size);
     bool passes(const support::bitset_multiword& support, size_t support_size);
 

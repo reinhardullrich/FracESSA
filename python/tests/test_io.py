@@ -33,6 +33,16 @@ class IoTests(unittest.TestCase):
             with self.assertRaises(ValueError):
                 load_matrices_from_json(path)
 
+    def test_load_matrices_from_json_preserves_matrix_market(self):
+        matrix_market = "%%MatrixMarket matrix array integer symmetric\n2 2\n1\n0\n1\n"
+
+        with tempfile.TemporaryDirectory() as tmpdir:
+            path = Path(tmpdir) / "matrices.json"
+            path.write_text(json.dumps([{"id": 3, "matrix": matrix_market}]), encoding="utf-8")
+            matrices = load_matrices_from_json(path)
+
+        self.assertEqual(matrices[0].matrix, matrix_market.strip())
+
     def test_load_matrices_from_json_rejects_malformed_row_schema(self):
         cases = (
             ({"matrixes": []}, "must contain 'matrices'"),

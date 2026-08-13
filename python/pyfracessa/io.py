@@ -15,16 +15,16 @@ def load_matrices_from_json(
     matrix_key: str = "matrix",
     dimension_key: str = "dimension",
 ) -> list[Matrix]:
-    """Load, validate, normalize, and sort matrices from a JSON file.
+    """Load, validate, and sort matrices from a JSON file.
 
     Supported input shapes:
 
     - ``{"matrices": [...]}``
     - ``[...]``
 
-    Field names can be remapped with the key arguments. Extra row fields are
-    preserved as metadata. Values-only matrix strings require an integer
-    dimension field and are normalized to ``dimension#values``.
+    Field names can be remapped with the key arguments. Extra row fields are preserved as metadata. Complete ``dimension#values``
+    and Matrix Market strings are preserved after trimming; values-only matrix strings require an integer dimension field and are
+    prefixed with ``dimension#``.
 
     Args:
         path: JSON file to read.
@@ -81,7 +81,7 @@ def load_matrices_from_json(
 
         matrix_text = matrix.matrix.strip()
 
-        if "#" not in matrix_text:
+        if "#" not in matrix_text and not matrix_text.startswith("%%MatrixMarket"):
             if dimension_key not in row:
                 raise ValueError(
                     f"Row {matrix.matrix_id} has no 'dimension#' prefix and no '{dimension_key}' field"

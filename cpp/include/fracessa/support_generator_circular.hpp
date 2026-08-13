@@ -12,7 +12,7 @@
 
 namespace fracessa::support {
 
-/*
+/**
  * Direct fixed-density bracelet generation from Karim, Alamgir, and Husnine (2014), specialized to binary supports.
  * A bracelet is a class of supports that differ only by rotation or reflection. For each support size, this generator emits the
  * numerically smallest support in each class. It compares the growing word with its reflection during recursion, so a mirrored copy
@@ -241,7 +241,7 @@ public:
     }
 };
 
-/*
+/**
  * Multiword counterpart of CircularSupportGenerator. It retains the direct fixed-density bracelet algorithm and mutates one
  * pre-sized support mask during recursion. The callback reference is valid only until the callback returns.
  */

@@ -75,10 +75,11 @@ result under the search and pruning rule above. Public candidate probabilities a
 floating-point conversions never participate in those decisions.
 
 ``fast`` first applies a binary64 candidate filter. The complete matrix is converted and equilibrated once, and each reduced
-symmetric support system is solved with a pivoted symmetric factorization. A matrix-wide preparation failure or an inconclusive
-support solve falls back to exact arithmetic. The remaining floating-point probability and outside-payoff rejections are heuristic,
-so ``fast`` can miss a valid candidate and is not a completeness certificate. Candidates that survive the filter are rechecked
-exactly, and all final stability decisions are exact.
+symmetric support system is solved with a pivoted symmetric factorization. A matrix-wide preparation failure switches the complete
+search to ``safe`` and records the reason in ``safe_fallback``. An inconclusive solve is instead retried exactly for only that support
+and does not set ``safe_fallback``. The remaining floating-point probability and outside-payoff rejections are heuristic, so
+``fast`` can miss a valid candidate and is not a completeness certificate. Candidates that survive the filter are rechecked exactly,
+and all final stability decisions are exact.
 
 Exact stability
 ***************

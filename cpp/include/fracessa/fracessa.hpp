@@ -42,14 +42,15 @@ search_method parse_search_method(std::string_view name);
  * Runs the configured ESS search for one payoff matrix.
  *
  * For each support S, the analyzer performs up to three stages:
- * 1) the fast filter may heuristically reject an invalid support;
+ * 1) the fast filter may heuristically reject a support before exact work; this can reject a valid support;
  * 2) exact integer arithmetic constructs and verifies a symmetric Nash candidate on S, including its extended support; only a
  *    successful candidate's probabilities and payoff are materialized as exact rationals for output;
  * 3) exact reduced-Hessian inertia and copositivity tests decide ESS stability.
  *
  * Safe search starts directly with the exact candidate solver. The fast filter removes the game's common denominator, checks its
  * exact integer precision span, equilibrates the complete binary64 game, and solves each reduced symmetric candidate system with
- * Bunch-Kaufman LDL^T. A large span or inconclusive pivot falls back to exact arithmetic.
+ * Bunch-Kaufman LDL^T. A matrix-wide preparation failure switches the complete search to safe. An inconclusive support solve is
+ * retried exactly for only that support and does not set the whole-matrix fallback reason.
  *
  * Construction runs the configured analysis synchronously. The public count and structure fields are always populated. Individual
  * candidate rows are retained only when `with_candidates` is true.

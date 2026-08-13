@@ -11,24 +11,37 @@
 
 namespace fracessa::search {
 
+/**
+ * Exact integer candidate solver for one symmetric payoff matrix.
+ *
+ * The parser has already cleared the matrix's rational denominators. Each support is therefore solved and verified with
+ * fraction-free integer arithmetic. Exact rational probabilities and payoffs are materialized only when candidate rows were
+ * requested. The retained reduced-Hessian factorization is reused by the later stability reduction.
+ */
 class exact_candidate_solver {
 public:
     exact_candidate_solver(const numeric::matrix_int& integer_game, const numeric::integer& game_denominator);
     exact_candidate_solver(const exact_candidate_solver&) = delete;
     exact_candidate_solver& operator=(const exact_candidate_solver&) = delete;
 
-    // True means an exact candidate was found and written to result. Public rational output is optional because stability does not use it.
+    /// Return true after finding an exact candidate. Rational output is optional because stability uses only exact integers.
     bool find(const support::bitset& support, size_t support_size, candidate& result, bool materialize_output);
     bool find(const support::bitset_multiword& support, size_t support_size, candidate_multiword& result, bool materialize_output);
 
-    // Valid after find() returns true. The reduced Hessian is Z^T*A_S*Z, where the columns of Z span the zero-sum directions on the support.
-    // Its negative definiteness is the support-only second-order ESS condition.
+    /**
+     * Return whether the latest successful candidate's reduced Hessian is negative definite.
+     *
+     * The reduced Hessian is `Z^T A_S Z`, where the columns of `Z` span zero-sum directions on the support. The result is valid
+     * after `find()` returns true.
+     */
     bool reduced_hessian_is_negative_definite() const noexcept { return reduced_hessian_is_negative_definite_; }
 
-    // Build an integer matrix that is a positive multiple of Bomze's final reduced B^(r) matrix and return the number of outside
-    // best replies.
-    // Method: eliminate the unrestricted support block through one exact Schur complement; no inverse is formed.
-    // Valid immediately after find() succeeds for the same support and reports a negative-definite reduced Hessian.
+    /**
+     * Build a positive integer multiple of Bomze's final reduced B^(r) matrix and return its dimension.
+     *
+     * One exact Schur complement eliminates the unrestricted support block without forming an inverse. Call this immediately after
+     * `find()` succeeds for the same support and reports a negative-definite reduced Hessian.
+     */
     size_t build_scaled_reduced_b(support::bitset support, support::bitset outside_best_replies, numeric::matrix_int& result);
     size_t build_scaled_reduced_b(const support::bitset_multiword& support, const support::bitset_multiword& outside_best_replies,
                                   numeric::matrix_int& result);

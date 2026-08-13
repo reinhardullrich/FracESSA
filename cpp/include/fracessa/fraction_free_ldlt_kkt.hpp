@@ -20,12 +20,13 @@
 
 namespace fracessa::numeric {
 
+/** Exact positive and negative inertia counts returned by the KKT factorization. */
 struct fraction_free_ldlt_inertia {
     slong positive = 0;
     slong negative = 0;
 };
 
-/*
+/**
  * Reusable scratch for the in-place fraction-free symmetric solve. Keeping this object beside the caller's reusable matrices avoids allocations
  * inside a support-enumeration loop. One workspace must not be used concurrently by multiple solves.
  */
@@ -49,7 +50,7 @@ public:
         fmpz_clear(previous_pivot_);
     }
 
-    /*
+    /**
      * Solve system*X = right_hand_side*denominator for a nonsingular symmetric integer system while recording its exact inertia. The returned
      * denominator is positive. The lower triangle of system is read and overwritten by the fraction-free factorization; right_hand_side is also
      * overwritten. X and right_hand_side currently have one column. Returns 1 for a nonsingular system and 0 for a singular system. Outputs are
@@ -165,7 +166,7 @@ public:
         return 1;
     }
 
-    /*
+    /**
      * Solve the same negative-definite system for several new right-hand sides without refactoring it. Negative definiteness
      * guarantees that the original factorization used no coordinate operations, so replaying the fraction-free right-hand-side
      * updates and back substitution is sufficient. right_hand_sides is overwritten by the solution numerators.

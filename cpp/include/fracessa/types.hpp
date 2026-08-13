@@ -12,7 +12,7 @@ namespace fracessa::numeric {
 using integer = coposit::integer;
 using matrix_int = coposit::matrix_integer;
 
-/*
+/**
  * Row-major dense double storage for fast candidate search.
  *
  * This is reusable numerical scratch space, not the exact game representation. It deliberately provides only zero-initialized storage,

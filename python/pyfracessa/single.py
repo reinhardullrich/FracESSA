@@ -15,7 +15,7 @@ def _run_matrices(
     config: RunConfig,
     run_id: str,
 ) -> Iterator[dict]:
-    """Yield normalized results for ``matrices`` using one shared run ID."""
+    """Yield canonical result dictionaries for ``matrices`` using one shared run ID."""
 
     for matrix in matrices:
         yield compute_matrix(method=method, matrix=matrix, config=config, run_id=run_id)

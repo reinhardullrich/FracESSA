@@ -188,7 +188,8 @@ Input and output
    :members:
 
 The JSON loader accepts either a top-level list or an object with a ``matrices`` list. By default each row uses ``id`` and ``matrix``;
-all other fields become metadata:
+all other fields become metadata. A matrix row may contain complete ``dimension#values`` or Matrix Market text. Values-only text
+requires an integer ``dimension`` field:
 
 .. code-block:: json
 

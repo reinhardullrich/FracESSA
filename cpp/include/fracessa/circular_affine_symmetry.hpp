@@ -11,7 +11,7 @@
 
 namespace fracessa::support {
 
-/*
+/**
  * Exact extra symmetries of a symmetric circulant game.
  *
  * Bracelets already identify rotations and reflections. A unit a modulo n is an integer coprime to n; it relabels strategy i as
@@ -141,7 +141,7 @@ public:
     }
 };
 
-/*
+/**
  * Multiword affine symmetry for the internal large circular path. Destination positions and all temporary masks are allocated once
  * in the constructor, so filtering a generated bracelet does not allocate.
  */

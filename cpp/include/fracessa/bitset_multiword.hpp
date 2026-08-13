@@ -12,8 +12,12 @@
 
 namespace fracessa::support {
 
-// Runtime-sized support storage. Production uses this type only above dimension 64;
-// lower dimensions remain raw uint64_t so their hot path is unchanged.
+/**
+ * Runtime-sized support storage for dimensions above 64.
+ *
+ * Lower dimensions retain the allocation-free `uint64_t` representation. This type stores the same set operations in a fixed
+ * number of 64-bit words chosen when the matrix is parsed.
+ */
 class bitset_multiword {
 public:
     explicit bitset_multiword(size_t dimension)

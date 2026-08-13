@@ -11,7 +11,7 @@
 
 namespace fracessa::support {
 
-/*
+/**
  * Generate every nonempty support, one mask at a time, without storing a list. generate() visits support sizes 1 through
  * dimension. For each size, a binary depth-first search decides which bits belong to the support. Whenever it completes
  * one support, it immediately calls the supplied callback with:
@@ -92,7 +92,7 @@ public:
     }
 };
 
-/*
+/**
  * Multiword counterpart of NonCircularSupportGenerator. The search order and pruning rule are identical, but recursion mutates one
  * pre-sized mask instead of copying a vector at every branch. The callback reference is valid only until the callback returns.
  */

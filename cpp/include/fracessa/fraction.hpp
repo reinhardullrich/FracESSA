@@ -9,7 +9,7 @@
 
 namespace fracessa::numeric {
 
-/*
+/**
  * Owning exact rational value used only at FracESSA's public output boundary.
  *
  * Every object initializes and clears one FLINT rational. Candidate search and
