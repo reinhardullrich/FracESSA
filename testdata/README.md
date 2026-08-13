@@ -228,7 +228,8 @@ only six are themselves symmetric: representative 1 at each of degrees 1, 2,
 4, 8, 16, and 32. All 638 matrices in the separate skew database have degrees
 36, 44, or 52; all satisfy the skew-Hadamard property and none is symmetric.
 The six retained exact `+/-1` source matrices are globally distinct. Dimension-one ID 314 is mathematically circulant but remains
-in full storage because the compact representation would have no values; IDs 315-319 are non-circular. They are catalog-only rows
+in full storage because its one-value compact and full representations are indistinguishable; IDs 315-319 are non-circular. They are
+catalog-only rows
 at IDs 314-319; degree 32 uses `size_class = "super_large"`.
 
 The audited SHA-256 values are
