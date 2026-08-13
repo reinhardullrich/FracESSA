@@ -41,7 +41,6 @@ representation is independent of the selected search method.
 The main limitations are:
 
 - the matrix must be symmetric and contain rational values;
-- dimensions 1 through 64 use one `uint64_t` support word, while larger dimensions use a runtime-sized multiword mask;
 - the $2^n-1$ nonempty supports make some larger or difficult matrices computationally expensive;
 - one matrix is processed on one CPU core, although the Python API can process several matrices in parallel.
 
@@ -237,7 +236,7 @@ A complete single-matrix example is:
 ```python
 from pyfracessa import Matrix, RunConfig, run
 
-matrix = Matrix(1, "2#0,1,0")
+matrix = Matrix(1, "3#-1,0,0,-2,0,-3")
 result = run(
     "safe",
     matrix,
@@ -268,7 +267,7 @@ parallelism is across matrices. Results are yielded in completion order, so use 
 from pyfracessa import MPConfig, Matrix, RunConfig, run_multiprocessing
 
 matrices = [
-    Matrix(1, "2#0,1,0"),
+    Matrix(1, "3#-1,0,0,-2,0,-3"),
     Matrix(2, "3#4,13/2,1/2,5,11/2,3"),
 ]
 

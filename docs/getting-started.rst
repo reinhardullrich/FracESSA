@@ -24,6 +24,8 @@ Standalone command-line binaries for Linux, macOS, and Windows are available on 
 
 .. code-block:: console
 
+   git clone --recurse-submodules https://github.com/reinhardullrich/fracessa.git
+   cd fracessa
    cmake -S cpp -B cpp/build -DCMAKE_BUILD_TYPE=Release
    cmake --build cpp/build --parallel
 
@@ -179,7 +181,7 @@ time. Results arrive in completion order, so use ``matrix_id`` rather than list 
    from pyfracessa import MPConfig, Matrix, run_multiprocessing
 
    matrices = [
-       Matrix(1, "2#0,1,0"),
+       Matrix(1, "3#-1,0,0,-2,0,-3"),
        Matrix(2, "3#4,13/2,1/2,5,11/2,3"),
    ]
 

@@ -79,6 +79,13 @@ ctest --test-dir cpp/build --output-on-failure --parallel
 PYTHONPATH=python python3 -m unittest discover -s python/tests -p 'test_*.py'
 ```
 
+Regenerate the combined C++/Python documentation with the project environment:
+
+```bash
+doxygen docs/Doxyfile
+python/.venv/bin/sphinx-build -W --keep-going -b html docs site/docs
+```
+
 Check the main database with:
 
 ```bash

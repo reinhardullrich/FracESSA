@@ -12,8 +12,8 @@ When an exact candidate has outside best replies, reuse the exact fraction-free 
 3. recursively eliminating the unrestricted support coordinates one at a time.
 
 The replacement solves the already-factored reduced Hessian for one new matrix right-hand side and constructs the smaller Schur
-complement directly. The existing exact positive-definiteness and strict-copositivity routines then decide stability on that smaller
-matrix.
+complement directly. The current implementation passes that exact integer matrix to `coposit::safe` for the final strict-copositivity
+decision.
 
 Correctness remains the first requirement. The optimization is acceptable only if every candidate and ESS decision is unchanged.
 
@@ -297,14 +297,13 @@ The early decisions remain unchanged:
 1. reject when the retained reduced Hessian is not negative definite;
 2. accept when the extended support equals the support.
 
-The remaining path builds `scaled_reduced_b_` once. Dimensions one through three use direct exact criteria. Larger matrices receive
-one triangular sign scan, followed by cheap exact acceptance/rejection rules and negative-entry connected-component decomposition.
-Only unresolved components reach exact Hadeler enumeration.
+The remaining path builds `scaled_reduced_b_` once and passes it to `coposit::safe`. Coposit owns the exact prechecks,
+negative-entry connected-component reduction, and finite Dickinson certificate traversal. FracESSA neither duplicates those
+decisions nor exposes their internal route in its stability label.
 
 The former complete `Bee` construction, $r$ recursive reductions, rolling rational matrices, and partial-pivot checks are gone. The
 single block Schur complement represents all of those operations. The stored integer result is called the `scaled reduced B matrix`:
-it is a positive multiple of Bomze's final $B^{(r)}$ and therefore has exactly the same positive-definiteness and strict-copositivity
-decisions.
+it is a positive multiple of Bomze's final $B^{(r)}$ and therefore has exactly the same strict-copositivity decision.
 
 ## 10. Correctness checks
 
@@ -350,9 +349,7 @@ The maintained tests preserve examples that reach the relevant final states:
 - pure-strategy acceptance (`T_pure_ess`);
 - reduced-Hessian negative-definite acceptance (`T_reduced_hessian_nd`);
 - rejection before Schur construction because $H$ is not negative definite (`F_reduced_hessian_not_nd`);
-- direct one-, two-, and three-dimensional decisions (`T_copos_small` and `F_not_copos_small`);
-- sign-scan acceptance and rejection; and
-- final component/Hadeler decisions (`T_copos` and `F_not_copos`).
+- final Coposit acceptance and rejection (`T_copos` and `F_not_copos`).
 
 Candidate count, ESS count, support structure, extended supports, exact vectors, exact payoffs, and stability labels must match the
 current baseline. Candidate IDs are not a mathematical requirement, but this change does not alter support enumeration, so they

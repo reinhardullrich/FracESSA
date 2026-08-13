@@ -97,7 +97,7 @@
       <article class="card fast-card">
         <div class="card-number">02</div>
         <h3>Fast</h3>
-        <p>Uses floating-point filtering before exact checks. Dangerous whole-matrix conditions trigger an automatic exact fallback.</p>
+        <p>Uses floating-point filtering before exact checks and can miss candidates. Dangerous whole-matrix conditions trigger an automatic exact fallback.</p>
         <code>fracessa fast "3#-1,0,0,-2,0,-3"</code>
       </article>
     </section>
@@ -114,7 +114,7 @@
 python -m pip install pyfracessa
 
 <b># Build from source</b>
-git clone https://github.com/reinhardullrich/fracessa.git
+git clone --recurse-submodules https://github.com/reinhardullrich/fracessa.git
 cmake -S fracessa/cpp -B fracessa/cpp/build \
   -DCMAKE_BUILD_TYPE=Release
 cmake --build fracessa/cpp/build --parallel</code></pre>

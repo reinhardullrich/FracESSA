@@ -21,8 +21,6 @@ the file describes current behavior, open research, or history.
 
 ## Open Research
 
-- `plans/COPOSIT_INTEGRATION_AND_TYPE_OWNERSHIP.md`: active Coposit/FracESSA ownership migration, parsed integer-matrix representation,
-  removal of `matrix_frc`, minimal rational output type, build integration, and independently measured checkpoints.
 - `plans/MAJOR_SINGLE_CORE_PERFORMANCE_OPPORTUNITIES.md`: active plan of unimplemented hypotheses for material single-core speedups,
   with completed foundations clearly separated.
 
@@ -35,6 +33,7 @@ the file describes current behavior, open research, or history.
 - `history/INTEGER_STABILITY_MATRIX_MIGRATION_ONLY_2026-08-06.md`: dated rational-to-integer stability migration record.
 - `history/LOGGING_AND_MATRIX_FORMATTING_2026-08-09.md`: dated diagnostic-log redesign and verification record.
 - `history/UNSAFE_CANDIDATE_FILTER_2026-07-27.md`: retired normalized unsafe-filter design, measurements, and failure outcome.
+- `plans/COPOSIT_INTEGRATION_AND_TYPE_OWNERSHIP.md`: completed Coposit/FracESSA ownership migration and measured implementation record.
 - `reference/FIND_POS_FIRST_SET_BIT_CALL_CHAIN.md`: historical call chain through the removed FracESSA-owned Hadeler checker.
 - `reference/INTEGER_HADELER_COPOSITIVITY.md`: proof, implementation, branch tests, and evidence for the removed FracESSA-owned
   exact integer Hadeler checker.

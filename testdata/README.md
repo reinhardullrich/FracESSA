@@ -68,28 +68,29 @@ rule. All paired ESS counts match. Build label, revision, and binary hash
 identify every stored build.
 
 Matrix rows contain nullable `fast_calibration_ns` and `safe_calibration_ns` values used only to choose benchmark iteration
-counts. Fast calibration has 1,081 positive measurements and 294 `-1` timeouts; safe has 1,064 positive measurements and 311
-timeouts. The 28 prescribed-support rows have not received canonical calibrations or audit timestamps. The current whole-matrix
+counts. Fast calibration has 1,102 positive measurements and 301 `-1` timeouts; safe has 1,085 positive measurements and 318
+timeouts. All 1,403 rows have calibration values and audit timestamps. The current whole-matrix
 classifications are 1,196 without fallback, 135 `precision_span`, four `equilibration_invalid`, and 68
 `equilibration_non_convergence`. A value of `-1` records a calibration run killed at its cutoff
 and selects one benchmark iteration. Positive integer nanoseconds preserve the native value exactly; divide by `1000.0` when
 displaying decimal microseconds.
 
-The database-maintenance helpers described below live in the local-only, ignored `scripts/` directory. They are preserved in the
-maintainer worktree but are not included in public GitHub clones or releases.
+The database-maintenance helpers described below live in the local-only, ignored `testdata/scripts/` directory. They are preserved
+in the maintainer worktree but are not included in public GitHub clones or releases.
 
-Run `scripts/calibrate_matrices.py fast` or `scripts/calibrate_matrices.py safe` from the repository root to fill only missing
-calibrations with the canonical Release Pybind module on CPU 2 and a one-second cutoff. When candidate fields are missing, either
-method also stores weighted counts, support-size structures, and representative candidate rows for a matrix that finishes.
+Run `testdata/scripts/calibrate_matrices.py fast` or `testdata/scripts/calibrate_matrices.py safe` from the repository root to fill
+only missing calibrations with the canonical Release Pybind module on CPU 2 and a one-second cutoff. When candidate fields are
+missing, either method also stores weighted counts, support-size structures, and representative candidate rows for a matrix that finishes.
 These per-method commands never overwrite existing calibration or baseline values; clear a calibration field explicitly before
-intentionally refreshing it. Use `scripts/calibrate_matrices.py fast|safe --retry-timeouts --cutoff-seconds 120` to retry only the selected
-method's `-1` rows once. Repeat `--cpu ID` to process matrices concurrently on explicitly selected cores; one matrix remains
-pinned to each core and SQLite writes stay serialized. A completed fast result is exact when `safe_fallback` is non-null;
+intentionally refreshing it. Use
+`testdata/scripts/calibrate_matrices.py fast|safe --retry-timeouts --cutoff-seconds 120` to retry only the selected method's `-1`
+rows once. Repeat `--cpu ID` to process matrices concurrently on explicitly selected cores; one matrix remains pinned to each core
+and SQLite writes stay serialized. A completed fast result is exact when `safe_fallback` is non-null;
 otherwise it remains an unverified fast result when safe calibration is still `-1`.
 The calibration script classifies the whole-matrix fast fallback before starting the timed process, so even a killed calibration
 stores the correct `safe_fallback` value.
 
-Run `scripts/calibrate_matrices.py audit` for the ordered full consistency-calibration pass. It dispatches
+Run `testdata/scripts/calibrate_matrices.py audit` for the ordered full consistency-calibration pass. It dispatches
 `dimension ASC, matrix_id ASC`, runs fast before safe, and sizes each method to approximately one second from its previous
 calibration. Each method independently uses the greater of 120 seconds and 120% of its positive stored calibration; a missing or
 `-1` calibration uses 120 seconds. A fast timeout skips safe and sets both calibrations to `-1`. A non-null fast
@@ -105,10 +106,10 @@ candidates and 236 ESS; two results used exact fallback and 19 remain unverified
 
 ## Circular Storage Normalization
 
-`scripts/normalize_circular_matrices.py` audits every matrix with exact `Fraction` arithmetic. For an eligible circulant matrix
-with common diagonal value `d`, it stores the strategically equivalent zero-diagonal matrix `A - dJ`, where `J` is the all-ones
-matrix, in compact circular form. Subtracting `d` from every entry preserves all best-response comparisons, candidates, and ESS;
-only every payoff changes by `-d`. Subtracting `d` only from the diagonal would not be equivalent.
+`testdata/scripts/normalize_circular_matrices.py` audits every matrix with exact `Fraction` arithmetic. For an eligible circulant
+matrix with common diagonal value `d`, it stores the strategically equivalent zero-diagonal matrix `A - dJ`, where `J` is the
+all-ones matrix, in compact circular form. Subtracting `d` from every entry preserves all best-response comparisons, candidates,
+and ESS; only every payoff changes by `-d`. Subtracting `d` only from the diagonal would not be equivalent.
 
 The retained converted rows and exact recorded constants are ID 1: `0` and ID 2203: `1`. Each matrix description
 records its own constant and states that the preceding provenance describes the unnormalized source matrix. Normalized IDs 39 and

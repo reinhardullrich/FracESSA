@@ -310,7 +310,10 @@ and non-circular matrices reported a median current/baseline ratio of exactly 1.
 the isolated stage did not regress the existing production path; no multiword analyzer benchmark exists because that path is not
 connected yet.
 
-### Completed Stage 2: Extend exact Hadeler copositivity
+### Historical Stage 2: Extend the former FracESSA-owned Hadeler checker
+
+This stage records the implementation that existed before Coposit integration. FracESSA later removed its own Hadeler checker and
+now delegates the final exact strict-copositivity decision to the pinned `Coposit::safe` library.
 
 Hadeler enumeration and the fixed 64-row sign-scan storage now have a separate large-dimension path:
 
@@ -325,7 +328,7 @@ Focused tests cover a bad pair across positions 63/64, a cardinality-three rejec
 principal subsets pass, a disconnected component spanning three words, and a connected 65-vertex negative graph. Every case decides
 before exponential enumeration becomes impractical. Release, ASan/UBSan, Python, and database-integrity checks pass.
 
-The checker remains in FracESSA because no separate Coposit repository currently owns this implementation.
+At this stage the checker remained in FracESSA because the separate Coposit repository had not yet been integrated.
 
 ### Completed Stage 3: Template the exact candidate and stability core
 

@@ -14,8 +14,8 @@ Last verified: 2026-08-12
 - Public project page: `README.md` and `site/`; Sphinx sources for the combined Python/C++ API site are under `docs/`.
 - Preserved predecessor source: `zzz_legacy/`; it is historical, not active source.
 - Shared exact integer types and parsing: pinned `external/coposit/` Git submodule.
-- Local-only material: `research/`, `experiments/`, and database-maintenance `scripts/` are ignored by Git.
-- Generated/local paths include `cpp/build*/`, `.local/`, and `.local-tmp/`.
+- Local-only material: `research/`, `experiments/`, and database-maintenance `testdata/scripts/` are ignored by Git.
+- Generated/local paths include `cpp/build*/`, `python/.venv/`, `.local/`, and `.local-tmp/`.
 
 ## Product Contract
 
