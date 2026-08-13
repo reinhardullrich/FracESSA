@@ -30,10 +30,5 @@ $gmpPortText = $gmpPortText.Replace(
 if ($LASTEXITCODE -ne 0) { throw "vcpkg bootstrap failed" }
 
 $env:VCPKG_BINARY_SOURCES = "clear;files,$cacheDir,readwrite"
-$installArgs = @("install", "flint:$Triplet", "--overlay-triplets=$repoRoot/.github/triplets")
-if ($Triplet.StartsWith("arm64-windows")) {
-    # vcpkg marks FLINT unsupported on Windows ARM64; let the native ARM64 runner prove whether the current port builds.
-    $installArgs += "--allow-unsupported"
-}
-& (Join-Path $VcpkgRoot "vcpkg.exe") @installArgs
+& (Join-Path $VcpkgRoot "vcpkg.exe") install "flint:$Triplet" "--overlay-triplets=$repoRoot/.github/triplets"
 if ($LASTEXITCODE -ne 0) { throw "vcpkg dependency installation failed" }

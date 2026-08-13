@@ -107,48 +107,30 @@ jobs:
           if-no-files-found: error
 
   cli-windows:
-    name: CLI / ${{ matrix.display }}
+    name: "CLI / Windows: Intel/AMD 64-bit"
     needs: validate-version
-    runs-on: ${{ matrix.runner }}
-    strategy:
-      fail-fast: false
-      matrix:
-        include:
-          - runner: windows-latest
-            platform: windows-intel-amd-64bit
-            display: "Windows: Intel/AMD 64-bit"
-            triplet: x64-windows-static-release
-            python_arch: x64
-          - runner: windows-11-arm
-            platform: windows-arm64
-            display: "Windows: ARM64"
-            triplet: arm64-windows-static-release
-            python_arch: arm64
+    runs-on: windows-latest
     steps:
       - uses: actions/checkout@v6
         with:
           submodules: recursive
-      - uses: actions/setup-python@v6
-        with:
-          python-version: "3.12"
-          architecture: ${{ matrix.python_arch }}
       - name: Restore vcpkg binary cache
         uses: actions/cache@v5
         with:
           path: .vcpkg-cache
-          key: vcpkg-2026.07.29-${{ matrix.triplet }}-${{ hashFiles('.github/triplets/*.cmake') }}
+          key: vcpkg-2026.07.29-x64-windows-static-release-${{ hashFiles('.github/triplets/*.cmake') }}
       - name: Build Windows binary
         shell: pwsh
         run: |
           .github/scripts/package-cli.ps1 `
             -Version "${{ needs.validate-version.outputs.version }}" `
-            -Platform "${{ matrix.platform }}" `
-            -Triplet "${{ matrix.triplet }}" `
+            -Platform "windows-intel-amd-64bit" `
+            -Triplet "x64-windows-static-release" `
             -VcpkgRoot "C:/fracessa-vcpkg-2026.07.29"
       - name: Upload CLI binary
         uses: actions/upload-artifact@v7
         with:
-          name: cli-${{ matrix.platform }}
+          name: cli-windows-intel-amd-64bit
           path: dist/fracessa-*.exe
           if-no-files-found: error
 
@@ -236,21 +218,9 @@ jobs:
           if-no-files-found: error
 
   wheels-windows:
-    name: Wheels / windows-${{ matrix.artifact_arch }}
+    name: Wheels / windows-x86_64
     needs: [validate-version, cli-windows]
-    runs-on: ${{ matrix.runner }}
-    strategy:
-      fail-fast: false
-      matrix:
-        include:
-          - runner: windows-latest
-            arch: AMD64
-            artifact_arch: x86_64
-            triplet: x64-windows-static-release
-          - runner: windows-11-arm
-            arch: ARM64
-            artifact_arch: arm64
-            triplet: arm64-windows-static-release
+    runs-on: windows-latest
     steps:
       - uses: actions/checkout@v6
         with:
@@ -259,25 +229,25 @@ jobs:
         uses: actions/cache@v5
         with:
           path: .vcpkg-cache
-          key: vcpkg-2026.07.29-${{ matrix.triplet }}-${{ hashFiles('.github/triplets/*.cmake') }}
+          key: vcpkg-2026.07.29-x64-windows-static-release-${{ hashFiles('.github/triplets/*.cmake') }}
       - name: Install native dependencies
         shell: pwsh
         run: >-
           .github/scripts/install-vcpkg.ps1
-          -Triplet "${{ matrix.triplet }}"
+          -Triplet "x64-windows-static-release"
           -VcpkgRoot "C:/fracessa-vcpkg-2026.07.29"
       - name: Build and test wheels
         uses: pypa/cibuildwheel@v4.1.1
         env:
-          CIBW_ARCHS_WINDOWS: ${{ matrix.arch }}
+          CIBW_ARCHS_WINDOWS: AMD64
           CIBW_CONFIG_SETTINGS_WINDOWS: >-
             cmake.define.CMAKE_TOOLCHAIN_FILE=C:/fracessa-vcpkg-2026.07.29/scripts/buildsystems/vcpkg.cmake
-            cmake.define.VCPKG_TARGET_TRIPLET=${{ matrix.triplet }}
+            cmake.define.VCPKG_TARGET_TRIPLET=x64-windows-static-release
             cmake.define.VCPKG_OVERLAY_TRIPLETS={package}/.github/triplets
       - name: Upload wheels
         uses: actions/upload-artifact@v7
         with:
-          name: python-windows-${{ matrix.artifact_arch }}
+          name: python-windows-x86_64
           path: wheelhouse/*.whl
           if-no-files-found: error
 
@@ -368,7 +338,6 @@ jobs:
             - **Linux: Intel/AMD 64-bit:** `fracessa-${{ needs.validate-version.outputs.version }}-linux-intel-amd-64bit`
             - **Linux: ARM64:** `fracessa-${{ needs.validate-version.outputs.version }}-linux-arm64`
             - **Windows: Intel/AMD 64-bit:** `fracessa-${{ needs.validate-version.outputs.version }}-windows-intel-amd-64bit.exe`
-            - **Windows: ARM64:** `fracessa-${{ needs.validate-version.outputs.version }}-windows-arm64.exe`
 
             **License:** [GPL-3.0-or-later](https://github.com/${{ github.repository }}/blob/${{ needs.validate-version.outputs.tag }}/LICENSE)
 
