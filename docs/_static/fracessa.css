@@ -68,6 +68,13 @@ div.sphinxsidebarwrapper {
   color: var(--fracessa-muted);
 }
 
+div.sphinxsidebar {
+  position: sticky;
+  top: 1rem;
+  max-height: calc(100vh - 2rem);
+  overflow-y: auto;
+}
+
 @media (max-width: 875px) {
   div.document {
     width: auto;
@@ -75,5 +82,11 @@ div.sphinxsidebarwrapper {
 
   div.body {
     max-width: none;
+  }
+
+  div.sphinxsidebar {
+    position: static;
+    max-height: none;
+    overflow-y: visible;
   }
 }
