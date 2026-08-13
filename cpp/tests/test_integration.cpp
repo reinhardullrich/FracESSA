@@ -79,10 +79,10 @@ TEST(IntegrationTest, ExactFullSupportCrossesMultiwordBoundaries) {
         EXPECT_EQ(result.support_size, dimension);
         EXPECT_EQ(result.extended_support_size, dimension);
         ASSERT_EQ(result.vector.size(), dimension);
-        EXPECT_EQ(result.vector[0], fraction(1, static_cast<slong>(dimension)));
-        EXPECT_EQ(result.vector[64], fraction(1, static_cast<slong>(dimension)));
-        EXPECT_EQ(result.vector[dimension - 1], fraction(1, static_cast<slong>(dimension)));
-        EXPECT_EQ(result.payoff, fraction(-1, static_cast<slong>(dimension)));
+        EXPECT_EQ(result.vector[0], fraction(1LL, static_cast<long long>(dimension)));
+        EXPECT_EQ(result.vector[64], fraction(1LL, static_cast<long long>(dimension)));
+        EXPECT_EQ(result.vector[dimension - 1], fraction(1LL, static_cast<long long>(dimension)));
+        EXPECT_EQ(result.payoff, fraction(-1LL, static_cast<long long>(dimension)));
         EXPECT_TRUE(result.support.is_set_at_pos(63));
         EXPECT_TRUE(result.support.is_set_at_pos(64));
         if (dimension > 128) EXPECT_TRUE(result.support.is_set_at_pos(128));

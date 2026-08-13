@@ -213,7 +213,7 @@ TEST(SupportGeneratorTest, CircularGeneratesEveryNonemptyBraceletOnce) {
         }
         previous_representative = representative;
 
-        std::array<bool, 1ULL << dimension> orbit{};
+        decltype(seen) orbit{};
         bitset current = representative;
         for (size_t i = 0; i < dimension; ++i) {
             orbit[current] = true;
