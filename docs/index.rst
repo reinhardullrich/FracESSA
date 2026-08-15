@@ -14,6 +14,11 @@ local maximizers of a rational quadratic form over the probability simplex. It p
    :width: 620px
    :align: center
 
+.. container:: project-actions
+
+   * `View FracESSA on GitHub <https://github.com/reinhardullrich/fracessa>`_
+   * `Install pyfracessa from PyPI <https://pypi.org/project/pyfracessa/>`_
+
 Mathematical problem
 ********************
 

@@ -27,7 +27,8 @@ classifiers = [
 parquet = ["pyarrow"]
 
 [project.urls]
-Homepage = "https://reinhardullrich.github.io/fracessa/"
+Homepage = "https://github.com/reinhardullrich/fracessa"
+Documentation = "https://reinhardullrich.github.io/fracessa/"
 Repository = "https://github.com/reinhardullrich/fracessa"
 Issues = "https://github.com/reinhardullrich/fracessa/issues"
 
