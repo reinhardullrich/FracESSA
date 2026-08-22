@@ -88,10 +88,6 @@ inline bitset reflect(bitset bits, size_t n) noexcept {
   return reverse_bits(bits) >> (64 - n);
 }
 
-inline bool is_set_at_pos(bitset bits, size_t pos) noexcept {
-  return (bits >> pos) & 1ULL;
-}
-
 inline size_t count_set_bits(bitset bits) noexcept {
   return popcount64(bits);
 }
@@ -108,41 +104,6 @@ inline bool is_subset_of(bitset bits, bitset o) noexcept {
 // Return this \ o (set difference)
 inline bitset subtract(bitset bits, bitset o) noexcept {
   return bits & ~o;
-}
-
-// Get a single-bit bitset with only the bit at position pos set
-inline bitset single_bit_at_pos(size_t pos) noexcept {
-  return 1ULL << pos;
-}
-
-inline bitset lowest_set_bit_as_bit(bitset bits) noexcept {
-  // Unsigned subtraction wraps: x & -x isolates the lowest 1 bit and maps 0 to 0.
-  return bits & (0ULL - bits);
-}
-
-// Gosper's algorithm: return the next larger bit pattern with the same number
-// of set bits. Caller guarantees bits != 0 and that another pattern remains in the active width.
-inline bitset next_same_cardinality(bitset bits) noexcept {
-  const bitset lowest = lowest_set_bit_as_bit(bits);
-  const bitset ripple = bits + lowest;
-  return ripple | (((ripple ^ bits) >> 2) / lowest);
-}
-
-// Convert to bitstring representation (MSB first, like std::bitset::to_string())
-// Only outputs bits 0 to dimension-1 (rightmost dimension bits)
-// Example: dimension=5, bits 0,3,4 set -> "11001"
-inline std::string to_bitstring(bitset bits, size_t dimension) {
-  if (dimension == 0) return "";
-  
-  std::string result;
-  result.reserve(dimension);
-  
-  // Output from highest bit (dimension-1) to lowest bit (0)
-  for (int i = static_cast<int>(dimension) - 1; i >= 0; i--) {
-    result += (is_set_at_pos(bits, static_cast<size_t>(i)) ? '1' : '0');
-  }
-  
-  return result;
 }
 
 // Convert to string representation (decimal representation of uint64)

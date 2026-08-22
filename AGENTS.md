@@ -32,15 +32,16 @@
    operations on small matrices, not a few operations on large matrices.
 3. Keep validation at input boundaries. Do not add checks, allocations, abstractions, or branches to proven hot paths without a
    correctness need and a representative benchmark.
-4. Intentionally unchecked bitset operations exist for speed. Do not add defensive hot-path checks for states excluded by validated
+4. Memory is normally not the limiting resource. Prefer a measured increase in memory use when it makes the search faster.
+5. Intentionally unchecked bitset operations exist for speed. Do not add defensive hot-path checks for states excluded by validated
    input and algorithm contracts.
-5. Keep an allocation or memory optimization only when end-to-end benchmarks show a repeatable speed improvement.
-6. Performance evidence must cover the affected methods, small and large games, and circular and non-circular matrices. Include
+6. Keep an allocation or memory optimization only when end-to-end benchmarks show a repeatable speed improvement.
+7. Performance evidence must cover the affected methods, small and large games, and circular and non-circular matrices. Include
    dimensions around 20 and 23 when feasible. A synthetic kernel benchmark alone is insufficient.
-7. Keep dimension-2 matrices in correctness data, but exclude them from performance runs, tables, and aggregate statistics.
-8. Keep numerical code human-readable. Do not add custom allocators, pools, generic workspace frameworks, or extensive plumbing for
+8. Keep dimension-2 matrices in correctness data, but exclude them from performance runs, tables, and aggregate statistics.
+9. Keep numerical code human-readable. Do not add custom allocators, pools, generic workspace frameworks, or extensive plumbing for
    small theoretical gains.
-9. FracESSA orchestration code uses C++ numerical wrappers. Raw FLINT types and `fmpz_*`/`fmpq_*` calls belong only in thin `linalg`
+10. FracESSA orchestration code uses C++ numerical wrappers. Raw FLINT types and `fmpz_*`/`fmpq_*` calls belong only in thin `linalg`
    wrappers and specialized numerical kernels.
 
 ## Style

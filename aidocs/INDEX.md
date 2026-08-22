@@ -21,6 +21,10 @@ the file describes current behavior, open research, or history.
 
 ## Open Research
 
+- `plans/A3_PURE_DOMINANCE_HANDOVER.md`: active A3 pure-dominance experiment, implemented search order, correctness checks, and retained
+  A2/A3 benchmark evidence.
+- `plans/A4_SIDEWAYS_INVADER_PRUNING.md`: retained model A4 exact invader-interval experiment, final indexed design, discarded
+  alternatives, correctness evidence, and full 1,071-matrix timing result.
 - `plans/MAJOR_SINGLE_CORE_PERFORMANCE_OPPORTUNITIES.md`: active plan of unimplemented hypotheses for material single-core speedups,
   with completed foundations clearly separated.
 

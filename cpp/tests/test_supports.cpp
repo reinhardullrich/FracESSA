@@ -3,7 +3,6 @@
 #include <algorithm>
 #include <array>
 #include <numeric>
-#include <string>
 #include <tuple>
 #include <utility>
 #include <vector>
@@ -127,20 +126,42 @@ TEST(SupportGeneratorTest, NonCircularHandlesDimension64) {
     EXPECT_EQ(singleton_union, ~bitset{0});
 }
 
+TEST(SupportGeneratorTest, NonCircularReportsWhetherSupportsRemainAfterSingletons)
+{
+    const auto has_supports_after_forbidding = [](size_t forbidden_count) {
+        NonCircularSupportGenerator generator(4);
+        bool result = false;
+        size_t singleton_index = 0;
+        EXPECT_THROW(generator.generate([&](bitset support, size_t cardinality) {
+            EXPECT_EQ(cardinality, 1u);
+            if (singleton_index++ < forbidden_count) generator.add_forbidden(support);
+            if (support == 0b1000) {
+                result = generator.has_supports_after_singletons();
+                throw StopGeneration{};
+            }
+        }), StopGeneration);
+        return result;
+    };
+
+    EXPECT_TRUE(has_supports_after_forbidding(2));
+    EXPECT_FALSE(has_supports_after_forbidding(3));
+    EXPECT_FALSE(has_supports_after_forbidding(4));
+}
+
 TEST(SupportGeneratorTest, MultiwordNonCircularMatchesOneWordOrderAndPruning)
 {
     for (size_t dimension = 1; dimension <= 10; ++dimension) {
         NonCircularSupportGenerator one_word(dimension);
         NonCircularSupportGeneratorMultiword multiword(dimension);
-        std::vector<std::pair<std::string, size_t>> expected;
-        std::vector<std::pair<std::string, size_t>> actual;
+        std::vector<std::pair<bitset_multiword, size_t>> expected;
+        std::vector<std::pair<bitset_multiword, size_t>> actual;
 
         one_word.generate([&](bitset support, size_t cardinality) {
-            expected.emplace_back(to_bitstring(support, dimension), cardinality);
+            expected.emplace_back(make_multiword_support(dimension, support), cardinality);
             if (dimension == 5 && support == 0b00101) one_word.add_forbidden(support);
         });
         multiword.generate([&](const bitset_multiword& support, size_t cardinality) {
-            actual.emplace_back(support.to_bitstring(), cardinality);
+            actual.emplace_back(support, cardinality);
             if (dimension == 5 && support == make_multiword_support(dimension, {0, 2})) multiword.add_forbidden(support);
         });
 
@@ -158,8 +179,9 @@ TEST(SupportGeneratorTest, MultiwordNonCircularPrunesAfterSingletonsAcrossWordBo
         generator.generate([&](const bitset_multiword& support, size_t cardinality) {
             ++generated;
             EXPECT_EQ(cardinality, 1u);
-            singleton_union.union_with(support);
+            singleton_union.set_bit_at_pos(support.find_pos_first_set_bit());
             generator.add_forbidden(support);
+            if (generated == dimension) EXPECT_FALSE(generator.has_supports_after_singletons());
         });
 
         EXPECT_EQ(generated, dimension);
@@ -293,8 +315,27 @@ TEST(SupportGeneratorTest, CircularHandlesDimension64) {
         ++generated;
         EXPECT_EQ(cardinality, 1u);
         EXPECT_EQ(support, 1u);
+        EXPECT_TRUE(generator.has_supports_after_singletons());
         EXPECT_EQ(generator.add_forbidden_orbit(support), dimension);
+        EXPECT_FALSE(generator.has_supports_after_singletons());
     });
+    EXPECT_EQ(generated, 1u);
+}
+
+TEST(SupportGeneratorTest, MultiwordCircularReportsNoSupportAfterSingletonOrbit)
+{
+    constexpr size_t dimension = 65;
+    CircularSupportGeneratorMultiword generator(dimension);
+    size_t generated = 0;
+
+    generator.generate([&](const bitset_multiword& support, size_t cardinality) {
+        ++generated;
+        EXPECT_EQ(cardinality, 1u);
+        EXPECT_TRUE(generator.has_supports_after_singletons());
+        EXPECT_EQ(generator.add_forbidden_orbit(support), dimension);
+        EXPECT_FALSE(generator.has_supports_after_singletons());
+    });
+
     EXPECT_EQ(generated, 1u);
 }
 
@@ -303,15 +344,15 @@ TEST(SupportGeneratorTest, MultiwordCircularMatchesOneWordGenerationAndPruning)
     for (size_t dimension = 1; dimension <= 16; ++dimension) {
         CircularSupportGenerator one_word(dimension);
         CircularSupportGeneratorMultiword multiword(dimension);
-        std::vector<std::pair<std::string, size_t>> expected;
-        std::vector<std::pair<std::string, size_t>> actual;
+        std::vector<std::pair<bitset_multiword, size_t>> expected;
+        std::vector<std::pair<bitset_multiword, size_t>> actual;
 
         one_word.generate([&](bitset support, size_t cardinality) {
-            expected.emplace_back(to_bitstring(support, dimension), cardinality);
+            expected.emplace_back(make_multiword_support(dimension, support), cardinality);
             if (dimension == 8 && support == 0b00000011) one_word.add_forbidden_orbit(support);
         });
         multiword.generate([&](const bitset_multiword& support, size_t cardinality) {
-            actual.emplace_back(support.to_bitstring(), cardinality);
+            actual.emplace_back(support, cardinality);
             if (dimension == 8 && support == make_multiword_support(dimension, bitset{0b00000011}))
                 multiword.add_forbidden_orbit(support);
         });
@@ -420,21 +461,21 @@ TEST(CircularAffineSymmetryTest, MultiwordMatchesOneWordImages)
         EXPECT_EQ(multiword.is_representative(large_support), one_word.is_representative(support)) << "support=" << support;
     }
 
-    std::vector<std::tuple<std::string, size_t, bool, size_t>> expected;
-    std::vector<std::tuple<std::string, size_t, bool, size_t>> actual;
+    std::vector<std::tuple<bitset_multiword, size_t, bool, size_t>> expected;
+    std::vector<std::tuple<bitset_multiword, size_t, bool, size_t>> actual;
     constexpr bitset support = 0b00000011;
     const bitset_multiword large_support = make_multiword_support(dimension, support);
 
     one_word.for_each_distinct_bracelet_image(support,
         [&](bitset image, size_t multiplier_class, bool reflected, size_t right_shifts) {
-            expected.emplace_back(to_bitstring(image, dimension), multiplier_class, reflected, right_shifts);
+            expected.emplace_back(make_multiword_support(dimension, image), multiplier_class, reflected, right_shifts);
         });
     multiword.for_each_distinct_bracelet_image(large_support,
         [&](const bitset_multiword& image, size_t multiplier_class, bool reflected, size_t right_shifts) {
             bitset_multiword reconstructed(dimension);
             multiword.image_mask(large_support, multiplier_class, reflected, right_shifts, reconstructed);
             EXPECT_EQ(reconstructed, image);
-            actual.emplace_back(image.to_bitstring(), multiplier_class, reflected, right_shifts);
+            actual.emplace_back(image, multiplier_class, reflected, right_shifts);
         });
 
     EXPECT_EQ(actual, expected);
@@ -454,7 +495,7 @@ TEST(CircularAffineSymmetryTest, MultiwordImagesCrossWordBoundaries)
             if (std::gcd(multiplier, dimension) == 1) multipliers.push_back(multiplier);
         ASSERT_EQ(symmetry.multiplier_class_count(), multipliers.size());
 
-        std::vector<std::string> images;
+        std::vector<bitset_multiword> images;
         symmetry.for_each_distinct_bracelet_image(support,
             [&](const bitset_multiword& image, size_t multiplier_class, bool reflected, size_t right_shifts) {
                 bitset_multiword expected(dimension);
@@ -470,7 +511,7 @@ TEST(CircularAffineSymmetryTest, MultiwordImagesCrossWordBoundaries)
                 bitset_multiword reconstructed(dimension);
                 symmetry.image_mask(support, multiplier_class, reflected, right_shifts, reconstructed);
                 EXPECT_EQ(reconstructed, image);
-                images.push_back(image.to_bitstring());
+                images.push_back(image);
             });
 
         EXPECT_GT(images.size(), 1u);

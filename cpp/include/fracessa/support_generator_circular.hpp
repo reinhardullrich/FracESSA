@@ -239,6 +239,18 @@ public:
         }
         return multiplier;
     }
+
+    // Call from the final singleton callback. Pending rules then contain exactly the singleton roots found in that layer.
+    inline bool has_supports_after_singletons() const noexcept {
+        assert(target_cardinality_ == 1);
+        bitset forbidden_singletons = 0;
+        for (const bitset support : pending_forbidden_) {
+            const size_t cardinality = count_set_bits(support);
+            assert(cardinality == 1);
+            if (cardinality == 1) forbidden_singletons |= support;
+        }
+        return count_set_bits(forbidden_singletons) + 1 < dimension_;
+    }
 };
 
 /**
@@ -471,6 +483,19 @@ public:
             } while (orbit_current_ != reflected_);
         }
         return multiplier;
+    }
+
+    // Call from the final singleton callback. Pending rules then contain exactly the singleton roots found in that layer.
+    inline bool has_supports_after_singletons() const
+    {
+        assert(target_cardinality_ == 1);
+        bitset_multiword forbidden_singletons(dimension_);
+        for (const bitset_multiword& support : pending_forbidden_) {
+            const size_t cardinality = support.count_set_bits();
+            assert(cardinality == 1);
+            if (cardinality == 1) forbidden_singletons.set_bit_at_pos(support.find_pos_first_set_bit());
+        }
+        return forbidden_singletons.count_set_bits() + 1 < dimension_;
     }
 };
 

@@ -27,7 +27,6 @@ public:
     }
 
     size_t dimension() const noexcept { return dimension_; }
-    size_t word_count() const noexcept { return words_.size(); }
 
     bool empty() const noexcept
     {
@@ -66,12 +65,6 @@ public:
     {
         assert(position < dimension_);
         words_[position / 64] &= ~(uint64_t{1} << (position % 64));
-    }
-
-    void union_with(const bitset_multiword& other) noexcept
-    {
-        assert_same_dimension(other);
-        for (size_t i = 0; i < words_.size(); ++i) words_[i] |= other.words_[i];
     }
 
     void subtract(const bitset_multiword& other) noexcept

@@ -400,26 +400,4 @@ private:
     fmpz_t temporary_2_;
 };
 
-/* Fast C++ form for callers that already own disposable matrices and reusable scratch. */
-inline int solve_fraction_free_ldlt_inplace(matrix_int& solution, integer& denominator, matrix_int& system,
-                                            matrix_int& right_hand_side, fraction_free_ldlt_inertia& inertia,
-                                            kkt_fraction_free_ldlt_workspace& workspace)
-{
-    return workspace.solve_inplace(solution, denominator, system, right_hand_side, inertia);
-}
-
-/*
- * FLINT-style convenience interface. Like fmpz_mat_solve_fflu, this preserves the const inputs and computes integer X and a positive denominator
- * satisfying system*X = right_hand_side*denominator. Repeated hot-path callers should use the in-place overload above to avoid copying and
- * allocation.
- */
-inline int solve_fraction_free_ldlt(matrix_int& solution, integer& denominator, const matrix_int& system,
-                                    const matrix_int& right_hand_side, fraction_free_ldlt_inertia& inertia)
-{
-    kkt_fraction_free_ldlt_workspace workspace(system.rows());
-    matrix_int system_copy(system);
-    matrix_int right_hand_side_copy(right_hand_side);
-    return workspace.solve_inplace(solution, denominator, system_copy, right_hand_side_copy, inertia);
-}
-
 } // namespace fracessa::numeric

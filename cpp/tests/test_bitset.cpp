@@ -15,18 +15,14 @@ using namespace fracessa::support;
 TEST(BitsetTest, Set) {
     bitset bits = 0ULL;
     bits = set_bit_at_pos(bits, 5);
-    EXPECT_TRUE(is_set_at_pos(bits, 5));
-    EXPECT_FALSE(is_set_at_pos(bits, 4));
+    EXPECT_EQ(bits, bitset{1} << 5);
 }
 
 TEST(BitsetTest, SetAll) {
     bitset bits = 0ULL;
     bits = set_all_n_bits(5);
+    EXPECT_EQ(bits, 0b11111u);
     EXPECT_EQ(count_set_bits(bits), 5);
-    for (unsigned i = 0; i < 5; ++i) {
-        EXPECT_TRUE(is_set_at_pos(bits, i));
-    }
-    EXPECT_FALSE(is_set_at_pos(bits, 5));
 }
 
 TEST(BitsetTest, SetAll64) {
@@ -71,11 +67,7 @@ TEST(BitsetTest, RotOneRightExactPattern) {
     bits = rot_one_right(bits, 5);
 
     // After right-rotate by one on [0..4], bits become {1,4} -> "10010".
-    EXPECT_TRUE(is_set_at_pos(bits, 1));
-    EXPECT_TRUE(is_set_at_pos(bits, 4));
-    EXPECT_FALSE(is_set_at_pos(bits, 0));
-    EXPECT_FALSE(is_set_at_pos(bits, 2));
-    EXPECT_EQ(to_bitstring(bits, 5), "10010");
+    EXPECT_EQ(bits, 0b10010u);
 }
 
 TEST(BitsetTest, RotOneRightMasksBitsOutsideDimension) {
@@ -86,9 +78,7 @@ TEST(BitsetTest, RotOneRightMasksBitsOutsideDimension) {
 
     bits = rot_one_right(bits, 5);
 
-    EXPECT_EQ(count_set_bits(bits), 1u);
-    EXPECT_TRUE(is_set_at_pos(bits, 4));
-    EXPECT_FALSE(is_set_at_pos(bits, 6));
+    EXPECT_EQ(bits, bitset{1} << 4);
 }
 
 TEST(BitsetTest, ReflectExactPatternAndRoundTrip) {
@@ -149,30 +139,7 @@ TEST(BitsetTest, Subtract) {
     b = set_bit_at_pos(b, 2);
 
     bitset result = subtract(a, b);
-    EXPECT_TRUE(is_set_at_pos(result, 1));
-    EXPECT_FALSE(is_set_at_pos(result, 2));
-    EXPECT_TRUE(is_set_at_pos(result, 3));
-}
-
-TEST(BitsetTest, LowestSetBit) {
-    bitset bits = 0ULL;
-    bits = set_bit_at_pos(bits, 5);
-    bits = set_bit_at_pos(bits, 7);
-
-    bitset lowest = lowest_set_bit_as_bit(bits);
-    EXPECT_EQ(find_pos_first_set_bit(lowest), 5);
-    EXPECT_EQ(count_set_bits(lowest), 1);
-}
-
-TEST(BitsetTest, LowestSetBitZero) {
-    bitset bits = 0ULL;
-    bitset lowest = lowest_set_bit_as_bit(bits);
-    EXPECT_EQ(lowest, 0ULL);
-}
-
-TEST(BitsetTest, GosperNextSameCardinality) {
-    EXPECT_EQ(next_same_cardinality(0b00111), 0b01011u);
-    EXPECT_EQ(next_same_cardinality(0b01110), 0b10011u);
+    EXPECT_EQ(result, (bitset{1} << 1) | (bitset{1} << 3));
 }
 
 TEST(BitsetTest, ExtractSetIndicesBasic) {
@@ -225,19 +192,6 @@ TEST(BitsetTest, ToIndexSet) {
     EXPECT_EQ(to_index_set(bitset{1} | (bitset{1} << 2) | (bitset{1} << 63)), "{0, 2, 63}");
 }
 
-TEST(BitsetTest, ToBitstring) {
-    bitset bits = 0ULL;
-    bits = set_bit_at_pos(bits, 0);
-    bits = set_bit_at_pos(bits, 2);
-    bits = set_bit_at_pos(bits, 3);
-    // bits 0,2,3 set in dimension 4
-    // MSB first: bit 3, bit 2, bit 1, bit 0
-    // So: 1101
-
-    std::string s = to_bitstring(bits, 4);
-    EXPECT_EQ(s, "1101");
-}
-
 // Test Iterate All Supports
 TEST(BitsetTest, IterateAllSupports) {
     std::vector<bitset> supports;
@@ -257,10 +211,8 @@ TEST(BitsetTest, EmptyBitset) {
 TEST(BitsetTest, FullBitset) {
     bitset bits = 0ULL;
     bits = set_all_n_bits(8);
+    EXPECT_EQ(bits, 0xffu);
     EXPECT_EQ(count_set_bits(bits), 8);
-    for (unsigned i = 0; i < 8; ++i) {
-        EXPECT_TRUE(is_set_at_pos(bits, i));
-    }
 }
 
 TEST(BitsetTest, SetAllZero) {

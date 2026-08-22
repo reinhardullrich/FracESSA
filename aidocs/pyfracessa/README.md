@@ -43,6 +43,44 @@ PYTHONPATH=python python3 -m pyfracessa.timing report latest --baseline main
 
 Use the actual printed session instead of `latest` when concurrent or later timing runs could make `latest` ambiguous.
 
+## Multi-model runs
+
+`python/pyfracessa/model_timing.py` runs production and experimental models through the same matrix selection, calibration, native
+timing, and ESS-count checks. It keeps one Pybind process loaded on every worker CPU. A matrix timeout terminates and replaces only
+that worker, so the remaining workers continue.
+
+Models follow the repository layout instead of a separate registry:
+
+- `production:fast` or `production:safe` loads `cpp/build-benchmark/fracessa_core`;
+- `a1:safe` loads `models/a1/build/a1/fracessa_core`; and
+- a future `a3:safe` works automatically when `models/a3/build/a3/fracessa_core` exists.
+
+The runner reads each build's Python interpreter from its `CMakeCache.txt`, which prevents loading a Pybind extension with an
+incompatible Python version. Compared models must still be configured and built afresh with the same compiler, CMake options, and
+dependencies.
+
+For example, run production fast, A1 safe, and A2 safe with a separately pinned parent and persistent workers:
+
+```bash
+PYTHONPATH=python python/.venv/bin/python -m pyfracessa.model_timing run \
+  production:fast a1:safe a2:safe \
+  --parent-cpu 1 --cpus 2 3 4 5 6 7 8 9 \
+  --target-seconds 0.5 --timeout-seconds 30
+```
+
+The command prints a session name. Results go to the ignored `experiments/model_timings.sqlite3` database and include timeouts,
+errors, model binary SHA-256 values, native medians, iteration counts, ESS counts, and safe-fallback reasons. Reusing the session name
+resumes missing rows and leaves existing rows for the same binary untouched; add `--rerun` to replace selected rows.
+
+Compare successful shared matrices with a chosen baseline:
+
+```bash
+PYTHONPATH=python python/.venv/bin/python -m pyfracessa.model_timing report latest --baseline production:fast
+```
+
+The report excludes incorrect results, timeouts, errors, and fast results that switched to safe through a whole-matrix fallback.
+Dimension-2 matrices remain correctness cases but are always excluded from model performance runs.
+
 ## Matrix selection and calibration
 
 The default selection is the `small` size class. `--size-class` also accepts `medium`, `large`, `super_large`, and `all`; repeated
@@ -83,4 +121,7 @@ Use the implementation's help output for the complete current option list:
 PYTHONPATH=python python3 -m pyfracessa.timing --help
 PYTHONPATH=python python3 -m pyfracessa.timing run --help
 PYTHONPATH=python python3 -m pyfracessa.timing report --help
+PYTHONPATH=python python3 -m pyfracessa.model_timing --help
+PYTHONPATH=python python3 -m pyfracessa.model_timing run --help
+PYTHONPATH=python python3 -m pyfracessa.model_timing report --help
 ```

@@ -535,12 +535,17 @@ void add_forbidden(bitset support);
 
 // CircularSupportGenerator
 size_t add_forbidden_orbit(bitset support); // distinct-orbit multiplier
+
+// Both generators; call only from the final singleton callback
+bool has_supports_after_singletons() const;
 ```
 
 - `NonCircularSupportGenerator` uses fixed-cardinality binary DFS and preserves
   increasing numeric mask order.
 - `CircularSupportGenerator` uses direct fixed-density bracelet recursion, expanded dihedral forbidden masks, and
   returns their distinct orbit size as the candidate multiplier.
+- `has_supports_after_singletons()` reads the pending singleton roots without consuming generator state. At least one later support
+  exists exactly when at least two strategies remain outside those roots; their pair is then a surviving size-two support.
 - `ReferenceCircularSupportGenerator` retains V1's FKM recursion and reflection reduction for tests only.
 - `fracessa::basic_analyzer::analyze_support()` runs the optional fast heuristic, then safe
   exact candidate analysis, and owns exact stability classification.
