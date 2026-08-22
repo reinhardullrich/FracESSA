@@ -44,9 +44,9 @@ The two paths differ only in their generator:
 - circular: Karim-Alamgir-Husnine direct fixed-density bracelet recursion, with the same forbidden-subset test inserted whenever a
   selected bit is added.
 
-Each generator's constructor receives only the matrix dimension. Its single
+Each generator's constructor receives the matrix-wide `SupportContext`. Its single
 `generate(callback)` call owns the complete cardinality sweep and supplies both
-the mask and its cardinality to a templated callback defined in the header.
+the support handle and its cardinality to a templated callback defined in the header.
 This keeps the callback inlineable and avoids `std::function`, virtual dispatch,
 and the explicit resumable stack that `get_next_support()` would require in
 C++17.
@@ -55,9 +55,9 @@ C++17.
 
 ### Support mask
 
-Bit `i` means strategy `i` is present. Dimensions 1 through 64 use one raw `uint64_t`; dimensions 65 and above use a fixed-width
-`fracessa::support::bitset_multiword`. The representation is selected once before support generation, so the one-word path keeps its
-direct operations.
+Bit `i` means strategy `i` is present. Every generated value is an eight-byte `Support` interpreted by the matrix-wide
+`SupportContext`. Through dimension 64 the value stores its bits directly; above 64 it addresses fixed-width context-owned storage.
+The generators retain direct scalar internals for the small path.
 
 ### Exact candidate and forbidden support
 
@@ -527,17 +527,20 @@ The production paths are split between `cpp/include/fracessa/support_generator_n
 `cpp/tests/reference_circular_support_generator.hpp`. They retain the same compile-time callback shape without inheritance:
 
 ```cpp
+NonCircularSupportGenerator(SupportContext& context);
+CircularSupportGenerator(SupportContext& context);
+
 template<class Consumer>
-void generate(Consumer&& consume); // consume(support, support_size)
+void generate(Consumer&& consume); // consume(const Support&, support_size)
 
 // NonCircularSupportGenerator
-void add_forbidden(bitset support);
+void add_forbidden(const Support& support);
 
 // CircularSupportGenerator
-size_t add_forbidden_orbit(bitset support); // distinct-orbit multiplier
+size_t add_forbidden_orbit(const Support& support); // distinct-orbit multiplier
 
 // Both generators; call only from the final singleton callback
-bool has_supports_after_singletons() const;
+bool has_supports_after_singletons();
 ```
 
 - `NonCircularSupportGenerator` uses fixed-cardinality binary DFS and preserves
@@ -547,9 +550,9 @@ bool has_supports_after_singletons() const;
 - `has_supports_after_singletons()` reads the pending singleton roots without consuming generator state. At least one later support
   exists exactly when at least two strategies remain outside those roots; their pair is then a surviving size-two support.
 - `ReferenceCircularSupportGenerator` retains V1's FKM recursion and reflection reduction for tests only.
-- `fracessa::basic_analyzer::analyze_support()` runs the optional fast heuristic, then safe
+- `fracessa::analyzer::analyze_support()` runs the optional fast heuristic, then safe
   exact candidate analysis, and owns exact stability classification.
-- `fracessa::basic_analyzer::finalize_candidate()` owns representative IDs, weighted ESS counting,
+- `fracessa::analyzer::finalize_candidate()` owns representative IDs, weighted ESS counting,
   and optional output of the one representative row.
 - `--fullsupport` still tests its single mask first. On fallback, the callback
   ignores that already-tested mask when the generator reaches cardinality `n`.

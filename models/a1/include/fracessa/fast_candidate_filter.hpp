@@ -7,6 +7,7 @@
 #include <vector>
 
 #include <fracessa/bitset.hpp>
+#include <fracessa/support.hpp>
 #include <fracessa/types.hpp>
 
 namespace fracessa::search {
@@ -33,6 +34,7 @@ constexpr std::string_view safe_fallback_name(safe_fallback fallback) noexcept
 class fast_candidate_filter {
 public:
     explicit fast_candidate_filter(size_t dimension);
+    explicit fast_candidate_filter(support::SupportContext& context) : fast_candidate_filter(context.dimension()) {}
     fast_candidate_filter(const fast_candidate_filter&) = delete;
     fast_candidate_filter& operator=(const fast_candidate_filter&) = delete;
     fast_candidate_filter(fast_candidate_filter&&) = delete;

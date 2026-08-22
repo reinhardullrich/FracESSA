@@ -67,12 +67,11 @@ std::string strategy_vector_to_string(const std::vector<fracessa::numeric::fract
     return out.str();
 }
 
-template<class Analyzer>
 void run_analyzer(fracessa::search_method method, coposit::parsers::parsed_matrix matrix, bool include_candidates,
                   bool full_support, bool enable_logging, std::int64_t matrix_id, NativeResult& result)
 {
     const auto start = std::chrono::steady_clock::now();
-    Analyzer analyzer(method, std::move(matrix), include_candidates, full_support, enable_logging, matrix_id);
+    fracessa::analyzer analyzer(method, std::move(matrix), include_candidates, full_support, enable_logging, matrix_id);
     const auto end = std::chrono::steady_clock::now();
 
     result.elapsed_ns = std::chrono::duration_cast<std::chrono::nanoseconds>(end - start).count();
@@ -130,12 +129,7 @@ NativeResult compute_matrix_impl(
             logging_lock.lock();
         }
 
-        if (parsed_matrix.matrix.rows() <= fracessa::support::kMaxBitsetDimension)
-            run_analyzer<fracessa::analyzer>(method, std::move(parsed_matrix), include_candidates, full_support, enable_logging,
-                                             matrix_id, result);
-        else
-            run_analyzer<fracessa::analyzer_multiword>(method, std::move(parsed_matrix), include_candidates, full_support,
-                                                       enable_logging, matrix_id, result);
+        run_analyzer(method, std::move(parsed_matrix), include_candidates, full_support, enable_logging, matrix_id, result);
         result.status = kStatusOk;
 
         return result;
@@ -214,7 +208,8 @@ py::dict compute_matrix(
 fracessa::search::safe_fallback classify_safe_fallback_impl(const std::string& matrix)
 {
     const auto parsed_matrix = coposit::parsers::matrix_parser::parse(matrix);
-    fracessa::search::fast_candidate_filter fast_filter(parsed_matrix.matrix.rows());
+    fracessa::support::SupportContext support_context(parsed_matrix.matrix.rows());
+    fracessa::search::fast_candidate_filter fast_filter(support_context);
     fast_filter.convert_game_matrix(parsed_matrix.matrix);
     return fast_filter.safe_fallback_reason();
 }

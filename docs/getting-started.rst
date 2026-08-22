@@ -227,10 +227,10 @@ not accumulate in memory.
 Dimensions and running time
 ***************************
 
-Dimensions 1 through 64 use one 64-bit support word; larger dimensions use a runtime-sized multiword mask. There is no separate
-application-level dimension cap, but the dense matrix must fit in memory and the nonempty support space contains ``2^n - 1``
-possibilities. Full-support searches and strongly pruned games can therefore be practical above 64 even though exhaustive searches
-usually are not.
+Every support is one 64-bit handle interpreted by a matrix-wide support context. Through dimension 64 the handle stores the bits
+directly; above 64 it addresses fixed-width context-owned storage. There is no separate application-level dimension cap, but the
+dense matrix must fit in memory and the nonempty support space contains ``2^n - 1`` possibilities. Full-support searches and strongly
+pruned games can therefore be practical above 64 even though exhaustive searches usually are not.
 
 Continue with :doc:`algorithm` for the search itself, :doc:`python-api` for every Python field and return mode, or :doc:`cpp-api`
 for the native interface.

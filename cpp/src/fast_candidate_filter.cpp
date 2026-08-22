@@ -6,7 +6,6 @@
 #include <cmath>
 #include <cstdint>
 #include <limits>
-#include <type_traits>
 #include <utility>
 #include <vector>
 
@@ -419,15 +418,17 @@ bool solve_bunch_kaufman_backward(const numeric::matrix_dbl& system, size_t dime
 
 } // namespace
 
-fast_candidate_filter::fast_candidate_filter(size_t dimension)
-    : dimension_(dimension)
-    , game_scales_large_(dimension_ > support::kMaxBitsetDimension ? dimension_ : 0)
-    , solution_large_(dimension_ > support::kMaxBitsetDimension ? dimension_ : 0)
-    , scale_ratios_large_(dimension_ > support::kMaxBitsetDimension ? dimension_ : 0)
-    , pivots_large_(dimension_ > support::kMaxBitsetDimension ? dimension_ : 0)
-    , game_scales_(dimension_ > support::kMaxBitsetDimension ? game_scales_large_.data() : game_scales_small_.data())
+fast_candidate_filter::fast_candidate_filter(support::SupportContext& support_context)
+    : support_context_(support_context)
+    , game_scales_(support_context.dimension())
+    , beta_(support_context.dimension())
+    , active_coordinates_(support_context.dimension())
+    , solution_(support_context.dimension())
+    , scale_ratios_(support_context.dimension())
+    , pivots_(support_context.dimension())
 {
-    if (dimension_ > support::kMaxBitsetDimension) support_indices_large_.reserve(dimension_);
+    support_indices_.reserve(support_context_.dimension());
+    outside_indices_.reserve(support_context_.dimension());
 }
 
 void fast_candidate_filter::convert_game_matrix(const numeric::matrix_int& integer_game)
@@ -437,18 +438,11 @@ void fast_candidate_filter::convert_game_matrix(const numeric::matrix_int& integ
     safe_fallback_ = prepare_normalized_double_game(integer_game, kPrecisionSpanCutoff, game_dbl_);
     if (safe_fallback_ != safe_fallback::none) return;
 
-    if (dimension_ <= support::kMaxBitsetDimension) {
-        double beta[support::kMaxBitsetDimension];
-        size_t active_coordinates[support::kMaxBitsetDimension];
-        safe_fallback_ = equilibrate_game_matrix(game_dbl_, dimension_, game_scales_, beta, active_coordinates);
-    } else {
-        std::vector<double> beta(dimension_);
-        std::vector<size_t> active_coordinates(dimension_);
-        safe_fallback_ = equilibrate_game_matrix(game_dbl_, dimension_, game_scales_, beta.data(), active_coordinates.data());
-    }
+    safe_fallback_ = equilibrate_game_matrix(game_dbl_, support_context_.dimension(), game_scales_.data(),
+                                             beta_.data(), active_coordinates_.data());
 }
 
-bool fast_candidate_filter::passes(const support::bitset& support, size_t support_size)
+bool fast_candidate_filter::passes(const support::Support& support, size_t support_size)
 {
     /*
      * Eliminate the normalization/payoff border exactly as exact_candidate_solver does. With reference strategy m and columns
@@ -459,31 +453,22 @@ bool fast_candidate_filter::passes(const support::bitset& support, size_t suppor
      * H is symmetric and has dimension |S|-1 instead of the bordered system's |S|+1. This production fast path solves H with an
      * adapted LAPACK Bunch-Kaufman LDL^T factorization but deliberately does not use its inertia for stability.
      */
-    uint8_t support_indices[support::kMaxBitsetDimension];
-    const size_t support_count = support::extract_set_indices(support, dimension_, support_indices);
-    assert(support_count == support_size);
+    support_context_.extract_set_indices(support, support_indices_);
+    support_context_.extract_unset_indices(support, outside_indices_);
+    assert(support_indices_.size() == support_size);
     static_cast<void>(support_size);
 
-    double solution[support::kMaxBitsetDimension];
-    double scale_ratios[support::kMaxBitsetDimension];
-    int pivots[support::kMaxBitsetDimension];
-    return passes_from_indices(support, support_indices, support_count, solution, scale_ratios, pivots);
+    return passes_from_indices(support_indices_.data(), support_indices_.size(),
+                               outside_indices_.data(), outside_indices_.size());
 }
 
-bool fast_candidate_filter::passes(const support::bitset_multiword& support, size_t support_size)
+bool fast_candidate_filter::passes_from_indices(const size_t* support_indices, size_t support_count,
+                                                const size_t* outside_indices, size_t outside_count)
 {
-    assert(support.dimension() == dimension_);
-    support.extract_set_indices(support_indices_large_);
-    assert(support_indices_large_.size() == support_size);
-    static_cast<void>(support_size);
-    return passes_from_indices(support, support_indices_large_.data(), support_indices_large_.size(),
-                             solution_large_.data(), scale_ratios_large_.data(), pivots_large_.data());
-}
-
-template<class SupportMask, class Index>
-bool fast_candidate_filter::passes_from_indices(const SupportMask& support, const Index* support_indices, size_t support_count,
-                                            double* solution, double* scale_ratios, int* pivots)
-{
+    const size_t dimension = support_context_.dimension();
+    double* solution = solution_.data();
+    double* scale_ratios = scale_ratios_.data();
+    int* pivots = pivots_.data();
     double reference_probability = 1.0;
     const size_t reference = support_indices[0];
     const size_t reduced_dimension = support_count - 1;
@@ -539,7 +524,7 @@ bool fast_candidate_filter::passes_from_indices(const SupportMask& support, cons
     payoff *= inverse_reference_scale;
     if (!std::isfinite(payoff)) return true;
 
-    const double threshold = payoff + 1e-4 * static_cast<double>(dimension_);
+    const double threshold = payoff + 1e-4 * static_cast<double>(dimension);
     if (!std::isfinite(threshold)) return true;
     const auto outside_decision = [&](size_t i) {
         double rowsum = game_dbl_(i, reference) * reference_coordinate;
@@ -551,22 +536,10 @@ bool fast_candidate_filter::passes_from_indices(const SupportMask& support, cons
         return rowsum > threshold ? 1 : 0;
     };
 
-    if constexpr (std::is_same_v<SupportMask, support::bitset>) {
-        support::bitset complement = support::set_all_n_bits(dimension_) & ~support;
-        while (complement != 0) {
-            const size_t i = support::find_pos_first_set_bit(complement);
-            complement &= complement - 1;
-            const int decision = outside_decision(i);
-            if (decision < 0) return true;
-            if (decision > 0) return false;
-        }
-    } else {
-        for (size_t i = 0; i < dimension_; ++i) {
-            if (support.is_set_at_pos(i)) continue;
-            const int decision = outside_decision(i);
-            if (decision < 0) return true;
-            if (decision > 0) return false;
-        }
+    for (size_t position = 0; position < outside_count; ++position) {
+        const int decision = outside_decision(outside_indices[position]);
+        if (decision < 0) return true;
+        if (decision > 0) return false;
     }
 
     return true;

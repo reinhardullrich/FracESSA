@@ -12,20 +12,18 @@ Core types
 .. doxygenenum:: fracessa::search_method
    :project: FracESSA
 
-``fracessa::candidate`` is the one-word specialization of ``fracessa::basic_candidate`` used through dimension 64.
-``fracessa::candidate_multiword`` is the corresponding specialization for larger dimensions. A candidate is already an exact
-symmetric Nash equilibrium; ``is_ess`` and ``stability`` record the later exact stability decision.
+``fracessa::candidate`` stores one exact symmetric Nash equilibrium. Its support handles use the matrix-wide support context, so the
+same type represents every supported dimension. ``is_ess`` and ``stability`` record the later exact stability decision.
 
-.. doxygenclass:: fracessa::basic_candidate
+.. doxygenclass:: fracessa::candidate
    :members:
    :project: FracESSA
 
 Analyzer
 ********
 
-Constructing ``fracessa::basic_analyzer`` runs the configured analysis synchronously. ``fracessa::analyzer`` is its one-word
-specialization through dimension 64; ``fracessa::analyzer_multiword`` is the multiword specialization for larger dimensions. Select
-the specialization from the parsed matrix dimension before construction, as the CLI and Pybind adapter do.
+Constructing ``fracessa::analyzer`` runs the configured analysis synchronously. The analyzer creates one matrix-wide support context
+and uses the same public search path for every dimension.
 
 The public count and structure fields are always populated and include circular multipliers. They contain every candidate found by
 the ESS search; only ``safe`` guarantees a complete ESS result. They are not an enumeration of every degenerate or strict-superset
@@ -35,7 +33,7 @@ the counts. A non-``none`` ``safe_fallback_`` records only a whole-matrix switch
 .. doxygenfunction:: fracessa::parse_search_method
    :project: FracESSA
 
-.. doxygenclass:: fracessa::basic_analyzer
+.. doxygenclass:: fracessa::analyzer
    :members:
    :project: FracESSA
 
@@ -47,7 +45,7 @@ the full upper-triangular layout or the compact circular layout. The latter begi
 value per positive circular distance. A fraction has an optional sign before its numerator
 and a positive integer denominator, so ``-1/2`` is valid and ``1/-2`` is not. The parser also accepts symmetric Matrix Market input
 and returns ``coposit::parsers::parsed_matrix``: one integer matrix, its common positive denominator, and the compact-circular marker
-consumed by ``fracessa::basic_analyzer``.
+consumed by ``fracessa::analyzer``.
 
 ``matrix_parser::parse()`` reads matrix **contents**. Use ``matrix_parser::parse_file()`` when a direct C++ caller has a path. The
 compact circular layout is explained in :doc:`getting-started`.
@@ -55,8 +53,7 @@ compact circular layout is explained in :doc:`getting-started`.
 Minimal native example
 **********************
 
-The analyzer takes ownership of the parsed matrix, so save its dimension before moving it. Select the one-word specialization for
-dimensions through 64 and the multiword specialization above 64:
+The analyzer takes ownership of the parsed matrix:
 
 .. code-block:: cpp
 
@@ -69,15 +66,8 @@ dimensions through 64 and the multiword specialization above 64:
    int main()
    {
        auto game = coposit::parsers::matrix_parser::parse("3#-1,0,0,-2,0,-3");
-       const std::size_t dimension = game.matrix.rows();
-
-       if (dimension <= fracessa::support::kMaxBitsetDimension) {
-           fracessa::analyzer result(fracessa::search_method::safe, std::move(game), true);
-           std::cout << result.ess_count_ << '\n';
-       } else {
-           fracessa::analyzer_multiword result(fracessa::search_method::safe, std::move(game), true);
-           std::cout << result.ess_count_ << '\n';
-       }
+       fracessa::analyzer result(fracessa::search_method::safe, std::move(game), true);
+       std::cout << result.ess_count_ << '\n';
    }
 
 Construction blocks until the complete analysis finishes. Pass ``false`` instead of ``true`` for the third argument when only counts

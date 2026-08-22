@@ -14,7 +14,8 @@ the file describes current behavior, open research, or history.
 - `architecture/SUPPORT_GENERATORS.md`: implemented non-circular DFS and circular bracelet generators, pruning proof, callback
   interface, rejected alternatives, and retained performance evidence.
 - `architecture/CYCLIC_AFFINE_SYMMETRY.md`: implemented exact affine symmetry detection and reduction for circular games.
-- `architecture/MULTIWORD_SUPPORT_MASKS.md`: implemented one-word/multiword boundary, representation, dispatch, and verification.
+- `architecture/MULTIWORD_SUPPORT_MASKS.md`: implemented unified `Support`/`SupportContext` representation, dimension-64 boundary,
+  large-mask storage, historical template migration, and verification.
 - `correctness/FAST_CANDIDATE_FALSE_REJECTION.md`: exact counterexamples and the non-certifying correctness boundary of `fast`.
 - `reference/ELIMINATING_THE_BORDERED_CANDIDATE_SYSTEM.md`: mathematical derivation of the reduced symmetric candidate system.
 - `reference/EXACT_STABILITY_SCHUR_COMPLEMENT.md`: exact Schur-complement derivation and implemented reduced-B stability path.

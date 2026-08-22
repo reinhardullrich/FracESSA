@@ -1,4 +1,3 @@
-#include <array>
 #include <chrono>
 #include <cstdint>
 #include <cstdlib>
@@ -6,6 +5,7 @@
 #include <string>
 #include <string_view>
 #include <utility>
+#include <vector>
 
 #include <argparse/argparse.hpp>
 #include <coposit/parsers/matrix_parser.hpp>
@@ -41,8 +41,7 @@ void write_json_string(std::ostream& output, std::string_view value)
     output << '"';
 }
 
-template<class Structure>
-void write_structure(std::ostream& output, const Structure& structure)
+void write_structure(std::ostream& output, const std::vector<size_t>& structure)
 {
     output << '{';
     bool first = true;
@@ -55,14 +54,13 @@ void write_structure(std::ostream& output, const Structure& structure)
     output << '}';
 }
 
-template<class Structure>
 void write_summary(
     std::int64_t matrix_id,
     int status,
     size_t candidate_count,
     size_t ess_count,
-    const Structure& candidate_structure,
-    const Structure& ess_structure,
+    const std::vector<size_t>& candidate_structure,
+    const std::vector<size_t>& ess_structure,
     long long elapsed_ns,
     fracessa::search::safe_fallback safe_fallback,
     std::string_view error_message)
@@ -88,7 +86,7 @@ void write_summary(
 
 void write_error(std::int64_t matrix_id, int status, std::string_view message)
 {
-    const std::array<size_t, fracessa::support::kMaxBitsetDimension + 1> empty_structure{};
+    const std::vector<size_t> empty_structure(1, 0);
     write_summary(
         matrix_id,
         status,
@@ -101,12 +99,11 @@ void write_error(std::int64_t matrix_id, int status, std::string_view message)
         message);
 }
 
-template<class Analyzer>
 void run_analysis(fracessa::search_method method, coposit::parsers::parsed_matrix matrix, bool include_candidates,
                   bool full_support, bool enable_logging, std::int64_t matrix_id)
 {
     const auto start_time = std::chrono::steady_clock::now();
-    Analyzer analyzer(method, std::move(matrix), include_candidates, full_support, enable_logging, matrix_id);
+    fracessa::analyzer analyzer(method, std::move(matrix), include_candidates, full_support, enable_logging, matrix_id);
     const auto end_time = std::chrono::steady_clock::now();
     const auto elapsed_ns = std::chrono::duration_cast<std::chrono::nanoseconds>(end_time - start_time).count();
 
@@ -114,8 +111,7 @@ void run_analysis(fracessa::search_method method, coposit::parsers::parsed_matri
                   analyzer.ess_structure_, elapsed_ns, analyzer.safe_fallback_, "");
 
     if (include_candidates) {
-        using candidate_type = typename Analyzer::candidate_type;
-        std::cout << candidate_type::header() << std::endl;
+        std::cout << fracessa::candidate::header() << std::endl;
         for (const auto& row : analyzer.candidates_) std::cout << row.to_string() << std::endl;
     }
 }
@@ -187,11 +183,7 @@ int main(int argc, char *argv[])
     }
 
     try {
-        if (matrix.matrix.rows() <= fracessa::support::kMaxBitsetDimension)
-            run_analysis<fracessa::analyzer>(method, std::move(matrix), include_candidates, full_support, enable_logging, matrix_id);
-        else
-            run_analysis<fracessa::analyzer_multiword>(method, std::move(matrix), include_candidates, full_support, enable_logging,
-                                                       matrix_id);
+        run_analysis(method, std::move(matrix), include_candidates, full_support, enable_logging, matrix_id);
     } catch (const std::exception& error) {
         write_error(matrix_id, kStatusExecError, error.what());
         std::cerr << "Error: " << error.what() << std::endl;

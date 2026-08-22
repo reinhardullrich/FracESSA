@@ -92,12 +92,13 @@ CircularSupportGenerator emits one bracelet
          reconstruct and output one candidate row per distinct bracelet
 ```
 
-`cpp/include/fracessa/circular_affine_symmetry.hpp` contains two statically selected implementations:
+`cpp/include/fracessa/circular_affine_symmetry.hpp` contains one `CircularAffineSymmetry` class with two internal routes selected
+from its matrix-wide `SupportContext`:
 
-- `CircularAffineSymmetry` uses precomputed destination bits and fixed arrays for dimensions through 64;
-- `CircularAffineSymmetryMultiword` uses precomputed destination positions and reusable multiword scratch storage above 64.
+- dimensions through 64 use precomputed destination bits and fixed arrays;
+- larger dimensions use precomputed destination positions and reusable support scratch storage.
 
-The one-word path walks only set bits. The multiword path extracts positions into reserved storage. Neither path allocates while
+The direct-storage route walks only set bits. The indirect-storage route extracts positions into reserved storage. Neither allocates while
 filtering an emitted bracelet.
 
 Construction checks exact row-zero entries once, at cost $O(n\varphi(n))$. If only the identity class remains, `fracessa.cpp`
@@ -152,7 +153,7 @@ More general orbit generation remains an unimplemented research direction in
 ## Verification And Evidence
 
 Focused tests cover exact multiplier detection, repeated-value false positives, representative filtering, affine-image expansion,
-dihedral multipliers, forbidden-superset pruning, and one-word/multiword agreement across word boundaries.
+dihedral multipliers, forbidden-superset pruning, and direct/indirect-storage agreement across word boundaries.
 
 The promotion audit established:
 
@@ -162,6 +163,6 @@ The promotion audit established:
 - 15,120 candidates and 15,120 ESS for the published dimension-24 matrix while reducing solved affine representatives;
 - no measurable inactive-path regression: 101 of 120 stored circular matrices had no extra multiplier, and median on/off ratios
   were 1.0000 in both `fast` and `safe` mode; and
-- multiword affine decisions and images matching the one-word oracle, including dimensions 65 and 129.
+- indirect-storage affine decisions and images matching the direct-storage oracle, including dimensions 65 and 129.
 
 The dated implementation, benchmark, and promotion record remains searchable in `aidocs/CHANGES.md`, entries 292-295 and 378.

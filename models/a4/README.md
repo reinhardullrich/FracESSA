@@ -15,7 +15,7 @@ circular symmetry or retaining representative-only clauses measured slower than 
 
 ## Result
 
-Correctness matched A2 on the maintained ordinary, circular, affine-circular, multiword, and database cases.
+Correctness matched A2 on the maintained ordinary, circular, affine-circular, large-support, and database cases.
 
 The full comparison selected every stored game with a positive production-safe calibration below 100 seconds, excluding dimension
 2 as required by the benchmark policy. It used a 0.5-second target, a 30-second timeout, a scheduler on CPU 1, and persistent workers

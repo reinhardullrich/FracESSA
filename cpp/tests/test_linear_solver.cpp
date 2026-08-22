@@ -9,6 +9,20 @@ using namespace fracessa;
 using namespace fracessa::numeric;
 using namespace fracessa::search;
 
+namespace {
+
+support::Support make_support(support::SupportContext& context, uint64_t bits)
+{
+    support::Support result = context.make();
+    while (bits != 0) {
+        context.set(result, support::ctz64(bits));
+        bits &= bits - 1;
+    }
+    return result;
+}
+
+} // namespace
+
 /*
  * Exact reduced-Hessian LDL^T tests through the candidate procedure that owns it.
  */
@@ -16,9 +30,11 @@ using namespace fracessa::search;
 TEST(LinearSolverFractionTest, SimpleCandidate) {
     const auto game = coposit::parsers::matrix_parser::parse("2#0,1,0");
 
-    candidate result;
-    exact_candidate_solver finder(game.matrix, game.denominator);
-    ASSERT_TRUE(finder.find(0b11, 2, result, true));
+    support::SupportContext context(game.matrix.rows());
+    candidate result(context);
+    exact_candidate_solver finder(game.matrix, game.denominator, context);
+    const support::Support mask = make_support(context, 0b11);
+    ASSERT_TRUE(finder.find(mask, 2, result, true));
     EXPECT_EQ(result.vector[0], fraction(1, 2));
     EXPECT_EQ(result.vector[1], fraction(1, 2));
     EXPECT_EQ(result.payoff, fraction(1, 2));
@@ -28,9 +44,11 @@ TEST(LinearSolverFractionTest, SimpleCandidate) {
 TEST(LinearSolverFractionTest, AllowsNegativePayoffVariable) {
     const auto game = coposit::parsers::matrix_parser::parse("1#-2");
 
-    candidate result;
-    exact_candidate_solver finder(game.matrix, game.denominator);
-    ASSERT_TRUE(finder.find(0b1, 1, result, true));
+    support::SupportContext context(game.matrix.rows());
+    candidate result(context);
+    exact_candidate_solver finder(game.matrix, game.denominator, context);
+    const support::Support mask = make_support(context, 0b1);
+    ASSERT_TRUE(finder.find(mask, 1, result, true));
     EXPECT_EQ(result.payoff, fraction(-2));
     EXPECT_TRUE(finder.reduced_hessian_is_negative_definite());
 }
@@ -47,9 +65,11 @@ TEST(LinearSolverFractionTest, HandlesNonsingularZeroDiagonalTwoByTwoPivot) {
      */
     const auto game = coposit::parsers::matrix_parser::parse("3#0,-1/4,-1/4,-1/2,1/2,-1/2");
 
-    candidate result;
-    exact_candidate_solver finder(game.matrix, game.denominator);
-    ASSERT_TRUE(finder.find(0b111, 3, result, true));
+    support::SupportContext context(game.matrix.rows());
+    candidate result(context);
+    exact_candidate_solver finder(game.matrix, game.denominator, context);
+    const support::Support mask = make_support(context, 0b111);
+    ASSERT_TRUE(finder.find(mask, 3, result, true));
     EXPECT_EQ(result.vector[0], fraction(1, 2));
     EXPECT_EQ(result.vector[1], fraction(1, 4));
     EXPECT_EQ(result.vector[2], fraction(1, 4));
@@ -62,18 +82,22 @@ TEST(LinearSolverFractionTest, HandlesNonsingularZeroDiagonalTwoByTwoPivot) {
 TEST(LinearSolverFractionTest, RejectsNonPositiveSupportVariable) {
     const auto game = coposit::parsers::matrix_parser::parse("2#1,0,0");
 
-    candidate result;
-    exact_candidate_solver finder(game.matrix, game.denominator);
-    EXPECT_FALSE(finder.find(0b11, 2, result, false));
+    support::SupportContext context(game.matrix.rows());
+    candidate result(context);
+    exact_candidate_solver finder(game.matrix, game.denominator, context);
+    const support::Support mask = make_support(context, 0b11);
+    EXPECT_FALSE(finder.find(mask, 2, result, false));
     EXPECT_FALSE(finder.reduced_hessian_is_negative_definite());
 }
 
 TEST(LinearSolverFractionTest, RejectsSingularSystem) {
     const auto game = coposit::parsers::matrix_parser::parse("2#1,1,1");
 
-    candidate result;
-    exact_candidate_solver finder(game.matrix, game.denominator);
-    EXPECT_FALSE(finder.find(0b11, 2, result, false));
+    support::SupportContext context(game.matrix.rows());
+    candidate result(context);
+    exact_candidate_solver finder(game.matrix, game.denominator, context);
+    const support::Support mask = make_support(context, 0b11);
+    EXPECT_FALSE(finder.find(mask, 2, result, false));
 }
 
 TEST(LinearSolverFractionTest, ReusesNegativeDefiniteFactorForMultipleRightHandSides) {
@@ -135,20 +159,23 @@ TEST(LinearSolverFractionTest, ReusesNegativeDefiniteFactorForMultipleRightHandS
 
 TEST(LinearSolverFractionTest, BuildsPublicOutputOnlyForRequestedSuccessfulCandidate) {
     const auto game = coposit::parsers::matrix_parser::parse("2#0,1,0");
-    exact_candidate_solver finder(game.matrix, game.denominator);
+    support::SupportContext context(game.matrix.rows());
+    exact_candidate_solver finder(game.matrix, game.denominator, context);
+    const support::Support singleton = make_support(context, 0b01);
+    const support::Support full = make_support(context, 0b11);
 
-    candidate rejected;
-    EXPECT_FALSE(finder.find(0b01, 1, rejected, true));
+    candidate rejected(context);
+    EXPECT_FALSE(finder.find(singleton, 1, rejected, true));
     EXPECT_TRUE(rejected.vector.empty());
 
-    candidate without_output;
-    ASSERT_TRUE(finder.find(0b11, 2, without_output, false));
+    candidate without_output(context);
+    ASSERT_TRUE(finder.find(full, 2, without_output, false));
     EXPECT_TRUE(without_output.vector.empty());
     EXPECT_EQ(without_output.payoff.to_string(), "0");
     EXPECT_EQ(without_output.payoff_dbl, 0.0);
 
-    candidate with_output;
-    ASSERT_TRUE(finder.find(0b11, 2, with_output, true));
+    candidate with_output(context);
+    ASSERT_TRUE(finder.find(full, 2, with_output, true));
     ASSERT_EQ(with_output.vector.size(), 2);
     EXPECT_EQ(with_output.vector[0], fraction(1, 2));
     EXPECT_EQ(with_output.vector[1], fraction(1, 2));

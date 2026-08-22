@@ -39,12 +39,6 @@ TEST(BitsetTest, Count) {
     EXPECT_EQ(count_set_bits(bits), 3);
 }
 
-TEST(BitsetTest, FindFirst) {
-    bitset bits = 0ULL;
-    bits = set_bit_at_pos(bits, 3);
-    EXPECT_EQ(find_pos_first_set_bit(bits), 3);
-}
-
 // Test Rotations
 TEST(BitsetTest, RotOneRight) {
     bitset bits = 0ULL;
@@ -127,69 +121,6 @@ TEST(BitsetTest, IsSubsetOf) {
 
     EXPECT_TRUE(is_subset_of(a, b));
     EXPECT_FALSE(is_subset_of(b, a));
-}
-
-TEST(BitsetTest, Subtract) {
-    bitset a = 0ULL;
-    a = set_bit_at_pos(a, 1);
-    a = set_bit_at_pos(a, 2);
-    a = set_bit_at_pos(a, 3);
-
-    bitset b = 0ULL;
-    b = set_bit_at_pos(b, 2);
-
-    bitset result = subtract(a, b);
-    EXPECT_EQ(result, (bitset{1} << 1) | (bitset{1} << 3));
-}
-
-TEST(BitsetTest, ExtractSetIndicesBasic) {
-    bitset bits = 0ULL;
-    bits = set_bit_at_pos(bits, 0);
-    bits = set_bit_at_pos(bits, 2);
-    bits = set_bit_at_pos(bits, 5);
-
-    uint8_t idx[kMaxBitsetDimension] = {};
-    const size_t count = extract_set_indices(bits, 6, idx);
-
-    ASSERT_EQ(count, 3u);
-    EXPECT_EQ(idx[0], 0u);
-    EXPECT_EQ(idx[1], 2u);
-    EXPECT_EQ(idx[2], 5u);
-}
-
-TEST(BitsetTest, ExtractSetIndicesRespectsDimension) {
-    bitset bits = 0ULL;
-    bits = set_bit_at_pos(bits, 1);
-    bits = set_bit_at_pos(bits, 3);
-    bits = set_bit_at_pos(bits, 6);
-
-    uint8_t idx[kMaxBitsetDimension] = {};
-    const size_t count = extract_set_indices(bits, 5, idx);
-
-    ASSERT_EQ(count, 2u);
-    EXPECT_EQ(idx[0], 1u);
-    EXPECT_EQ(idx[1], 3u);
-}
-
-TEST(BitsetTest, ExtractSetIndicesHandlesTopBit) {
-    uint8_t indices[kMaxBitsetDimension] = {};
-    const size_t count = extract_set_indices(1ULL | (1ULL << 63), 64, indices);
-
-    ASSERT_EQ(count, 2u);
-    EXPECT_EQ(indices[0], 0u);
-    EXPECT_EQ(indices[1], 63u);
-}
-
-// Test String Functions
-TEST(BitsetTest, ToString) {
-    bitset bits = 42ULL;
-    std::string s = to_string(bits);
-    EXPECT_EQ(s, "42");
-}
-
-TEST(BitsetTest, ToIndexSet) {
-    EXPECT_EQ(to_index_set(bitset{0}), "{}");
-    EXPECT_EQ(to_index_set(bitset{1} | (bitset{1} << 2) | (bitset{1} << 63)), "{0, 2, 63}");
 }
 
 // Test Iterate All Supports

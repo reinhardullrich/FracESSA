@@ -1,6 +1,4 @@
 #include <fracessa/fracessa.hpp>
-#include <fracessa/bitset.hpp>
-#include <fracessa/bitset_multiword.hpp>
 #include <fracessa/fraction.hpp>
 
 #include <spdlog/sinks/rotating_file_sink.h>
@@ -9,7 +7,6 @@
 #include <sstream>
 #include <string>
 #include <string_view>
-#include <type_traits>
 
 namespace fracessa {
 
@@ -43,8 +40,7 @@ std::string rational_matrix_to_pretty_string(const numeric::matrix_int& matrix, 
 
 } // namespace
 
-template<class SupportMask>
-void basic_analyzer<SupportMask>::start_log(search_method requested_method, bool is_cs, std::int64_t matrix_id)
+void analyzer::start_log(search_method requested_method, bool is_cs, std::int64_t matrix_id)
 {
     auto rotating_sink = std::make_shared<spdlog::sinks::rotating_file_sink_mt>("log/fracessa.log", 20 * 1024 * 1024, 5);
     logger_ = std::make_shared<spdlog::logger>("fracessa", rotating_sink);
@@ -64,63 +60,42 @@ void basic_analyzer<SupportMask>::start_log(search_method requested_method, bool
                   rational_matrix_to_pretty_string(game_.matrix, game_.denominator));
 }
 
-template<class SupportMask>
-void basic_analyzer<SupportMask>::log_support_size(size_t support_size)
+void analyzer::log_support_size(size_t support_size)
 {
     if (!logger_ || support_size == last_logged_support_size_) return;
     logger_->info("searching support size: {}", support_size);
     last_logged_support_size_ = support_size;
 }
 
-template<class SupportMask>
-void basic_analyzer<SupportMask>::log_candidate()
+void analyzer::log_candidate()
 {
     if (!logger_) return;
 
-    SupportMask outside_best_replies = candidate_.extended_support;
-    size_t reference;
-    if constexpr (std::is_same_v<SupportMask, support::bitset>) {
-        outside_best_replies = support::subtract(outside_best_replies, candidate_.support);
-        reference = support::find_pos_first_set_bit(candidate_.support);
-    } else {
-        outside_best_replies.subtract(candidate_.support);
-        reference = candidate_.support.find_pos_first_set_bit();
-    }
+    support_context_.copy(outside_best_replies_, candidate_.extended_support);
+    support_context_.subtract(outside_best_replies_, candidate_.support);
+    const size_t reference = support_context_.first(candidate_.support);
 
     logger_->info("solved candidate representative\n"
                   "  support:              {}\n"
                   "  extended:             {}\n"
                   "  reference:            {}\n"
                   "  outside best replies: {}",
-                  support::to_index_set(candidate_.support), support::to_index_set(candidate_.extended_support), reference,
-                  support::to_index_set(outside_best_replies));
+                  support_context_.to_index_set(candidate_.support), support_context_.to_index_set(candidate_.extended_support), reference,
+                  support_context_.to_index_set(outside_best_replies_));
 }
 
-template<class SupportMask>
-void basic_analyzer<SupportMask>::log_reduced_b(const SupportMask& outside_best_replies)
+void analyzer::log_reduced_b(const support::Support& outside_best_replies)
 {
     if (!logger_) return;
-    logger_->info("scaled reduced B for outside best replies {} ({} x {}):\n{}", support::to_index_set(outside_best_replies),
+    logger_->info("scaled reduced B for outside best replies {} ({} x {}):\n{}", support_context_.to_index_set(outside_best_replies),
                   scaled_reduced_b_.rows(), scaled_reduced_b_.cols(), scaled_reduced_b_.to_pretty_string());
 }
 
-template<class SupportMask>
-void basic_analyzer<SupportMask>::finish_log()
+void analyzer::finish_log()
 {
     if (!logger_) return;
     logger_->info("run finished: weighted candidates={} weighted ESS={}", candidate_count_, ess_count_);
     logger_->flush();
 }
-
-template void basic_analyzer<support::bitset>::start_log(search_method, bool, std::int64_t);
-template void basic_analyzer<support::bitset_multiword>::start_log(search_method, bool, std::int64_t);
-template void basic_analyzer<support::bitset>::log_support_size(size_t);
-template void basic_analyzer<support::bitset_multiword>::log_support_size(size_t);
-template void basic_analyzer<support::bitset>::log_candidate();
-template void basic_analyzer<support::bitset_multiword>::log_candidate();
-template void basic_analyzer<support::bitset>::log_reduced_b(const support::bitset&);
-template void basic_analyzer<support::bitset_multiword>::log_reduced_b(const support::bitset_multiword&);
-template void basic_analyzer<support::bitset>::finish_log();
-template void basic_analyzer<support::bitset_multiword>::finish_log();
 
 } // namespace fracessa

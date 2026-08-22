@@ -249,17 +249,13 @@ The implementation uses the normal FLINT `fmpz_mul`, `fmpz_submul`, and `fmpz_di
 
 ## 8. Schur builder
 
-The exact candidate object owns the builder because it already owns the integer game, retained factorization, common denominator, and
-reduced-entry cache. One-word and multiword overloads extract indices and call the same internal implementation:
+The exact candidate solver owns the builder because it already owns the integer game, retained factorization, common denominator,
+reduced-entry cache, and matrix-wide support context. One unified method extracts indices through that context:
 
 ```cpp
 size_t build_scaled_reduced_b(
-    fracessa::support::bitset support,
-    fracessa::support::bitset outside_best_replies,
-    fracessa::numeric::matrix_int& result);
-size_t build_scaled_reduced_b(
-    const fracessa::support::bitset_multiword& support,
-    const fracessa::support::bitset_multiword& outside_best_replies,
+    const fracessa::support::Support& support,
+    const fracessa::support::Support& outside_best_replies,
     fracessa::numeric::matrix_int& result);
 ```
 

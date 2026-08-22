@@ -53,7 +53,7 @@ taskset -c 2 python3 models/a1/verify.py --target-seconds 0.5
 and compares ESS counts and structures. `--target-seconds` repeats each case enough times to report a median native time; these local
 results are still experimental rather than a replacement for the maintained production benchmark protocol.
 
-The multiword pair-pruning path has a separate quick smoke test. This dimension-65 zero game should inspect cardinalities one and two
+The large-support pair-pruning path has a separate quick smoke test. This dimension-65 zero game should inspect cardinalities one and two
 and then stop because every larger support contains a pair rejected exactly during normal enumeration:
 
 ```bash

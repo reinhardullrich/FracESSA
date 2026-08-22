@@ -1,6 +1,6 @@
 # FracESSA Project Overview
 
-Last verified: 2026-08-13
+Last verified: 2026-08-22
 
 ## Repository Map
 
@@ -27,8 +27,10 @@ FracESSA is a C++17 analyzer for evolutionarily stable strategies in symmetric p
 Input uses inline `dimension#values` text or a file containing that syntax or a symmetric Matrix Market matrix. The embedded coposit
 parser accepts every positive dimension whose dense matrix size is representable and exact integers, fractions, finite decimals,
 and scientific numbers.
-Dimensions 1 through 64 use one `uint64_t`; dimensions 65 and above use fixed-width multiword support masks. Runtime remains
-exponential even when a dimension is representable, so the practical limit is normally much smaller than the storage limit.
+One matrix-wide `SupportContext` selects direct `uint64_t` storage through dimension 64 and fixed-width word-array storage above 64.
+Each `Support` remains one machine word: bits directly for small matrices and a context-owned word-array address for larger ones.
+Runtime remains exponential even when a dimension is representable, so the practical limit is normally much smaller than the
+storage limit.
 
 Every entry surface requires an explicit method; there is no default:
 
@@ -57,8 +59,9 @@ CLI or Pybind input
 
 Core implementation facts:
 
-- Supports through dimension 64 are raw `uint64_t` masks; larger supports use fixed-width word vectors selected once before search.
-  Production generates one support at a time and never materializes the complete support frontier.
+- The analyzer, candidates, generators, numerical filters, logging, CLI, and Pybind share one `Support` API. `SupportContext` owns the
+  dimension and all large-mask storage; no support stores its dimension or owns a vector. Production generates one support at a time
+  and never materializes the complete support frontier.
 - Non-circular supports use fixed-cardinality binary DFS. Circular supports use direct fixed-density bracelet generation, followed
   by exact affine-multiplier reduction when the payoff pattern has additional cyclic-index symmetries.
 - Every exact equilibrium support forbids later strict supersets; ESS status is irrelevant to that pruning rule.

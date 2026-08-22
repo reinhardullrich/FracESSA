@@ -1,18 +1,21 @@
 # Multiword Support Masks
 
-Status: implemented on 2026-08-08. Dimensions through 64 retain the one-word path; larger dimensions use the multiword path through
-the validating parser, CLI, Pybind, all three search methods, logging, and result serialization.
+Status: unified on 2026-08-22. Dimensions through 64 store bits directly in `Support`; larger dimensions store an address to a
+fixed-width word array owned by the matrix-wide `SupportContext`. The validating parser, analyzer, CLI, Pybind, maintained models,
+logging, and result serialization all use this one API.
 
 The migration-stage sections are chronological implementation records. The current contract below, not an intermediate stage,
 defines present behavior.
 
 ## Current contract
 
-Extend the completed one-word analyzer beyond dimension 64 without slowing its normal support path.
+Represent every supported matrix dimension without storing a dimension or vector object in each support.
 
-- Dimensions 1 through 64 use exactly one `uint64_t` support word.
-- Dimension 65 and above use `ceil(n / 64)` words.
-- The choice is made once before the search. A normal one-word set operation must not inspect a variant, pointer, vector, or word count.
+- Every `Support` is exactly one `uint64_t`.
+- Through dimension 64, that word contains the support bits directly.
+- At dimension 65 and above, that word contains the address of `ceil(n / 64)` context-owned words.
+- One `SupportContext` stores the matrix dimension, word count, last-word mask, and large allocations for the complete analyzer run.
+- Supports are move-only handles. Explicit `SupportContext::copy()` and `clone()` operations make retention visible.
 - Correctness comes first. The existing one-word performance is the second requirement.
 
 This is a representation extension, not a claim that exhaustive search at dimension 65 is practical. A complete search still has up
@@ -21,8 +24,8 @@ copositivity checker.
 
 ## Boundary: 64, Not 63
 
-A `uint64_t` represents strategy positions 0 through 63, so it represents every support of a dimension-64 game. The multiword path
-must begin at dimension 65.
+A `uint64_t` represents strategy positions 0 through 63, so it represents every support of a dimension-64 game. Indirect word-array
+storage begins at dimension 65.
 
 The old dimension-63 limit came from using `1ULL << n` as an exclusive end value for complete mask enumeration. Production no longer
 enumerates supports that way:
@@ -64,61 +67,36 @@ explicit condition directly; no cached-mask member was added.
 
 ## Ponytail Audit
 
-### Delete before generalizing
+The unified representation replaced duplicated analyzers, candidate types, numerical wrappers, generators, logging, and entry-point
+dispatch. It did not add a variant, virtual interface, allocator framework, or dependency. The separately approved cleanup deleted
+the unused standalone `bitset_multiword` primitive, its isolated test, and one-word convenience helpers with no non-test caller.
 
-The following `bitset.hpp` helpers have no production caller. Their remaining callers are tests that test only the dead helper:
-
-- `two_to_the_power_of()`;
-- `find_pos_next_set_bit()`;
-- `bits_before_pos()`;
-- `is_smallest_representation()`.
-
-Delete those helpers and their dedicated tests. Do not port them to the multiword type.
-
-`CircularSupportGeneratorV2` had no caller in production or tests and was removed. Its failed experiment remains preserved in the
-historical documentation. Do not restore or port it.
-
-`ReferenceCircularSupportGenerator` V1 is test-only, but it remains a useful independent oracle for the production bracelet generator.
-Keep it one-word-only; do not generalize it. Production uses `NonCircularSupportGenerator` and `CircularSupportGenerator` plus their
-multiword counterparts.
-
-### Keep
-
-The remaining helpers are active in at least one of support generation, circular symmetry, candidate solving, stability, output, or
-logging. In particular:
-
-- `is_set_at_pos()` is indirectly used by runtime bitstring logging;
-- `popcount64()` is the one-word primitive that a multiword count also needs;
-- `ctz64()` is used by support pruning, candidate indexing, and connected components;
-- rotations and reflection are active in circular support generation and symmetry handling.
-
-No standard C++17 type supplies a runtime-sized bit array. `std::bitset` has a compile-time size. Adding Boost only for
-`dynamic_bitset` would add a dependency and would not by itself preserve the raw-`uint64_t` hot path. A small word-vector type is the
-minimal required implementation.
+`ReferenceCircularSupportGenerator` remains a useful one-word test oracle. `popcount64()`, `ctz64()`, rotation, reflection, and the
+dimension-64 `set_all_n_bits()` boundary remain active primitives. No standard C++17 type provides the required runtime-sized bits
+while preserving direct one-word storage.
 
 ## Representation
 
-Keep two concrete types:
+Production has two cooperating concrete classes:
 
 ```cpp
 namespace fracessa::support {
-using bitset = uint64_t;       // production path for n <= 64
-class bitset_multiword;          // production path for n >= 65
+class Support;         // one move-only uint64_t value
+class SupportContext;  // one per matrix run
 }
 ```
 
-`bitset_multiword` owns `std::vector<uint64_t> words_`. Bit `i` is stored in:
+For a large matrix, bit `i` is stored in the context-owned array at:
 
 ```text
 word index = i / 64
 bit offset = i % 64
 ```
 
-Its constructor receives the dimension, allocates `dimension / 64 + (dimension % 64 != 0)` words once, and records a mask for the
-unused high bits of the last word. This overflow-safe expression matters before the parser has a separately approved practical
-maximum. Production constructs this type only for dimensions above 64, but the primitive accepts every positive dimension so its
-later generators can be compared exhaustively with the one-word implementation at small dimensions. Every mutating operation must
-preserve zero in unused high bits.
+The context constructor receives the dimension and records `dimension / 64 + (dimension % 64 != 0)` plus the unused-high-bit mask.
+`make()` returns zero direct bits for a small matrix or allocates one exact-sized large array and returns its address in the support.
+The context owns every array until analyzer destruction, so `Support` needs neither a destructor nor per-object dimension metadata.
+Every mutating operation preserves zero in unused high bits.
 
 ### Fixed width for one complete matrix run
 
@@ -132,10 +110,9 @@ once and keep it unchanged for the complete matrix run. Every support belonging 
 singleton support in a dimension-129 game therefore still has three words, just like its full support. Cardinality changes the
 number of set bits, not the representation width.
 
-The generator owns one pre-sized mutable working mask. Long-lived masks—such as forbidden supports and retained candidates—each own
-their own `word_count` words. They are copied only when they must outlive the synchronous generator callback. Never resize a support
-because its current highest set bit is small; that would complicate comparisons, rotations, complements, and unused-bit invariants
-for no useful gain.
+The generator owns one mutable working support. Long-lived masks—such as forbidden supports and retained candidates—receive separate
+context allocations and explicit copies only when they must outlive the synchronous generator callback. Never resize a support
+because its current highest set bit is small.
 
 Required operations are only the operations with current production callers:
 
@@ -152,131 +129,53 @@ Required operations are only the operations with current production callers:
 Numeric ordering compares words from highest to lowest. This preserves the current meaning of ascending support masks.
 
 Extraction writes into a caller-owned, already reserved `std::vector<size_t>` so repeated candidate solves do not allocate. Decimal
-conversion is deliberately absent from this primitive. Stage 6 imports its fixed words into the existing FLINT integer wrapper only
-at the CLI/Pybind output boundary.
+conversion remains at the candidate/output boundary through the existing FLINT integer wrapper.
 
 Do not expose arbitrary shifts, proxy references, iterators, hashing, arithmetic, or a general bitset algebra until a production
 caller needs them.
 
-## Concrete Template Boundary
+## Unified Runtime Boundary
 
-The dimension cannot be a template parameter because it comes from the input at runtime. Do not use `std::bitset<N>` and do not
-instantiate one analyzer for every possible dimension. Templates select only the storage representation:
+The dimension is runtime input, but the analyzer no longer needs representation templates or public small/large overloads. One
+`analyzer`, one `candidate`, one exact solver, one fast filter, and one generator of each kind accept `Support` values and use their
+shared `SupportContext` for every operation. CLI and Pybind construct the analyzer directly; they do not dispatch by dimension.
 
-```cpp
-namespace fracessa {
-template<class SupportMask>
-class basic_analyzer;
+This is not `std::variant<uint64_t, std::vector<uint64_t>>`: a support remains eight bytes and owns no vector. Context operations use
+the matrix-wide representation decision. Small operations act directly on the stored word; large operations dereference the stored
+address and use the context's fixed word count. The generators and circular symmetry retain internal scalar fast paths where their
+algorithms materially benefit, without duplicating the public search engine.
 
-template<class SupportMask>
-struct basic_candidate;
+## Generator Rule
 
-using analyzer = basic_analyzer<support::bitset>;
-using analyzer_multiword = basic_analyzer<support::bitset_multiword>;
-}
-```
+Each generator owns one mutable working support and passes completed supports synchronously by `const&`. A candidate solver reads
+that support without copying. Persistent pruning rules and retained candidates call `clone()` or allocate once and call `copy()`.
+Large recursion mutates its preallocated mask and undoes included bits on return; it never copies a word array at each recursive step.
 
-The `fracessa::analyzer` alias selects the one-word native path. CLI and Pybind dispatch once after parsing the dimension:
-
-```cpp
-if (dimension <= 64)
-    run_typed<fracessa::support::bitset>(...);
-else
-    run_typed<fracessa::support::bitset_multiword>(...);
-```
-
-`fast_candidate_filter` and `exact_candidate_solver` keep owning their numerical matrices and workspaces.
-Only their support-dependent member functions are templates over `SupportMask`. `check_stability()` and the main analyzer orchestration
-use the same `SupportMask` as `basic_candidate`. These templates remain in implementation files with explicit instantiations for the two
-mask types; unrelated numerical kernels stay out of public headers.
-
-Share small read operations through overloaded inline functions or a two-specialization `support_mask_ops<SupportMask>`:
-
-- set, clear, and test one bit;
-- count and extract set positions;
-- subset, difference, equality, and numeric order;
-- rotate, reflect, and convert to output text.
-
-Do not implement another arbitrary-precision decimal converter inside the bitset. At the CLI/Pybind output boundary, reuse the
-existing FLINT integer wrapper to import the fixed words and produce decimal text; Python then constructs its arbitrary-size `int`
-from that exact text. The hot support operations remain independent of FLINT conversion.
-
-Do not force the generators behind one identical implementation. Their storage economics are different:
-
-- the current `uint64_t` generators keep their by-value recursion unchanged;
-- the multiword generators mutate one fixed-width working mask and undo each bit before returning;
-- circular affine symmetry gets a separate multiword specialization because its current table of one-word destination masks is not
-  an efficient representation above 64.
-
-## Static Dispatch, Not A Runtime Variant
-
-Do not replace every `bitset` with one class containing
-`std::variant<uint64_t, std::vector<uint64_t>>`. That design makes every small operation branch and makes every small support object
-large enough to contain a vector.
-
-Dispatch once from the analyzer boundary:
-
-```cpp
-if (dimension <= 64)
-    run_one_word_search(...);
-else
-    run_multiword_search(...);
-```
-
-Shared search logic may be compiled for both concrete mask types through small templates or overloads. The generated one-word code
-must still operate directly on `uint64_t`. Use templates only where both paths perform the same algorithm; do not build a hierarchy,
-virtual interface, allocator framework, or generic bitset library.
-
-## Multiword Generator Rule
-
-The current one-word generators pass masks by value during recursion. Copying a `std::vector<uint64_t>` at each recursive step would
-be catastrophically expensive.
-
-The multiword generators instead own one preallocated working mask:
-
-1. set a bit before descending into the include branch;
-2. clear that bit after returning;
-3. pass the completed mask to the callback by `const&`;
-4. copy the mask only when storing a newly forbidden exact-equilibrium support or a retained candidate.
-
-The callback is synchronous. Its reference becomes invalid as soon as the callback returns and generation continues. Candidate
-solvers may read it without copying. A successful exact candidate copies it once into the working candidate; generator registration
-then copies it once into persistent pruning storage. Retained candidate output copies it only when candidate output was requested;
-logging reads the working candidate directly.
-
-The one-word generators retain their by-value operations. Do not force the small path through the mutable multiword
-implementation merely to make both source paths look identical.
-
-For multiword circular generation, allocate the direct bracelet generator's `positions` and `prefix_density` work arrays once at
-`dimension + 2`. Both arrays use `size_t`, so density entries also represent dimensions above 255. Circular affine symmetry stores
-destination **positions**, not one separately allocated single-bit multiword mask per source position. Transform a support by
-iterating its set positions and setting their mapped destination bits in a pre-sized scratch mask.
+The circular generator allocates its `positions` and `prefix_density` work arrays once. Circular affine symmetry uses direct
+destination-bit tables for small matrices and destination positions plus reusable support scratch space for large matrices.
 
 ## Implemented file map
 
-| File | Dimension-above-64 change |
+| File | Current responsibility |
 |---|---|
-| `cpp/include/fracessa/bitset_multiword.hpp` | Add the fixed-width-per-run word vector and only the required operations. |
-| `cpp/tests/test_bitset_multiword.cpp` | Compare every operation with an independent `std::vector<bool>` reference at the 63/64, 127/128, and unused-high-bit boundaries. |
-| `cpp/tests/CMakeLists.txt` | Build and register the isolated primitive test. |
-| `cpp/include/fracessa/support_generator_non_circular.hpp`, `cpp/include/fracessa/support_generator_circular.hpp` | Keep separate one-word and mutable-work-mask multiword generators. Do not restore or port V2. |
-| `cpp/include/fracessa/circular_affine_symmetry.hpp` | Keep the present one-word implementation and add a multiword specialization with destination-position tables and reusable scratch masks. |
-| `cpp/include/fracessa/candidate.hpp` | Make the working candidate depend on `SupportMask`; keep support and extended support in the same fixed-width representation. |
-| `cpp/include/fracessa/fracessa.hpp`, `cpp/src/fracessa.cpp`, `cpp/src/check_stability.cpp` | Template the search engine over the mask type, keep one static dispatch before the search, and replace result-structure arrays with dimension-sized vectors. |
-| `cpp/include/fracessa/*candidate*.hpp`, `cpp/src/*candidate*.cpp` | Template only support-dependent methods. Give the large instantiation reusable `size_t` index and numerical scratch vectors; retain all one-word stack arrays. |
-| `external/coposit/cpp/include/coposit/safe.hpp`, `external/coposit/models/dickinson_final/solver.cpp` | Keep strict copositivity independent of FracESSA's support representation; coposit owns arbitrary-width component masks and exact principal-support traversal. |
-| `cpp/src/main.cpp`, `cpp/src/pybind_module.cpp` | Dispatch once, serialize arbitrary-width masks, and use dimension-sized result structures. |
-| `external/coposit/cpp/include/coposit/parsers/matrix_parser.hpp` | Parse arbitrary representable dimensions with checked dense and triangular-size arithmetic before FracESSA dispatches by support representation. |
-| `python/pyfracessa/sinks_parquet.py` | Reject an out-of-range support explicitly until a separately approved schema replaces `uint64`; CSV and JSON need no schema change. |
+| `cpp/include/fracessa/support.hpp` | Define eight-byte `Support`, matrix-wide `SupportContext`, all mask operations, and large-storage ownership. |
+| `cpp/tests/test_support_context.cpp` | Check small/large operations and the 63/64 and 127/128 boundaries against independent expectations. |
+| `cpp/include/fracessa/support_generator_non_circular.hpp`, `cpp/include/fracessa/support_generator_circular.hpp` | Generate both storage sizes through one public class per algorithm while retaining internal scalar fast paths. |
+| `cpp/include/fracessa/circular_affine_symmetry.hpp` | Transform both storage sizes through one class with representation-appropriate internal tables. |
+| `cpp/include/fracessa/candidate.hpp` | Store unified support and extended-support handles and provide explicit copy/clone behavior. |
+| `cpp/include/fracessa/fracessa.hpp`, `cpp/src/fracessa.cpp`, `cpp/src/check_stability.cpp` | Run one non-templated analyzer and stability path for every dimension. |
+| `cpp/include/fracessa/*candidate*.hpp`, `cpp/src/*candidate*.cpp` | Reuse reserved index and numerical workspaces while reading supports through the context. |
+| `cpp/src/main.cpp`, `cpp/src/pybind_module.cpp` | Construct one analyzer type and serialize arbitrary-width masks. |
+| `models/a1` through `models/a5` | Use the same unified support API while retaining only each experiment's search-policy differences. |
 
-The large candidate solvers must not allocate index or numerical scratch storage for every support. Resize their vectors once from the
-game dimension and reuse them. In particular, replace the large-path forms of `support_indices`, `non_support_indices`, `solution`,
-`scale_ratios`, `pivots`, `game_scales`, and reduced-B component indices. The safe solver's dense `dimension^3` reduced-entry cache
-also needs checked size multiplication; its memory growth is a separate practical limit even after support masks become multiword.
+The exact solver's dense `dimension^3` reduced-entry cache still uses checked size multiplication; its memory growth is a separate
+practical limit. `support.hpp` is the sole production support representation.
 
-## Migration Stages
+## Historical Template Migration
 
-Each stage is independently reviewable and requires approval for its exact source files.
+The following stages record the previous two-type implementation and the evidence that originally established large-dimension
+correctness. Names such as `basic_analyzer`, `analyzer_multiword`, and `CircularSupportGeneratorMultiword` are historical, not current
+interfaces.
 
 ### Completed one-word prerequisite
 
@@ -284,8 +183,8 @@ Dimension 64 works with raw `uint64_t`, including bit 63, rotation, reflection, 
 structures through support size 64, parser and CLI/Pybind boundaries, and the copositivity component mask. Focused generator tests
 prune after the singleton layer and never attempt to enumerate `2^64` supports. The remaining stages do not reimplement that case.
 
-Remove the dead `bitset.hpp` helpers listed in the Ponytail audit in a separately approved cleanup before templating or duplicating
-their callers. V2 has already been removed.
+The separately approved cleanup removed the dead `bitset.hpp` helpers instead of porting or duplicating them. V2 had already been
+removed.
 
 The canonical SQLite database now accepts every positive dimension. Candidate masks use canonical decimal `TEXT`, avoiding
 SQLite's signed 64-bit integer limit while preserving arbitrary-width support values exactly.
@@ -436,8 +335,8 @@ representable, but exhaustive runtime remains exponential.
 The minimum acceptance set is:
 
 1. Existing C++/CLI and Python suites remain green.
-2. Existing candidate output is byte-identical for all current one-word database matrices.
-3. Dimension 64 remains on the completed one-word path; the multiword path is never instantiated for it.
+2. Existing candidate output is byte-identical for the maintained comparison matrices after removing only timing fields.
+3. Dimension 64 stores direct bits in `Support`; dimension 65 stores a context-owned address.
 4. Dimensions 65 and 128 use two fixed words for every support in their respective runs; dimension 129 uses three.
 5. Supports crossing the 63/64 and 127/128 boundaries survive set, extraction, complement, rotation, reflection, decimal-output,
    and Python-integer round trips.
@@ -445,7 +344,7 @@ The minimum acceptance set is:
 7. Forbidden-support pruning removes every strict superset on both paths.
 8. Rotational/reflection multipliers and affine symmetry images remain exact.
 9. Copositivity connected components match an independent queue-and-boolean-adjacency reference above 64.
-10. ASan/UBSan tests cover dimensions 65, 128, and 129, while the existing one-word suite retains dimension 64.
+10. Boundary tests cover dimensions 64, 65, 128, and 129.
 11. Instrumented generator tests observe no allocation during recursive descent after construction; only persistent forbidden or
     candidate copies may allocate.
 12. Parquet either uses an approved arbitrary-width schema or rejects a support above `uint64` explicitly.
@@ -455,18 +354,24 @@ Use full-support or immediately pruned matrices for analyzer boundary tests. Nev
 
 ## Performance Gate
 
-Benchmark the one-word baseline before Stage 3 and again after Stages 3 and 6 with the canonical CPU-2 persistent-Pybind method.
+Benchmark the direct-storage path against a preserved baseline with the canonical CPU-2 persistent-Pybind method.
 
 - The dimension-at-most-64 path must show no repeatable regression on representative small, medium, circular, and non-circular
   matrices.
-- Inspect the optimized one-word set/subset/extraction kernels if timing moves; they must not contain a large-mask branch or heap
-  access.
-- Multiword performance is secondary, but its recursion must allocate no memory per generated partial support.
+- Inspect direct-storage set/subset/extraction kernels if timing moves; they must not access heap storage.
+- Large-storage performance is secondary, but its recursion must allocate no memory per generated partial support.
 
-If the shared template changes one-word code generation or produces a measurable regression, keep separate one-word and multiword
-implementations. A little source duplication is cheaper than slowing the operation executed billions of times.
+Keep scalar generator/symmetry kernels when they measurably protect the small-matrix path. Do not restore duplicated analyzers,
+wrappers, or entry-point dispatch unless representative end-to-end evidence requires it.
 
-### Stage-3 performance result
+### Unified Support/SupportContext result
+
+The matched ten-matrix CPU-2 persistent-Pybind comparison used the preserved pre-migration template build and the canonical fresh
+Release configuration. Complete output matched. Median native time changed by `+4.518%` in fast mode and `-0.275%` in safe mode.
+The initial severe dimension-24 regression was removed before this retained result; that matrix then measured about `+4.3%` fast
+and `-0.4%` safe. `Support` remained eight bytes.
+
+### Historical Stage-3 performance result
 
 The matched CPU-2 persistent-Pybind comparison used eight representative circular and non-circular matrices at dimensions 5, 8, 10,
 20, and 23. Running the new build first and the untouched baseline second produced median current/baseline ratios of exactly `1.000`
@@ -475,14 +380,13 @@ symbol inspection confirmed that the one-word executable contains no runtime mul
 the fixed stack index arrays. Complete candidate output for all eight matrices matched the untouched baseline in both modes after
 removing only `elapsed_ns`.
 
-### Stage-6 performance result
+### Historical Stage-6 performance result
 
 Complete candidate output on eight representative one-word matrices matched the preserved Stage-5 binary in fast and safe modes
 after normalizing only `elapsed_ns`. Opposite-order CPU-2 persistent-Pybind sessions measured median current/baseline ratios of
 `1.000` and `1.001` for fast, and `1.000` and `1.007` for safe. The shortest microsecond cases moved most with run order; the
 representative longer cases stayed within about `1.2%`.
 
-System-FLINT and FLINT 3.6 Release CTests each pass all ten tests. The complete ASan/UBSan CTest suite passes all ten tests, all 68
-Python tests pass, both SQLite databases pass integrity and foreign-key checks, and `git diff --check` passes. Public full-support
-tests cover dimensions 65, 128, and 129; a dimension-66 regression reaches a 65-dimensional reduced-B sign scan and connected-
-component dispatch.
+After the unified migration, the complete production C++/CLI and Python suites passed. Public full-support tests cover
+dimensions 65, 128, and 129; a dimension-66 regression reaches a 65-dimensional reduced-B sign scan and connected-component
+dispatch.

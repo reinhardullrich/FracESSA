@@ -125,10 +125,10 @@ representatives while preserving the same public dihedral rows and weighted tota
 Support representation and limits
 *********************************
 
-Dimensions through 64 use one ``uint64_t`` per support. Larger dimensions use a fixed-width vector of 64-bit words selected once for
-the matrix. Both representations expose the same generator operations; the one-word route remains specialized so ordinary small
-games do not pay for dynamic storage.
+Every support is one ``uint64_t`` handle interpreted by the matrix-wide ``SupportContext``. Through dimension 64 it stores bits
+directly. At larger dimensions it addresses a fixed-width context-owned word array. The generators retain direct scalar internals so
+ordinary small games do not pay for dynamic storage.
 
-Multiword masks remove the former support-storage limit, not the exponential search cost. Running time depends on dimension,
+Context-owned large masks remove the former support-storage limit, not the exponential search cost. Running time depends on dimension,
 candidate placement, circular symmetry, and how early exact equilibria prune their supersets. One matrix remains single-core; use
 Python multiprocessing to analyze independent matrices concurrently.

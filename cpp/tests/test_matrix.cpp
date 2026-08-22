@@ -1,4 +1,5 @@
 #include <gtest/gtest.h>
+#include <cstdint>
 #include <coposit/parsers/matrix_parser.hpp>
 #include <fracessa/fast_candidate_filter.hpp>
 #include <fracessa/types.hpp>
@@ -6,6 +7,20 @@
 using namespace fracessa::numeric;
 using namespace fracessa::search;
 using namespace fracessa::support;
+
+namespace {
+
+Support make_support(SupportContext& context, uint64_t bits)
+{
+    Support result = context.make();
+    while (bits != 0) {
+        context.set(result, ctz64(bits));
+        bits &= bits - 1;
+    }
+    return result;
+}
+
+} // namespace
 
 /*
  * Matrix container and factory tests.
@@ -38,7 +53,8 @@ TEST(MatrixIntegerTest, PreservesExactFractionMatrixValues) {
 TEST(FastCandidateFilterTest, UsesExactPrecisionSpanCutoff) {
     const auto fallback = [](std::string_view values) {
         const auto game = coposit::parsers::matrix_parser::parse(std::string("2#") + std::string(values));
-        fast_candidate_filter fast(game.matrix.rows());
+        SupportContext context(game.matrix.rows());
+        fast_candidate_filter fast(context);
         fast.convert_game_matrix(game.matrix);
         return fast.safe_fallback_reason();
     };
@@ -53,7 +69,8 @@ TEST(FastCandidateFilterTest, UsesExactPrecisionSpanCutoff) {
 TEST(FastCandidateFilterTest, IgnoreOnlyExactZeroRowsDuringEquilibration) {
     matrix_int harmless_zero_row(3, 3);
     harmless_zero_row(1, 2) = harmless_zero_row(2, 1) = integer(1);
-    fast_candidate_filter harmless_fast(harmless_zero_row.rows());
+    SupportContext harmless_context(harmless_zero_row.rows());
+    fast_candidate_filter harmless_fast(harmless_context);
     harmless_fast.convert_game_matrix(harmless_zero_row);
 
     EXPECT_EQ(harmless_fast.safe_fallback_reason(), safe_fallback::none);
@@ -64,7 +81,8 @@ TEST(FastCandidateFilterTest, IgnoreOnlyExactZeroRowsDuringEquilibration) {
     for (size_t leaf = 2; leaf < 17; ++leaf) {
         zero_row_with_bad_active_block(1, leaf) = zero_row_with_bad_active_block(leaf, 1) = integer(1);
     }
-    fast_candidate_filter bad_fast(zero_row_with_bad_active_block.rows());
+    SupportContext bad_context(zero_row_with_bad_active_block.rows());
+    fast_candidate_filter bad_fast(bad_context);
     bad_fast.convert_game_matrix(zero_row_with_bad_active_block);
 
     EXPECT_EQ(bad_fast.safe_fallback_reason(), safe_fallback::equilibration_invalid);
@@ -75,7 +93,8 @@ TEST(FastCandidateFilterTest, IgnoreOnlyExactZeroRowsDuringEquilibration) {
     nonconvergent_game(1, 4) = nonconvergent_game(4, 1) = integer(1);
     nonconvergent_game(2, 3) = nonconvergent_game(3, 2) = integer(1);
     nonconvergent_game(3, 4) = nonconvergent_game(4, 3) = integer(1);
-    fast_candidate_filter nonconvergent_fast(nonconvergent_game.rows());
+    SupportContext nonconvergent_context(nonconvergent_game.rows());
+    fast_candidate_filter nonconvergent_fast(nonconvergent_context);
     nonconvergent_fast.convert_game_matrix(nonconvergent_game);
 
     EXPECT_EQ(nonconvergent_fast.safe_fallback_reason(), safe_fallback::equilibration_non_convergence);
@@ -84,11 +103,13 @@ TEST(FastCandidateFilterTest, IgnoreOnlyExactZeroRowsDuringEquilibration) {
 TEST(FastCandidateFilterTest, SendSmallPivotToExactArithmetic) {
     const auto game = coposit::parsers::matrix_parser::parse(
         "3#-3,1,2,-1000000000001/3000000000000,-1999999999999/3000000000000,-4000000000001/3000000000000");
-    fast_candidate_filter fast(game.matrix.rows());
+    SupportContext context(game.matrix.rows());
+    fast_candidate_filter fast(context);
     fast.convert_game_matrix(game.matrix);
 
     EXPECT_EQ(fast.safe_fallback_reason(), safe_fallback::none);
-    EXPECT_TRUE(fast.passes(bitset{7}, 3));
+    const Support support = make_support(context, 7);
+    EXPECT_TRUE(fast.passes(support, 3));
 }
 
 TEST(FastCandidateFilterTest, SolveNonsingularZeroDiagonalTwoByTwoPivot) {
@@ -102,11 +123,13 @@ TEST(FastCandidateFilterTest, SolveNonsingularZeroDiagonalTwoByTwoPivot) {
      * 2x2 pivot, solve the system, see the negative probability, and return false.
      */
     const auto game = coposit::parsers::matrix_parser::parse("3#0,1,-1,2,1,-2");
-    fast_candidate_filter fast(game.matrix.rows());
+    SupportContext context(game.matrix.rows());
+    fast_candidate_filter fast(context);
     fast.convert_game_matrix(game.matrix);
 
     ASSERT_EQ(fast.safe_fallback_reason(), safe_fallback::none);
-    EXPECT_FALSE(fast.passes(bitset{7}, 3));
+    const Support support = make_support(context, 7);
+    EXPECT_FALSE(fast.passes(support, 3));
 }
 
 TEST(FastCandidateFilterTest, RemoveCommonDenominatorAndNormalizeGameOnce) {
@@ -124,11 +147,13 @@ TEST(FastCandidateFilterTest, RemoveCommonDenominatorAndNormalizeGameOnce) {
         "1/20000000000000000000000000000000000000000000000000000000000,"
         "-100000001/40000000000000000000000000000000000000000000000000000000000,0,"
         "1/200000000000000000000000000000000000000000000000000,0,0");
-    fast_candidate_filter fast(game.matrix.rows());
+    SupportContext context(game.matrix.rows());
+    fast_candidate_filter fast(context);
     fast.convert_game_matrix(game.matrix);
 
     ASSERT_EQ(fast.safe_fallback_reason(), safe_fallback::none);
-    EXPECT_FALSE(fast.passes(bitset{7}, 3));
+    const Support support = make_support(context, 7);
+    EXPECT_FALSE(fast.passes(support, 3));
 }
 
 TEST(FastCandidateFilterTest, MultiwordOutsideTraversalCrossesBit63And64)
@@ -138,12 +163,13 @@ TEST(FastCandidateFilterTest, MultiwordOutsideTraversalCrossesBit63And64)
     for (size_t strategy = 0; strategy < dimension; ++strategy) game(strategy, strategy) = integer(1);
     game(0, 64) = game(64, 0) = integer(2);
 
-    fast_candidate_filter fast(game.rows());
+    SupportContext context(game.rows());
+    fast_candidate_filter fast(context);
     fast.convert_game_matrix(game);
 
     ASSERT_EQ(fast.safe_fallback_reason(), safe_fallback::none);
 
-    bitset_multiword support(dimension);
-    support.set_bit_at_pos(0);
+    Support support = context.make();
+    context.set(support, 0);
     EXPECT_FALSE(fast.passes(support, 1));
 }

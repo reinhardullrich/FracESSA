@@ -35,8 +35,19 @@ A4 copies A2 and changes only its isolated safe path:
 5. Circular games use A2's unchanged bracelet generator. Circular symmetry expansion and representative-only clauses both measured
    slower.
 
-The implementation supports both the one-word and multiword support paths. Omitting a clause only forgoes optional pruning; there is
-no fallback and no change to the exact answer.
+The implementation uses the shared `Support`/`SupportContext` API for both direct and indirect storage. Omitting a clause only
+forgoes optional pruning; there is no fallback and no change to the exact answer.
+
+## Known Correctness Limitation
+
+The generator still stops the complete search when one cardinality emits no support. That shortcut is valid for ordinary upward-cone
+pruning, but not for general sideways clauses: adding an invader can make a larger support valid again. For example, the three exact
+rules `{0} requires 1`, `{1} requires 2`, and `{2} requires 0` reject every pair while allowing `{0,1,2}`. The current generator stops
+after the empty pair layer and never emits that triple.
+
+No payoff matrix is currently known to produce this mismatch, and the maintained and random comparisons matched A2, but no theorem
+shows that payoff-derived clauses exclude the counterexample. Before promotion or further optimization, preserve the empty-layer
+shortcut only while no sideways clause has been installed and add the three-rule generator regression test.
 
 ## Discarded Designs
 

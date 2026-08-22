@@ -2,7 +2,6 @@
 #pragma once
 
 #include <cstdint>
-#include <string>
 #include <cstddef>
 
 /*
@@ -42,8 +41,8 @@ inline size_t ctz64(uint64_t x) noexcept {
   #endif
 }
 
-// One word stores every support for dimensions 1 through 64; dimension 64 uses all bits. Larger dimensions use bitset_multiword,
-// while this type remains the allocation-free hot path for small games.
+// One word stores every support for dimensions 1 through 64; dimension 64 uses all bits. SupportContext uses these primitives as
+// the allocation-free hot path for small games.
 using bitset = uint64_t;
 
 constexpr size_t kMaxBitsetDimension = 64;
@@ -92,55 +91,9 @@ inline size_t count_set_bits(bitset bits) noexcept {
   return popcount64(bits);
 }
 
-inline size_t find_pos_first_set_bit(bitset bits) noexcept {
-  return ctz64(bits);
-}
-
 // Set inclusion: bits is a subset of o exactly when it has no bit outside o.
 inline bool is_subset_of(bitset bits, bitset o) noexcept {
   return (bits & ~o) == 0ULL;
-}
-
-// Return this \ o (set difference)
-inline bitset subtract(bitset bits, bitset o) noexcept {
-  return bits & ~o;
-}
-
-// Convert to string representation (decimal representation of uint64)
-inline std::string to_string(bitset bits) {
-  return std::to_string(bits);
-}
-
-// Format the set positions in increasing order for diagnostic output.
-inline std::string to_index_set(bitset bits) {
-  std::string result = "{";
-  bool first = true;
-  while (bits != 0) {
-    if (!first) result += ", ";
-    result += std::to_string(ctz64(bits));
-    first = false;
-    bits &= bits - 1;
-  }
-  result += '}';
-  return result;
-}
-
-// Write the set positions in increasing order to caller-owned stack storage.
-// ctz finds the current lowest bit; bits &= bits - 1 removes that bit without
-// scanning the other 64 positions. The returned count is the support size.
-inline size_t extract_set_indices(bitset bits, size_t dimension, uint8_t (&indices)[kMaxBitsetDimension]) noexcept
-{
-  if (dimension < kMaxBitsetDimension) {
-    bits &= (1ULL << dimension) - 1ULL;
-  }
-
-  size_t count = 0;
-  while (bits) {
-    const size_t pos = ctz64(bits);
-    indices[count++] = static_cast<uint8_t>(pos);
-    bits &= bits - 1;
-  }
-  return count;
 }
 
 } // namespace fracessa::support

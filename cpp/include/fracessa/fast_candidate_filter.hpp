@@ -1,13 +1,11 @@
 #pragma once
 
-#include <array>
 #include <cstddef>
 #include <cstdint>
 #include <string_view>
 #include <vector>
 
-#include <fracessa/bitset.hpp>
-#include <fracessa/bitset_multiword.hpp>
+#include <fracessa/support.hpp>
 #include <fracessa/types.hpp>
 
 namespace fracessa::search {
@@ -30,44 +28,35 @@ constexpr std::string_view safe_fallback_name(safe_fallback fallback) noexcept
     return "";
 }
 
-/**
- * Potentially incomplete binary64 candidate prefilter.
- *
- * The complete matrix is prepared once. A whole-matrix preparation failure is exposed through `safe_fallback_reason()`. An
- * inconclusive solve for one support returns true so the exact solver decides that support; a confident floating-point rejection
- * returns false. Every support that passes is verified by exact arithmetic.
- */
+/** Potentially incomplete binary64 candidate prefilter. */
 class fast_candidate_filter {
 public:
-    explicit fast_candidate_filter(size_t dimension);
+    explicit fast_candidate_filter(support::SupportContext& support_context);
     fast_candidate_filter(const fast_candidate_filter&) = delete;
     fast_candidate_filter& operator=(const fast_candidate_filter&) = delete;
     fast_candidate_filter(fast_candidate_filter&&) = delete;
     fast_candidate_filter& operator=(fast_candidate_filter&&) = delete;
 
-    /// Apply one common power-of-two scale, convert the denominator-cleared integer game to binary64, and equilibrate it once.
     void convert_game_matrix(const numeric::matrix_int& integer_game);
     safe_fallback safe_fallback_reason() const noexcept { return safe_fallback_; }
 
-    /// Return false for a heuristic rejection or true when exact arithmetic must decide the support.
-    bool passes(const support::bitset& support, size_t support_size);
-    bool passes(const support::bitset_multiword& support, size_t support_size);
+    bool passes(const support::Support& support, size_t support_size);
 
 private:
-    template<class SupportMask, class Index>
-    bool passes_from_indices(const SupportMask& support, const Index* support_indices, size_t support_count,
-                           double* solution, double* scale_ratios, int* pivots);
+    bool passes_from_indices(const size_t* support_indices, size_t support_count,
+                             const size_t* outside_indices, size_t outside_count);
 
-    size_t dimension_;
+    support::SupportContext& support_context_;
     numeric::matrix_dbl game_dbl_;
     numeric::matrix_dbl reduced_system_;
-    std::array<double, support::kMaxBitsetDimension> game_scales_small_{};
-    std::vector<double> game_scales_large_;
-    std::vector<size_t> support_indices_large_;
-    std::vector<double> solution_large_;
-    std::vector<double> scale_ratios_large_;
-    std::vector<int> pivots_large_;
-    double* game_scales_;
+    std::vector<double> game_scales_;
+    std::vector<double> beta_;
+    std::vector<size_t> active_coordinates_;
+    std::vector<size_t> support_indices_;
+    std::vector<size_t> outside_indices_;
+    std::vector<double> solution_;
+    std::vector<double> scale_ratios_;
+    std::vector<int> pivots_;
     safe_fallback safe_fallback_ = safe_fallback::none;
 };
 

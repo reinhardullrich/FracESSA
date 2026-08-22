@@ -1,7 +1,6 @@
 #pragma once
 
-#include <fracessa/bitset.hpp>
-#include <fracessa/bitset_multiword.hpp>
+#include <fracessa/support.hpp>
 
 #include <cadical.hpp>
 
@@ -18,10 +17,10 @@ namespace fracessa::support {
 /** Incrementally enumerate supports of one cardinality under learned exact SAT clauses. */
 class SatSupportGenerator {
 public:
-    explicit SatSupportGenerator(size_t dimension)
-        : dimension_(dimension)
+    explicit SatSupportGenerator(SupportContext& context)
+        : context_(context)
+        , dimension_(context.dimension())
     {
-        if (dimension_ == 0) throw std::invalid_argument("SAT support dimension must be positive");
         if (dimension_ > static_cast<size_t>(std::numeric_limits<int>::max() - 1))
             throw std::overflow_error("SAT variable count exceeds CaDiCaL's integer literal range");
         next_variable_ = static_cast<int>(dimension_) + 1;
@@ -58,8 +57,7 @@ public:
         cardinality_ = cardinality;
     }
 
-    template<class SupportMask>
-    bool take_first(SupportMask& support)
+    bool take_first(Support& support)
     {
         assert(cardinality_ >= 1 && cardinality_ <= dimension_);
         solver_.assume(cardinality_outputs_[cardinality_ - 1]);
@@ -69,11 +67,11 @@ public:
         if (status == CaDiCaL::UNSATISFIABLE) return false;
         if (status != CaDiCaL::SATISFIABLE) throw std::runtime_error("CaDiCaL returned an inconclusive result");
 
-        clear(support);
+        context_.clear(support);
         size_t support_size = 0;
         for (size_t index = 0; index < dimension_; ++index) {
             if (solver_.val(variable(index)) <= 0) continue;
-            set(support, index);
+            context_.set(support, index);
             ++support_size;
         }
         assert(support_size == cardinality_);
@@ -81,20 +79,18 @@ public:
     }
 
     /** Exclude every support containing `required`. */
-    template<class SupportMask>
-    void add_upper_cone(const SupportMask& required)
+    void add_upper_cone(const Support& required)
     {
         add_mask_literals(required, false);
         solver_.add(0);
     }
 
     /** Exclude supports containing all of `required` and none of `invaders`. */
-    template<class SupportMask>
-    void add_invader_interval(const SupportMask& required, const SupportMask& invaders)
+    void add_invader_interval(const Support& required, const Support& invaders)
     {
         for (size_t index = 0; index < dimension_; ++index) {
-            const bool required_bit = contains(required, index);
-            const bool invader_bit = contains(invaders, index);
+            const bool required_bit = context_.contains(required, index);
+            const bool invader_bit = context_.contains(invaders, index);
             assert(!(required_bit && invader_bit));
             if (required_bit) solver_.add(-variable(index));
             else if (invader_bit) solver_.add(variable(index));
@@ -103,8 +99,7 @@ public:
     }
 
     /** Exclude only `support`; the cardinality literal makes this clause inactive in every later layer. */
-    template<class SupportMask>
-    void add_exact(const SupportMask& support, size_t cardinality)
+    void add_exact(const Support& support, size_t cardinality)
     {
         assert(cardinality >= 1 && cardinality <= dimension_);
         add_mask_literals(support, false);
@@ -113,26 +108,10 @@ public:
     }
 
 private:
-    static bool contains(bitset support, size_t index) noexcept
-    {
-        return (support & (bitset{1} << index)) != 0;
-    }
-
-    static bool contains(const bitset_multiword& support, size_t index) noexcept
-    {
-        return support.is_set_at_pos(index);
-    }
-
-    static void clear(bitset& support) noexcept { support = 0; }
-    static void clear(bitset_multiword& support) noexcept { support.clear_all(); }
-    static void set(bitset& support, size_t index) noexcept { support = set_bit_at_pos(support, index); }
-    static void set(bitset_multiword& support, size_t index) noexcept { support.set_bit_at_pos(index); }
-
-    template<class SupportMask>
-    void add_mask_literals(const SupportMask& support, bool positive)
+    void add_mask_literals(const Support& support, bool positive)
     {
         for (size_t index = 0; index < dimension_; ++index) {
-            if (!contains(support, index)) continue;
+            if (!context_.contains(support, index)) continue;
             solver_.add(positive ? variable(index) : -variable(index));
         }
     }
@@ -191,6 +170,7 @@ private:
         bitonic_merge(wires, first, count, descending);
     }
 
+    SupportContext& context_;
     size_t dimension_;
     int next_variable_ = 1;
     size_t cardinality_ = 0;
